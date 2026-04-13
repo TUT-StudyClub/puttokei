@@ -1,0 +1,15 @@
+name: mobile-cd
+
+# Epic #7（クラウドインフラと CI/CD の構築）で中身を埋める。
+# EAS Build / Submit / Update を含む CD は Epic #7 で実装予定。
+# 現時点では invalid workflow file になるのを避けるための no-op 雛形。
+
+on:
+  workflow_dispatch:
+
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Placeholder
+        run: echo "mobile-cd は Epic #7 で実装予定"

@@ -1,0 +1,47 @@
+# OS が生成するファイル
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.Spotlight-V100
+.Trashes
+
+# エディタ / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.bak
+*.tmp
+.history/
+
+# ログ・一時ファイル
+*.log
+logs/
+tmp/
+.tmp/
+
+# 環境変数（各サブディレクトリでも個別に無視しているが、念のためトップレベルでも防御）
+.env
+.env.local
+.env.*.local
+
+# シークレット類
+*.pem
+*.key
+*-credentials.json
+serviceAccount*.json
+google-credentials.json
+
+# その他の生成物
+coverage/
+.coverage
+*.cover
+
+# AI ツールのローカルキャッシュ（チェックインしたい設定は除外しない）
+.aider*
+.cursorignore.local
