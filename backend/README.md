@@ -21,22 +21,23 @@ cp backend/.env.example backend/.env  # 必要に応じて値を上書き
 
 すべて `task` 経由で実行する。素の `uv run ...` を直接叩く必要はない。
 
-| 用途                 | コマンド                                          |
-| -------------------- | ------------------------------------------------- |
-| Lint                 | `task backend:lint`                               |
-| Lint 自動修正        | `task backend:lint:fix`                           |
-| Format               | `task backend:format`                             |
-| Format 差分チェック  | `task backend:format:check`                       |
-| 型チェック           | `task backend:typecheck`                          |
-| テスト               | `task backend:test`                               |
-| 開発サーバー         | `task backend:dev`                                |
-| マイグレーション生成 | `task backend:db:revision -- "<message>"`         |
-| マイグレーション適用 | `task backend:db:upgrade`                         |
-| 1 つロールバック     | `task backend:db:downgrade`                       |
-| 適用済み確認         | `task backend:db:current`（DB 接続が必要）        |
-| ローカル HEAD 確認   | `task backend:db:heads`                           |
-| Docker ビルド        | `task backend:docker:build`                       |
-| CI 相当を一括実行    | `task backend:ci`                                 |
+| 用途                 | コマンド                                   |
+| -------------------- | ------------------------------------------ |
+| Lint                 | `task backend:lint`                        |
+| Lint 自動修正        | `task backend:lint:fix`                    |
+| Format               | `task backend:format`                      |
+| Format 差分チェック  | `task backend:format:check`                |
+| 型チェック           | `task backend:typecheck`                   |
+| 依存方向チェック     | `task backend:lint:imports`                |
+| テスト               | `task backend:test`                        |
+| 開発サーバー         | `task backend:dev`                         |
+| マイグレーション生成 | `task backend:db:revision -- "<message>"`  |
+| マイグレーション適用 | `task backend:db:upgrade`                  |
+| 1 つロールバック     | `task backend:db:downgrade`                |
+| 適用済み確認         | `task backend:db:current`（DB 接続が必要） |
+| ローカル HEAD 確認   | `task backend:db:heads`                    |
+| Docker ビルド        | `task backend:docker:build`                |
+| CI 相当を一括実行    | `task backend:ci`                          |
 
 ルートから `task ci` を叩くと backend と mobile の両方を回せる。`task --list` で全コマンド一覧が見られる。
 
