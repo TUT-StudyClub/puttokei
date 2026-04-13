@@ -1,0 +1,4 @@
+interface:
+  display_name: "Issue To PR"
+  short_description: "Issue からブランチ作成と PR 起票まで進める"
+  default_prompt: "GitHub Issue を起点に作業を始めるために $issue-to-pr を使ってください。"
