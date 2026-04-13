@@ -31,6 +31,11 @@ tasks:
     cmds:
       - uv run ty check
 
+  lint:imports:
+    desc: import-linter で層境界（クリーンアーキテクチャの依存方向）を検査する
+    cmds:
+      - uv run lint-imports
+
   test:
     desc: pytest を実行する
     cmds:
@@ -72,9 +77,10 @@ tasks:
       - docker build -t hourglass-backend .
 
   ci:
-    desc: CI 相当のチェック（lint / format:check / typecheck / test）を一括実行する
+    desc: CI 相当のチェック（lint / format:check / lint:imports / typecheck / test）を一括実行する
     cmds:
       - task: lint
       - task: format:check
+      - task: lint:imports
       - task: typecheck
       - task: test
