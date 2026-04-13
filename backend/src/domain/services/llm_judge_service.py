@@ -1,5 +1,17 @@
-"""LLM 判定サービスの IF。
+"""LLM 判定サービスの抽象 IF。
 
-`LLMJudgeService` の ABC は Epic #4 で `judge(input, output)` などのメソッドを
-追加する形で実装する。
+具体実装はプロバイダーごとに `infrastructure/llm/*_provider.py` に置き、
+`infrastructure/llm/factory.py` で組み立てる。Epic #4 で実装する。
 """
+
+from abc import ABC, abstractmethod
+
+from src.domain.value_objects.judgment_result import JudgmentResult
+
+
+class LLMJudgeService(ABC):
+    """学習アウトプットを LLM で判定する抽象 IF。"""
+
+    @abstractmethod
+    async def judge(self, prompt_input: str, user_output: str) -> JudgmentResult:
+        """input と output を渡して JSON 化された判定結果を返す。"""
