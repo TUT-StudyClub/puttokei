@@ -21,6 +21,7 @@ dev = [
     "pytest-asyncio==0.25.0",
     "ruff==0.8.4",
     "ty==0.0.1a3",
+    "import-linter==2.1",
 ]
 
 [tool.uv]
@@ -33,18 +34,48 @@ extend-exclude = ["db/migrations/versions"]
 
 [tool.ruff.lint]
 select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # pyflakes
-    "I",   # isort
-    "B",   # flake8-bugbear
-    "UP",  # pyupgrade
-    "SIM", # flake8-simplify
-    "C4",  # flake8-comprehensions
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort
+    "B",     # flake8-bugbear
+    "UP",    # pyupgrade
+    "SIM",   # flake8-simplify
+    "C4",    # flake8-comprehensions
+    "ANN",   # flake8-annotations（型注釈の必須化）
+    "RUF",   # Ruff 独自ルール
+    "RET",   # flake8-return
+    "ARG",   # flake8-unused-arguments
+    "TID",   # flake8-tidy-imports
+    "PT",    # flake8-pytest-style
+    "N",     # pep8-naming
+    "S",     # flake8-bandit（セキュリティ）
+    "INP",   # flake8-no-pep420（暗黙的名前空間パッケージ禁止）
+    "PIE",   # flake8-pie（細々した改善）
+    "ASYNC", # flake8-async
+    "PLE",   # pylint errors
+]
+ignore = [
+    # 日本語の全角括弧などを「曖昧な Unicode」として誤検知するため無効化
+    "RUF001", # ambiguous-unicode-character-string
+    "RUF002", # ambiguous-unicode-character-docstring
+    "RUF003", # ambiguous-unicode-character-comment
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["B011"]
+"tests/**" = [
+    "B011",     # assert False を許可
+    "S101",     # tests では assert を許可
+    "ANN201",   # tests の戻り値型注釈は省略可
+    "ANN202",
+    "PLR2004",  # tests でのマジックナンバーを許可
+    "ARG001",   # fixture を使わない引数を許容
+]
+"db/migrations/**" = [
+    "ANN",      # alembic 自動生成ファイル
+    "INP001",   # alembic は __init__.py を持たない
+    "RUF001",   # 全角空白の混入は許容
+]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -58,3 +89,51 @@ addopts = "-ra"
 
 [tool.ty.src]
 root = "."
+
+# クリーンアーキテクチャの依存方向:
+#   domain ← application ← infrastructure / presentation
+# 同層 (infrastructure / presentation) は水平に依存し合わない。
+# Composition Root (src.container / src.main) のみが全層を import する。
+[tool.importlinter]
+root_package = "src"
+
+[[tool.importlinter.contracts]]
+name = "Domain は外部依存を持たない"
+type = "forbidden"
+source_modules = ["src.domain"]
+forbidden_modules = [
+    "src.application",
+    "src.infrastructure",
+    "src.presentation",
+    "src.container",
+    "src.main",
+    "src.config",
+]
+
+[[tool.importlinter.contracts]]
+name = "Application は adapter / Composition Root を import しない"
+type = "forbidden"
+source_modules = ["src.application"]
+forbidden_modules = [
+    "src.infrastructure",
+    "src.presentation",
+    "src.container",
+    "src.main",
+]
+
+[[tool.importlinter.contracts]]
+name = "Infrastructure は presentation を import しない"
+type = "forbidden"
+source_modules = ["src.infrastructure"]
+forbidden_modules = ["src.presentation"]
+
+[[tool.importlinter.contracts]]
+name = "Presentation は infrastructure を直接 import しない（Composition Root 経由のみ）"
+type = "forbidden"
+source_modules = ["src.presentation"]
+forbidden_modules = ["src.infrastructure"]
+ignore_imports = [
+    # health endpoint が DB の状態を読むために Container 経由で
+    # Database を間接参照するのは Composition Root の責務として許容する。
+    "src.container -> src.infrastructure.persistence.database",
+]
