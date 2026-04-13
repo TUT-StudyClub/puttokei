@@ -1,0 +1,4 @@
+interface:
+  display_name: "Screenshot"
+  short_description: "PR 用の UI スクリーンショットを保存する"
+  default_prompt: "画面キャプチャを保存するために $screenshot を使ってください。"
