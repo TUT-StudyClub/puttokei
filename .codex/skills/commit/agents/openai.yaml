@@ -1,0 +1,4 @@
+interface:
+  display_name: "Commit"
+  short_description: "このリポジトリの規約で日本語コミットを作る"
+  default_prompt: "現在の変更をこのリポジトリの規約でコミットするために $commit を使ってください。"
