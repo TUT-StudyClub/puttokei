@@ -6,29 +6,37 @@ Hourglass の React Native / Expo アプリ。Expo Router / TypeScript / Tamagui
 
 - Node.js `>=20`
 - npm（`.npmrc` で `save-exact` を強制しているので、追加インストール時もバージョンが固定される）
+- [go-task](https://taskfile.dev/) `3.x`（コマンドランナー）
 - Xcode（iOS 実機 / シミュレータ確認時）
 - Android Studio（Android 確認時）
 
 ## セットアップ
 
 ```bash
-cd mobile
-npm install
+task mobile:install   # npm ci
 ```
 
 ## よく使うコマンド
 
-| 用途                     | コマンド            |
-| ------------------------ | ------------------- |
-| 開発サーバー             | `npm start`         |
-| iOS シミュレータ起動     | `npm run ios`       |
-| Android エミュレータ起動 | `npm run android`   |
-| Web プレビュー           | `npm run web`       |
-| Lint                     | `npm run lint`      |
-| Format                   | `npm run format`    |
-| 型チェック               | `npm run typecheck` |
-| テスト                   | `npm test`          |
-| Expo ヘルスチェック      | `npm run doctor`    |
+すべて `task` 経由で実行する。素の `npm` / `npx` を直接叩く必要はない。
+
+| 用途                     | コマンド                   |
+| ------------------------ | -------------------------- |
+| 開発サーバー             | `task mobile:start`        |
+| iOS シミュレータ起動     | `task mobile:ios`          |
+| Android エミュレータ起動 | `task mobile:android`      |
+| Web プレビュー           | `task mobile:web`          |
+| Lint                     | `task mobile:lint`         |
+| Lint 自動修正            | `task mobile:lint:fix`     |
+| Format                   | `task mobile:format`       |
+| Format 差分チェック      | `task mobile:format:check` |
+| 型チェック               | `task mobile:typecheck`    |
+| テスト                   | `task mobile:test`         |
+| テスト watch             | `task mobile:test:watch`   |
+| Expo ヘルスチェック      | `task mobile:doctor`       |
+| CI 相当を一括実行        | `task mobile:ci`           |
+
+ルートから `task ci` を叩くと backend と mobile の両方を回せる。`task --list` で全コマンド一覧が見られる。
 
 ## ディレクトリ構成
 

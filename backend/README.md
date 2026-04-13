@@ -6,29 +6,39 @@ Hourglass の backend API。FastAPI / SQLAlchemy / Alembic / Firebase Admin SDK 
 
 - Python 3.12（`.python-version` 参照）
 - [uv](https://docs.astral.sh/uv/) `0.10.x`
+- [go-task](https://taskfile.dev/) `3.x`（コマンドランナー）
 - Docker（Cloud Run デプロイ確認用）
 - PostgreSQL 15（ローカル開発時）
 
 ## セットアップ
 
 ```bash
-cd backend
-uv sync
-cp .env.example .env  # 必要に応じて値を上書き
+task backend:install     # uv sync --frozen
+cp backend/.env.example backend/.env  # 必要に応じて値を上書き
 ```
 
 ## よく使うコマンド
 
-| 用途 | コマンド |
-| --- | --- |
-| Lint | `uv run ruff check` |
-| Format | `uv run ruff format` |
-| 型チェック | `uv run ty check` |
-| テスト | `uv run pytest` |
-| マイグレーション生成 | `uv run alembic revision -m "<message>"` |
-| マイグレーション適用 | `uv run alembic upgrade head` |
-| 開発サーバー | `uv run uvicorn src.main:app --reload` |
-| Docker ビルド | `docker build -t hourglass-backend .` |
+すべて `task` 経由で実行する。素の `uv run ...` を直接叩く必要はない。
+
+| 用途                 | コマンド                                          |
+| -------------------- | ------------------------------------------------- |
+| Lint                 | `task backend:lint`                               |
+| Lint 自動修正        | `task backend:lint:fix`                           |
+| Format               | `task backend:format`                             |
+| Format 差分チェック  | `task backend:format:check`                       |
+| 型チェック           | `task backend:typecheck`                          |
+| テスト               | `task backend:test`                               |
+| 開発サーバー         | `task backend:dev`                                |
+| マイグレーション生成 | `task backend:db:revision -- "<message>"`         |
+| マイグレーション適用 | `task backend:db:upgrade`                         |
+| 1 つロールバック     | `task backend:db:downgrade`                       |
+| 適用済み確認         | `task backend:db:current`（DB 接続が必要）        |
+| ローカル HEAD 確認   | `task backend:db:heads`                           |
+| Docker ビルド        | `task backend:docker:build`                       |
+| CI 相当を一括実行    | `task backend:ci`                                 |
+
+ルートから `task ci` を叩くと backend と mobile の両方を回せる。`task --list` で全コマンド一覧が見られる。
 
 ## ディレクトリ構成
 
