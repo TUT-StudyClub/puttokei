@@ -1,0 +1,14 @@
+node_modules/
+.expo/
+.expo-shared/
+dist/
+web-build/
+*.log
+.DS_Store
+.env
+.env.local
+!.env.example
+ios/
+android/
+.tamagui/
+coverage/
