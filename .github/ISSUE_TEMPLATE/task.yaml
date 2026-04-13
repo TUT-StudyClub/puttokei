@@ -1,0 +1,88 @@
+name: Task
+description: 具体的な実装作業を起票する
+title: "[Task] "
+labels:
+  - Task
+body:
+  - type: markdown
+    attributes:
+      value: |
+        数時間から 1 日程度の、具体的な実装・調査・修正作業を管理するテンプレートです。
+  - type: input
+    id: parent_story
+    attributes:
+      label: 親 Story
+      description: 親となる Story の Issue 番号または URL を記載してください
+      placeholder: "例: #34"
+    validations:
+      required: true
+  - type: input
+    id: parent_epic
+    attributes:
+      label: 親 Epic
+      description: 必要であれば親 Epic の Issue 番号または URL を記載してください
+      placeholder: "例: #12"
+  - type: textarea
+    id: objective
+    attributes:
+      label: 目的
+      description: この Task で何を達成するかを記載してください
+      placeholder: |
+        例:
+        - Google OAuth フローをアプリに組み込む
+        - quotas API のフィルター条件を実装する
+        - ホーム画面の撮影 CTA を実装する
+    validations:
+      required: true
+  - type: textarea
+    id: work_items
+    attributes:
+      label: 作業内容
+      description: 具体的な実装項目を列挙してください
+      placeholder: |
+        例:
+        - [ ] 認証リクエスト設定を追加する
+        - [ ] 認証成功時の Firebase サインイン処理を実装する
+        - [ ] 失敗時のエラーハンドリングを追加する
+    validations:
+      required: true
+  - type: textarea
+    id: done_criteria
+    attributes:
+      label: 完了条件
+      description: Task 完了とみなす条件を記載してください
+      placeholder: |
+        例:
+        - [ ] 実装が完了している
+        - [ ] 手元または CI で動作確認できている
+        - [ ] 関連ドキュメントが更新されている
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: 確認方法
+      description: 実装後にどう確認するかを記載してください
+      placeholder: |
+        例:
+        - Google サインイン成功時にホーム画面へ遷移すること
+        - 異常系でエラーメッセージが表示されること
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: 依存関係 / ブロッカー
+      description: 先に必要な作業やブロッカーがあれば記載してください
+      placeholder: |
+        例:
+        - Firebase プロジェクト設定が必要
+        - OAuth クライアント ID の払い出し待ち
+  - type: textarea
+    id: references
+    attributes:
+      label: 関連資料
+      description: requirements や設計資料、関連 Issue があれば記載してください
+      placeholder: |
+        例:
+        - docs/requirements.md
+        - #12
+        - #34

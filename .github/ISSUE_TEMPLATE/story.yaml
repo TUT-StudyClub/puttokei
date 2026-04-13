@@ -1,0 +1,70 @@
+name: Story
+description: ユーザー視点の価値を起票する
+title: "[Story] "
+labels:
+  - Story
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ユーザー視点の価値を定義するテンプレートです。Epic にぶら下がる単位で起票してください。
+  - type: input
+    id: parent_epic
+    attributes:
+      label: 親 Epic
+      description: 親となる Epic の Issue 番号または URL を記載してください
+      placeholder: "例: #12"
+    validations:
+      required: true
+  - type: textarea
+    id: user_story
+    attributes:
+      label: ユーザーストーリー
+      description: ユーザー視点で価値が伝わる形で記載してください
+      placeholder: |
+        例:
+        ユーザーとして、
+        Google アカウントでサインインできる。
+        そうすることで、すぐに Hoo を使い始められる。
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: 受け入れ条件
+      description: 満たすべき条件を列挙してください
+      placeholder: |
+        例:
+        - [ ] Google でサインインボタンから認証を開始できる
+        - [ ] 認証成功後にホーム画面へ遷移する
+        - [ ] 初回ログイン時にユーザーが自動作成される
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: 実装メモ / 補足
+      description: UX、制約、仕様上の注意点があれば記載してください
+      placeholder: |
+        例:
+        - ログインとサインアップは分離しない
+        - Google OAuth は expo-auth-session を利用する
+        - 認証方式は Firebase Authentication を前提とする
+  - type: textarea
+    id: task_candidates
+    attributes:
+      label: Task 候補
+      description: この Story を実現するための Task 候補を列挙してください
+      placeholder: |
+        例:
+        - Google OAuth フローを実装する
+        - Firebase サインイン連携を実装する
+        - 認証成功後の画面遷移を実装する
+  - type: textarea
+    id: references
+    attributes:
+      label: 関連資料
+      description: requirements や設計資料があれば記載してください
+      placeholder: |
+        例:
+        - docs/requirements.md

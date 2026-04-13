@@ -1,0 +1,93 @@
+name: Epic
+description: 大きな機能単位を起票する
+title: "[Epic] "
+labels:
+  - Epic
+body:
+  - type: markdown
+    attributes:
+      value: |
+        複数の Story / Task に分割される前提の、大きな機能単位を管理するためのテンプレートです。
+  - type: input
+    id: summary
+    attributes:
+      label: 概要
+      description: Epic を一文で表してください
+      placeholder: "例: ログイン・認証機能"
+    validations:
+      required: true
+  - type: textarea
+    id: background
+    attributes:
+      label: 背景 / 目的
+      description: なぜこの Epic が必要かを記載してください
+      placeholder: |
+        例:
+        - Google アカウントによる認証導線が必要
+        - 初回利用開始までの摩擦を下げたい
+    validations:
+      required: true
+  - type: textarea
+    id: user_value
+    attributes:
+      label: ユーザー価値
+      description: ユーザーにどんな価値を提供するかを記載してください
+      placeholder: |
+        例:
+        - ユーザーが安全にログインできる
+        - スムーズに Hoo を使い始められる
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: スコープ
+      description: Epic に含める範囲を記載してください
+      placeholder: |
+        例:
+        - Google OAuth フロー
+        - Firebase Authentication 連携
+        - 認証後のユーザー自動登録
+    validations:
+      required: true
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: スコープ外
+      description: 今回の Epic に含めないものがあれば記載してください
+      placeholder: |
+        例:
+        - Apple ログイン
+        - パスワード認証
+        - SNS 共有機能
+  - type: textarea
+    id: story_candidates
+    attributes:
+      label: Story 候補
+      description: 後続の Story に分割する観点を書いてください
+      placeholder: |
+        例:
+        - ユーザーは Google でサインインできる
+        - ユーザー情報が初回ログイン時に自動作成される
+        - ログアウトできる
+  - type: textarea
+    id: done_criteria
+    attributes:
+      label: 完了条件
+      description: Epic 完了とみなす条件を記載してください
+      placeholder: |
+        例:
+        - 必要な Story が完了している
+        - 主要導線の動作確認が完了している
+        - 仕様との差分が整理されている
+    validations:
+      required: true
+  - type: textarea
+    id: references
+    attributes:
+      label: 関連資料
+      description: requirements や ADR、設計メモなどがあれば記載してください
+      placeholder: |
+        例:
+        - docs/requirements.md
+        - docs/adr/0001-repository-layout.md
