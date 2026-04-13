@@ -18,17 +18,17 @@ npm install
 
 ## よく使うコマンド
 
-| 用途 | コマンド |
-| --- | --- |
-| 開発サーバー | `npm start` |
-| iOS シミュレータ起動 | `npm run ios` |
-| Android エミュレータ起動 | `npm run android` |
-| Web プレビュー | `npm run web` |
-| Lint | `npm run lint` |
-| Format | `npm run format` |
-| 型チェック | `npm run typecheck` |
-| テスト | `npm test` |
-| Expo ヘルスチェック | `npm run doctor` |
+| 用途                     | コマンド            |
+| ------------------------ | ------------------- |
+| 開発サーバー             | `npm start`         |
+| iOS シミュレータ起動     | `npm run ios`       |
+| Android エミュレータ起動 | `npm run android`   |
+| Web プレビュー           | `npm run web`       |
+| Lint                     | `npm run lint`      |
+| Format                   | `npm run format`    |
+| 型チェック               | `npm run typecheck` |
+| テスト                   | `npm test`          |
+| Expo ヘルスチェック      | `npm run doctor`    |
 
 ## ディレクトリ構成
 
