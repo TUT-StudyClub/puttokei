@@ -1,0 +1,4 @@
+interface:
+  display_name: "Create PR"
+  short_description: "現在のブランチから PR を作成または更新する"
+  default_prompt: "現在のブランチの PR を作成または更新するために $create-pr を使ってください。"
