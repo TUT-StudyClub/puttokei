@@ -1,0 +1,76 @@
+version: '3'
+
+tasks:
+  install:
+    desc: npm ci で依存を package-lock.json どおりに取得する
+    cmds:
+      - npm ci
+
+  start:
+    desc: Expo の開発サーバを起動する
+    cmds:
+      - npm start
+
+  ios:
+    desc: iOS シミュレータで起動する
+    cmds:
+      - npm run ios
+
+  android:
+    desc: Android エミュレータで起動する
+    cmds:
+      - npm run android
+
+  web:
+    desc: Web プレビューを起動する
+    cmds:
+      - npm run web
+
+  lint:
+    desc: ESLint を実行する
+    cmds:
+      - npx eslint .
+
+  lint:fix:
+    desc: ESLint の自動修正を実行する
+    cmds:
+      - npx eslint . --fix
+
+  format:
+    desc: Prettier でコードを整形する
+    cmds:
+      - npx prettier --write .
+
+  format:check:
+    desc: Prettier の差分を確認する（CI 用）
+    cmds:
+      - npx prettier --check .
+
+  typecheck:
+    desc: TypeScript の型チェックを実行する
+    cmds:
+      - npx tsc --noEmit
+
+  test:
+    desc: Jest を実行する
+    cmds:
+      - npx jest
+
+  test:watch:
+    desc: Jest を watch モードで起動する
+    cmds:
+      - npx jest --watch
+
+  doctor:
+    desc: Expo の構成ヘルスチェックを実行する
+    cmds:
+      - npx expo-doctor
+
+  ci:
+    desc: CI 相当のチェック（lint / format:check / typecheck / test / doctor）を一括実行する
+    cmds:
+      - task: lint
+      - task: format:check
+      - task: typecheck
+      - task: test
+      - task: doctor

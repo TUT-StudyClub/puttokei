@@ -1,0 +1,51 @@
+version: "3"
+
+includes:
+  backend:
+    taskfile: ./backend/Taskfile.yaml
+    dir: ./backend
+  mobile:
+    taskfile: ./mobile/Taskfile.yaml
+    dir: ./mobile
+
+tasks:
+  default:
+    desc: タスク一覧を表示する
+    cmds:
+      - task --list
+
+  install:
+    desc: backend と mobile の依存をまとめて取得する
+    cmds:
+      - task: backend:install
+      - task: mobile:install
+
+  lint:
+    desc: backend と mobile の lint を実行する
+    cmds:
+      - task: backend:lint
+      - task: mobile:lint
+
+  format:
+    desc: backend と mobile を整形する
+    cmds:
+      - task: backend:format
+      - task: mobile:format
+
+  typecheck:
+    desc: backend と mobile の型チェックを実行する
+    cmds:
+      - task: backend:typecheck
+      - task: mobile:typecheck
+
+  test:
+    desc: backend と mobile のテストを実行する
+    cmds:
+      - task: backend:test
+      - task: mobile:test
+
+  ci:
+    desc: CI 相当のチェック（lint / typecheck / test）を一括実行する
+    cmds:
+      - task: backend:ci
+      - task: mobile:ci

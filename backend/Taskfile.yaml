@@ -1,0 +1,80 @@
+version: "3"
+
+tasks:
+  install:
+    desc: uv sync で依存をロックファイルどおりに取得する
+    cmds:
+      - uv sync --frozen
+
+  lint:
+    desc: Ruff で lint を実行する
+    cmds:
+      - uv run ruff check
+
+  lint:fix:
+    desc: Ruff で自動修正可能な lint 違反を直す
+    cmds:
+      - uv run ruff check --fix
+
+  format:
+    desc: Ruff format でコードを整形する
+    cmds:
+      - uv run ruff format
+
+  format:check:
+    desc: 整形差分が無いかを確認する（CI 用）
+    cmds:
+      - uv run ruff format --check
+
+  typecheck:
+    desc: ty で型チェックを実行する
+    cmds:
+      - uv run ty check
+
+  test:
+    desc: pytest を実行する
+    cmds:
+      - uv run pytest
+
+  dev:
+    desc: 開発用 FastAPI サーバを起動する（http://localhost:8000）
+    cmds:
+      - uv run uvicorn src.main:app --reload
+
+  db:current:
+    desc: 適用中の Alembic リビジョンを表示する（DB 接続が必要）
+    cmds:
+      - uv run alembic current
+
+  db:heads:
+    desc: ローカルにある Alembic の HEAD リビジョンを表示する
+    cmds:
+      - uv run alembic heads
+
+  db:revision:
+    desc: 'Alembic マイグレーションを生成する。例: task backend:db:revision -- "add users"'
+    cmds:
+      - uv run alembic revision -m "{{.CLI_ARGS}}"
+
+  db:upgrade:
+    desc: マイグレーションを HEAD まで適用する
+    cmds:
+      - uv run alembic upgrade head
+
+  db:downgrade:
+    desc: 1 つ前のリビジョンへロールバックする
+    cmds:
+      - uv run alembic downgrade -1
+
+  docker:build:
+    desc: Cloud Run 向け Docker イメージをビルドする
+    cmds:
+      - docker build -t hourglass-backend .
+
+  ci:
+    desc: CI 相当のチェック（lint / format:check / typecheck / test）を一括実行する
+    cmds:
+      - task: lint
+      - task: format:check
+      - task: typecheck
+      - task: test
