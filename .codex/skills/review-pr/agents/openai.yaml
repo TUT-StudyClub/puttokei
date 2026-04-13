@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review PR"
+  short_description: "PR の差分を日本語でリスク重視レビューする"
+  default_prompt: "GitHub PR をレビューして具体的な指摘を出すために $review-pr を使ってください。"
