@@ -28,6 +28,17 @@ class Settings(BaseSettings):
         default="hourglass-dev",
         description="Firebase プロジェクト ID",
     )
+    firebase_credentials_path: str | None = Field(
+        default=None,
+        description="Firebase Admin SDK のサービスアカウント鍵ファイルパス。未指定時は ADC",
+    )
+    dev_mock_auth_enabled: bool = Field(
+        default=False,
+        description=(
+            "dev-mock-<uid> 形式のトークンを Firebase 検証なしで受け入れる。"
+            "ローカル開発専用のフラグ"
+        ),
+    )
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(
         default="INFO",
         description="ログレベル",

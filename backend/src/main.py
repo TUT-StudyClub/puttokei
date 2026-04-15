@@ -15,18 +15,21 @@ from src.presentation.api.v1.router import api_v1_router
 from src.presentation.health import health_router
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
-    """FastAPI アプリを生成する。テストからも settings を差し替えやすくするためのファクトリ。"""
+def create_app(
+    settings: Settings | None = None,
+    container: Container | None = None,
+) -> FastAPI:
+    """FastAPI アプリを生成する。テストでは `container` を差し替えて fake 実装を注入する。"""
     resolved_settings = settings or get_settings()
-    container = build_container(resolved_settings)
+    resolved_container: Container = container or build_container(resolved_settings)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        app.state.container = container
+        app.state.container = resolved_container
         try:
             yield
         finally:
-            await container.database.dispose()
+            await resolved_container.database.dispose()
 
     app = FastAPI(
         title="Hourglass API",

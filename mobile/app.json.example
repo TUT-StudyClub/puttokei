@@ -21,9 +21,7 @@
       "bundler": "metro",
       "output": "single"
     },
-    "plugins": [
-      "expo-router"
-    ],
+    "plugins": ["expo-router"],
     "experiments": {
       "typedRoutes": true
     },
@@ -33,7 +31,8 @@
       },
       "eas": {
         "projectId": "4498f1e9-6c92-4c40-976d-8135bf225a8c"
-      }
+      },
+      "apiBaseUrl": "http://localhost:8080/api/v1"
     },
     "owner": "yuehiyamada"
   }

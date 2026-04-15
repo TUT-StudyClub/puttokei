@@ -14,6 +14,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from src.config import get_settings
+from src.infrastructure.persistence.models import Base
 
 config = context.config
 
@@ -23,8 +24,12 @@ if config.config_file_name is not None:
 if not config.get_main_option("sqlalchemy.url"):
     config.set_main_option("sqlalchemy.url", get_settings().database_url)
 
-# Epic #2 以降で ORM モデルを import し、`Base.metadata` を設定する。
-target_metadata = None
+# SQLAlchemy の DeclarativeBase 継承クラスは import されたタイミングで
+# Base.metadata にテーブル定義が登録される。
+# `models/__init__.py` が全 ORM モデルを side-effect import しているため、
+# ここで `Base` を import するだけで全テーブル定義が metadata に揃う。
+# Alembic の autogenerate はこの metadata と現 DB スキーマを比較して差分を出す。
+target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
