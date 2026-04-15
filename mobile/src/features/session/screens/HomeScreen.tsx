@@ -7,7 +7,7 @@
  * 送信成功時は `useCreateSession` 内で `/session/{id}/input` に push 遷移する。
  */
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Button, H2, Input, Paragraph, SizableText, Spinner, TextArea, YStack } from 'tamagui';
@@ -57,6 +57,7 @@ type FormValues = z.infer<typeof schema>;
 
 export function HomeScreen() {
   const createSession = useCreateSession();
+  const previousPresetRef = useRef<TimerPresetKey | null>(null);
   const {
     control,
     handleSubmit,
@@ -78,7 +79,10 @@ export function HomeScreen() {
   const preset: TimerPresetKey = watch('preset');
 
   useEffect(() => {
-    if (preset === 'recommended') {
+    const previousPreset = previousPresetRef.current;
+    previousPresetRef.current = preset;
+
+    if (preset === 'recommended' && previousPreset === 'custom') {
       setValue('input_minutes', DEFAULT_TIMER.input_minutes, { shouldValidate: true });
       setValue('output_minutes', DEFAULT_TIMER.output_minutes, { shouldValidate: true });
       setValue('break_minutes', DEFAULT_TIMER.break_minutes, { shouldValidate: true });
@@ -165,9 +169,7 @@ export function HomeScreen() {
             />
           </YStack>
 
-          {preset === 'custom' ? (
-            <TimerCustomFields control={control} errors={errors} />
-          ) : null}
+          {preset === 'custom' ? <TimerCustomFields control={control} errors={errors} /> : null}
 
           {createSession.error ? (
             <SizableText color="$red10" size="$3">
