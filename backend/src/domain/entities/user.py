@@ -1,19 +1,48 @@
 """User エンティティ。Firebase UID と紐づく内部ユーザ。
 
-詳細フィールド（display_name, email, deleted_at など）は Epic #2 で追加する。
+要件書 4.3.1 の users テーブル相当。初回サインイン後はオンボーディング
+（age_group 入力）を経て `onboarding_completed=True` となる。
 """
 
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from src.common.models import FrozenModel
+from src.domain.value_objects.age_group import AgeGroup
+from src.domain.value_objects.auth_provider import AuthProvider
 
 
-class User(BaseModel):
+class User(FrozenModel):
     """内部ユーザを表現するエンティティ。"""
-
-    model_config = ConfigDict(frozen=True)
 
     id: UUID
     firebase_uid: str
+    auth_provider: AuthProvider
+    display_name: str | None = None
+    age_group: AgeGroup | None = None
+    onboarding_completed: bool = False
+    fcm_token: str | None = None
     created_at: datetime
+    updated_at: datetime
+    deleted_at: datetime | None = None
+
+    def with_profile(
+        self,
+        *,
+        display_name: str | None,
+        age_group: AgeGroup | None,
+        updated_at: datetime,
+    ) -> "User":
+        """プロフィール更新後の新しい User を返す。
+
+        age_group が渡された（非 None）場合は onboarding_completed を True にする。
+        display_name は渡された値で上書き（None もそのまま反映）する。
+        """
+        return self.model_copy(
+            update={
+                "display_name": display_name,
+                "age_group": age_group,
+                "onboarding_completed": age_group is not None or self.onboarding_completed,
+                "updated_at": updated_at,
+            }
+        )
