@@ -18,7 +18,10 @@ jest.mock('@/features/profile/api/profileApi');
 
 function renderWithProviders(ui: ReactNode) {
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    defaultOptions: {
+      queries: { retry: false, gcTime: Infinity },
+      mutations: { retry: false, gcTime: Infinity },
+    },
   });
   return render(
     <TamaguiProvider config={config} defaultTheme="light">

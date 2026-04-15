@@ -11,7 +11,6 @@ from uuid import uuid4
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from src.container import Container
 from src.domain.entities.user import User
 from src.domain.entities.user_settings import UserSettings
 from src.domain.services.auth_verifier import (
@@ -20,6 +19,10 @@ from src.domain.services.auth_verifier import (
     VerifiedToken,
 )
 from src.domain.value_objects.auth_provider import AuthProvider
+from src.presentation.container_access import (
+    PresentationContainer,
+    get_presentation_container,
+)
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -36,7 +39,7 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    container: Container = request.app.state.container
+    container = get_presentation_container(request)
     verifier: AuthVerifier = container.auth_verifier
     try:
         verified = verifier.verify_id_token(credentials.credentials)
@@ -53,7 +56,7 @@ async def get_current_user(
     return await _auto_create_user(container, verified)
 
 
-async def _auto_create_user(container: Container, verified: VerifiedToken) -> User:
+async def _auto_create_user(container: PresentationContainer, verified: VerifiedToken) -> User:
     """未登録ユーザを users + user_settings 付きで作成して返す。"""
     now = datetime.now(UTC)
     provider = _to_auth_provider(verified["sign_in_provider"])

@@ -2,6 +2,7 @@
 
 - `settings` ... テスト用に DB URL などを上書きした Settings
 - `fake_user_repository` ... in-memory UserRepository
+- `fake_session_repository` ... in-memory SessionRepository
 - `fake_auth_verifier` ... 固定挙動の AuthVerifier
 - `container` ... 上記 fake を差し込んだ Container
 - `client` ... 上記 container を注入した FastAPI アプリへ httpx の AsyncClient
@@ -13,6 +14,7 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
+from src.application.use_cases.create_session import CreateSession
 from src.application.use_cases.get_user_profile import GetUserProfile
 from src.application.use_cases.update_user_profile import UpdateUserProfile
 from src.config import Settings
@@ -20,6 +22,7 @@ from src.container import Container
 from src.infrastructure.persistence.database import Database
 from src.main import create_app
 from tests.fakes.fake_auth_verifier import FakeAuthVerifier
+from tests.fakes.fake_session_repository import FakeSessionRepository
 from tests.fakes.fake_user_repository import FakeUserRepository
 
 
@@ -41,6 +44,11 @@ def fake_user_repository() -> FakeUserRepository:
 
 
 @pytest.fixture
+def fake_session_repository() -> FakeSessionRepository:
+    return FakeSessionRepository()
+
+
+@pytest.fixture
 def fake_auth_verifier() -> FakeAuthVerifier:
     return FakeAuthVerifier()
 
@@ -49,6 +57,7 @@ def fake_auth_verifier() -> FakeAuthVerifier:
 def container(
     settings: Settings,
     fake_user_repository: FakeUserRepository,
+    fake_session_repository: FakeSessionRepository,
     fake_auth_verifier: FakeAuthVerifier,
 ) -> Container:
     """fake 実装を差し込んだ Container。"""
@@ -58,8 +67,10 @@ def container(
         database=database,
         auth_verifier=fake_auth_verifier,
         user_repository=fake_user_repository,
+        session_repository=fake_session_repository,
         get_user_profile=GetUserProfile(),
         update_user_profile=UpdateUserProfile(user_repository=fake_user_repository),
+        create_session=CreateSession(session_repository=fake_session_repository),
     )
 
 
