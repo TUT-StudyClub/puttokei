@@ -45,3 +45,4 @@ coverage/
 # AI ツールのローカルキャッシュ（チェックインしたい設定は除外しない）
 .aider*
 .cursorignore.local
+.claude/scheduled_tasks.lock
