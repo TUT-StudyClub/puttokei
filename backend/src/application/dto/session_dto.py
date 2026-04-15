@@ -22,6 +22,13 @@ class CreateSessionCommand(FrozenModel):
     break_minutes: int
 
 
+class UpdateSessionStatusCommand(FrozenModel):
+    """PATCH /sessions/{id} の入力コマンド。"""
+
+    session_id: UUID
+    new_status: SessionStatus
+
+
 class SessionView(FrozenModel):
     """セッション情報のレスポンス元ビュー。"""
 

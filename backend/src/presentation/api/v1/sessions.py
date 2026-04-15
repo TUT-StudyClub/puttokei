@@ -1,18 +1,31 @@
 """セッションエンドポイント。
 
-本 PR では Issue #38 / #39 のスコープに合わせて `POST /api/v1/sessions` のみ実装する。
-他エンドポイント（GET / PATCH / output / judgment）は Epic #3 後続 Task で追加する。
+- POST /api/v1/sessions: 新規セッション作成（Issue #39）
+- PATCH /api/v1/sessions/{id}: フェーズ遷移に伴うステータス更新（Issue #41）
+
+GET / 判定系は別 Task で追加する。
 """
 
-from fastapi import APIRouter, Depends, Request, status
+from uuid import UUID
 
-from src.application.dto.session_dto import CreateSessionCommand, SessionView
+from fastapi import APIRouter, Depends, HTTPException, Path, Request, status
+
+from src.application.dto.session_dto import (
+    CreateSessionCommand,
+    SessionView,
+    UpdateSessionStatusCommand,
+)
+from src.application.use_cases.update_session_status import (
+    InvalidSessionStatusTransitionError,
+    SessionNotFoundError,
+)
 from src.domain.entities.user import User
 from src.presentation.container_access import get_presentation_container
 from src.presentation.middleware.auth_middleware import get_current_user
 from src.presentation.schemas.session_schema import (
     CreateSessionRequest,
     SessionResponse,
+    UpdateSessionRequest,
 )
 
 sessions_router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -38,6 +51,34 @@ async def create_session(
         break_minutes=body.break_minutes,
     )
     view = await container.create_session.execute(current_user, command)
+    return _to_response(view)
+
+
+@sessions_router.patch("/{session_id}", response_model=SessionResponse)
+async def update_session(
+    body: UpdateSessionRequest,
+    request: Request,
+    session_id: UUID = Path(...),  # noqa: B008
+    current_user: User = Depends(get_current_user),  # noqa: B008
+) -> SessionResponse:
+    """Session の status を遷移させる。
+
+    許可されない遷移は 400、存在しない / 他ユーザーの session は 404 を返す。
+    """
+    container = get_presentation_container(request)
+    command = UpdateSessionStatusCommand(session_id=session_id, new_status=body.status)
+    try:
+        view = await container.update_session_status.execute(current_user, command)
+    except SessionNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="session not found",
+        ) from exc
+    except InvalidSessionStatusTransitionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
     return _to_response(view)
 
 

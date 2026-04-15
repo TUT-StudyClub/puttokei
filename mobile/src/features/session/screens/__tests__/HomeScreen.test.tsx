@@ -96,7 +96,15 @@ describe('HomeScreen', () => {
       });
     });
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith('/session/ses-123/input');
+      expect(mockPush).toHaveBeenCalledWith({
+        pathname: '/session/[id]/input',
+        params: {
+          id: 'ses-123',
+          input: '20',
+          output: '5',
+          break: '5',
+        },
+      });
     });
   });
 

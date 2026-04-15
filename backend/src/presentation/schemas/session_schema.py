@@ -23,6 +23,16 @@ class CreateSessionRequest(StrictRequestModel):
     break_minutes: int = Field(ge=1, le=120)
 
 
+class UpdateSessionRequest(StrictRequestModel):
+    """PATCH /sessions/{id} の body。
+
+    本 Task ではフェーズ遷移のための status 更新のみをサポートする。
+    実際に許可される遷移は UseCase 側の遷移表で絞り込む。
+    """
+
+    status: SessionStatus
+
+
 class SessionResponse(FrozenModel):
     """POST /sessions / GET /sessions/{id} のレスポンス。"""
 
