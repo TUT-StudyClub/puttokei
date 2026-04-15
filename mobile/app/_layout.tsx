@@ -1,6 +1,14 @@
 /**
  * ルートレイアウト。Tamagui と TanStack Query の Provider を組み込み、
  * AuthGate で認証 / オンボーディング状態に応じたリダイレクトを行う。
+ *
+ * Firebase ID Token 周りの配線もここで行う。
+ * - `setTokenProvider`: API リクエスト毎に最新の ID Token を Authorization に差し込む
+ * - `setTokenRefresher`: 401 を受けた際に Firebase から ID Token を再取得させる
+ * - `subscribeIdTokenChanged`: Firebase の onIdTokenChanged を購読して authStore に反映する
+ *
+ * authStore に uid / idToken が入ると AuthGate 配下の `useProfile` が有効化され、
+ * 起動時にユーザープロフィール（/users/me/profile）が取得される。
  */
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
@@ -9,13 +17,29 @@ import { TamaguiProvider } from 'tamagui';
 
 import config from '../tamagui.config';
 import { AuthGate } from '@/shared/components/AuthGate';
-import { setTokenProvider } from '@/shared/lib/api';
+import { refreshIdToken, subscribeIdTokenChanged } from '@/shared/lib/firebase';
+import { setTokenProvider, setTokenRefresher } from '@/shared/lib/api';
 import { queryClient } from '@/shared/lib/queryClient';
-import { getAuthIdToken } from '@/shared/stores/authStore';
+import { getAuthIdToken, useAuthStore } from '@/shared/stores/authStore';
 
 export default function RootLayout() {
   useEffect(() => {
     setTokenProvider(() => getAuthIdToken());
+    setTokenRefresher(() => refreshIdToken());
+
+    const unsubscribe = subscribeIdTokenChanged((session) => {
+      const { setSession, clear } = useAuthStore.getState();
+      if (session === null) {
+        clear();
+      } else {
+        setSession(session.uid, session.idToken);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+      setTokenRefresher(null);
+    };
   }, []);
 
   return (
