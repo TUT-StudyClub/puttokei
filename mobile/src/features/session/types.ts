@@ -4,13 +4,7 @@
  * `src/presentation/schemas/session_schema.py` と対応する。
  */
 
-export const SESSION_STATUSES = [
-  'input',
-  'output',
-  'judging',
-  'judged',
-  'cancelled',
-] as const;
+export const SESSION_STATUSES = ['input', 'output', 'judging', 'judged', 'cancelled'] as const;
 export type SessionStatus = (typeof SESSION_STATUSES)[number];
 
 export type Session = {

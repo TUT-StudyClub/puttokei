@@ -4,7 +4,11 @@
  */
 import { RadioGroup, SizableText, XStack, YStack } from 'tamagui';
 
-import { TIMER_PRESET_KEYS, TIMER_PRESET_LABELS, type TimerPresetKey } from '@/features/session/config';
+import {
+  TIMER_PRESET_KEYS,
+  TIMER_PRESET_LABELS,
+  type TimerPresetKey,
+} from '@/features/session/config';
 
 type Props = {
   value: TimerPresetKey;
