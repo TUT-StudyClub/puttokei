@@ -8,6 +8,8 @@ web-build/
 .env
 .env.local
 !.env.example
+app.json
+!app.json.example
 ios/
 android/
 .tamagui/

@@ -1,5 +1,26 @@
 # 動作確認するまでのセットアップ
 
+## 0. app.json を作成する
+
+`mobile/app.json` は個人ごとの API ベース URL を入れるため `.gitignore` 対象になっている。
+初回 clone 時はテンプレートからコピーして作る。
+
+```
+cd /Users/yuhei/Desktop/Develop/hourglass/mobile
+cp app.json.example app.json
+```
+
+`extra.apiBaseUrl` を自分の動作環境に合わせて書き換える。
+
+- iOS Simulator: `http://localhost:8080/api/v1` のままで OK
+- Android Emulator: `http://10.0.2.2:8080/api/v1`
+- 実機: Mac の LAN IP。`ipconfig getifaddr en0` で取得した値を使い、backend は
+  `--host 0.0.0.0 --port 8080` で起動する
+
+共有設定（`bundleIdentifier` / `plugins` / `experiments` など）を誰かが
+更新した場合は `app.json.example` に反映される。手元の `app.json` にも
+手動で差分を取り込むことを忘れないこと。
+
 ## 1. ios ディレクトリを作成する
 
 ```
