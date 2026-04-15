@@ -17,10 +17,7 @@ import { TamaguiProvider } from 'tamagui';
 
 import config from '../tamagui.config';
 import { AuthGate } from '@/shared/components/AuthGate';
-import {
-  refreshIdToken,
-  subscribeIdTokenChanged,
-} from '@/shared/lib/firebase';
+import { refreshIdToken, subscribeIdTokenChanged } from '@/shared/lib/firebase';
 import { setTokenProvider, setTokenRefresher } from '@/shared/lib/api';
 import { queryClient } from '@/shared/lib/queryClient';
 import { getAuthIdToken, useAuthStore } from '@/shared/stores/authStore';
