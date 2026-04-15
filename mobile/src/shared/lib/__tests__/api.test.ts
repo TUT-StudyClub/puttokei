@@ -100,6 +100,43 @@ describe('api', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('post は Content-Type: application/json と JSON 化した body を送る', async () => {
+    setTokenProvider(() => 'token-initial');
+    fetchMock.mockResolvedValueOnce(jsonResponse(201, { id: 'ses-1' }));
+
+    const result = await api.post<{ id: string }>('/sessions', {
+      subject: '英語',
+      input_minutes: 20,
+    });
+
+    expect(result.data).toEqual({ id: 'ses-1' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const init = fetchMock.mock.calls[0]![1]!;
+    expect(init.method).toBe('POST');
+    expect(init.body).toBe(JSON.stringify({ subject: '英語', input_minutes: 20 }));
+    const headers = init.headers as Headers;
+    expect(headers.get('Content-Type')).toBe('application/json');
+    expect(headers.get('Authorization')).toBe('Bearer token-initial');
+  });
+
+  it('post も 401 を受けたら tokenRefresher 経由で 1 回だけ再送する', async () => {
+    setTokenProvider(() => 'token-expired');
+    const refresher = jest.fn<Promise<string | null>, []>().mockResolvedValue('token-fresh');
+    setTokenRefresher(refresher);
+
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(401, { detail: 'expired' }))
+      .mockResolvedValueOnce(jsonResponse(201, { id: 'ses-2' }));
+
+    const result = await api.post<{ id: string }>('/sessions', { subject: 's' });
+
+    expect(result.data).toEqual({ id: 'ses-2' });
+    expect(refresher).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(getAuthHeader(fetchMock.mock.calls[0]!)).toBe('Bearer token-expired');
+    expect(getAuthHeader(fetchMock.mock.calls[1]!)).toBe('Bearer token-fresh');
+  });
+
   it('200 のときは tokenRefresher を呼ばない', async () => {
     setTokenProvider(() => 'token-initial');
     const refresher = jest.fn<Promise<string | null>, []>().mockResolvedValue('token-fresh');

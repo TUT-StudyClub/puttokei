@@ -81,6 +81,14 @@ class ApiClient {
     return this.request<T>(path, { method: 'GET' });
   }
 
+  async post<T>(path: string, body?: unknown): Promise<ApiResponse<T>> {
+    return this.request<T>(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  }
+
   async patch<T>(path: string, body?: unknown): Promise<ApiResponse<T>> {
     return this.request<T>(path, {
       method: 'PATCH',
