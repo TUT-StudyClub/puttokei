@@ -90,6 +90,12 @@ addopts = "-ra"
 [tool.ty.src]
 root = "."
 
+# SQLAlchemy 2.0 の型スタブは複雑なオーバーロードを持つため、ty の alpha 実装では
+# `mapped_column(Uuid(), ...)` などが no-matching-overload 警告を誤検知する。
+# 実行時は問題ないため、アルパ版 ty が安定するまで該当ルールを抑止する。
+[tool.ty.rules]
+no-matching-overload = "ignore"
+
 # クリーンアーキテクチャの依存方向:
 #   domain ← application ← infrastructure / presentation
 # 同層 (infrastructure / presentation) は水平に依存し合わない。
@@ -133,7 +139,9 @@ type = "forbidden"
 source_modules = ["src.presentation"]
 forbidden_modules = ["src.infrastructure"]
 ignore_imports = [
-    # health endpoint が DB の状態を読むために Container 経由で
-    # Database を間接参照するのは Composition Root の責務として許容する。
+    # Composition Root から infrastructure を間接参照する経路は許容する。
+    # presentation は domain の抽象を介してのみ infrastructure の振る舞いを利用する。
     "src.container -> src.infrastructure.persistence.database",
+    "src.container -> src.infrastructure.persistence.repositories.pg_user_repository",
+    "src.container -> src.infrastructure.auth.firebase_auth",
 ]
