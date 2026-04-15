@@ -1,25 +1,40 @@
 /**
  * 共通 HTTP クライアント。
  *
- * 共通ラッパー経由で fetch を利用し、Authorization ヘッダーへ
- * Firebase ID Token を自動で差し込む。
- * トークン取得ロジックは Epic #2 で `authStore` から注入する。
+ * fetch を薄くラップし、以下の責務を持たせる。
+ * - Authorization ヘッダーへ Firebase ID Token を自動で差し込む（自動付与）
+ * - 401 を受けたら refresher を呼んで ID Token を再取得し 1 回だけリトライする（自動更新）
+ *
+ * トークン取得・更新ロジックは `setTokenProvider` / `setTokenRefresher` で差し込む。
+ * 実装は Epic #2（Firebase Auth 初期化）で authStore から注入する。
  */
 import Constants from 'expo-constants';
 
 type TokenProvider = () => Promise<string | null> | string | null;
+type TokenRefresher = () => Promise<string | null>;
 type ApiResponse<T> = {
   data: T;
 };
 
 let tokenProvider: TokenProvider = () => null;
+let tokenRefresher: TokenRefresher | null = null;
 
 /**
  * 認証トークンの取得関数を差し込む。
- * Epic #2 で authStore.getIdToken を渡す想定。
+ * authStore から最新の idToken を読み出す形で渡す想定。
  */
 export function setTokenProvider(provider: TokenProvider): void {
   tokenProvider = provider;
+}
+
+/**
+ * 期限切れトークンの再取得関数を差し込む。
+ * Firebase Auth の `getIdToken(true)` に対応する関数を渡す想定。
+ * 再取得後は authStore に反映してから最新値を return する。
+ * 未設定の場合は 401 リトライを行わない。
+ */
+export function setTokenRefresher(refresher: TokenRefresher | null): void {
+  tokenRefresher = refresher;
 }
 
 const baseURL =
@@ -34,13 +49,15 @@ function buildUrl(path: string): string {
   return `${normalizedBaseUrl}${normalizedPath}`;
 }
 
-async function buildHeaders(init?: HeadersInit): Promise<Headers> {
+async function buildHeaders(init?: HeadersInit, overrideToken?: string | null): Promise<Headers> {
   const headers = new Headers(init);
-  const token = await tokenProvider();
+  const token = overrideToken !== undefined ? overrideToken : await tokenProvider();
 
   headers.set('Accept', 'application/json');
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
+  } else {
+    headers.delete('Authorization');
   }
 
   return headers;
@@ -65,33 +82,57 @@ class ApiClient {
   }
 
   async patch<T>(path: string, body?: unknown): Promise<ApiResponse<T>> {
-    const headers = await buildHeaders({ 'Content-Type': 'application/json' });
-
     return this.request<T>(path, {
       method: 'PATCH',
-      headers,
+      headers: { 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   }
 
   private async request<T>(path: string, init: RequestInit): Promise<ApiResponse<T>> {
+    const response = await this.fetchWithAuth(path, init);
+    const data = await parseResponseBody<T>(response);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    return { data };
+  }
+
+  /**
+   * 1 回目を現在のトークンで送り、401 の場合だけ refresher を呼んで再送する。
+   * refresher が未設定、または refresher が null を返したときはそのまま 401 を返す。
+   */
+  private async fetchWithAuth(path: string, init: RequestInit): Promise<Response> {
+    const firstResponse = await this.fetchOnce(path, init);
+    if (firstResponse.status !== 401 || tokenRefresher === null) {
+      return firstResponse;
+    }
+
+    const refreshedToken = await tokenRefresher();
+    if (refreshedToken === null) {
+      return firstResponse;
+    }
+
+    return this.fetchOnce(path, init, refreshedToken);
+  }
+
+  private async fetchOnce(
+    path: string,
+    init: RequestInit,
+    overrideToken?: string | null,
+  ): Promise<Response> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
 
     try {
-      const headers = init.headers instanceof Headers ? init.headers : await buildHeaders(init.headers);
-      const response = await fetch(buildUrl(path), {
+      const headers = await buildHeaders(init.headers, overrideToken);
+      return await fetch(buildUrl(path), {
         ...init,
         headers,
         signal: controller.signal,
       });
-      const data = await parseResponseBody<T>(response);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      return { data };
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         throw new Error('Request timed out');
