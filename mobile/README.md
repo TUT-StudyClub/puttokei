@@ -1,6 +1,6 @@
 # hourglass-mobile
 
-Hourglass の React Native / Expo アプリ。Expo Router / TypeScript / Tamagui / Zustand / TanStack Query / Axios を採用。
+Hourglass の React Native / Expo アプリ。Expo Router / TypeScript / Tamagui / Zustand / TanStack Query / Fetch API を採用。
 
 ## 必要なツール
 
@@ -54,7 +54,7 @@ src/
 │   └── <feature>/{screens,components,hooks,api}/
 └── shared/         機能横断の共有リソース
     ├── components/  Button / Card / LoadingIndicator
-    ├── lib/         api (Axios) / queryClient (TanStack Query) / firebase / notifications
+    ├── lib/         api (fetch wrapper) / queryClient (TanStack Query) / firebase / notifications
     ├── stores/      authStore / timerStore (Zustand)
     ├── hooks/
     └── types/
@@ -62,7 +62,7 @@ src/
 
 ## HTTP クライアント
 
-要件書 §2.1 に沿って **Axios** を採用する。`src/shared/lib/api.ts` に Axios インスタンスを定義し、認証トークンは `setTokenProvider` で差し込む。要件書 §8.3 のコメントには `ky` の記述が残っているが、`.2.1` を優先する。
+`src/shared/lib/api.ts` で **fetch ベースの共通クライアント** を提供し、認証トークンは `setTokenProvider` で差し込む。Bearer トークン付与と JSON 送受信はこのラッパーに集約する。
 
 ## 後続 Epic で実装するもの
 

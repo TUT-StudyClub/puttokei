@@ -51,7 +51,7 @@
 | 言語 | TypeScript | 型安全性によるバグ抑止・開発体験向上 |
 | 状態管理 | Zustand | 軽量・シンプル・ボイラープレート最小。タイマー状態管理に最適 |
 | API通信 | TanStack Query (React Query) | キャッシュ・再試行・ポーリングを宣言的に管理 |
-| HTTPクライアント | Axios | インターセプターで認証トークン自動付与 |
+| HTTPクライアント | Fetch API + 共通ラッパー | Authorization ヘッダーへ認証トークンを自動付与 |
 | ナビゲーション | Expo Router | ファイルベースルーティング・ Next.js ライクな直感的設計 |
 | フォーム | React Hook Form + Zod | バリデーションと型安全性の両立 |
 | UIコンポーネント | Tamagui | ネイティブパフォーマンス・テーマ対応・ダークモード対応 |
@@ -457,7 +457,7 @@ Expoでは expo-auth-session および @react-native-firebase/auth を使用す�
 - Apple Sign In: expo-apple-authentication の signInAsync() を使用
 - Google Sign In: @react-native-google-signin/google-signin を使用
 - 取得した credential を Firebase Auth に渡し、ID Token を取得
-- ID Token は Axios インターセプターで全APIリクエストに自動付与
+- ID Token は共通 HTTP クライアントで全 API リクエストの Authorization ヘッダーへ自動付与
 - トークン期限切れ時は自動リフレッシュ（Firebase SDK が自動処理）
 
 #### 6.4. アカウント削除
