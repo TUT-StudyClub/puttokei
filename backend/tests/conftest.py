@@ -16,6 +16,7 @@ from httpx import ASGITransport, AsyncClient
 
 from src.application.use_cases.create_session import CreateSession
 from src.application.use_cases.get_user_profile import GetUserProfile
+from src.application.use_cases.update_session_status import UpdateSessionStatus
 from src.application.use_cases.update_user_profile import UpdateUserProfile
 from src.config import Settings
 from src.container import Container
@@ -71,6 +72,7 @@ def container(
         get_user_profile=GetUserProfile(),
         update_user_profile=UpdateUserProfile(user_repository=fake_user_repository),
         create_session=CreateSession(session_repository=fake_session_repository),
+        update_session_status=UpdateSessionStatus(session_repository=fake_session_repository),
     )
 
 

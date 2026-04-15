@@ -26,3 +26,20 @@ class Session(FrozenModel):
     started_at: datetime
     completed_at: datetime | None
     created_at: datetime
+
+    def with_status(
+        self,
+        *,
+        new_status: SessionStatus,
+        completed_at: datetime | None = None,
+    ) -> "Session":
+        """status を更新した新しい Session を返す。
+
+        completed_at は judged / cancelled 等の終端遷移で呼び出し側から
+        明示的に渡す想定。None のときは現在値を保つ（後段で None に戻す
+        ケースは本ドメインでは発生しない想定）。
+        """
+        update: dict[str, object] = {"status": new_status}
+        if completed_at is not None:
+            update["completed_at"] = completed_at
+        return self.model_copy(update=update)

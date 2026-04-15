@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict
 
 from src.application.use_cases.create_session import CreateSession
 from src.application.use_cases.get_user_profile import GetUserProfile
+from src.application.use_cases.update_session_status import UpdateSessionStatus
 from src.application.use_cases.update_user_profile import UpdateUserProfile
 from src.config import Settings
 from src.domain.repositories.session_repository import SessionRepository
@@ -37,6 +38,7 @@ class Container(BaseModel):
     get_user_profile: GetUserProfile
     update_user_profile: UpdateUserProfile
     create_session: CreateSession
+    update_session_status: UpdateSessionStatus
 
 
 def build_container(settings: Settings) -> Container:
@@ -48,6 +50,7 @@ def build_container(settings: Settings) -> Container:
     get_user_profile = GetUserProfile()
     update_user_profile = UpdateUserProfile(user_repository=user_repository)
     create_session = CreateSession(session_repository=session_repository)
+    update_session_status = UpdateSessionStatus(session_repository=session_repository)
     return Container(
         settings=settings,
         database=database,
@@ -57,4 +60,5 @@ def build_container(settings: Settings) -> Container:
         get_user_profile=get_user_profile,
         update_user_profile=update_user_profile,
         create_session=create_session,
+        update_session_status=update_session_status,
     )
