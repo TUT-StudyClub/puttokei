@@ -9,7 +9,7 @@ from typing import Literal
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
-from src.container import Container
+from src.presentation.container_access import get_presentation_container
 
 health_router = APIRouter(tags=["health"])
 
@@ -36,7 +36,7 @@ async def health() -> HealthResponse:
 @health_router.get("/health/ready", response_model=ReadinessResponse)
 async def ready(request: Request) -> ReadinessResponse:
     """DB を含む準備完了確認。DB に到達できなければ degraded を返す。"""
-    container: Container = request.app.state.container
+    container = get_presentation_container(request)
     db_ok = await container.database.ping()
     return ReadinessResponse(
         status="ok" if db_ok else "degraded",

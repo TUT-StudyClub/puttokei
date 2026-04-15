@@ -7,8 +7,8 @@
 from fastapi import APIRouter, Depends, Request
 
 from src.application.dto.user_dto import UpdateUserProfileCommand, UserProfileView
-from src.container import Container
 from src.domain.entities.user import User
+from src.presentation.container_access import get_presentation_container
 from src.presentation.middleware.auth_middleware import get_current_user
 from src.presentation.schemas.user_schema import (
     UpdateUserProfileRequest,
@@ -24,7 +24,7 @@ async def get_my_profile(
     current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> UserProfileResponse:
     """自分のプロフィールを取得する。未オンボーディング時は onboarding_completed=false。"""
-    container: Container = request.app.state.container
+    container = get_presentation_container(request)
     dto = await container.get_user_profile.execute(current_user)
     return _to_response(dto)
 
@@ -36,7 +36,7 @@ async def update_my_profile(
     current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> UserProfileResponse:
     """プロフィールを更新する。age_group がセットされると onboarding_completed=true になる。"""
-    container: Container = request.app.state.container
+    container = get_presentation_container(request)
     command = UpdateUserProfileCommand(
         display_name=body.display_name,
         age_group=body.age_group,

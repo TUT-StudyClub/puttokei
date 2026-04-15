@@ -7,8 +7,8 @@
 from fastapi import APIRouter, Depends, Request, status
 
 from src.application.dto.session_dto import CreateSessionCommand, SessionView
-from src.container import Container
 from src.domain.entities.user import User
+from src.presentation.container_access import get_presentation_container
 from src.presentation.middleware.auth_middleware import get_current_user
 from src.presentation.schemas.session_schema import (
     CreateSessionRequest,
@@ -29,7 +29,7 @@ async def create_session(
     current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> SessionResponse:
     """新規セッションを作成し、初期ステータス input でレスポンスする。"""
-    container: Container = request.app.state.container
+    container = get_presentation_container(request)
     command = CreateSessionCommand(
         subject=body.subject,
         topic=body.topic,
