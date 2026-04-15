@@ -133,15 +133,14 @@ type = "forbidden"
 source_modules = ["src.infrastructure"]
 forbidden_modules = ["src.presentation"]
 
+# presentation は app.state 経由で依存物を受け取るだけに留める。
+# import グラフ上では infrastructure と Composition Root を参照してはならない。
 [[tool.importlinter.contracts]]
-name = "Presentation は infrastructure を直接 import しない（Composition Root 経由のみ）"
+name = "Presentation は infrastructure / Composition Root を import しない"
 type = "forbidden"
 source_modules = ["src.presentation"]
-forbidden_modules = ["src.infrastructure"]
-ignore_imports = [
-    # Composition Root から infrastructure を間接参照する経路は許容する。
-    # presentation は domain の抽象を介してのみ infrastructure の振る舞いを利用する。
-    "src.container -> src.infrastructure.persistence.database",
-    "src.container -> src.infrastructure.persistence.repositories.pg_user_repository",
-    "src.container -> src.infrastructure.auth.firebase_auth",
+forbidden_modules = [
+    "src.infrastructure",
+    "src.container",
+    "src.main",
 ]
