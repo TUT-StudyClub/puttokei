@@ -28,3 +28,13 @@ export type CreateSessionInput = {
   output_minutes: number;
   break_minutes: number;
 };
+
+/**
+ * アウトプット送信リクエスト。
+ * backend の `POST /api/v1/sessions/{id}/output` と対応する。
+ * `submitted_at` は ISO8601 (JST) のタイムスタンプ文字列。
+ */
+export type SubmitOutputInput = {
+  content: string;
+  submitted_at: string;
+};
