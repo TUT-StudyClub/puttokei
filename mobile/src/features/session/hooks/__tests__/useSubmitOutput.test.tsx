@@ -29,7 +29,15 @@ describe('useSubmitOutput', () => {
   });
 
   it('mutate 呼び出しで submitOutput が正しい引数で呼ばれる', async () => {
-    (sessionApi.submitOutput as jest.Mock).mockResolvedValue(undefined);
+    (sessionApi.submitOutput as jest.Mock).mockResolvedValue({
+      status: 'judging',
+      output: {
+        id: 'out-1',
+        session_id: 'ses-1',
+        content: '本文',
+        submitted_at: '2026-04-10T15:25:00.000Z',
+      },
+    });
 
     const { result } = renderHook(() => useSubmitOutput(), { wrapper });
 

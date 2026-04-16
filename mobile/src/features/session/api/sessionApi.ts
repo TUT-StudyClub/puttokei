@@ -4,9 +4,13 @@
 import { api } from '@/shared/lib/api';
 import type {
   CreateSessionInput,
+  Judgment,
+  JudgmentFetchResult,
+  JudgmentPending,
   Session,
   SessionStatus,
   SubmitOutputInput,
+  SubmitOutputResponse,
 } from '@/features/session/types';
 
 export async function createSession(input: CreateSessionInput): Promise<Session> {
@@ -28,8 +32,24 @@ export async function updateSessionStatus(
 
 /**
  * アウトプット本文と送信時刻を backend に送る。
- * backend 側のレスポンス型が未確定のため、成功/失敗のみをハンドリングする。
  */
-export async function submitOutput(sessionId: string, input: SubmitOutputInput): Promise<void> {
-  await api.post<unknown>(`/sessions/${sessionId}/output`, input);
+export async function submitOutput(
+  sessionId: string,
+  input: SubmitOutputInput,
+): Promise<SubmitOutputResponse> {
+  const { data } = await api.post<SubmitOutputResponse>(`/sessions/${sessionId}/output`, input);
+  return data;
+}
+
+/**
+ * 判定結果を取得する。未完了の場合は 202 pending を返す。
+ */
+export async function getJudgment(sessionId: string): Promise<JudgmentFetchResult> {
+  const response = await api.get<Judgment | JudgmentPending>(`/sessions/${sessionId}/judgment`);
+
+  if (response.status === 202) {
+    return { kind: 'pending', pending: response.data as JudgmentPending };
+  }
+
+  return { kind: 'ready', judgment: response.data as Judgment };
 }

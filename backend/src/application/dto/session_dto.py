@@ -2,6 +2,7 @@
 
 CQRS 的な命名で役割を明示する。
 - `CreateSessionCommand`: セッション作成の意図を表すコマンド
+- `SubmitOutputCommand`: アウトプット送信の意図を表すコマンド
 - `SessionView`: クライアントに返却する読み出し用ビュー
 """
 
@@ -29,6 +30,14 @@ class UpdateSessionStatusCommand(FrozenModel):
     new_status: SessionStatus
 
 
+class SubmitOutputCommand(FrozenModel):
+    """POST /sessions/{id}/output の入力コマンド。"""
+
+    session_id: UUID
+    content: str
+    submitted_at: datetime
+
+
 class SessionView(FrozenModel):
     """セッション情報のレスポンス元ビュー。"""
 
@@ -43,3 +52,19 @@ class SessionView(FrozenModel):
     started_at: datetime
     completed_at: datetime | None
     created_at: datetime
+
+
+class OutputView(FrozenModel):
+    """送信済みアウトプットのビュー。"""
+
+    id: UUID
+    session_id: UUID
+    content: str
+    submitted_at: datetime
+
+
+class SubmitOutputView(FrozenModel):
+    """アウトプット送信完了後のビュー。"""
+
+    output: OutputView
+    status: SessionStatus

@@ -10,10 +10,13 @@
  */
 import Constants from 'expo-constants';
 
+import type { ProblemDetails } from '@/shared/types/api';
+
 type TokenProvider = () => Promise<string | null> | string | null;
 type TokenRefresher = () => Promise<string | null>;
 type ApiResponse<T> = {
   data: T;
+  status: number;
 };
 
 let tokenProvider: TokenProvider = () => null;
@@ -76,6 +79,33 @@ async function parseResponseBody<T>(response: Response): Promise<T> {
   return (await response.text()) as T;
 }
 
+function isProblemDetails(value: unknown): value is ProblemDetails {
+  if (typeof value !== 'object' || value === null) return false;
+
+  const maybeProblem = value as Partial<ProblemDetails>;
+  return (
+    typeof maybeProblem.type === 'string' &&
+    typeof maybeProblem.title === 'string' &&
+    typeof maybeProblem.status === 'number'
+  );
+}
+
+export class ApiError extends Error {
+  status: number;
+  problem?: ProblemDetails;
+
+  constructor(status: number, problem?: ProblemDetails) {
+    super(`HTTP ${status}`);
+    this.name = 'ApiError';
+    this.status = status;
+    this.problem = problem;
+  }
+}
+
+export function isApiError(error: unknown): error is ApiError {
+  return error instanceof ApiError;
+}
+
 class ApiClient {
   async get<T>(path: string): Promise<ApiResponse<T>> {
     return this.request<T>(path, { method: 'GET' });
@@ -99,13 +129,13 @@ class ApiClient {
 
   private async request<T>(path: string, init: RequestInit): Promise<ApiResponse<T>> {
     const response = await this.fetchWithAuth(path, init);
-    const data = await parseResponseBody<T>(response);
+    const data = await parseResponseBody<T | ProblemDetails>(response);
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+      throw new ApiError(response.status, isProblemDetails(data) ? data : undefined);
     }
 
-    return { data };
+    return { data: data as T, status: response.status };
   }
 
   /**

@@ -15,7 +15,9 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from src.application.use_cases.create_session import CreateSession
+from src.application.use_cases.get_judgment import GetJudgment
 from src.application.use_cases.get_user_profile import GetUserProfile
+from src.application.use_cases.submit_output import SubmitOutput
 from src.application.use_cases.update_session_status import UpdateSessionStatus
 from src.application.use_cases.update_user_profile import UpdateUserProfile
 from src.config import Settings
@@ -23,6 +25,8 @@ from src.container import Container
 from src.infrastructure.persistence.database import Database
 from src.main import create_app
 from tests.fakes.fake_auth_verifier import FakeAuthVerifier
+from tests.fakes.fake_judgment_repository import FakeJudgmentRepository
+from tests.fakes.fake_output_repository import FakeOutputRepository
 from tests.fakes.fake_session_repository import FakeSessionRepository
 from tests.fakes.fake_user_repository import FakeUserRepository
 
@@ -50,6 +54,16 @@ def fake_session_repository() -> FakeSessionRepository:
 
 
 @pytest.fixture
+def fake_output_repository() -> FakeOutputRepository:
+    return FakeOutputRepository()
+
+
+@pytest.fixture
+def fake_judgment_repository() -> FakeJudgmentRepository:
+    return FakeJudgmentRepository()
+
+
+@pytest.fixture
 def fake_auth_verifier() -> FakeAuthVerifier:
     return FakeAuthVerifier()
 
@@ -59,6 +73,8 @@ def container(
     settings: Settings,
     fake_user_repository: FakeUserRepository,
     fake_session_repository: FakeSessionRepository,
+    fake_output_repository: FakeOutputRepository,
+    fake_judgment_repository: FakeJudgmentRepository,
     fake_auth_verifier: FakeAuthVerifier,
 ) -> Container:
     """fake 実装を差し込んだ Container。"""
@@ -69,10 +85,21 @@ def container(
         auth_verifier=fake_auth_verifier,
         user_repository=fake_user_repository,
         session_repository=fake_session_repository,
+        output_repository=fake_output_repository,
+        judgment_repository=fake_judgment_repository,
         get_user_profile=GetUserProfile(),
         update_user_profile=UpdateUserProfile(user_repository=fake_user_repository),
         create_session=CreateSession(session_repository=fake_session_repository),
         update_session_status=UpdateSessionStatus(session_repository=fake_session_repository),
+        submit_output=SubmitOutput(
+            session_repository=fake_session_repository,
+            output_repository=fake_output_repository,
+        ),
+        get_judgment=GetJudgment(
+            session_repository=fake_session_repository,
+            output_repository=fake_output_repository,
+            judgment_repository=fake_judgment_repository,
+        ),
     )
 
 

@@ -6,7 +6,9 @@ from typing import cast
 from fastapi import Request
 
 from src.application.use_cases.create_session import CreateSession
+from src.application.use_cases.get_judgment import GetJudgment
 from src.application.use_cases.get_user_profile import GetUserProfile
+from src.application.use_cases.submit_output import SubmitOutput
 from src.application.use_cases.update_session_status import UpdateSessionStatus
 from src.application.use_cases.update_user_profile import UpdateUserProfile
 from src.domain.repositories.user_repository import UserRepository
@@ -31,6 +33,8 @@ class PresentationContainer(ABC):
     update_user_profile: UpdateUserProfile
     create_session: CreateSession
     update_session_status: UpdateSessionStatus
+    submit_output: SubmitOutput
+    get_judgment: GetJudgment
 
 
 def get_presentation_container(request: Request) -> PresentationContainer:

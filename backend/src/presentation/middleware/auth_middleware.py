@@ -8,7 +8,7 @@ users / user_settings を自動作成してから domain.User を返す。
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from src.domain.entities.user import User
@@ -23,6 +23,7 @@ from src.presentation.container_access import (
     PresentationContainer,
     get_presentation_container,
 )
+from src.presentation.problem_details import ProblemDetailsError
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -33,9 +34,11 @@ async def get_current_user(
 ) -> User:
     """Authorization ヘッダを検証し、対応する内部ユーザを返す。"""
     if credentials is None or not credentials.credentials:
-        raise HTTPException(
+        raise ProblemDetailsError(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="認証トークンが指定されていません",
+            problem_type="authentication_required",
+            title="Authentication Required",
+            detail="認証トークンが指定されていません。",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -44,9 +47,11 @@ async def get_current_user(
     try:
         verified = verifier.verify_id_token(credentials.credentials)
     except InvalidTokenError as exc:
-        raise HTTPException(
+        raise ProblemDetailsError(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="認証トークンが無効です",
+            problem_type="authentication_error",
+            title="Authentication Error",
+            detail="認証トークンが無効です。",
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
 

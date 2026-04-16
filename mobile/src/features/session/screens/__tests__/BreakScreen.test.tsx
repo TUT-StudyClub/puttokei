@@ -1,6 +1,6 @@
 /**
  * BreakScreen の振る舞いを検証する。
- * タイマー完了で status=judged に PATCH → result 画面へ replace する（ダミー判定）。
+ * タイマー完了で result 画面へ replace する。
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, waitFor } from '@testing-library/react-native';
@@ -8,7 +8,6 @@ import type { ReactNode } from 'react';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../../tamagui.config';
-import * as sessionApi from '@/features/session/api/sessionApi';
 import { BreakScreen } from '@/features/session/screens/BreakScreen';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
@@ -20,8 +19,6 @@ jest.mock('expo-router', () => ({
     break: '1',
   }),
 }));
-
-jest.mock('@/features/session/api/sessionApi');
 
 function renderWithProviders(ui: ReactNode) {
   const queryClient = new QueryClient({
@@ -64,21 +61,13 @@ describe('BreakScreen', () => {
     expect(useTimerStore.getState().totalSeconds).toBe(60);
   });
 
-  it('タイマー完了で PATCH status=judged が送られ、result 画面へ replace する', async () => {
-    (sessionApi.updateSessionStatus as jest.Mock).mockResolvedValue({
-      id: 'ses-123',
-      status: 'judged',
-    });
-
+  it('タイマー完了で result 画面へ replace する', async () => {
     renderWithProviders(<BreakScreen />);
 
     act(() => {
       jest.advanceTimersByTime(60 * 1000);
     });
 
-    await waitFor(() => {
-      expect(sessionApi.updateSessionStatus).toHaveBeenCalledWith('ses-123', 'judged');
-    });
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith({
         pathname: '/session/[id]/result',

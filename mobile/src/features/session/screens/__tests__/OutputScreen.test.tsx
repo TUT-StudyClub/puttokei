@@ -2,9 +2,10 @@
  * OutputScreen の振る舞いを検証する。
  *
  * - マウント時に phase=output のタイマーが start される
- * - タイマー完了で PATCH status=judging → break 画面へ replace する
- * - OutputEditor で本文を入力 → 送信すると submitOutput → PATCH status=judging → break へ replace
- * - submitOutput が失敗するとエラーメッセージが表示され、再度送信できる (二重送信防止の挙動含む)
+ * - タイマー完了で本文が空ならエラーメッセージを表示する
+ * - タイマー完了で本文があれば送信を促すメッセージを表示し、自動送信しない
+ * - OutputEditor で本文を入力 → 送信すると submitOutput → break 画面へ replace する
+ * - submitOutput が失敗するとエラーメッセージが表示され、再度送信できる
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
@@ -42,6 +43,16 @@ function renderWithProviders(ui: ReactNode) {
   );
 }
 
+const submitSuccessResponse = {
+  status: 'judging',
+  output: {
+    id: 'out-1',
+    session_id: 'ses-123',
+    content: '関係代名詞は先行詞を修飾する',
+    submitted_at: '2026-04-10T15:25:00.000Z',
+  },
+} as const;
+
 describe('OutputScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -70,36 +81,37 @@ describe('OutputScreen', () => {
     expect(useTimerStore.getState().totalSeconds).toBe(60);
   });
 
-  it('タイマー完了で PATCH status=judging が送られ、break 画面へ replace する', async () => {
-    (sessionApi.updateSessionStatus as jest.Mock).mockResolvedValue({
-      id: 'ses-123',
-      status: 'judging',
-    });
-
-    renderWithProviders(<OutputScreen />);
+  it('タイマー完了で本文が空ならエラーメッセージを表示し、送信しない', async () => {
+    const { getByTestId } = renderWithProviders(<OutputScreen />);
 
     act(() => {
       jest.advanceTimersByTime(60 * 1000);
     });
 
     await waitFor(() => {
-      expect(sessionApi.updateSessionStatus).toHaveBeenCalledWith('ses-123', 'judging');
-    });
-    await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith({
-        pathname: '/session/[id]/break',
-        params: { id: 'ses-123', break: '5' },
-      });
+      expect(getByTestId('output-editor-error')).toBeTruthy();
     });
     expect(sessionApi.submitOutput).not.toHaveBeenCalled();
   });
 
-  it('本文入力 → 送信で submitOutput → PATCH judging → break 画面へ replace する', async () => {
-    (sessionApi.submitOutput as jest.Mock).mockResolvedValue(undefined);
-    (sessionApi.updateSessionStatus as jest.Mock).mockResolvedValue({
-      id: 'ses-123',
-      status: 'judging',
+  it('タイマー完了で本文があれば送信を促すメッセージを表示し、自動送信しない', async () => {
+    const { getByTestId } = renderWithProviders(<OutputScreen />);
+
+    fireEvent.changeText(getByTestId('output-editor-textarea'), '関係代名詞は先行詞を修飾する');
+
+    act(() => {
+      jest.advanceTimersByTime(60 * 1000);
     });
+
+    await waitFor(() => {
+      expect(getByTestId('output-editor-error')).toBeTruthy();
+    });
+    expect(sessionApi.submitOutput).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('本文入力 → 送信で submitOutput → break 画面へ replace する', async () => {
+    (sessionApi.submitOutput as jest.Mock).mockResolvedValue(submitSuccessResponse);
 
     const { getByTestId } = renderWithProviders(<OutputScreen />);
 
@@ -116,9 +128,6 @@ describe('OutputScreen', () => {
       });
     });
     await waitFor(() => {
-      expect(sessionApi.updateSessionStatus).toHaveBeenCalledWith('ses-123', 'judging');
-    });
-    await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith({
         pathname: '/session/[id]/break',
         params: { id: 'ses-123', break: '5' },
@@ -129,11 +138,7 @@ describe('OutputScreen', () => {
   it('submitOutput 失敗時はエラーメッセージと「再送する」ボタンが現れ、明示操作で再送できる', async () => {
     (sessionApi.submitOutput as jest.Mock)
       .mockRejectedValueOnce(new Error('HTTP 500'))
-      .mockResolvedValueOnce(undefined);
-    (sessionApi.updateSessionStatus as jest.Mock).mockResolvedValue({
-      id: 'ses-123',
-      status: 'judging',
-    });
+      .mockResolvedValueOnce(submitSuccessResponse);
 
     const { getByTestId } = renderWithProviders(<OutputScreen />);
 
@@ -146,16 +151,13 @@ describe('OutputScreen', () => {
     await waitFor(() => {
       expect(getByTestId('output-editor-error')).toBeTruthy();
     });
-    expect(sessionApi.updateSessionStatus).not.toHaveBeenCalled();
 
-    // 失敗後「送信する」ボタンを連打しても再送されない (連打抑止)
     act(() => {
       fireEvent.press(getByTestId('output-editor-submit'));
       fireEvent.press(getByTestId('output-editor-submit'));
     });
     expect(sessionApi.submitOutput).toHaveBeenCalledTimes(1);
 
-    // 「再送する」ボタンの明示操作のみ再送される
     act(() => {
       fireEvent.press(getByTestId('output-editor-retry'));
     });
