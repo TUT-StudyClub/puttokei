@@ -5,33 +5,24 @@ import { H3, Paragraph, SizableText, XStack, YStack } from 'tamagui';
 
 import type { Judgment } from '@/features/session/types';
 import { Card } from '@/shared/components/Card';
+import {
+  JUDGMENT_VERDICT_COLORS,
+  JUDGMENT_VERDICT_LABELS,
+} from '@/shared/lib/judgmentPresentation';
 
 type JudgmentCardProps = {
   judgment: Judgment;
+  title?: string;
 };
 
-const VERDICT_LABELS: Record<Judgment['verdict'], string> = {
-  correct: 'Good',
-  partial: 'Partial',
-  incorrect: 'Needs Work',
-  rejected: 'Rejected',
-};
-
-const VERDICT_COLORS: Record<Judgment['verdict'], string> = {
-  correct: '$green10',
-  partial: '$orange10',
-  incorrect: '$red10',
-  rejected: '$red10',
-};
-
-export function JudgmentCard({ judgment }: JudgmentCardProps) {
+export function JudgmentCard({ judgment, title = '今回の判定' }: JudgmentCardProps) {
   return (
     <Card testID="judgment-card">
       <YStack gap="$3">
         <XStack alignItems="center" justifyContent="space-between">
-          <H3>今回の判定</H3>
-          <SizableText color={VERDICT_COLORS[judgment.verdict]} fontWeight="700" size="$3">
-            {VERDICT_LABELS[judgment.verdict]}
+          <H3>{title}</H3>
+          <SizableText color={JUDGMENT_VERDICT_COLORS[judgment.verdict]} fontWeight="700" size="$3">
+            {JUDGMENT_VERDICT_LABELS[judgment.verdict]}
           </SizableText>
         </XStack>
         <Paragraph testID="judgment-score">スコア: {judgment.score}</Paragraph>
