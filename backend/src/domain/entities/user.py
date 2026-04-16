@@ -46,3 +46,17 @@ class User(FrozenModel):
                 "updated_at": updated_at,
             }
         )
+
+    def with_deleted_at(self, *, deleted_at: datetime) -> "User":
+        """論理削除済みの新しい User を返す。
+
+        deleted_at をセットし、以降の push 通知が飛ばないよう fcm_token をクリアする。
+        updated_at も同時刻で更新し、他フィールドは保持する。
+        """
+        return self.model_copy(
+            update={
+                "deleted_at": deleted_at,
+                "fcm_token": None,
+                "updated_at": deleted_at,
+            }
+        )
