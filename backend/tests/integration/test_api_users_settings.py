@@ -128,7 +128,7 @@ async def test_delete_account_requires_authorization_header(client: AsyncClient)
 
 
 @pytest.mark.asyncio
-async def test_delete_account_removes_user_and_returns_204(
+async def test_delete_account_soft_deletes_user_and_returns_204(
     client: AsyncClient, fake_user_repository: FakeUserRepository
 ):
     headers = {"Authorization": "Bearer settings-user-delete"}
@@ -140,4 +140,39 @@ async def test_delete_account_removes_user_and_returns_204(
     delete_response = await client.delete("/api/v1/users/me", headers=headers)
     assert delete_response.status_code == 204
     assert delete_response.text == ""
-    assert "settings-user-delete" not in fake_user_repository.users
+
+    # 論理削除: 行は残り、deleted_at がセットされ、fcm_token がクリアされる
+    soft_deleted = fake_user_repository.users["settings-user-delete"]
+    assert soft_deleted.deleted_at is not None
+    assert soft_deleted.fcm_token is None
+    # user_settings は保持される（30 日後バッチで物理削除される時点で CASCADE）
+    assert soft_deleted.id in fake_user_repository.settings
+
+
+@pytest.mark.asyncio
+async def test_protected_api_returns_401_after_account_deleted(
+    client: AsyncClient,
+):
+    """論理削除後に同じトークンで保護 API を叩くと 401 になる（再利用防止）。"""
+    headers = {"Authorization": "Bearer settings-user-afterdel"}
+    assert (await client.get("/api/v1/users/me/settings", headers=headers)).status_code == 200
+    assert (await client.delete("/api/v1/users/me", headers=headers)).status_code == 204
+
+    retry = await client.get("/api/v1/users/me/settings", headers=headers)
+    assert retry.status_code == 401
+    body = retry.json()
+    assert body["type"] == "authentication_required"
+
+
+@pytest.mark.asyncio
+async def test_delete_account_second_call_returns_401_for_already_deleted_user(
+    client: AsyncClient,
+):
+    """2 度目の DELETE は auth_middleware 段階で 401 になる。"""
+    headers = {"Authorization": "Bearer settings-user-twicedel"}
+    await client.get("/api/v1/users/me/settings", headers=headers)
+    first = await client.delete("/api/v1/users/me", headers=headers)
+    assert first.status_code == 204
+
+    second = await client.delete("/api/v1/users/me", headers=headers)
+    assert second.status_code == 401
