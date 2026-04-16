@@ -54,7 +54,7 @@ cd ..
 - Apple Silicon (M1/M2/M3) で `pod install` が失敗する場合は `arch -x86_64 pod install` を試す
 - CocoaPods が未インストールなら `brew install cocoapods` で導入する
 
-### 1-4. 環境設定
+### 1-5. 環境設定
 
 依存を package-lock.json どおりに取得するコマンド
 
@@ -68,7 +68,30 @@ task install
 更新した場合は `app.json.example` に反映される。手元の `app.json` にも
 手動で差分を取り込むことを忘れないこと。
 
-## 2. dockerの起動
+
+## 2. backendのセットアップ
+
+全てのコマンドはbackendディレクトリで実行
+
+### 2-1. 環境作成
+
+依存をロックファイルどおりに取得する
+
+```bash
+task install
+```
+
+### 2-2. backend/.envファイルの作成
+
+現状で加える変更はない
+
+```bash
+cp .env.example .env
+```
+
+
+
+## 3. dockerの起動
 
 backend のローカル PostgreSQL は Docker Compose で起動する。
 
@@ -87,26 +110,6 @@ task db:upgrade
 
 ```bash
 docker ps
-```
-
-## 3. backendのセットアップ
-
-全てのコマンドはbackendディレクトリで実行
-
-### 3-1. backend/.envファイルの作成
-
-現状で加える変更はない
-
-```bash
-cp .env.example .env
-```
-
-### 3-2. 環境作成
-
-依存をロックファイルどおりに取得する
-
-```bash
-task install
 ```
 
 ## 4. xcodeでの操作
@@ -149,7 +152,7 @@ xcodeを開いた後画像一番下のOpen Existing ....を選択
 
 3. xcodeの画面中央最上部の機種名をクリックすると、デバイスを選択できる。ここで自分のiphoneを選択
 
-![デバイス選択](../docs/setupPhoto/004_device.pngg)
+![デバイス選択](../docs/setupPhoto/004_device.png)
 
 ## 5. もろもろ起動する
 
@@ -162,7 +165,7 @@ xcodeを開いた後画像一番下のOpen Existing ....を選択
    backendディレクトリで実行
 
    ```bash
-   task backend:dev:lan
+   task dev:lan
    ```
 
 3. mobile側
@@ -210,8 +213,8 @@ backendディレクトリで実行
 
 ```bash
 task db:up          #dockerを落とした時のみ実行
-task db:upgrade.    #変更があった時のみ実行
-task backend:dev:lan
+task db:upgrade     #変更があった時のみ実行
+task dev:lan
 ```
 
 ### mobile側
@@ -226,7 +229,7 @@ task start:dev
 
 三角ボタン押すだけ
 
-## 7. 動作確認チェックリスト
+## 8. 動作確認チェックリスト
 
 - ルート (`/`) のタブが表示されるか
 - サインイン画面 (`/(auth)/sign-in`) に遷移できるか
