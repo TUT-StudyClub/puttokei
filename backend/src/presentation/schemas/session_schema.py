@@ -1,12 +1,18 @@
 """/api/v1/sessions 系の Pydantic スキーマ。"""
 
 from datetime import datetime
+from typing import Annotated
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, StringConstraints
 
 from src.common.models import FrozenModel, StrictRequestModel
 from src.domain.value_objects.session_status import SessionStatus
+
+NonEmptyOutputContent = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=2000),
+]
 
 
 class CreateSessionRequest(StrictRequestModel):
@@ -33,6 +39,13 @@ class UpdateSessionRequest(StrictRequestModel):
     status: SessionStatus
 
 
+class SubmitOutputRequest(StrictRequestModel):
+    """POST /sessions/{id}/output の body。"""
+
+    content: NonEmptyOutputContent
+    submitted_at: datetime
+
+
 class SessionResponse(FrozenModel):
     """POST /sessions / GET /sessions/{id} のレスポンス。"""
 
@@ -47,3 +60,19 @@ class SessionResponse(FrozenModel):
     started_at: datetime
     completed_at: datetime | None
     created_at: datetime
+
+
+class OutputResponse(FrozenModel):
+    """送信済みアウトプット。"""
+
+    id: UUID
+    session_id: UUID
+    content: str
+    submitted_at: datetime
+
+
+class SubmitOutputResponse(FrozenModel):
+    """アウトプット送信完了レスポンス。"""
+
+    output: OutputResponse
+    status: SessionStatus

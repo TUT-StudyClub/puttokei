@@ -7,12 +7,20 @@ Composition Root でコンテナを組み立て、ルーターを束ねる。
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.exceptions import RequestValidationError
 
 from src.config import Settings, get_settings
 from src.container import Container, build_container
 from src.presentation.api.v1.router import api_v1_router
 from src.presentation.health import health_router
+from src.presentation.problem_details import (
+    ProblemDetailsError,
+    http_exception_handler,
+    problem_details_exception_handler,
+    unexpected_exception_handler,
+    validation_exception_handler,
+)
 
 
 def create_app(
@@ -36,6 +44,10 @@ def create_app(
         version="0.1.0",
         lifespan=lifespan,
     )
+    app.add_exception_handler(ProblemDetailsError, problem_details_exception_handler)
+    app.add_exception_handler(HTTPException, http_exception_handler)
+    app.add_exception_handler(RequestValidationError, validation_exception_handler)
+    app.add_exception_handler(Exception, unexpected_exception_handler)
 
     app.include_router(health_router)
     app.include_router(api_v1_router, prefix="/api/v1")

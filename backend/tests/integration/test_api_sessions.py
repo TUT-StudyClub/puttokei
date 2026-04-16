@@ -47,6 +47,33 @@ async def _advance_status(
     return response.json()
 
 
+async def _submit_output(
+    client: AsyncClient,
+    auth_uid: str,
+    session_id: str,
+    *,
+    content: str = "関係代名詞は先行詞を修飾し、文中の名詞を詳しく説明する表現です。",
+    submitted_at: str = "2026-04-10T15:25:00Z",
+):
+    return await client.post(
+        f"/api/v1/sessions/{session_id}/output",
+        headers={"Authorization": f"Bearer {auth_uid}"},
+        json={"content": content, "submitted_at": submitted_at},
+    )
+
+
+def _assert_problem_details(
+    body: dict[str, object],
+    *,
+    expected_status: int,
+    expected_type: str,
+) -> None:
+    assert body["status"] == expected_status
+    assert body["type"] == expected_type
+    assert body["title"]
+    assert body["instance"]
+
+
 @pytest.mark.asyncio
 async def test_create_session_requires_authorization_header(client: AsyncClient):
     response = await client.post("/api/v1/sessions", json=_valid_body())
@@ -61,6 +88,11 @@ async def test_create_session_rejects_invalid_token(client: AsyncClient):
         json=_valid_body(),
     )
     assert response.status_code == 401
+    _assert_problem_details(
+        response.json(),
+        expected_status=401,
+        expected_type="authentication_error",
+    )
 
 
 @pytest.mark.asyncio
@@ -129,6 +161,11 @@ async def test_create_session_forbids_extra_fields(client: AsyncClient):
     payload = _valid_body() | {"unknown": "x"}
     response = await client.post("/api/v1/sessions", headers=headers, json=payload)
     assert response.status_code == 422
+    _assert_problem_details(
+        response.json(),
+        expected_status=422,
+        expected_type="validation_error",
+    )
 
 
 # --- PATCH /sessions/{id} (Issue #41) ---
@@ -163,6 +200,11 @@ async def test_update_session_returns_404_for_unknown_session(client: AsyncClien
         json={"status": "output"},
     )
     assert response.status_code == 404
+    _assert_problem_details(
+        response.json(),
+        expected_status=404,
+        expected_type="session_not_found",
+    )
 
 
 @pytest.mark.asyncio
@@ -287,3 +329,199 @@ async def test_update_session_rejects_extra_fields(client: AsyncClient):
         json={"status": "output", "unknown": "x"},
     )
     assert response.status_code == 422
+
+
+# --- POST /sessions/{id}/output (Issue #51) ---
+
+
+@pytest.mark.asyncio
+async def test_submit_output_requires_authorization_header(client: AsyncClient):
+    created = await _create_session(client, "submit-user-001")
+    await _advance_status(client, "submit-user-001", created["id"], "output")
+
+    response = await client.post(
+        f"/api/v1/sessions/{created['id']}/output",
+        json={
+            "content": "本文です",
+            "submitted_at": "2026-04-10T15:25:00Z",
+        },
+    )
+
+    assert response.status_code == 401
+    _assert_problem_details(
+        response.json(),
+        expected_status=401,
+        expected_type="authentication_required",
+    )
+
+
+@pytest.mark.asyncio
+async def test_submit_output_returns_202_and_updates_status_to_judging(client: AsyncClient):
+    auth_uid = "submit-user-002"
+    created = await _create_session(client, auth_uid)
+    session_id = created["id"]
+    await _advance_status(client, auth_uid, session_id, "output")
+
+    response = await _submit_output(client, auth_uid, session_id)
+
+    assert response.status_code == 202
+    body = response.json()
+    assert body["status"] == "judging"
+    assert body["output"]["session_id"] == session_id
+    assert body["output"]["content"].startswith("関係代名詞")
+
+
+@pytest.mark.asyncio
+async def test_submit_output_returns_404_for_other_users_session(client: AsyncClient):
+    created = await _create_session(client, "submit-user-owner")
+    await _advance_status(client, "submit-user-owner", created["id"], "output")
+
+    response = await _submit_output(client, "submit-user-other", created["id"])
+
+    assert response.status_code == 404
+    _assert_problem_details(
+        response.json(),
+        expected_status=404,
+        expected_type="session_not_found",
+    )
+
+
+@pytest.mark.asyncio
+async def test_submit_output_rejects_invalid_session_state(client: AsyncClient):
+    created = await _create_session(client, "submit-user-003")
+
+    response = await _submit_output(client, "submit-user-003", created["id"])
+
+    assert response.status_code == 409
+    _assert_problem_details(
+        response.json(),
+        expected_status=409,
+        expected_type="invalid_session_state",
+    )
+
+
+@pytest.mark.asyncio
+async def test_submit_output_rejects_blank_content_with_problem_details(client: AsyncClient):
+    auth_uid = "submit-user-004"
+    created = await _create_session(client, auth_uid)
+    await _advance_status(client, auth_uid, created["id"], "output")
+
+    response = await client.post(
+        f"/api/v1/sessions/{created['id']}/output",
+        headers={"Authorization": f"Bearer {auth_uid}"},
+        json={
+            "content": "   ",
+            "submitted_at": "2026-04-10T15:25:00Z",
+        },
+    )
+
+    assert response.status_code == 422
+    _assert_problem_details(
+        response.json(),
+        expected_status=422,
+        expected_type="validation_error",
+    )
+
+
+# --- GET /sessions/{id}/judgment (Issue #51) ---
+
+
+@pytest.mark.asyncio
+async def test_get_judgment_returns_202_while_pending(client: AsyncClient):
+    auth_uid = "judgment-user-001"
+    created = await _create_session(client, auth_uid)
+    session_id = created["id"]
+    await _advance_status(client, auth_uid, session_id, "output")
+    await _submit_output(
+        client,
+        auth_uid,
+        session_id,
+        submitted_at="2099-04-10T15:25:00Z",
+    )
+
+    response = await client.get(
+        f"/api/v1/sessions/{session_id}/judgment",
+        headers={"Authorization": f"Bearer {auth_uid}"},
+    )
+
+    assert response.status_code == 202
+    body = response.json()
+    assert body["status"] == "pending"
+    assert body["retry_after_seconds"] >= 1
+    assert response.headers["Retry-After"]
+
+
+@pytest.mark.asyncio
+async def test_get_judgment_returns_rejected_verdict_for_short_content(client: AsyncClient):
+    auth_uid = "judgment-user-002"
+    created = await _create_session(client, auth_uid)
+    session_id = created["id"]
+    await _advance_status(client, auth_uid, session_id, "output")
+    await _submit_output(
+        client,
+        auth_uid,
+        session_id,
+        content="短いです",
+        submitted_at="2020-04-10T15:25:00Z",
+    )
+
+    response = await client.get(
+        f"/api/v1/sessions/{session_id}/judgment",
+        headers={"Authorization": f"Bearer {auth_uid}"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["verdict"] == "rejected"
+    assert body["score"] == 0
+    assert "学習内容" in body["advice"]
+
+
+@pytest.mark.asyncio
+async def test_get_judgment_returns_ready_judgment_for_past_submission(client: AsyncClient):
+    auth_uid = "judgment-user-003"
+    created = await _create_session(client, auth_uid)
+    session_id = created["id"]
+    await _advance_status(client, auth_uid, session_id, "output")
+    await _submit_output(
+        client,
+        auth_uid,
+        session_id,
+        content=(
+            "関係代名詞は先行詞を詳しく説明する節を作るために使います。"
+            "who は人、which は物に使い、that はどちらにも使えることがあります。"
+            "主節と従属節の関係を意識すると理解しやすいです。"
+        ),
+        submitted_at="2020-04-10T15:25:00Z",
+    )
+
+    response = await client.get(
+        f"/api/v1/sessions/{session_id}/judgment",
+        headers={"Authorization": f"Bearer {auth_uid}"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["verdict"] in {"correct", "partial"}
+    assert body["items"]
+    assert body["judged_at"]
+
+
+@pytest.mark.asyncio
+async def test_get_judgment_returns_409_when_output_not_submitted(client: AsyncClient):
+    auth_uid = "judgment-user-004"
+    created = await _create_session(client, auth_uid)
+    await _advance_status(client, auth_uid, created["id"], "output")
+    await _advance_status(client, auth_uid, created["id"], "judging")
+
+    response = await client.get(
+        f"/api/v1/sessions/{created['id']}/judgment",
+        headers={"Authorization": f"Bearer {auth_uid}"},
+    )
+
+    assert response.status_code == 409
+    _assert_problem_details(
+        response.json(),
+        expected_status=409,
+        expected_type="output_not_submitted",
+    )
