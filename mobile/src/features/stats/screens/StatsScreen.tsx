@@ -72,7 +72,11 @@ export function StatsScreen() {
           <Paragraph testID="stats-empty-message">
             まだ統計データがありません。セッションを完了するとここに表示されます。
           </Paragraph>
-          <Button themeInverse onPress={() => void statsQuery.refetch()} testID="stats-empty-refetch">
+          <Button
+            themeInverse
+            onPress={() => void statsQuery.refetch()}
+            testID="stats-empty-refetch"
+          >
             再取得する
           </Button>
         </YStack>
