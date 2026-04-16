@@ -1,4 +1,4 @@
-"""DeleteAccount UseCase の振る舞い。"""
+"""DeleteAccount UseCase の振る舞い（論理削除）。"""
 
 from datetime import UTC, datetime
 from uuid import uuid4
@@ -20,7 +20,7 @@ def _make_user_with_settings() -> tuple[User, UserSettings]:
         auth_provider=AuthProvider.GOOGLE,
         created_at=now,
         updated_at=now,
-    )
+    ).model_copy(update={"fcm_token": "fcm-xyz"})
     settings = UserSettings(
         id=uuid4(),
         user_id=user.id,
@@ -31,30 +31,37 @@ def _make_user_with_settings() -> tuple[User, UserSettings]:
 
 
 @pytest.mark.asyncio
-async def test_delete_account_removes_user_and_settings():
+async def test_delete_account_soft_deletes_user_and_preserves_settings():
     repo = FakeUserRepository()
     user, settings = _make_user_with_settings()
     await repo.add(user, settings)
-    assert user.firebase_uid in repo.users
-    assert user.id in repo.settings
 
     use_case = DeleteAccount(user_repository=repo)
     await use_case.execute(user)
 
-    assert user.firebase_uid not in repo.users
-    assert user.id not in repo.settings
+    # 行は残り、deleted_at がセットされ、fcm_token がクリアされる
+    stored = repo.users[user.firebase_uid]
+    assert stored.deleted_at is not None
+    assert stored.fcm_token is None
+    # user_settings は保持される（30 日後バッチで物理削除されるまで残す）
+    assert user.id in repo.settings
+    # find_by_firebase_uid 経由では生きているユーザとして見えない
+    assert await repo.find_by_firebase_uid(user.firebase_uid) is None
 
 
 @pytest.mark.asyncio
 async def test_delete_account_is_idempotent():
-    """既に削除済みのユーザーに対して例外を投げないことを担保する。"""
+    """既に削除済みのユーザーに対して例外を投げず、deleted_at も上書きしない。"""
     repo = FakeUserRepository()
     user, settings = _make_user_with_settings()
     await repo.add(user, settings)
 
     use_case = DeleteAccount(user_repository=repo)
     await use_case.execute(user)
-    # 2 度目の呼び出しでも例外にならない
-    await use_case.execute(user)
+    first_deleted_at = repo.users[user.firebase_uid].deleted_at
+    assert first_deleted_at is not None
 
-    assert user.firebase_uid not in repo.users
+    # 既に削除済みの User を渡しても例外にならず、deleted_at も上書きされない
+    already_deleted = repo.users[user.firebase_uid]
+    await use_case.execute(already_deleted)
+    assert repo.users[user.firebase_uid].deleted_at == first_deleted_at
