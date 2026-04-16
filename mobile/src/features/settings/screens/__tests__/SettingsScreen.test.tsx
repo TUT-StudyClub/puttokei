@@ -10,7 +10,7 @@
  * AlertGate / Firebase 周りには触れず、API レイヤと expo-router をモックする。
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { Alert } from 'react-native';
 import { TamaguiProvider } from 'tamagui';
@@ -51,9 +51,17 @@ function renderWithProviders(ui: ReactNode) {
   );
 }
 
+async function flushAsyncUpdates() {
+  await act(async () => {});
+  act(() => {
+    jest.runOnlyPendingTimers();
+  });
+}
+
 describe('SettingsScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.useFakeTimers();
     // useSettings の enabled が true になるよう idToken をセット
     useAuthStore.setState({ uid: 'u-1', idToken: 'token-1' });
     (settingsApi.fetchMySettings as jest.Mock).mockResolvedValue(SETTINGS_FIXTURE);
@@ -62,34 +70,43 @@ describe('SettingsScreen', () => {
   });
 
   afterEach(() => {
-    useAuthStore.getState().clear();
+    cleanup();
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    useAuthStore.setState({ uid: null, idToken: null });
+    jest.useRealTimers();
   });
 
   it('取得完了後にタイマー値がフォームに反映される', async () => {
-    const { findByTestId } = renderWithProviders(<SettingsScreen />);
+    const { getByTestId } = renderWithProviders(<SettingsScreen />);
 
     await waitFor(() => {
       expect(settingsApi.fetchMySettings).toHaveBeenCalled();
     });
-    const input = await findByTestId('settings-input-minutes');
+    await flushAsyncUpdates();
+
+    const input = getByTestId('settings-input-minutes');
     await waitFor(() => {
       expect(input.props.value).toBe('25');
     });
   });
 
   it('タイマー値を変更して保存すると updateMySettings が呼ばれる', async () => {
-    const { findByTestId } = renderWithProviders(<SettingsScreen />);
+    const { getByTestId } = renderWithProviders(<SettingsScreen />);
+    await flushAsyncUpdates();
 
-    const input = await findByTestId('settings-input-minutes');
+    const input = getByTestId('settings-input-minutes');
     await waitFor(() => {
       expect(input.props.value).toBe('25');
     });
 
     fireEvent.changeText(input, '40');
-    const saveButton = await findByTestId('settings-timer-save');
+    const saveButton = getByTestId('settings-timer-save');
     await act(async () => {
       fireEvent.press(saveButton);
     });
+    await flushAsyncUpdates();
 
     await waitFor(() => {
       expect(settingsApi.updateMySettings).toHaveBeenCalledWith({
@@ -101,9 +118,10 @@ describe('SettingsScreen', () => {
   });
 
   it('通知トグル切替で notification_enabled が PATCH される', async () => {
-    const { findByTestId } = renderWithProviders(<SettingsScreen />);
+    const { getByTestId } = renderWithProviders(<SettingsScreen />);
+    await flushAsyncUpdates();
 
-    const switchEl = await findByTestId('settings-notification-switch');
+    const switchEl = getByTestId('settings-notification-switch');
     await waitFor(() => {
       // 初期値が反映されてからトグルする
       expect(switchEl.props.accessibilityState?.checked ?? true).toBe(true);
@@ -112,6 +130,7 @@ describe('SettingsScreen', () => {
     await act(async () => {
       fireEvent.press(switchEl);
     });
+    await flushAsyncUpdates();
 
     await waitFor(() => {
       expect(settingsApi.updateMySettings).toHaveBeenCalledWith({
@@ -121,9 +140,10 @@ describe('SettingsScreen', () => {
   });
 
   it('プロフィール編集の導線で router.push が呼ばれる', async () => {
-    const { findByTestId } = renderWithProviders(<SettingsScreen />);
+    const { getByTestId } = renderWithProviders(<SettingsScreen />);
+    await flushAsyncUpdates();
 
-    const link = await findByTestId('settings-nav-profile-edit');
+    const link = getByTestId('settings-nav-profile-edit');
     fireEvent.press(link);
 
     expect(mockPush).toHaveBeenCalledWith('/profile/edit');
@@ -132,8 +152,10 @@ describe('SettingsScreen', () => {
   it('アカウント削除ボタンで確認ダイアログを開き、確定で deleteMyAccount が呼ばれる', async () => {
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 
-    const { findByTestId } = renderWithProviders(<SettingsScreen />);
-    const deleteButton = await findByTestId('settings-delete-account');
+    const { getByTestId } = renderWithProviders(<SettingsScreen />);
+    await flushAsyncUpdates();
+
+    const deleteButton = getByTestId('settings-delete-account');
     fireEvent.press(deleteButton);
 
     expect(alertSpy).toHaveBeenCalledTimes(1);
@@ -145,19 +167,25 @@ describe('SettingsScreen', () => {
     await act(async () => {
       destructive!.onPress?.();
     });
+    await flushAsyncUpdates();
 
     await waitFor(() => {
       expect(settingsApi.deleteMyAccount).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(useAuthStore.getState().uid).toBeNull();
     });
 
     alertSpy.mockRestore();
   });
 
   it('ログアウトボタンで authStore.clear() と router.replace が呼ばれる', async () => {
-    const { findByTestId } = renderWithProviders(<SettingsScreen />);
+    const { getByTestId } = renderWithProviders(<SettingsScreen />);
+    await flushAsyncUpdates();
 
-    const logout = await findByTestId('settings-logout');
+    const logout = getByTestId('settings-logout');
     fireEvent.press(logout);
+    await flushAsyncUpdates();
 
     expect(useAuthStore.getState().uid).toBeNull();
     expect(mockReplace).toHaveBeenCalledWith('/(auth)/sign-in');

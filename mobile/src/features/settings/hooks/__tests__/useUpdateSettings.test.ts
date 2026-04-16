@@ -4,7 +4,7 @@
  * 成功時に SETTINGS_QUERY_KEY のキャッシュへ反映されることを担保する。
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { createElement } from 'react';
 
@@ -32,6 +32,10 @@ describe('useUpdateSettings', () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    cleanup();
+  });
+
   it('mutate で updateMySettings を呼び出し、成功時に SETTINGS_QUERY_KEY のキャッシュを更新する', async () => {
     const updated: UserSettings = {
       input_minutes: 30,
@@ -45,8 +49,12 @@ describe('useUpdateSettings', () => {
 
     const { result } = renderHook(() => useUpdateSettings(), { wrapper });
 
-    await act(async () => {
-      await result.current.mutateAsync({ input_minutes: 30 });
+    act(() => {
+      result.current.mutate({ input_minutes: 30 });
+    });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
     });
 
     expect(settingsApi.updateMySettings).toHaveBeenCalledWith({ input_minutes: 30 });

@@ -87,9 +87,7 @@ class PgUserRepository(UserRepository):
 
     async def update_settings(self, settings: UserSettings) -> None:
         async with self._database.session() as session:
-            stmt = select(UserSettingsModel).where(
-                UserSettingsModel.user_id == settings.user_id
-            )
+            stmt = select(UserSettingsModel).where(UserSettingsModel.user_id == settings.user_id)
             result = await session.execute(stmt)
             model = result.scalar_one()
             model.input_minutes = settings.input_minutes

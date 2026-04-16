@@ -5,7 +5,7 @@
  * 直接呼び出して、確認ダイアログを承諾した状態をシミュレートする。
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { Alert } from 'react-native';
 import { TamaguiProvider } from 'tamagui';
@@ -41,9 +41,22 @@ function renderWithProviders(ui: ReactNode) {
   );
 }
 
+function flushPendingTimers() {
+  act(() => {
+    jest.runOnlyPendingTimers();
+  });
+}
+
 describe('SessionHeader', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    cleanup();
+    flushPendingTimers();
+    jest.useRealTimers();
   });
 
   it('中断ボタン押下 → 「中断する」承諾で onBeforeCancel → cancelled PATCH → ホームへ replace', async () => {
@@ -59,8 +72,10 @@ describe('SessionHeader', () => {
     const { getByTestId } = renderWithProviders(
       <SessionHeader sessionId="ses-1" title="インプット" onBeforeCancel={onBeforeCancel} />,
     );
+    flushPendingTimers();
 
     fireEvent.press(getByTestId('session-header-cancel'));
+    flushPendingTimers();
 
     expect(alertSpy).toHaveBeenCalled();
     expect(onBeforeCancel).toHaveBeenCalledTimes(1);
@@ -84,7 +99,10 @@ describe('SessionHeader', () => {
     const { getByTestId } = renderWithProviders(
       <SessionHeader sessionId="ses-1" title="インプット" />,
     );
+    flushPendingTimers();
+
     fireEvent.press(getByTestId('session-header-cancel'));
+    flushPendingTimers();
 
     expect(sessionApi.updateSessionStatus).not.toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();

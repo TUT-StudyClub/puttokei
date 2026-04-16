@@ -89,9 +89,7 @@ async def test_update_user_settings_can_disable_notification_only():
     await repo.add(user, settings)
 
     use_case = UpdateUserSettings(user_repository=repo)
-    view = await use_case.execute(
-        user, UpdateUserSettingsCommand(notification_enabled=False)
-    )
+    view = await use_case.execute(user, UpdateUserSettingsCommand(notification_enabled=False))
 
     assert view.notification_enabled is False
     assert view.input_minutes == 20  # 他はデフォルトのまま

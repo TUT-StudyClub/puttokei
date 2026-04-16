@@ -4,7 +4,7 @@
  * - 値を変更して保存すると updateMyProfile が呼ばれ、router.back が実行されること
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { TamaguiProvider } from 'tamagui';
 
@@ -58,7 +58,8 @@ describe('ProfileEditScreen', () => {
   });
 
   afterEach(() => {
-    useAuthStore.getState().clear();
+    cleanup();
+    useAuthStore.setState({ uid: null, idToken: null });
   });
 
   it('取得完了後に display_name が初期値として入る', async () => {

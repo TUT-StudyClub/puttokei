@@ -3,7 +3,7 @@
  * 成功時に QueryClient のキャッシュ全消去と authStore のクリアが行われることを担保する。
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, renderHook } from '@testing-library/react-native';
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { createElement } from 'react';
 
@@ -32,7 +32,8 @@ describe('useDeleteAccount', () => {
   });
 
   afterEach(() => {
-    useAuthStore.getState().clear();
+    cleanup();
+    useAuthStore.setState({ uid: null, idToken: null });
   });
 
   it('mutate で deleteMyAccount を呼び、成功時に queryClient.clear() と authStore.clear() を実行する', async () => {
@@ -42,8 +43,12 @@ describe('useDeleteAccount', () => {
 
     const { result } = renderHook(() => useDeleteAccount(), { wrapper });
 
-    await act(async () => {
-      await result.current.mutateAsync();
+    act(() => {
+      result.current.mutate();
+    });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
     });
 
     expect(settingsApi.deleteMyAccount).toHaveBeenCalledTimes(1);

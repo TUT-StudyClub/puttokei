@@ -73,9 +73,7 @@ async def test_patch_settings_rejects_out_of_range_minutes(
     headers = {"Authorization": f"Bearer settings-range-{field}"}
     await client.get("/api/v1/users/me/settings", headers=headers)
 
-    response = await client.patch(
-        "/api/v1/users/me/settings", headers=headers, json=payload
-    )
+    response = await client.patch("/api/v1/users/me/settings", headers=headers, json=payload)
     assert response.status_code == 422
 
 
@@ -113,17 +111,13 @@ async def test_patch_settings_rejects_empty_body(client: AsyncClient):
     headers = {"Authorization": "Bearer settings-user-empty"}
     await client.get("/api/v1/users/me/settings", headers=headers)
 
-    response = await client.patch(
-        "/api/v1/users/me/settings", headers=headers, json={}
-    )
+    response = await client.patch("/api/v1/users/me/settings", headers=headers, json={})
     assert response.status_code == 422
 
 
 @pytest.mark.asyncio
 async def test_patch_settings_requires_authorization_header(client: AsyncClient):
-    response = await client.patch(
-        "/api/v1/users/me/settings", json={"input_minutes": 30}
-    )
+    response = await client.patch("/api/v1/users/me/settings", json={"input_minutes": 30})
     assert response.status_code == 401
 
 
