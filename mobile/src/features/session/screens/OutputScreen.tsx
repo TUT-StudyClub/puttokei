@@ -2,14 +2,13 @@
  * アウトプットフェーズ画面。
  *
  * - `OutputEditor` でアウトプット本文を入力し、「送信する」で POST /sessions/{id}/output
- * - 送信成功時は `PATCH status=judging` を送り `/session/{id}/break` へ遷移
- * - タイマー完了時は（本文の有無に関わらず）`PATCH status=judging` を送り break へ遷移
- *   （自動送信は行わず、ユーザーの明示的な送信操作のみで submit する方針）
+ * - 送信成功時は `/session/{id}/break` へ遷移
+ * - タイマー完了時は自動送信せず、ユーザーに明示的な送信を促す
  */
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { Paragraph, SizableText, YStack } from 'tamagui';
+import { Paragraph, YStack } from 'tamagui';
 
 import { OutputEditor } from '@/features/session/components/OutputEditor';
 import type { OutputEditorSubmitPayload } from '@/features/session/components/OutputEditor';
@@ -18,7 +17,7 @@ import { Timer } from '@/features/session/components/Timer';
 import { DEFAULT_TIMER } from '@/features/session/config';
 import { useSubmitOutput } from '@/features/session/hooks/useSubmitOutput';
 import { useTimer } from '@/features/session/hooks/useTimer';
-import { useUpdateSessionStatus } from '@/features/session/hooks/useUpdateSessionStatus';
+import { isApiError } from '@/shared/lib/api';
 
 type SessionRouteParams = {
   id?: string;
@@ -34,9 +33,9 @@ export function OutputScreen() {
 
   const router = useRouter();
   const submit = useSubmitOutput();
-  const updateStatus = useUpdateSessionStatus();
 
   const [content, setContent] = useState('');
+  const [localErrorMessage, setLocalErrorMessage] = useState<string | null>(null);
 
   const navigateToBreak = useCallback(() => {
     router.replace({
@@ -45,30 +44,28 @@ export function OutputScreen() {
     });
   }, [router, sessionId, breakMinutes]);
 
-  const advanceToJudging = useCallback(() => {
-    updateStatus.mutate(
-      { sessionId, status: 'judging' },
-      {
-        onSuccess: navigateToBreak,
-      },
-    );
-  }, [updateStatus, sessionId, navigateToBreak]);
-
   const handleEditorSubmit = useCallback(
     ({ content: nextContent, submitted_at }: OutputEditorSubmitPayload) => {
+      setLocalErrorMessage(null);
+      submit.reset();
       submit.mutate(
         { sessionId, content: nextContent, submitted_at },
         {
-          onSuccess: advanceToJudging,
+          onSuccess: navigateToBreak,
         },
       );
     },
-    [submit, sessionId, advanceToJudging],
+    [submit, sessionId, navigateToBreak],
   );
 
   const { start, reset } = useTimer({
     onComplete: () => {
-      advanceToJudging();
+      const trimmed = content.trim();
+      if (trimmed.length === 0) {
+        setLocalErrorMessage('時間になりました。学習内容を入力してから送信してください。');
+        return;
+      }
+      setLocalErrorMessage('時間になりました。内容を確認して送信してください。');
     },
   });
 
@@ -85,9 +82,13 @@ export function OutputScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const submitErrorMessage = submit.isError
-    ? '送信に失敗しました。時間をおいて再度お試しください。'
-    : null;
+  const submitErrorMessage =
+    localErrorMessage ??
+    (submit.isError
+      ? isApiError(submit.error)
+        ? (submit.error.problem?.detail ?? '送信に失敗しました。時間をおいて再度お試しください。')
+        : '送信に失敗しました。時間をおいて再度お試しください。'
+      : null);
 
   return (
     <YStack flex={1}>
@@ -102,16 +103,19 @@ export function OutputScreen() {
             <Timer />
             <OutputEditor
               value={content}
-              onChange={setContent}
+              onChange={(nextValue) => {
+                setContent(nextValue);
+                if (localErrorMessage !== null) {
+                  setLocalErrorMessage(null);
+                }
+                if (submit.isError) {
+                  submit.reset();
+                }
+              }}
               onSubmit={handleEditorSubmit}
-              isSubmitting={submit.isPending || updateStatus.isPending}
+              isSubmitting={submit.isPending}
               errorMessage={submitErrorMessage}
             />
-            {updateStatus.isError ? (
-              <SizableText color="$red10" size="$2" testID="output-screen-error">
-                通信エラーが発生しました。時間をおいて再度お試しください。
-              </SizableText>
-            ) : null}
           </YStack>
         </ScrollView>
       </KeyboardAvoidingView>

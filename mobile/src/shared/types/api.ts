@@ -11,6 +11,7 @@ export type ProblemDetails = {
   status: number;
   detail?: string;
   instance?: string;
+  errors?: unknown[];
 };
 
 export type Cursor = string | null;

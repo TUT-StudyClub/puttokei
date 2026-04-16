@@ -8,14 +8,14 @@
 import { useMutation } from '@tanstack/react-query';
 
 import { submitOutput } from '@/features/session/api/sessionApi';
-import type { SubmitOutputInput } from '@/features/session/types';
+import type { SubmitOutputInput, SubmitOutputResponse } from '@/features/session/types';
 
 export type UseSubmitOutputInput = SubmitOutputInput & {
   sessionId: string;
 };
 
 export function useSubmitOutput() {
-  return useMutation<void, Error, UseSubmitOutputInput>({
+  return useMutation<SubmitOutputResponse, Error, UseSubmitOutputInput>({
     mutationFn: ({ sessionId, content, submitted_at }) =>
       submitOutput(sessionId, { content, submitted_at }),
   });
