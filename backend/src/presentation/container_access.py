@@ -6,11 +6,14 @@ from typing import cast
 from fastapi import Request
 
 from src.application.use_cases.create_session import CreateSession
+from src.application.use_cases.delete_account import DeleteAccount
 from src.application.use_cases.get_judgment import GetJudgment
 from src.application.use_cases.get_user_profile import GetUserProfile
+from src.application.use_cases.get_user_settings import GetUserSettings
 from src.application.use_cases.submit_output import SubmitOutput
 from src.application.use_cases.update_session_status import UpdateSessionStatus
 from src.application.use_cases.update_user_profile import UpdateUserProfile
+from src.application.use_cases.update_user_settings import UpdateUserSettings
 from src.domain.repositories.user_repository import UserRepository
 from src.domain.services.auth_verifier import AuthVerifier
 
@@ -31,6 +34,9 @@ class PresentationContainer(ABC):
     user_repository: UserRepository
     get_user_profile: GetUserProfile
     update_user_profile: UpdateUserProfile
+    get_user_settings: GetUserSettings
+    update_user_settings: UpdateUserSettings
+    delete_account: DeleteAccount
     create_session: CreateSession
     update_session_status: UpdateSessionStatus
     submit_output: SubmitOutput

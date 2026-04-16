@@ -7,11 +7,14 @@ presentation からは `request.app.state.container` 経由で参照する。
 from pydantic import BaseModel, ConfigDict
 
 from src.application.use_cases.create_session import CreateSession
+from src.application.use_cases.delete_account import DeleteAccount
 from src.application.use_cases.get_judgment import GetJudgment
 from src.application.use_cases.get_user_profile import GetUserProfile
+from src.application.use_cases.get_user_settings import GetUserSettings
 from src.application.use_cases.submit_output import SubmitOutput
 from src.application.use_cases.update_session_status import UpdateSessionStatus
 from src.application.use_cases.update_user_profile import UpdateUserProfile
+from src.application.use_cases.update_user_settings import UpdateUserSettings
 from src.config import Settings
 from src.domain.repositories.judgment_repository import JudgmentRepository
 from src.domain.repositories.output_repository import OutputRepository
@@ -47,6 +50,9 @@ class Container(BaseModel):
     judgment_repository: JudgmentRepository
     get_user_profile: GetUserProfile
     update_user_profile: UpdateUserProfile
+    get_user_settings: GetUserSettings
+    update_user_settings: UpdateUserSettings
+    delete_account: DeleteAccount
     create_session: CreateSession
     update_session_status: UpdateSessionStatus
     submit_output: SubmitOutput
@@ -63,6 +69,9 @@ def build_container(settings: Settings) -> Container:
     judgment_repository: JudgmentRepository = PgJudgmentRepository(database=database)
     get_user_profile = GetUserProfile()
     update_user_profile = UpdateUserProfile(user_repository=user_repository)
+    get_user_settings = GetUserSettings(user_repository=user_repository)
+    update_user_settings = UpdateUserSettings(user_repository=user_repository)
+    delete_account = DeleteAccount(user_repository=user_repository)
     create_session = CreateSession(session_repository=session_repository)
     update_session_status = UpdateSessionStatus(session_repository=session_repository)
     submit_output = SubmitOutput(
@@ -84,6 +93,9 @@ def build_container(settings: Settings) -> Container:
         judgment_repository=judgment_repository,
         get_user_profile=get_user_profile,
         update_user_profile=update_user_profile,
+        get_user_settings=get_user_settings,
+        update_user_settings=update_user_settings,
+        delete_account=delete_account,
         create_session=create_session,
         update_session_status=update_session_status,
         submit_output=submit_output,
