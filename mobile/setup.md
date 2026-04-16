@@ -68,7 +68,6 @@ task install
 更新した場合は `app.json.example` に反映される。手元の `app.json` にも
 手動で差分を取り込むことを忘れないこと。
 
-
 ## 2. backendのセットアップ
 
 全てのコマンドはbackendディレクトリで実行
@@ -88,8 +87,6 @@ task install
 ```bash
 cp .env.example .env
 ```
-
-
 
 ## 3. dockerの起動
 
