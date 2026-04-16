@@ -11,6 +11,11 @@ tasks:
     cmds:
       - npm start
 
+  start:dev:
+    desc: Expo development build 用の Metro を起動する
+    cmds:
+      - npx expo start --dev-client
+
   ios:
     desc: iOS シミュレータで起動する
     cmds:
