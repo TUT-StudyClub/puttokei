@@ -3,7 +3,7 @@
 要件書 3.2.6 のうち、
 - `GET/PATCH /api/v1/users/me/profile`: プロフィール取得・更新
 - `GET/PATCH /api/v1/users/me/settings`: タイマー / 通知設定の取得・更新
-- `DELETE /api/v1/users/me`: アカウント削除（FK ondelete=CASCADE で関連レコードも削除される）
+- `DELETE /api/v1/users/me`: アカウントの論理削除（`deleted_at` をセット、30 日後バッチで物理削除）
 を提供する。Firebase Auth 上のアカウント削除はクライアント側 (signOut) の責務。
 """
 
@@ -119,10 +119,13 @@ async def delete_my_account(
     request: Request,
     current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> Response:
-    """認証ユーザー本人のアカウントを削除する。
+    """認証ユーザー本人のアカウントを論理削除する。
 
-    関連する user_settings / sessions / outputs / judgments は FK CASCADE により
-    DB 側で連鎖削除される。Firebase Auth 上のアカウント本体は対象外。
+    `users.deleted_at` をセットして FCM トークンをクリアする。関連する
+    user_settings / sessions / outputs / judgments は保持され、30 日後のバッチ
+    ジョブ（Issue #61）で物理削除される時点で FK ondelete=CASCADE により連鎖
+    削除される。Firebase Auth 上のアカウント本体は対象外で、mobile 側で signOut
+    させる。
     """
     container = get_presentation_container(request)
     await container.delete_account.execute(current_user)

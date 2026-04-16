@@ -13,6 +13,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from src.domain.entities.user import User
 from src.domain.entities.user_settings import UserSettings
+from src.domain.repositories.user_repository import UserAlreadyExistsError
 from src.domain.services.auth_verifier import (
     AuthVerifier,
     InvalidTokenError,
@@ -58,7 +59,18 @@ async def get_current_user(
     existing = await container.user_repository.find_by_firebase_uid(verified["uid"])
     if existing is not None:
         return existing
-    return await _auto_create_user(container, verified)
+    try:
+        return await _auto_create_user(container, verified)
+    except UserAlreadyExistsError as exc:
+        # 論理削除済みユーザが同じ firebase_uid で再アクセスしてきたケース。
+        # 30 日後バッチで物理削除されるまではアカウントの再利用を拒否する。
+        raise ProblemDetailsError(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            problem_type="authentication_required",
+            title="Authentication Required",
+            detail="このアカウントは削除されています。",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
 
 
 async def _auto_create_user(container: PresentationContainer, verified: VerifiedToken) -> User:
