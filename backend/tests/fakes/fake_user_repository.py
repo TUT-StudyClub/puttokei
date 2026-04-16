@@ -4,7 +4,10 @@ from uuid import UUID
 
 from src.domain.entities.user import User
 from src.domain.entities.user_settings import UserSettings
-from src.domain.repositories.user_repository import UserRepository
+from src.domain.repositories.user_repository import (
+    UserAlreadyExistsError,
+    UserRepository,
+)
 
 
 class FakeUserRepository(UserRepository):
@@ -17,9 +20,14 @@ class FakeUserRepository(UserRepository):
         self.settings: dict[UUID, UserSettings] = {}
 
     async def find_by_firebase_uid(self, firebase_uid: str) -> User | None:
-        return self.users.get(firebase_uid)
+        user = self.users.get(firebase_uid)
+        if user is None or user.deleted_at is not None:
+            return None
+        return user
 
     async def add(self, user: User, settings: UserSettings) -> None:
+        if user.firebase_uid in self.users:
+            raise UserAlreadyExistsError(f"firebase_uid={user.firebase_uid} already exists")
         self.users[user.firebase_uid] = user
         self.settings[settings.user_id] = settings
 

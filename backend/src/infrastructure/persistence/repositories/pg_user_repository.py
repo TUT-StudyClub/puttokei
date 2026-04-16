@@ -7,10 +7,14 @@ AsyncSession を外部から渡して扱う。現実装では 1 リクエスト 
 from uuid import UUID
 
 from sqlalchemy import delete, select
+from sqlalchemy.exc import IntegrityError
 
 from src.domain.entities.user import User
 from src.domain.entities.user_settings import UserSettings
-from src.domain.repositories.user_repository import UserRepository
+from src.domain.repositories.user_repository import (
+    UserAlreadyExistsError,
+    UserRepository,
+)
 from src.domain.value_objects.age_group import AgeGroup
 from src.domain.value_objects.auth_provider import AuthProvider
 from src.infrastructure.persistence.database import Database
@@ -26,7 +30,10 @@ class PgUserRepository(UserRepository):
 
     async def find_by_firebase_uid(self, firebase_uid: str) -> User | None:
         async with self._database.session() as session:
-            stmt = select(UserModel).where(UserModel.firebase_uid == firebase_uid)
+            stmt = select(UserModel).where(
+                UserModel.firebase_uid == firebase_uid,
+                UserModel.deleted_at.is_(None),
+            )
             result = await session.execute(stmt)
             row = result.scalar_one_or_none()
             return _to_user(row) if row is not None else None
@@ -61,7 +68,15 @@ class PgUserRepository(UserRepository):
                     updated_at=settings.updated_at,
                 )
             )
-            await session.commit()
+            try:
+                await session.commit()
+            except IntegrityError as exc:
+                # firebase_uid UNIQUE 制約違反（論理削除済み行との衝突を含む）を
+                # domain 例外に変換して middleware 側で 401 化できるようにする。
+                await session.rollback()
+                raise UserAlreadyExistsError(
+                    f"firebase_uid={user.firebase_uid} already exists"
+                ) from exc
 
     async def update(self, user: User) -> None:
         age_group = user.age_group
