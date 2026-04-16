@@ -127,6 +127,10 @@ class ApiClient {
     });
   }
 
+  async delete<T>(path: string): Promise<ApiResponse<T>> {
+    return this.request<T>(path, { method: 'DELETE' });
+  }
+
   private async request<T>(path: string, init: RequestInit): Promise<ApiResponse<T>> {
     const response = await this.fetchWithAuth(path, init);
     const data = await parseResponseBody<T | ProblemDetails>(response);

@@ -4,7 +4,9 @@ AsyncSession を外部から渡して扱う。現実装では 1 リクエスト 
 `Database.session()` で取り出したものを呼び出し側で commit / rollback する。
 """
 
-from sqlalchemy import select
+from uuid import UUID
+
+from sqlalchemy import delete, select
 
 from src.domain.entities.user import User
 from src.domain.entities.user_settings import UserSettings
@@ -76,6 +78,31 @@ class PgUserRepository(UserRepository):
             model.deleted_at = user.deleted_at
             await session.commit()
 
+    async def find_settings_by_user_id(self, user_id: UUID) -> UserSettings | None:
+        async with self._database.session() as session:
+            stmt = select(UserSettingsModel).where(UserSettingsModel.user_id == user_id)
+            result = await session.execute(stmt)
+            row = result.scalar_one_or_none()
+            return _to_settings(row) if row is not None else None
+
+    async def update_settings(self, settings: UserSettings) -> None:
+        async with self._database.session() as session:
+            stmt = select(UserSettingsModel).where(UserSettingsModel.user_id == settings.user_id)
+            result = await session.execute(stmt)
+            model = result.scalar_one()
+            model.input_minutes = settings.input_minutes
+            model.output_minutes = settings.output_minutes
+            model.break_minutes = settings.break_minutes
+            model.notification_enabled = settings.notification_enabled
+            model.updated_at = settings.updated_at
+            await session.commit()
+
+    async def delete_by_id(self, user_id: UUID) -> None:
+        async with self._database.session() as session:
+            stmt = delete(UserModel).where(UserModel.id == user_id)
+            await session.execute(stmt)
+            await session.commit()
+
 
 def _to_user(model: UserModel) -> User:
     """ORM モデル → domain.User の変換。"""
@@ -90,4 +117,18 @@ def _to_user(model: UserModel) -> User:
         created_at=model.created_at,
         updated_at=model.updated_at,
         deleted_at=model.deleted_at,
+    )
+
+
+def _to_settings(model: UserSettingsModel) -> UserSettings:
+    """ORM モデル → domain.UserSettings の変換。"""
+    return UserSettings(
+        id=model.id,
+        user_id=model.user_id,
+        input_minutes=model.input_minutes,
+        output_minutes=model.output_minutes,
+        break_minutes=model.break_minutes,
+        notification_enabled=model.notification_enabled,
+        created_at=model.created_at,
+        updated_at=model.updated_at,
     )
