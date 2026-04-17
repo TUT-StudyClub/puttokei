@@ -1,41 +1,59 @@
 # 動作確認するまでのセットアップ
 
-## 0. app.json を作成する
+## 0. 環境のインストール
 
-`mobile/app.json` は個人ごとの API ベース URL を入れるため `.gitignore` 対象になっている。
+ルートディレクトリで実行
+
+```bash
+task install
+```
+
+## 1. mobile側のセットアップ
+
+コマンドはmobileディレクトリで実行
+
+### 1-1. app.json を作成する
+
+`mobile/app.json` は `apiBaseUrl` や `bundleIdentifier`など個人ごとに異なる値を含むため `.gitignore` 対象になっている。
 初回 clone 時はテンプレートからコピーして作る。
 
-```
-cd /Users/yuhei/Desktop/Develop/hourglass/mobile
+```bash
 cp app.json.example app.json
 ```
 
-`extra.apiBaseUrl` を自分の動作環境に合わせて書き換える。
+### 1-2. apiBaseUrlの編集
 
-- iOS Simulator: `http://localhost:8080/api/v1` のままで OK
-- Android Emulator: `http://10.0.2.2:8080/api/v1`
-- 実機: Mac の LAN IP。`ipconfig getifaddr en0` で取得した値を使い、backend は
-  `--host 0.0.0.0 --port 8080` で起動する
+`ipconfig getifaddr en0` でアドレスを取得
 
-共有設定（`bundleIdentifier` / `plugins` / `experiments` など）を誰かが
-更新した場合は `app.json.example` に反映される。手元の `app.json` にも
-手動で差分を取り込むことを忘れないこと。
+app.jsonの中の`extra.apiBaseUrl` を書き換え
 
-## 1. ios ディレクトリを作成する
+変更前
+http://localhost:8080/api/v1
 
-```
-cd /Users/yuhei/Desktop/Develop/hourglass/mobile
+変更後
+http://192.168.40.199:8080/api/v1
+
+**これは接続しているwifiが変わるたびに変わるので注意**
+
+### 1-3. bundleIdentifierの編集
+
+exampleでは`com.hourglass-nomibress.app`となっている
+
+真ん中の`hourglass-nomibress`を自分の名前に変えるのがおすすめ
+
+### 1-4. ios ディレクトリを作成する
+
+```bash
 npx expo prebuild -p ios       # ios/ ディレクトリ生成
-open ios/Hourglass.xcworkspace  # Xcode で開く
 ```
 
-`prebuild` 後は `ios/` が生成物として扱われるため、必要に応じて `.gitignore` の対象になっているかを確認する。
+mobile直下にiosディレクトリがあることを確認
 
-## 2. CocoaPods の依存をインストールする
+#### 1-4-a. CocoaPods の依存をインストールする(1-4.の失敗時のみ実行)
 
 `prebuild` の末尾で自動実行されるが、失敗した場合や手動でやり直したい場合は以下を実行する。
 
-```
+```bash
 cd ios
 pod install
 cd ..
@@ -44,42 +62,163 @@ cd ..
 - Apple Silicon (M1/M2/M3) で `pod install` が失敗する場合は `arch -x86_64 pod install` を試す
 - CocoaPods が未インストールなら `brew install cocoapods` で導入する
 
-## 3. 署名設定を行う
+### 注意事項
 
-Xcode で `Hourglass.xcworkspace` を開き、`Signing & Capabilities` から以下を設定する。
+共有設定（`bundleIdentifier` / `plugins` / `experiments` など）を誰かが
+更新した場合は `app.json.example` に反映される。手元の `app.json` にも
+手動で差分を取り込むことを忘れないこと。
 
-- Team: 個人または組織の Apple Developer アカウントを選択
+## 2. backendのセットアップ
+
+全てのコマンドはbackendディレクトリで実行
+
+### 2-1. backend/.envファイルの作成
+
+現状で加える変更はない
+
+```bash
+cp .env.example .env
+```
+
+## 3. dockerの起動
+
+backend のローカル PostgreSQL は Docker Compose で起動する。
+
+コマンド実行前にdocker desktopが起動していることを確認
+
+実行場所は hourglass/backend
+
+```bash
+task db:up
+task db:upgrade
+```
+
+実行後にdocker desktopでコンテナとイメージが作成されたことを確認
+
+コマンドを実行して確認してもいい
+
+```bash
+docker ps
+```
+
+## 4. xcodeでの操作
+
+xcode上で行う操作を写真付きで説明していくため、リモートリポジトリ上で見るかプレビュー表示することを推奨する
+
+### 4-1. xcodeを開く
+
+xcodeを開いた後画像一番下のOpen Existing ....を選択
+
+![ホーム画面](../docs/setupPhoto/001_home.png)
+
+フォルダ選択画面に進むので、下記パスのフォルダを選択し、開く
+
+`/Hourglass/mobile/ios/Hourglass.xcworkspace`
+
+間違っても.xcodeprojを選択しないよう注意
+
+### 4-2. 署名設定
+
+画面左のHourglassフォルダをダブルクリック
+
+![ファイル選択](../docs/setupPhoto/002_fileSelect.png)
+
+画面中央上部にタブが出てくるから、`Signing & Capabilities` を選択
+
+![署名設定](../docs/setupPhoto/003_certificate.png)
+
+以下の項目を設定
+
+- Team: 個人の Apple アカウントを選択
 - Bundle Identifier: `app.json` の `ios.bundleIdentifier` と一致させる
 
-実機で動作確認する場合はデバイスを信頼済みにし、初回起動時に iOS 側で開発元を信頼する。
+### 4-3 繋げる機器の設定
 
-## 4. 開発サーバを起動する
+1. iphoneとmacを有線接続し、このデバイスを信頼するを選択(注：一瞬しか出ないことあるのでその場合は、コードを刺し直して、ボタンを押せるまで粘る)
+2. iphoneで設定 > プライバシーとセキュリティ > デベロッパモードをオンにする
 
-リポジトリのルートから Taskfile 経由で Metro を起動する。
+オンにした後再起動するよう促されるので従う
 
-```
-cd /Users/yuhei/Desktop/Develop/hourglass
-task mobile:start
-```
+3. xcodeの画面中央最上部の機種名をクリックすると、デバイスを選択できる。ここで自分のiphoneを選択
+
+![デバイス選択](../docs/setupPhoto/004_device.png)
+
+## 5. もろもろ起動する
+
+1. postgreSQLをdockerで起動。これは手順2で実行済みなのでスキップ
+
+2. backend側
+
+   実機 iPhone からアクセスできるように、LAN 向けで起動
+
+   backendディレクトリで実行
+
+   ```bash
+   task dev:device
+   ```
+
+3. mobile側
+
+   Metro を development build 向けに起動
+
+   mobileディレクトリで実行
+
+   ```bash
+   task start:dev
+   ```
 
 初回やキャッシュ起因の不具合が出た場合はキャッシュをクリアして起動する。
 
-```
+```bash
 cd mobile
 npx expo start -c
 ```
 
-## 5. iOS シミュレータで起動する
+## 6. build
 
-Metro 起動中のターミナルで `i` を押すか、別ターミナルから次を実行する。
+iphoneとmacを有線接続して、同じwifiに接続
 
+xcode上で右向きの三角ボタンを押すとbuildが始まる
+
+初回ビルドは結構時間がかかるため、待機
+
+### 6-2
+
+buildが終わって、iphone上にアプリがあるのを確認
+
+一番最初は信頼できないとかで開けないので設定を変える
+
+設定 > 一般 > vpnとデバイス管理
+
+アプリを選択して信頼するを選択
+
+以上でセットアップは終了
+
+## 7. 2回目以降の起動方法
+
+### backend側
+
+backendディレクトリで実行
+
+```bash
+task db:up          #dockerを落とした時のみ実行
+task db:upgrade     #変更があった時のみ実行
+task dev:device
 ```
-task mobile:ios
+
+### mobile側
+
+mobileディレクトリで実行
+
+```bash
+task start:dev
 ```
 
-Android エミュレータで動作確認する場合は `task mobile:android` を使う。
+### xcode側
 
-## 6. 動作確認チェックリスト
+三角ボタン押すだけ
+
+## 8. 動作確認チェックリスト
 
 - ルート (`/`) のタブが表示されるか
 - サインイン画面 (`/(auth)/sign-in`) に遷移できるか
@@ -92,7 +231,7 @@ Android エミュレータで動作確認する場合は `task mobile:android` �
 
 `metro.config.js` で `resolver.unstable_enablePackageExports = true` を設定していると、Tamagui などが Web 向けエントリに解決され、React Native 実行時に `document` 参照で落ちる。設定を外し、キャッシュをクリアして再起動する。
 
-```
+```bash
 npx expo start -c
 ```
 
@@ -104,7 +243,7 @@ npx expo start -c
 
 以下の順に試す。
 
-```
+```bash
 cd ios
 rm -rf Pods Podfile.lock
 pod repo update

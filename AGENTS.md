@@ -4,4 +4,6 @@
 
 `backend/` `mobile/` `infra/` を触る場合や、ディレクトリ構成・土台実装を新しく作る場合は `.codex/skills/hourglass-project` の前提に従ってください。
 
+ローカル開発用の PostgreSQL は `backend/compose.yml` の Docker Compose で起動し、リポジトリルートでは `task backend:db:up`、`backend/` 配下では `task db:up` を使ってください。
+
 コミットを作成する場合は `.codex/rules/commit-message-rule.md` の規則に従ってください。
