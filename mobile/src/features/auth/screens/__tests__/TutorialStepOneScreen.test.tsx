@@ -8,6 +8,7 @@ import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../../tamagui.config';
 import {
+  TUTORIAL_STEP_ONE_PHASES,
   TUTORIAL_STEP_ONE_PHASE_DISSOLVE_MS,
   TUTORIAL_STEP_ONE_PHASE_DURATION_MS,
   TUTORIAL_STEP_ONE_PHASE_VISIBLE_MS,
@@ -46,6 +47,36 @@ function getPhaseOpacity(screen: ReturnType<typeof renderWithProviders>, slotInd
     : flattenedStyle.opacity.__getValue();
 }
 
+function getProgressBackgroundColor(screen: ReturnType<typeof renderWithProviders>, stepNumber: 1 | 2 | 3) {
+  const flattenedStyle = StyleSheet.flatten(
+    screen.getByTestId(`tutorial-step-one-progress-${stepNumber}`).props.style,
+  ) as {
+    backgroundColor?: string;
+  };
+
+  return flattenedStyle.backgroundColor;
+}
+
+function getProgressFillScale(screen: ReturnType<typeof renderWithProviders>) {
+  const flattenedStyle = StyleSheet.flatten(
+    screen.getByTestId('tutorial-step-one-progress-1-fill').props.style,
+  ) as {
+    transform?: Array<{
+      scaleX?: number | { __getValue: () => number };
+    }>;
+  };
+
+  const scaleX = flattenedStyle.transform?.find(
+    (transform) => transform.scaleX !== undefined,
+  )?.scaleX;
+
+  if (scaleX === undefined) {
+    throw new Error('progress fill scale style is missing');
+  }
+
+  return typeof scaleX === 'number' ? scaleX : scaleX.__getValue();
+}
+
 describe('TutorialStepOneScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -73,6 +104,48 @@ describe('TutorialStepOneScreen', () => {
     expect(screen.getAllByTestId('tutorial-step-one-preview-input').length).toBeGreaterThan(0);
     expect(screen.getByTestId('tutorial-step-one-next')).toBeTruthy();
     expect(screen.getByTestId('tutorial-step-one-skip')).toBeTruthy();
+  });
+
+  it('フェーズの切り替えに合わせて上部バーも進む', () => {
+    const screen = renderWithProviders(<TutorialStepOneScreen />);
+    const getExpectedScale = (phaseIndex: number) =>
+      (phaseIndex + 1) / TUTORIAL_STEP_ONE_PHASES.length;
+
+    expect(getProgressBackgroundColor(screen, 1)).toBe('#D9D9D9');
+    expect(getProgressBackgroundColor(screen, 2)).toBe('#D9D9D9');
+    expect(getProgressBackgroundColor(screen, 3)).toBe('#D9D9D9');
+    expect(getProgressFillScale(screen)).toBeCloseTo(getExpectedScale(0), 3);
+
+    act(() => {
+      jest.advanceTimersByTime(
+        TUTORIAL_STEP_ONE_PHASE_VISIBLE_MS + TUTORIAL_STEP_ONE_PHASE_DISSOLVE_MS / 2,
+      );
+    });
+
+    expect(getProgressFillScale(screen)).toBeGreaterThan(getExpectedScale(0));
+    expect(getProgressFillScale(screen)).toBeLessThan(getExpectedScale(1));
+
+    act(() => {
+      jest.advanceTimersByTime(
+        TUTORIAL_STEP_ONE_PHASE_DISSOLVE_MS / 2 + PHASE_TRANSITION_SETTLE_BUFFER_MS,
+      );
+    });
+
+    expect(getProgressBackgroundColor(screen, 1)).toBe('#D9D9D9');
+    expect(getProgressBackgroundColor(screen, 2)).toBe('#D9D9D9');
+    expect(getProgressBackgroundColor(screen, 3)).toBe('#D9D9D9');
+    expect(getProgressFillScale(screen)).toBeCloseTo(getExpectedScale(1), 3);
+
+    act(() => {
+      jest.advanceTimersByTime(
+        TUTORIAL_STEP_ONE_PHASE_DURATION_MS + PHASE_TRANSITION_SETTLE_BUFFER_MS,
+      );
+    });
+
+    expect(getProgressBackgroundColor(screen, 1)).toBe('#D9D9D9');
+    expect(getProgressBackgroundColor(screen, 2)).toBe('#D9D9D9');
+    expect(getProgressBackgroundColor(screen, 3)).toBe('#D9D9D9');
+    expect(getProgressFillScale(screen)).toBeCloseTo(getExpectedScale(2), 3);
   });
 
   it('インプットからアウトプット、休憩へ自動で切り替わる', () => {

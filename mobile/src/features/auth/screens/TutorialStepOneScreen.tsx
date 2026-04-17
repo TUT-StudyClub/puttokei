@@ -6,7 +6,7 @@
  */
 import { useRouter, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
 import { SizableText } from 'tamagui';
 
@@ -52,7 +52,13 @@ export const TUTORIAL_STEP_ONE_PHASES: readonly TutorialPhase[] = [
   },
 ] as const;
 
-function TutorialPhasePane({ phase, testID }: { phase: TutorialPhase; testID: string }) {
+const TutorialPhasePane = memo(function TutorialPhasePane({
+  phase,
+  testID,
+}: {
+  phase: TutorialPhase;
+  testID: string;
+}) {
   return (
     <View style={styles.phasePane} testID={testID}>
       <SizableText size="$5" style={styles.subtitle} testID="tutorial-step-one-subtitle">
@@ -79,13 +85,16 @@ function TutorialPhasePane({ phase, testID }: { phase: TutorialPhase; testID: st
       </View>
     </View>
   );
-}
+});
 
 export function TutorialStepOneScreen() {
   const router = useRouter();
   const [phaseSlotIndexes, setPhaseSlotIndexes] = useState<[number, number]>([0, 0]);
   const [isNavigating, setIsNavigating] = useState(false);
   const phaseOpacities = useRef([new Animated.Value(1), new Animated.Value(0)] as const).current;
+  const progressFillRatio = useRef(
+    new Animated.Value(1 / TUTORIAL_STEP_ONE_PHASES.length),
+  ).current;
   const phaseIndexRef = useRef(0);
   const visibleSlotRef = useRef(0);
   const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -114,6 +123,8 @@ export function TutorialStepOneScreen() {
         const currentSlot = visibleSlotRef.current;
         const nextSlot = currentSlot === 0 ? 1 : 0;
         const nextPhaseIndex = (phaseIndexRef.current + 1) % TUTORIAL_STEP_ONE_PHASES.length;
+        const transitionEasing = Easing.inOut(Easing.ease);
+        const nextProgressFillRatio = (nextPhaseIndex + 1) / TUTORIAL_STEP_ONE_PHASES.length;
 
         setPhaseSlotIndexes((currentIndexes) => {
           const nextIndexes: [number, number] = [...currentIndexes] as [number, number];
@@ -132,13 +143,19 @@ export function TutorialStepOneScreen() {
             Animated.timing(currentOpacity, {
               toValue: 0,
               duration: TUTORIAL_STEP_ONE_PHASE_DISSOLVE_MS,
-              easing: Easing.inOut(Easing.ease),
+              easing: transitionEasing,
               useNativeDriver: true,
             }),
             Animated.timing(nextOpacity, {
               toValue: 1,
               duration: TUTORIAL_STEP_ONE_PHASE_DISSOLVE_MS,
-              easing: Easing.inOut(Easing.ease),
+              easing: transitionEasing,
+              useNativeDriver: true,
+            }),
+            Animated.timing(progressFillRatio, {
+              toValue: nextProgressFillRatio,
+              duration: TUTORIAL_STEP_ONE_PHASE_DISSOLVE_MS,
+              easing: transitionEasing,
               useNativeDriver: true,
             }),
           ],
@@ -164,7 +181,7 @@ export function TutorialStepOneScreen() {
       }
       activeAnimation?.stop();
     };
-  }, [phaseOpacities]);
+  }, [phaseOpacities, progressFillRatio]);
 
   useEffect(() => {
     return () => {
@@ -179,16 +196,28 @@ export function TutorialStepOneScreen() {
       <StatusBar style="dark" />
       <View style={styles.container} testID="tutorial-step-one-root">
         <View style={styles.progressRow} testID="tutorial-step-one-progress">
-          {[0, 1, 2].map((stepIndex) => (
-            <View
-              key={stepIndex}
+          <View
+            style={[styles.progressSegment, styles.progressSegmentCurrent]}
+            testID="tutorial-step-one-progress-1"
+          >
+            <Animated.View
               style={[
-                styles.progressSegment,
-                stepIndex === 0 ? styles.progressSegmentActive : styles.progressSegmentInactive,
+                styles.progressSegmentCurrentFill,
+                {
+                  transform: [{ scaleX: progressFillRatio }],
+                },
               ]}
-              testID={`tutorial-step-one-progress-${stepIndex + 1}`}
+              testID="tutorial-step-one-progress-1-fill"
             />
-          ))}
+          </View>
+          <View
+            style={[styles.progressSegment, styles.progressSegmentInactive]}
+            testID="tutorial-step-one-progress-2"
+          />
+          <View
+            style={[styles.progressSegment, styles.progressSegmentInactive]}
+            testID="tutorial-step-one-progress-3"
+          />
         </View>
 
         <View style={styles.hero}>
@@ -278,9 +307,17 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 4,
     borderRadius: 999,
+    overflow: 'hidden',
   },
-  progressSegmentActive: {
+  progressSegmentCurrent: {
+    backgroundColor: '#D9D9D9',
+  },
+  progressSegmentCurrentFill: {
+    ...StyleSheet.absoluteFillObject,
+    height: '100%',
+    borderRadius: 999,
     backgroundColor: '#777777',
+    transformOrigin: 'left center',
   },
   progressSegmentInactive: {
     backgroundColor: '#D9D9D9',
