@@ -11,10 +11,7 @@ import auth from '@react-native-firebase/auth';
 
 export async function signInWithApple(): Promise<void> {
   const rawNonce = generateNonce();
-  const hashedNonce = await Crypto.digestStringAsync(
-    Crypto.CryptoDigestAlgorithm.SHA256,
-    rawNonce,
-  );
+  const hashedNonce = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, rawNonce);
 
   const appleCredential = await AppleAuthentication.signInAsync({
     requestedScopes: [
@@ -28,10 +25,7 @@ export async function signInWithApple(): Promise<void> {
     throw new Error('Apple Sign In: identityToken が取得できませんでした');
   }
 
-  const credential = auth.AppleAuthProvider.credential(
-    appleCredential.identityToken,
-    rawNonce,
-  );
+  const credential = auth.AppleAuthProvider.credential(appleCredential.identityToken, rawNonce);
 
   await auth().signInWithCredential(credential);
 }

@@ -5,28 +5,27 @@
  * Firebase の GoogleAuthProvider.credential に変換してサインインする。
  * webClientId は app.json の extra.googleWebClientId から読み込む。
  */
+import { Platform } from 'react-native';
 import auth from '@react-native-firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import Constants from 'expo-constants';
 
-let configured = false;
-
-function ensureConfigured(): void {
-  if (configured) return;
-
+function configure(): void {
   const webClientId = Constants.expoConfig?.extra?.googleWebClientId as string | undefined;
   if (!webClientId) {
     throw new Error('app.json の extra.googleWebClientId が未設定です');
   }
 
   GoogleSignin.configure({ webClientId });
-  configured = true;
 }
 
 export async function signInWithGoogle(): Promise<void> {
-  ensureConfigured();
+  configure();
 
-  await GoogleSignin.hasPlayServices();
+  if (Platform.OS !== 'ios') {
+    await GoogleSignin.hasPlayServices();
+  }
+
   const result = await GoogleSignin.signIn();
 
   if (result.type !== 'success' || !result.data.idToken) {

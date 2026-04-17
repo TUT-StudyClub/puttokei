@@ -41,12 +41,7 @@ export function SignInScreen() {
             </Button>
           ) : null}
 
-          <Button
-            onPress={signInWithGoogle}
-            disabled={loading}
-            size="$5"
-            testID="sign-in-google"
-          >
+          <Button onPress={signInWithGoogle} disabled={loading} size="$5" testID="sign-in-google">
             Google でサインイン
           </Button>
 
