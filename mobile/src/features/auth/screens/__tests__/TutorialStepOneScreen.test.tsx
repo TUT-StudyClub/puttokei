@@ -133,7 +133,7 @@ describe('TutorialStepOneScreen', () => {
     fireEvent.press(screen.getByTestId('tutorial-step-one-next'));
     fireEvent.press(screen.getByTestId('tutorial-step-one-skip'));
 
-    expect(mockReplace).toHaveBeenNthCalledWith(1, '/(auth)/sign-in');
+    expect(mockReplace).toHaveBeenNthCalledWith(1, '/(auth)/tutorial-step-two');
     expect(mockReplace).toHaveBeenNthCalledWith(2, '/(auth)/sign-in');
   });
 });

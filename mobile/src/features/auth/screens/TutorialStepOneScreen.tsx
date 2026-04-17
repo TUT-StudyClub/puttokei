@@ -25,7 +25,7 @@ type TutorialPhase = {
   rows: number[];
 };
 
-const NEXT_ROUTE = '/(auth)/sign-in' as unknown as Href;
+const NEXT_ROUTE = '/(auth)/tutorial-step-two' as unknown as Href;
 const SKIP_ROUTE = '/(auth)/sign-in' as unknown as Href;
 
 export const TUTORIAL_STEP_ONE_PHASE_DURATION_MS = 3200;
