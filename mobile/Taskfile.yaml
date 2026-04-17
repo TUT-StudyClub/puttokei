@@ -14,7 +14,7 @@ tasks:
   start:dev:
     desc: Expo development build 用の Metro を起動する
     cmds:
-      - npx expo start --dev-client
+      - npx expo start --dev-client -c
 
   ios:
     desc: iOS シミュレータで起動する
