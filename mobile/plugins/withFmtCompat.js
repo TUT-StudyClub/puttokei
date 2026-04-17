@@ -26,10 +26,7 @@ const withFmtCompat = (config) => {
   return withDangerousMod(config, [
     'ios',
     async (modConfig) => {
-      const podfilePath = path.join(
-        modConfig.modRequest.platformProjectRoot,
-        'Podfile',
-      );
+      const podfilePath = path.join(modConfig.modRequest.platformProjectRoot, 'Podfile');
       const original = fs.readFileSync(podfilePath, 'utf8');
 
       if (original.includes(MARKER)) {
