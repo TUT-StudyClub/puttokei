@@ -28,11 +28,6 @@ http://192.168.40.199:8080/api/v1
 **これは接続しているwifiが変わるたびに変わるので注意**
 
 ### 1-3. bundleIdentifierの編集
-
-これはユニークな値である必要がある。
-
-通常のアドレスとは構造が逆になっているのが特徴
-
 exampleでは`com.hourglass-nomibress.app`となっている
 
 真ん中の`hourglass-nomibress`を自分の名前に変えるのがおすすめ
