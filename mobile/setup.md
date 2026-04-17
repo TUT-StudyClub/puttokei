@@ -17,7 +17,13 @@ cp app.json.example app.json
 
 `ipconfig getifaddr en0` でアドレスを取得
 
-app.jsonの中の`extra.apiBaseUrl` を書き換え(localhostの文字を消して取得したやつをそこにコピペ)
+app.jsonの中の`extra.apiBaseUrl` を書き換え
+
+変更前
+http://localhost:8080/api/v1
+
+変更後
+http://192.168.40.199:8080/api/v1
 
 これは接続しているwifiが変わるたびに変わるので注意
 
