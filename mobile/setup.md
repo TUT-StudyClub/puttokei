@@ -166,7 +166,7 @@ xcodeを開いた後画像一番下のOpen Existing ....を選択
    backendディレクトリで実行
 
    ```bash
-   task dev:lan
+   task dev:device
    ```
 
 3. mobile側
@@ -215,7 +215,7 @@ backendディレクトリで実行
 ```bash
 task db:up          #dockerを落とした時のみ実行
 task db:upgrade     #変更があった時のみ実行
-task dev:lan
+task dev:device
 ```
 
 ### mobile側
