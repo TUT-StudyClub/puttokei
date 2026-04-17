@@ -25,7 +25,7 @@ http://localhost:8080/api/v1
 変更後
 http://192.168.40.199:8080/api/v1
 
-これは接続しているwifiが変わるたびに変わるので注意
+**これは接続しているwifiが変わるたびに変わるので注意**
 
 ### 1-3. bundleIdentifierの編集
 
@@ -168,7 +168,7 @@ xcodeを開いた後画像一番下のOpen Existing ....を選択
    backendディレクトリで実行
 
    ```bash
-   task dev:device
+   task dev:lan
    ```
 
 3. mobile側
@@ -217,7 +217,7 @@ backendディレクトリで実行
 ```bash
 task db:up          #dockerを落とした時のみ実行
 task db:upgrade     #変更があった時のみ実行
-task dev:device
+task dev:lan
 ```
 
 ### mobile側
