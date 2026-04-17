@@ -1,6 +1,9 @@
 services:
   db:
-    image: postgres:15
+    build:
+      context: .
+      dockerfile_inline: "FROM postgres:15"
+    image: hourglass-local-db:latest
     container_name: hourglass-postgres
     environment:
       POSTGRES_USER: hourglass
