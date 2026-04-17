@@ -1,7 +1,7 @@
 /**
  * OverviewScreen の初期表示と自動遷移を検証する。
  */
-import { act, render } from '@testing-library/react-native';
+import { act, cleanup, render } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { TamaguiProvider } from 'tamagui';
 
@@ -32,6 +32,7 @@ describe('OverviewScreen', () => {
   });
 
   afterEach(() => {
+    cleanup();
     act(() => {
       jest.runOnlyPendingTimers();
     });
