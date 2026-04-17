@@ -13,6 +13,7 @@ import {
   TUTORIAL_STEP_ONE_PHASE_VISIBLE_MS,
   TutorialStepOneScreen,
 } from '@/features/auth/screens/TutorialStepOneScreen';
+import { TUTORIAL_ROUTE_TRANSITION_DELAY_MS } from '@/features/auth/screens/tutorialConfig';
 
 const mockReplace = jest.fn();
 const PHASE_TRANSITION_SETTLE_BUFFER_MS = 500;
@@ -127,13 +128,35 @@ describe('TutorialStepOneScreen', () => {
     expect(Math.max(getPhaseOpacity(screen, 0), getPhaseOpacity(screen, 1))).toBe(1);
   });
 
-  it('次へとスキップするの両方でサインイン画面へ進める', () => {
+  it('次へは少し待ってから Step2 へ進む', () => {
     const screen = renderWithProviders(<TutorialStepOneScreen />);
 
     fireEvent.press(screen.getByTestId('tutorial-step-one-next'));
+
+    expect(mockReplace).not.toHaveBeenCalled();
+    act(() => {
+      jest.advanceTimersByTime(TUTORIAL_ROUTE_TRANSITION_DELAY_MS - 1);
+    });
+    expect(mockReplace).not.toHaveBeenCalled();
+    act(() => {
+      jest.advanceTimersByTime(1);
+    });
+    expect(mockReplace).toHaveBeenNthCalledWith(1, '/(auth)/tutorial-step-two');
+  });
+
+  it('スキップするは少し待ってからサインイン画面へ進む', () => {
+    const screen = renderWithProviders(<TutorialStepOneScreen />);
+
     fireEvent.press(screen.getByTestId('tutorial-step-one-skip'));
 
-    expect(mockReplace).toHaveBeenNthCalledWith(1, '/(auth)/tutorial-step-two');
-    expect(mockReplace).toHaveBeenNthCalledWith(2, '/(auth)/sign-in');
+    expect(mockReplace).not.toHaveBeenCalled();
+    act(() => {
+      jest.advanceTimersByTime(TUTORIAL_ROUTE_TRANSITION_DELAY_MS - 1);
+    });
+    expect(mockReplace).not.toHaveBeenCalled();
+    act(() => {
+      jest.advanceTimersByTime(1);
+    });
+    expect(mockReplace).toHaveBeenNthCalledWith(1, '/(auth)/sign-in');
   });
 });

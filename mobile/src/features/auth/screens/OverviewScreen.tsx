@@ -12,7 +12,7 @@ import { SizableText } from 'tamagui';
 const OVERVIEW_BACKGROUND = require('../../../../assets/images/overview-screen-background.png');
 const TYPOGRAPHY_WHITE = require('../../../../assets/images/typography_white.png');
 
-export const OVERVIEW_SCREEN_DURATION_MS = 2500;
+export const OVERVIEW_SCREEN_DURATION_MS = 3200;
 const TUTORIAL_STEP_ONE_ROUTE = '/(auth)/tutorial-step-one' as unknown as Href;
 
 const DESCRIPTION =

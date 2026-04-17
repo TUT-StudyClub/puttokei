@@ -1,12 +1,13 @@
 /**
  * TutorialStepTwoScreen の表示と遷移を検証する。
  */
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, cleanup, fireEvent, render } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../../tamagui.config';
 import { TutorialStepTwoScreen } from '@/features/auth/screens/TutorialStepTwoScreen';
+import { TUTORIAL_ROUTE_TRANSITION_DELAY_MS } from '@/features/auth/screens/tutorialConfig';
 
 const mockReplace = jest.fn();
 
@@ -25,6 +26,15 @@ function renderWithProviders(ui: ReactNode) {
 describe('TutorialStepTwoScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    cleanup();
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    jest.useRealTimers();
   });
 
   it('Step2 の UI を表示する', () => {
@@ -40,13 +50,35 @@ describe('TutorialStepTwoScreen', () => {
     expect(screen.getByTestId('tutorial-step-two-skip')).toBeTruthy();
   });
 
-  it('次へとスキップするの両方でサインイン画面へ進める', () => {
+  it('次へは少し待ってからサインイン画面へ進む', () => {
     const screen = renderWithProviders(<TutorialStepTwoScreen />);
 
     fireEvent.press(screen.getByTestId('tutorial-step-two-next'));
+
+    expect(mockReplace).not.toHaveBeenCalled();
+    act(() => {
+      jest.advanceTimersByTime(TUTORIAL_ROUTE_TRANSITION_DELAY_MS - 1);
+    });
+    expect(mockReplace).not.toHaveBeenCalled();
+    act(() => {
+      jest.advanceTimersByTime(1);
+    });
+    expect(mockReplace).toHaveBeenNthCalledWith(1, '/(auth)/sign-in');
+  });
+
+  it('スキップするは少し待ってからサインイン画面へ進む', () => {
+    const screen = renderWithProviders(<TutorialStepTwoScreen />);
+
     fireEvent.press(screen.getByTestId('tutorial-step-two-skip'));
 
+    expect(mockReplace).not.toHaveBeenCalled();
+    act(() => {
+      jest.advanceTimersByTime(TUTORIAL_ROUTE_TRANSITION_DELAY_MS - 1);
+    });
+    expect(mockReplace).not.toHaveBeenCalled();
+    act(() => {
+      jest.advanceTimersByTime(1);
+    });
     expect(mockReplace).toHaveBeenNthCalledWith(1, '/(auth)/sign-in');
-    expect(mockReplace).toHaveBeenNthCalledWith(2, '/(auth)/sign-in');
   });
 });

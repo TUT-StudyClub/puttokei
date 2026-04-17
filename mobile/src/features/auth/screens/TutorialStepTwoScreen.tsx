@@ -5,13 +5,38 @@
  */
 import { useRouter, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
 import { SizableText } from 'tamagui';
+
+import { TUTORIAL_ROUTE_TRANSITION_DELAY_MS } from '@/features/auth/screens/tutorialConfig';
 
 const NEXT_ROUTE = '/(auth)/sign-in' as unknown as Href;
 
 export function TutorialStepTwoScreen() {
   const router = useRouter();
+  const [isNavigating, setIsNavigating] = useState(false);
+  const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scheduleNavigation = useCallback(
+    (route: Href) => {
+      if (isNavigating) return;
+
+      setIsNavigating(true);
+      navigationTimeoutRef.current = setTimeout(() => {
+        router.replace(route);
+      }, TUTORIAL_ROUTE_TRANSITION_DELAY_MS);
+    },
+    [isNavigating, router],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (navigationTimeoutRef.current !== null) {
+        clearTimeout(navigationTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -59,7 +84,8 @@ export function TutorialStepTwoScreen() {
               styles.primaryButton,
               pressed ? styles.primaryButtonPressed : null,
             ]}
-            onPress={() => router.replace(NEXT_ROUTE)}
+            disabled={isNavigating}
+            onPress={() => scheduleNavigation(NEXT_ROUTE)}
             testID="tutorial-step-two-next"
           >
             <SizableText size="$5" style={styles.primaryButtonText}>
@@ -73,7 +99,8 @@ export function TutorialStepTwoScreen() {
               styles.secondaryButton,
               pressed ? styles.secondaryButtonPressed : null,
             ]}
-            onPress={() => router.replace(NEXT_ROUTE)}
+            disabled={isNavigating}
+            onPress={() => scheduleNavigation(NEXT_ROUTE)}
             testID="tutorial-step-two-skip"
           >
             <SizableText size="$5" style={styles.secondaryButtonText}>
