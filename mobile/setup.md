@@ -1,4 +1,10 @@
 # 動作確認するまでのセットアップ
+## 0. 環境のインストール
+ルートディレクトリで実行
+
+```bash
+task install
+```
 
 ## 1. mobile側のセットアップ
 
@@ -53,13 +59,6 @@ cd ..
 - Apple Silicon (M1/M2/M3) で `pod install` が失敗する場合は `arch -x86_64 pod install` を試す
 - CocoaPods が未インストールなら `brew install cocoapods` で導入する
 
-### 1-5. 環境設定
-
-依存を package-lock.json どおりに取得するコマンド
-
-```bash
-task install
-```
 
 ### 注意事項
 
@@ -71,15 +70,7 @@ task install
 
 全てのコマンドはbackendディレクトリで実行
 
-### 2-1. 環境作成
-
-依存をロックファイルどおりに取得する
-
-```bash
-task install
-```
-
-### 2-2. backend/.envファイルの作成
+### 2-1. backend/.envファイルの作成
 
 現状で加える変更はない
 
