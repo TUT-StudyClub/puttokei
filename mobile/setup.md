@@ -43,9 +43,7 @@ exampleでは`com.hourglass-nomibress.app`となっている
 npx expo prebuild -p ios       # ios/ ディレクトリ生成
 ```
 
-`prebuild` 後は `ios/` が生成物として扱われる
-
-`mobile/.gitignore` の対象になっているかを確認する。
+mobile直下にiosディレクトリがあることを確認
 
 #### 1-4-a. CocoaPods の依存をインストールする(1-4.の失敗時のみ実行)
 
