@@ -79,7 +79,7 @@ describe('AuthGate', () => {
     await waitFor(() => {
       expect(mockHideSplashWhenReady).toHaveBeenCalledTimes(1);
     });
-    expect(mockReplace).toHaveBeenCalledWith('/(auth)/sign-in');
+    expect(mockReplace).toHaveBeenCalledWith('/(auth)/overview');
 
     expect(screen.getByTestId('boot-screen')).toBeTruthy();
 
