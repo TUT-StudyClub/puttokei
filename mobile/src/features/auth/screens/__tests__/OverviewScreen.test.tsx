@@ -51,7 +51,7 @@ describe('OverviewScreen', () => {
     expect(screen.getByText(/インプットとアウトプットを/)).toBeTruthy();
   });
 
-  it('一定時間後にサインイン画面へ置き換え遷移する', () => {
+  it('一定時間後にチュートリアル Step1 へ置き換え遷移する', () => {
     renderWithProviders(<OverviewScreen />);
 
     act(() => {
@@ -62,6 +62,6 @@ describe('OverviewScreen', () => {
     act(() => {
       jest.advanceTimersByTime(1);
     });
-    expect(mockReplace).toHaveBeenCalledWith('/(auth)/sign-in');
+    expect(mockReplace).toHaveBeenCalledWith('/(auth)/tutorial-step-one');
   });
 });

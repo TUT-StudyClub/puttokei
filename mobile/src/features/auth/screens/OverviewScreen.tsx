@@ -1,9 +1,9 @@
 /**
  * スプラッシュ後に表示する概要説明画面。
  *
- * 一定時間表示したあと、サインイン待機画面へ自動遷移する。
+ * 一定時間表示したあと、チュートリアル Step1 へ自動遷移する。
  */
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { Image, ImageBackground, StyleSheet, View } from 'react-native';
@@ -13,6 +13,7 @@ const OVERVIEW_BACKGROUND = require('../../../../assets/images/overview-screen-b
 const TYPOGRAPHY_WHITE = require('../../../../assets/images/typography_white.png');
 
 export const OVERVIEW_SCREEN_DURATION_MS = 2500;
+const TUTORIAL_STEP_ONE_ROUTE = '/(auth)/tutorial-step-one' as unknown as Href;
 
 const DESCRIPTION =
   'インプットとアウトプットを\n無意識に繰り返すことで、気づいたら\n集中して勉強してしまうアプリです';
@@ -22,7 +23,7 @@ export function OverviewScreen() {
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      router.replace('/(auth)/sign-in');
+      router.replace(TUTORIAL_STEP_ONE_ROUTE);
     }, OVERVIEW_SCREEN_DURATION_MS);
 
     return () => {
