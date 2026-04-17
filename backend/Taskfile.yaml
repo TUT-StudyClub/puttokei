@@ -46,6 +46,26 @@ tasks:
     cmds:
       - uv run uvicorn src.main:app --reload
 
+  dev:device:
+    desc: 実機確認用に LAN 向け FastAPI サーバを起動する（http://0.0.0.0:8080）
+    cmds:
+      - uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 8080
+
+  db:up:
+    desc: Docker Compose でローカル PostgreSQL を起動する
+    cmds:
+      - docker compose up -d db
+
+  db:down:
+    desc: Docker Compose のローカル PostgreSQL を停止する
+    cmds:
+      - docker compose down
+
+  db:logs:
+    desc: Docker Compose の PostgreSQL ログを表示する
+    cmds:
+      - docker compose logs -f db
+
   db:current:
     desc: 適用中の Alembic リビジョンを表示する（DB 接続が必要）
     cmds:

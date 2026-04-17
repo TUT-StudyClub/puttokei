@@ -7,14 +7,15 @@ Hourglass の backend API。FastAPI / SQLAlchemy / Alembic / Firebase Admin SDK 
 - Python 3.12（`.python-version` 参照）
 - [uv](https://docs.astral.sh/uv/) `0.10.x`
 - [go-task](https://taskfile.dev/) `3.x`（コマンドランナー）
-- Docker（Cloud Run デプロイ確認用）
-- PostgreSQL 15（ローカル開発時）
+- Docker（ローカル PostgreSQL / Cloud Run デプロイ確認用）
 
 ## セットアップ
 
 ```bash
 task backend:install     # uv sync --frozen
 cp backend/.env.example backend/.env  # 必要に応じて値を上書き
+task backend:db:up       # Docker Compose で PostgreSQL 15 を起動
+task backend:db:upgrade  # マイグレーション適用
 ```
 
 ## よく使うコマンド
@@ -31,6 +32,10 @@ cp backend/.env.example backend/.env  # 必要に応じて値を上書き
 | 依存方向チェック     | `task backend:lint:imports`                |
 | テスト               | `task backend:test`                        |
 | 開発サーバー         | `task backend:dev`                         |
+| 開発サーバー（実機） | `task backend:dev:device`                     |
+| PostgreSQL 起動      | `task backend:db:up`                       |
+| PostgreSQL 停止      | `task backend:db:down`                     |
+| PostgreSQL ログ      | `task backend:db:logs`                     |
 | マイグレーション生成 | `task backend:db:revision -- "<message>"`  |
 | マイグレーション適用 | `task backend:db:upgrade`                  |
 | 1 つロールバック     | `task backend:db:downgrade`                |
