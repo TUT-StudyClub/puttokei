@@ -34,7 +34,17 @@
         {
           "iosUrlScheme": "YOUR_REVERSED_CLIENT_ID"
         }
-      ]
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/typography-black.png",
+          "backgroundColor": "#ffffff",
+          "imageWidth": 280,
+          "resizeMode": "contain"
+        }
+      ],
+      "./plugins/withFmtCompat"
     ],
     "experiments": {
       "typedRoutes": true

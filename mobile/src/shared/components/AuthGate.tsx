@@ -6,9 +6,11 @@
  * - どちらも満たす → そのまま（tabs など）
  */
 import { useRouter, useSegments } from 'expo-router';
-import { type ReactNode, useEffect } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 
 import { useProfile } from '@/features/profile/hooks/useProfile';
+import { BOOT_SCREEN_MIN_DURATION_MS, BootScreen } from '@/shared/components/BootScreen';
+import { hideSplashWhenReady } from '@/shared/lib/splash';
 import { useAuthStore } from '@/shared/stores/authStore';
 
 const AUTH_SEGMENT = '(auth)';
@@ -19,6 +21,17 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const { data: profile, isLoading } = useProfile();
   const router = useRouter();
   const segments = useSegments();
+  const [bootMinimumElapsed, setBootMinimumElapsed] = useState(false);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setBootMinimumElapsed(true);
+    }, BOOT_SCREEN_MIN_DURATION_MS);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, []);
 
   useEffect(() => {
     const topSegment = segments[0];
@@ -46,5 +59,16 @@ export function AuthGate({ children }: { children: ReactNode }) {
     }
   }, [uid, profile, isLoading, segments, router]);
 
-  return <>{children}</>;
+  useEffect(() => {
+    hideSplashWhenReady();
+  }, []);
+
+  const shouldShowBootScreen = !bootMinimumElapsed || (uid !== null && isLoading);
+
+  return (
+    <>
+      {children}
+      {shouldShowBootScreen ? <BootScreen /> : null}
+    </>
+  );
 }
