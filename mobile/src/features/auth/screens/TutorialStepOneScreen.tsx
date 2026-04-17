@@ -7,14 +7,7 @@
 import { useRouter, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Animated,
-  Easing,
-  Pressable,
-  SafeAreaView,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { Animated, Easing, Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
 import { SizableText } from 'tamagui';
 
 import { TUTORIAL_ROUTE_TRANSITION_DELAY_MS } from '@/features/auth/screens/tutorialConfig';
@@ -59,13 +52,7 @@ export const TUTORIAL_STEP_ONE_PHASES: readonly TutorialPhase[] = [
   },
 ] as const;
 
-function TutorialPhasePane({
-  phase,
-  testID,
-}: {
-  phase: TutorialPhase;
-  testID: string;
-}) {
+function TutorialPhasePane({ phase, testID }: { phase: TutorialPhase; testID: string }) {
   return (
     <View style={styles.phasePane} testID={testID}>
       <SizableText size="$5" style={styles.subtitle} testID="tutorial-step-one-subtitle">
