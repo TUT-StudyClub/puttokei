@@ -18,12 +18,14 @@ import { TamaguiProvider } from 'tamagui';
 import config from '../tamagui.config';
 import { AuthGate } from '@/shared/components/AuthGate';
 import { refreshIdToken, subscribeIdTokenChanged } from '@/shared/lib/firebase';
+import { initializeFirebaseAuth } from '@/shared/lib/firebaseAuth';
 import { setTokenProvider, setTokenRefresher } from '@/shared/lib/api';
 import { queryClient } from '@/shared/lib/queryClient';
 import { getAuthIdToken, useAuthStore } from '@/shared/stores/authStore';
 
 export default function RootLayout() {
   useEffect(() => {
+    initializeFirebaseAuth();
     setTokenProvider(() => getAuthIdToken());
     setTokenRefresher(() => refreshIdToken());
 
