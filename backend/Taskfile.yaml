@@ -46,7 +46,7 @@ tasks:
     cmds:
       - uv run uvicorn src.main:app --reload
 
-  dev:device:
+  dev:lan:
     desc: 実機確認用に LAN 向け FastAPI サーバを起動する（http://0.0.0.0:8080）
     cmds:
       - uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 8080
