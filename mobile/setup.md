@@ -6,7 +6,7 @@
 
 ### 1-1. app.json を作成する
 
-`mobile/app.json` は個人ごとの API ベース URL を入れるため `.gitignore` 対象になっている。
+`mobile/app.json` は `apiBaseUrl` や `bundleIdentifier`など個人ごとに異なる値を含むため `.gitignore` 対象になっている。
 初回 clone 時はテンプレートからコピーして作る。
 
 ```bash
