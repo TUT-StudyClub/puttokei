@@ -32,7 +32,7 @@ task backend:db:upgrade  # マイグレーション適用
 | 依存方向チェック     | `task backend:lint:imports`                |
 | テスト               | `task backend:test`                        |
 | 開発サーバー         | `task backend:dev`                         |
-| 開発サーバー（実機） | `task backend:dev:lan`                     |
+| 開発サーバー（実機） | `task backend:dev:device`                     |
 | PostgreSQL 起動      | `task backend:db:up`                       |
 | PostgreSQL 停止      | `task backend:db:down`                     |
 | PostgreSQL ログ      | `task backend:db:logs`                     |
