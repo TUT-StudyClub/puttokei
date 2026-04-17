@@ -1,5 +1,7 @@
 # 動作確認するまでのセットアップ
+
 ## 0. 環境のインストール
+
 ルートディレクトリで実行
 
 ```bash
@@ -34,6 +36,7 @@ http://192.168.40.199:8080/api/v1
 **これは接続しているwifiが変わるたびに変わるので注意**
 
 ### 1-3. bundleIdentifierの編集
+
 exampleでは`com.hourglass-nomibress.app`となっている
 
 真ん中の`hourglass-nomibress`を自分の名前に変えるのがおすすめ
@@ -58,7 +61,6 @@ cd ..
 
 - Apple Silicon (M1/M2/M3) で `pod install` が失敗する場合は `arch -x86_64 pod install` を試す
 - CocoaPods が未インストールなら `brew install cocoapods` で導入する
-
 
 ### 注意事項
 
