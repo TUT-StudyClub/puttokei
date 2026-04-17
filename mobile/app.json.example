@@ -21,7 +21,19 @@
       "bundler": "metro",
       "output": "single"
     },
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/typography-black.png",
+          "backgroundColor": "#ffffff",
+          "imageWidth": 280,
+          "resizeMode": "contain"
+        }
+      ],
+      "./plugins/withFmtCompat"
+    ],
     "experiments": {
       "typedRoutes": true
     },
