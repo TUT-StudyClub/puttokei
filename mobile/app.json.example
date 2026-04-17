@@ -9,6 +9,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
+      "usesAppleSignIn": true,
       "bundleIdentifier": "com.hourglass-nomibress.app",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {

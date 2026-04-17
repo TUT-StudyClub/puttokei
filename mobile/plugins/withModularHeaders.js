@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * Firebase の Swift Pod が必要とする依存にだけ modular_headers を付与する。
+ * Firebase の Swift Pod が必要とする CocoaPods 設定を Podfile に付与する。
  * グローバル use_modular_headers! は React Native と衝突するため使わない。
  */
 module.exports = function withModularHeaders(config) {
@@ -15,6 +15,20 @@ module.exports = function withModularHeaders(config) {
 
       // グローバル設定が残っていたら除去
       contents = contents.replace(/\nuse_modular_headers!\n/, '\n');
+
+      const firebaseFrameworkConfig = [
+        '# Firebase Auth の Swift ヘッダを解決するため static framework 構成にする',
+        "podfile_properties['ios.useFrameworks'] ||= 'static'",
+        '$RNFirebaseAsStaticFramework = true',
+      ].join('\n');
+
+      if (!contents.includes('$RNFirebaseAsStaticFramework = true')) {
+        contents = contents.replace(
+          "podfile_properties = JSON.parse(File.read(File.join(__dir__, 'Podfile.properties.json'))) rescue {}",
+          "podfile_properties = JSON.parse(File.read(File.join(__dir__, 'Podfile.properties.json'))) rescue {}\n\n" +
+            firebaseFrameworkConfig,
+        );
+      }
 
       const modularPods = [
         'GoogleUtilities',

@@ -9,17 +9,13 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 import auth from '@react-native-firebase/auth';
 
+import { AuthFlowCancelledError, isNativeAuthCancelledError } from './authErrors';
+
 export async function signInWithApple(): Promise<void> {
   const rawNonce = generateNonce();
   const hashedNonce = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, rawNonce);
 
-  const appleCredential = await AppleAuthentication.signInAsync({
-    requestedScopes: [
-      AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-      AppleAuthentication.AppleAuthenticationScope.EMAIL,
-    ],
-    nonce: hashedNonce,
-  });
+  const appleCredential = await signInWithAppleId(hashedNonce);
 
   if (!appleCredential.identityToken) {
     throw new Error('Apple Sign In: identityToken が取得できませんでした');
@@ -28,6 +24,25 @@ export async function signInWithApple(): Promise<void> {
   const credential = auth.AppleAuthProvider.credential(appleCredential.identityToken, rawNonce);
 
   await auth().signInWithCredential(credential);
+}
+
+async function signInWithAppleId(
+  hashedNonce: string,
+): Promise<AppleAuthentication.AppleAuthenticationCredential> {
+  try {
+    return await AppleAuthentication.signInAsync({
+      requestedScopes: [
+        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+      ],
+      nonce: hashedNonce,
+    });
+  } catch (error) {
+    if (isNativeAuthCancelledError(error)) {
+      throw new AuthFlowCancelledError();
+    }
+    throw error;
+  }
 }
 
 function generateNonce(length = 32): string {

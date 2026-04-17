@@ -10,6 +10,8 @@ import auth from '@react-native-firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import Constants from 'expo-constants';
 
+import { AuthFlowCancelledError } from './authErrors';
+
 function configure(): void {
   const webClientId = Constants.expoConfig?.extra?.googleWebClientId as string | undefined;
   if (!webClientId) {
@@ -27,6 +29,10 @@ export async function signInWithGoogle(): Promise<void> {
   }
 
   const result = await GoogleSignin.signIn();
+
+  if (result.type === 'cancelled') {
+    throw new AuthFlowCancelledError();
+  }
 
   if (result.type !== 'success' || !result.data.idToken) {
     throw new Error('Google Sign In: idToken が取得できませんでした');

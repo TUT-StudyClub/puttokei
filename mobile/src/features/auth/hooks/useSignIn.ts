@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 
 import { signInWithApple } from '../lib/signInWithApple';
 import { signInWithGoogle } from '../lib/signInWithGoogle';
+import { isAuthFlowCancelledError } from '../lib/authErrors';
 import { verifyAuth } from '../api/authApi';
 import { useAuthStore } from '@/shared/stores/authStore';
 
@@ -50,6 +51,11 @@ export function useSignIn() {
       });
       setState({ loading: false, error: null });
     } catch (e) {
+      if (isAuthFlowCancelledError(e)) {
+        setState({ loading: false, error: null });
+        return;
+      }
+
       const message = e instanceof Error ? e.message : '認証に失敗しました';
       setState({ loading: false, error: message });
     }

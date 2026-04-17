@@ -7,6 +7,7 @@ import { act, cleanup, renderHook, waitFor } from '@testing-library/react-native
 
 import { useSignIn } from '@/features/auth/hooks/useSignIn';
 import * as authApi from '@/features/auth/api/authApi';
+import { AuthFlowCancelledError } from '@/features/auth/lib/authErrors';
 import { useAuthStore } from '@/shared/stores/authStore';
 
 // ネイティブモジュールを丸ごと mock
@@ -104,6 +105,23 @@ describe('useSignIn', () => {
     });
 
     expect(result.current.error).toBe('Google Sign In: idToken が取得できませんでした');
+  });
+
+  it('ユーザーキャンセル時はエラーを表示しない', async () => {
+    googleAuth.signInWithGoogle.mockRejectedValue(new AuthFlowCancelledError());
+
+    const { result } = renderHook(() => useSignIn());
+
+    await act(async () => {
+      await result.current.signInWithGoogle();
+    });
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(authApi.verifyAuth).not.toHaveBeenCalled();
+    expect(result.current.error).toBeNull();
   });
 
   it('verifyAuth が失敗しても認証エラーにならない', async () => {
