@@ -10,10 +10,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
 import { SizableText } from 'tamagui';
 
-import {
-  TUTORIAL_PHASE_DURATION_MS,
-  TUTORIAL_ROUTE_TRANSITION_DELAY_MS,
-} from '@/features/auth/screens/tutorialConfig';
+import { TUTORIAL_ROUTE_TRANSITION_DELAY_MS } from '@/features/auth/screens/tutorialConfig';
 
 type TutorialPhase = {
   key: 'input' | 'output' | 'break';
@@ -25,11 +22,7 @@ type TutorialPhase = {
 
 const NEXT_ROUTE = '/(auth)/tutorial-step-two' as unknown as Href;
 const SKIP_ROUTE = '/(auth)/sign-in' as unknown as Href;
-
-export const TUTORIAL_STEP_ONE_PHASE_DURATION_MS = TUTORIAL_PHASE_DURATION_MS;
-export const TUTORIAL_STEP_ONE_PHASE_DISSOLVE_MS = 520;
-export const TUTORIAL_STEP_ONE_PHASE_VISIBLE_MS =
-  TUTORIAL_STEP_ONE_PHASE_DURATION_MS - TUTORIAL_STEP_ONE_PHASE_DISSOLVE_MS;
+export const TUTORIAL_STEP_ONE_TOTAL_DURATION_MS = 7500;
 
 export const TUTORIAL_STEP_ONE_PHASES: readonly TutorialPhase[] = [
   {
@@ -54,8 +47,13 @@ export const TUTORIAL_STEP_ONE_PHASES: readonly TutorialPhase[] = [
     rows: [60, 88, 74],
   },
 ] as const;
-export const TUTORIAL_STEP_ONE_AUTO_ADVANCE_MS =
-  TUTORIAL_STEP_ONE_PHASE_DURATION_MS * TUTORIAL_STEP_ONE_PHASES.length;
+export const TUTORIAL_STEP_ONE_PHASE_DURATION_MS = Math.round(
+  TUTORIAL_STEP_ONE_TOTAL_DURATION_MS / TUTORIAL_STEP_ONE_PHASES.length,
+);
+export const TUTORIAL_STEP_ONE_PHASE_DISSOLVE_MS = 520;
+export const TUTORIAL_STEP_ONE_PHASE_VISIBLE_MS =
+  TUTORIAL_STEP_ONE_PHASE_DURATION_MS - TUTORIAL_STEP_ONE_PHASE_DISSOLVE_MS;
+export const TUTORIAL_STEP_ONE_AUTO_ADVANCE_MS = TUTORIAL_STEP_ONE_TOTAL_DURATION_MS;
 
 const TutorialPhasePane = memo(function TutorialPhasePane({
   phase,
