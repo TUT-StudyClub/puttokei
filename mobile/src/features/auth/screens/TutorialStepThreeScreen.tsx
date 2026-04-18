@@ -7,7 +7,7 @@ import { useRouter, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
-import { ClipPath, Defs, Ellipse, LinearGradient, Path, Rect, Stop, Svg } from 'react-native-svg';
+import { ClipPath, Defs, LinearGradient, Path, Rect, Stop, Svg } from 'react-native-svg';
 import { SizableText } from 'tamagui';
 
 import {
@@ -21,11 +21,14 @@ import {
 
 const NEXT_ROUTE = '/(auth)/sign-in' as unknown as Href;
 const SKIP_ROUTE = '/(auth)/sign-in' as unknown as Href;
-const HOURGLASS_ROTATION_DURATION_MS = 1500;
-const HOURGLASS_SAND_FALL_DURATION_MS = 3000;
+const HOURGLASS_FALL_DURATION_MS = 1500;
+const HOURGLASS_ROTATION_DURATION_MS = 1200;
 const HOURGLASS_VIEWBOX_WIDTH = 43.11;
-const HOURGLASS_VIEWBOX_HEIGHT = 76.91;
-const HOURGLASS_SAND_DRAIN_MAX = 42;
+const HOURGLASS_TOP_BULB_TOP = 8;
+const HOURGLASS_PINCH = 38;
+const HOURGLASS_BOTTOM_BULB_BOTTOM = 68;
+const HOURGLASS_TOP_BULB_RANGE = HOURGLASS_PINCH - HOURGLASS_TOP_BULB_TOP;
+const HOURGLASS_BOTTOM_BULB_RANGE = HOURGLASS_BOTTOM_BULB_BOTTOM - HOURGLASS_PINCH;
 
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
 const HOURGLASS_WHITE_FILL_PATH =
@@ -34,12 +37,18 @@ const HOURGLASS_CENTER_PATH =
   'M21.56,8.96c-7.11,0-12.89,4.36-12.89,9.72,0,1.77.66,3.52,1.91,5.06l5.97,8.32c2.74,3.83,2.74,8.97,0,12.8l-5.84,8.15c-1.38,1.7-2.05,3.45-2.05,5.23,0,5.36,5.78,9.72,12.89,9.72s12.89-4.36,12.89-9.72c0-1.77-.66-3.52-1.91-5.06l-5.97-8.32c-2.74-3.83-2.74-8.97,0-12.8l5.84-8.15c1.38-1.7,2.05-3.45,2.05-5.23,0-5.36-5.78-9.72-12.89-9.72Z';
 
 type HourglassIllustrationProps = {
-  sandDrainHeight: Animated.AnimatedInterpolation<number>;
+  topSandY: Animated.AnimatedInterpolation<number>;
+  topSandHeight: Animated.AnimatedInterpolation<number>;
+  bottomSandHeight: Animated.AnimatedInterpolation<number>;
 };
 
-function HourglassIllustration({ sandDrainHeight }: HourglassIllustrationProps) {
+function HourglassIllustration({
+  topSandY,
+  topSandHeight,
+  bottomSandHeight,
+}: HourglassIllustrationProps) {
   return (
-    <Svg width={132} height={236} viewBox="0 0 43.11 76.91">
+    <Svg width={132} height={236} viewBox="-1.5 -1.5 46.11 79.91">
       <Defs>
         <LinearGradient
           id="hourglassGradient"
@@ -53,17 +62,6 @@ function HourglassIllustration({ sandDrainHeight }: HourglassIllustrationProps) 
           <Stop offset="0.42" stopColor="#FF7A8D" />
           <Stop offset="1" stopColor="#8E7CFF" />
         </LinearGradient>
-        <LinearGradient
-          id="hourglassHighlight"
-          gradientUnits="userSpaceOnUse"
-          x1="10"
-          y1="14"
-          x2="24"
-          y2="44"
-        >
-          <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0.55" />
-          <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
-        </LinearGradient>
         <ClipPath id="hourglassInnerClip">
           <Path d={HOURGLASS_CENTER_PATH} />
         </ClipPath>
@@ -76,16 +74,22 @@ function HourglassIllustration({ sandDrainHeight }: HourglassIllustrationProps) 
         strokeWidth={1.8}
         strokeLinejoin="round"
       />
-      <Path d={HOURGLASS_CENTER_PATH} fill="url(#hourglassGradient)" opacity={0.96} />
       <AnimatedRect
         x={0}
-        y={0}
+        y={topSandY}
         width={HOURGLASS_VIEWBOX_WIDTH}
-        height={sandDrainHeight}
-        fill="#FFFFFF"
+        height={topSandHeight}
+        fill="url(#hourglassGradient)"
         clipPath="url(#hourglassInnerClip)"
       />
-      <Ellipse cx="16.8" cy="22" rx="8.5" ry="12" fill="url(#hourglassHighlight)" />
+      <AnimatedRect
+        x={0}
+        y={HOURGLASS_PINCH}
+        width={HOURGLASS_VIEWBOX_WIDTH}
+        height={bottomSandHeight}
+        fill="url(#hourglassGradient)"
+        clipPath="url(#hourglassInnerClip)"
+      />
     </Svg>
   );
 }
@@ -152,19 +156,33 @@ export function TutorialStepThreeScreen() {
   }, [navigate, progressFillRatio]);
 
   useEffect(() => {
-    const rotationAnimation = Animated.timing(rotationValue, {
+    const firstFall = Animated.timing(sandFallProgress, {
       toValue: 1,
-      duration: HOURGLASS_ROTATION_DURATION_MS,
-      easing: Easing.inOut(Easing.cubic),
-      useNativeDriver: true,
-    });
-    const sandFallAnimation = Animated.timing(sandFallProgress, {
-      toValue: 1,
-      duration: HOURGLASS_SAND_FALL_DURATION_MS,
+      duration: HOURGLASS_FALL_DURATION_MS,
       easing: Easing.inOut(Easing.quad),
       useNativeDriver: false,
     });
-    const sequence = Animated.sequence([rotationAnimation, sandFallAnimation]);
+    const rotateAndReset = Animated.parallel([
+      Animated.timing(rotationValue, {
+        toValue: 1,
+        duration: HOURGLASS_ROTATION_DURATION_MS,
+        easing: Easing.inOut(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(sandFallProgress, {
+        toValue: 0,
+        duration: HOURGLASS_ROTATION_DURATION_MS,
+        easing: Easing.inOut(Easing.quad),
+        useNativeDriver: false,
+      }),
+    ]);
+    const secondFall = Animated.timing(sandFallProgress, {
+      toValue: 1,
+      duration: HOURGLASS_FALL_DURATION_MS,
+      easing: Easing.inOut(Easing.quad),
+      useNativeDriver: false,
+    });
+    const sequence = Animated.sequence([firstFall, rotateAndReset, secondFall]);
 
     rotationValue.setValue(0);
     sandFallProgress.setValue(0);
@@ -180,9 +198,17 @@ export function TutorialStepThreeScreen() {
     outputRange: ['0deg', '360deg'],
   });
 
-  const sandDrainHeight = sandFallProgress.interpolate({
+  const topSandY = sandFallProgress.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, HOURGLASS_SAND_DRAIN_MAX],
+    outputRange: [HOURGLASS_TOP_BULB_TOP, HOURGLASS_PINCH],
+  });
+  const topSandHeight = sandFallProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [HOURGLASS_TOP_BULB_RANGE, 0],
+  });
+  const bottomSandHeight = sandFallProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, HOURGLASS_BOTTOM_BULB_RANGE],
   });
 
   return (
@@ -214,7 +240,11 @@ export function TutorialStepThreeScreen() {
             style={[styles.hourglassWrapper, { transform: [{ rotate: hourglassRotation }] }]}
             testID="tutorial-step-three-hourglass"
           >
-            <HourglassIllustration sandDrainHeight={sandDrainHeight} />
+            <HourglassIllustration
+              topSandY={topSandY}
+              topSandHeight={topSandHeight}
+              bottomSandHeight={bottomSandHeight}
+            />
           </Animated.View>
         </View>
 
@@ -309,8 +339,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   hourglassWrapper: {
-    width: 132,
-    height: 236,
+    width: 272,
+    height: 272,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   actionArea: {
     position: 'absolute',
