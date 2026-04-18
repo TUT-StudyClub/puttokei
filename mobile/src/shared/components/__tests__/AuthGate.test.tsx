@@ -1,8 +1,11 @@
-import { act, render, waitFor } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import type { ReactNode } from 'react';
 import { Text } from 'react-native';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../tamagui.config';
+import { signOut } from '@/features/auth/lib/signOut';
 import { useProfile } from '@/features/profile/hooks/useProfile';
 import { AuthGate } from '@/shared/components/AuthGate';
 import { BOOT_SCREEN_MIN_DURATION_MS } from '@/shared/components/BootScreen';
@@ -18,15 +21,25 @@ jest.mock('expo-router', () => ({
   useSegments: () => mockSegments,
 }));
 
-jest.mock('@/features/profile/hooks/useProfile');
+jest.mock('@/features/profile/hooks/useProfile', () => {
+  const actual = jest.requireActual('@/features/profile/hooks/useProfile');
+  return {
+    ...actual,
+    useProfile: jest.fn(),
+  };
+});
 jest.mock('@/shared/lib/splash', () => ({
   hideSplashWhenReady: jest.fn(),
+}));
+jest.mock('@/features/auth/lib/signOut', () => ({
+  signOut: jest.fn().mockResolvedValue(undefined),
 }));
 
 const mockUseProfile = useProfile as jest.MockedFunction<typeof useProfile>;
 const mockHideSplashWhenReady = hideSplashWhenReady as jest.MockedFunction<
   typeof hideSplashWhenReady
 >;
+const mockSignOut = signOut as jest.MockedFunction<typeof signOut>;
 
 const ONBOARDED_PROFILE: UserProfile = {
   id: 'user-1',
@@ -39,14 +52,28 @@ const ONBOARDED_PROFILE: UserProfile = {
   updated_at: '2026-04-17T00:00:00Z',
 };
 
-function renderAuthGate() {
-  return render(
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  const Wrapper = ({ children }: { children: ReactNode }) => (
     <TamaguiProvider config={config} defaultTheme="light">
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    </TamaguiProvider>
+  );
+  return { queryClient, Wrapper };
+}
+
+function renderAuthGate() {
+  const { queryClient, Wrapper } = createWrapper();
+  const utils = render(
+    <Wrapper>
       <AuthGate>
         <Text>child</Text>
       </AuthGate>
-    </TamaguiProvider>,
+    </Wrapper>,
   );
+  return { ...utils, queryClient, Wrapper };
 }
 
 describe('AuthGate', () => {
@@ -60,7 +87,9 @@ describe('AuthGate', () => {
     mockUseProfile.mockReturnValue({
       data: undefined,
       isLoading: false,
-    } as ReturnType<typeof useProfile>);
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useProfile>);
   });
 
   afterEach(() => {
@@ -104,9 +133,11 @@ describe('AuthGate', () => {
     mockUseProfile.mockReturnValue({
       data: undefined,
       isLoading: true,
-    } as ReturnType<typeof useProfile>);
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useProfile>);
 
-    const screen = renderAuthGate();
+    const { Wrapper, ...screen } = renderAuthGate();
 
     expect(mockHideSplashWhenReady).toHaveBeenCalledTimes(1);
     expect(mockReplace).not.toHaveBeenCalledWith('/(tabs)');
@@ -118,13 +149,15 @@ describe('AuthGate', () => {
     mockUseProfile.mockReturnValue({
       data: ONBOARDED_PROFILE,
       isLoading: false,
-    } as ReturnType<typeof useProfile>);
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useProfile>);
     screen.rerender(
-      <TamaguiProvider config={config} defaultTheme="light">
+      <Wrapper>
         <AuthGate>
           <Text>child</Text>
         </AuthGate>
-      </TamaguiProvider>,
+      </Wrapper>,
     );
 
     await waitFor(() => {
@@ -133,5 +166,63 @@ describe('AuthGate', () => {
     await waitFor(() => {
       expect(screen.queryByTestId('boot-screen')).toBeNull();
     });
+  });
+
+  it('認証済みだがプロフィール取得が失敗したらエラー画面を表示する', async () => {
+    act(() => {
+      useAuthStore.setState({ uid: 'user-1', idToken: 'token-1' });
+    });
+    mockSegments = ['(auth)'];
+    mockUseProfile.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: new Error('HTTP 401'),
+    } as unknown as ReturnType<typeof useProfile>);
+
+    const screen = renderAuthGate();
+
+    act(() => {
+      jest.advanceTimersByTime(BOOT_SCREEN_MIN_DURATION_MS);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('profile-error-screen')).toBeTruthy();
+    });
+    expect(screen.queryByTestId('boot-screen')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('profile-error-sign-out'));
+    await waitFor(() => {
+      expect(mockSignOut).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('エラー画面で再試行ボタンを押すと profile query が invalidate される', async () => {
+    act(() => {
+      useAuthStore.setState({ uid: 'user-1', idToken: 'token-1' });
+    });
+    mockSegments = ['(auth)'];
+    mockUseProfile.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: new Error('HTTP 500'),
+    } as unknown as ReturnType<typeof useProfile>);
+
+    const { queryClient, ...screen } = renderAuthGate();
+    const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+
+    act(() => {
+      jest.advanceTimersByTime(BOOT_SCREEN_MIN_DURATION_MS);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('profile-error-retry')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId('profile-error-retry'));
+    expect(invalidateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: ['profile', 'me'] }),
+    );
   });
 });

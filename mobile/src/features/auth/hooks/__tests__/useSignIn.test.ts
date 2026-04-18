@@ -1,12 +1,10 @@
 /**
  * useSignIn の振る舞いを検証する。
- * サインイン成功時に verifyAuth が呼ばれること、
- * 失敗時にエラーメッセージが設定されることを担保する。
+ * 成功時に loading が落ちること、失敗 / キャンセル時の state 制御を担保する。
  */
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react-native';
 
 import { useSignIn } from '@/features/auth/hooks/useSignIn';
-import * as authApi from '@/features/auth/api/authApi';
 import { AuthFlowCancelledError } from '@/features/auth/lib/authErrors';
 import { useAuthStore } from '@/shared/stores/authStore';
 
@@ -22,7 +20,6 @@ jest.mock('@react-native-google-signin/google-signin', () => ({
   GoogleSignin: { configure: jest.fn(), hasPlayServices: jest.fn(), signIn: jest.fn() },
 }));
 
-jest.mock('@/features/auth/api/authApi');
 jest.mock('@/features/auth/lib/signInWithApple');
 jest.mock('@/features/auth/lib/signInWithGoogle');
 
@@ -41,13 +38,9 @@ describe('useSignIn', () => {
     useAuthStore.setState({ uid: null, idToken: null });
   });
 
-  it('Google サインイン成功時に verifyAuth が呼ばれる', async () => {
+  it('Google サインイン成功時に loading が落ちる', async () => {
     googleAuth.signInWithGoogle.mockImplementation(async () => {
       useAuthStore.setState({ uid: 'google-user', idToken: 'google-token' });
-    });
-    (authApi.verifyAuth as jest.Mock).mockResolvedValue({
-      user: { id: '1', firebase_uid: 'google-user', auth_provider: 'google' },
-      is_new: true,
     });
 
     const { result } = renderHook(() => useSignIn());
@@ -61,17 +54,12 @@ describe('useSignIn', () => {
     });
 
     expect(googleAuth.signInWithGoogle).toHaveBeenCalledTimes(1);
-    expect(authApi.verifyAuth).toHaveBeenCalledTimes(1);
     expect(result.current.error).toBeNull();
   });
 
-  it('Apple サインイン成功時に verifyAuth が呼ばれる', async () => {
+  it('Apple サインイン成功時に loading が落ちる', async () => {
     appleAuth.signInWithApple.mockImplementation(async () => {
       useAuthStore.setState({ uid: 'apple-user', idToken: 'apple-token' });
-    });
-    (authApi.verifyAuth as jest.Mock).mockResolvedValue({
-      user: { id: '2', firebase_uid: 'apple-user', auth_provider: 'apple' },
-      is_new: false,
     });
 
     const { result } = renderHook(() => useSignIn());
@@ -85,7 +73,6 @@ describe('useSignIn', () => {
     });
 
     expect(appleAuth.signInWithApple).toHaveBeenCalledTimes(1);
-    expect(authApi.verifyAuth).toHaveBeenCalledTimes(1);
     expect(result.current.error).toBeNull();
   });
 
@@ -109,26 +96,6 @@ describe('useSignIn', () => {
 
   it('ユーザーキャンセル時はエラーを表示しない', async () => {
     googleAuth.signInWithGoogle.mockRejectedValue(new AuthFlowCancelledError());
-
-    const { result } = renderHook(() => useSignIn());
-
-    await act(async () => {
-      await result.current.signInWithGoogle();
-    });
-
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false);
-    });
-
-    expect(authApi.verifyAuth).not.toHaveBeenCalled();
-    expect(result.current.error).toBeNull();
-  });
-
-  it('verifyAuth が失敗しても認証エラーにならない', async () => {
-    googleAuth.signInWithGoogle.mockImplementation(async () => {
-      useAuthStore.setState({ uid: 'user', idToken: 'token' });
-    });
-    (authApi.verifyAuth as jest.Mock).mockRejectedValue(new Error('server error'));
 
     const { result } = renderHook(() => useSignIn());
 

@@ -16,6 +16,7 @@ import { useEffect } from 'react';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../tamagui.config';
+import { configureGoogleSignIn } from '@/features/auth/lib/signInWithGoogle';
 import { AuthGate } from '@/shared/components/AuthGate';
 import { refreshIdToken, subscribeIdTokenChanged } from '@/shared/lib/firebase';
 import { initializeFirebaseAuth } from '@/shared/lib/firebaseAuth';
@@ -26,6 +27,7 @@ import { getAuthIdToken, useAuthStore } from '@/shared/stores/authStore';
 export default function RootLayout() {
   useEffect(() => {
     initializeFirebaseAuth();
+    configureGoogleSignIn();
     setTokenProvider(() => getAuthIdToken());
     setTokenRefresher(() => refreshIdToken());
 
