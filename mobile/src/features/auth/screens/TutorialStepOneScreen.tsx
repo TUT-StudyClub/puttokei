@@ -105,15 +105,12 @@ export function TutorialStepOneScreen() {
 
   routerRef.current = router;
 
-  const navigate = useCallback(
-    (route: Href) => {
-      if (hasNavigatedRef.current) return;
+  const navigate = useCallback((route: Href) => {
+    if (hasNavigatedRef.current) return;
 
-      hasNavigatedRef.current = true;
-      routerRef.current.replace(route);
-    },
-    [],
-  );
+    hasNavigatedRef.current = true;
+    routerRef.current.replace(route);
+  }, []);
 
   const scheduleNavigation = useCallback(
     (route: Href, delayMs = TUTORIAL_ROUTE_TRANSITION_DELAY_MS) => {
