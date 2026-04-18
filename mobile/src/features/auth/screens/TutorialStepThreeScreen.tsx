@@ -1,12 +1,13 @@
 /**
  * チュートリアル Step3 画面。
  *
- * 余白を活かした最終案内を表示する。
+ * 最終案内として回転する砂時計を表示する。
  */
 import { useRouter, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
+import { ClipPath, Defs, Ellipse, LinearGradient, Path, Rect, Stop, Svg } from 'react-native-svg';
 import { SizableText } from 'tamagui';
 
 import {
@@ -20,12 +21,82 @@ import {
 
 const NEXT_ROUTE = '/(auth)/sign-in' as unknown as Href;
 const SKIP_ROUTE = '/(auth)/sign-in' as unknown as Href;
+const HOURGLASS_ROTATION_DURATION_MS = 1500;
+const HOURGLASS_SAND_FALL_DURATION_MS = 3000;
+const HOURGLASS_VIEWBOX_WIDTH = 43.11;
+const HOURGLASS_VIEWBOX_HEIGHT = 76.91;
+const HOURGLASS_SAND_DRAIN_MAX = 42;
+
+const AnimatedRect = Animated.createAnimatedComponent(Rect);
+const HOURGLASS_WHITE_FILL_PATH =
+  'M.26,4.19v4.22c0,1.22.99,2.21,2.21,2.21h0c1.77,0,2.76,1.94,1.83,3.45-1,1.64-1.56,3.45-1.56,5.36,0,2.66,1.09,5.14,2.94,7.21l5.31,6.77c2.68,3.41,2.68,8.21,0,11.62l-5.31,6.77c-1.85,2.07-2.94,4.54-2.94,7.21,0,1.91.56,3.73,1.56,5.36.93,1.51-.06,3.45-1.83,3.45h0c-1.22,0-2.21.99-2.21,2.21v4.22c0,1.22.99,2.21,2.21,2.21h36.25c1.22,0,2.21-.99,2.21-2.21v-4.22c0-1.22-.99-2.21-2.21-2.21h0c-1.77,0-2.76-1.94-1.83-3.45,1-1.64,1.56-3.45,1.56-5.36,0-2.66-1.09-5.14-2.94-7.21l-5.31-6.77c-2.68-3.41-2.68-8.21,0-11.62l5.31-6.77c1.85-2.07,2.94-4.54,2.94-7.21,0-1.91-.56-3.73-1.56-5.36-.93-1.51.06-3.45,1.83-3.45h0c1.22,0,2.21-.99,2.21-2.21v-4.22c0-1.22-.99-2.21-2.21-2.21H2.47C1.25,1.97.26,2.96.26,4.19';
+const HOURGLASS_CENTER_PATH =
+  'M21.56,8.96c-7.11,0-12.89,4.36-12.89,9.72,0,1.77.66,3.52,1.91,5.06l5.97,8.32c2.74,3.83,2.74,8.97,0,12.8l-5.84,8.15c-1.38,1.7-2.05,3.45-2.05,5.23,0,5.36,5.78,9.72,12.89,9.72s12.89-4.36,12.89-9.72c0-1.77-.66-3.52-1.91-5.06l-5.97-8.32c-2.74-3.83-2.74-8.97,0-12.8l5.84-8.15c1.38-1.7,2.05-3.45,2.05-5.23,0-5.36-5.78-9.72-12.89-9.72Z';
+
+type HourglassIllustrationProps = {
+  sandDrainHeight: Animated.AnimatedInterpolation<number>;
+};
+
+function HourglassIllustration({ sandDrainHeight }: HourglassIllustrationProps) {
+  return (
+    <Svg width={132} height={236} viewBox="0 0 43.11 76.91">
+      <Defs>
+        <LinearGradient
+          id="hourglassGradient"
+          gradientUnits="userSpaceOnUse"
+          x1="6"
+          y1="8"
+          x2="35"
+          y2="70"
+        >
+          <Stop offset="0" stopColor="#44D4FF" />
+          <Stop offset="0.42" stopColor="#FF7A8D" />
+          <Stop offset="1" stopColor="#8E7CFF" />
+        </LinearGradient>
+        <LinearGradient
+          id="hourglassHighlight"
+          gradientUnits="userSpaceOnUse"
+          x1="10"
+          y1="14"
+          x2="24"
+          y2="44"
+        >
+          <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0.55" />
+          <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
+        </LinearGradient>
+        <ClipPath id="hourglassInnerClip">
+          <Path d={HOURGLASS_CENTER_PATH} />
+        </ClipPath>
+      </Defs>
+
+      <Path
+        d={HOURGLASS_WHITE_FILL_PATH}
+        fill="#FFFFFF"
+        stroke="#475FFF"
+        strokeWidth={1.8}
+        strokeLinejoin="round"
+      />
+      <Path d={HOURGLASS_CENTER_PATH} fill="url(#hourglassGradient)" opacity={0.96} />
+      <AnimatedRect
+        x={0}
+        y={0}
+        width={HOURGLASS_VIEWBOX_WIDTH}
+        height={sandDrainHeight}
+        fill="#FFFFFF"
+        clipPath="url(#hourglassInnerClip)"
+      />
+      <Ellipse cx="16.8" cy="22" rx="8.5" ry="12" fill="url(#hourglassHighlight)" />
+    </Svg>
+  );
+}
 
 export function TutorialStepThreeScreen() {
   const router = useRouter();
   const routerRef = useRef(router);
   const [isNavigating, setIsNavigating] = useState(false);
   const progressFillRatio = useRef(new Animated.Value(0)).current;
+  const rotationValue = useRef(new Animated.Value(0)).current;
+  const sandFallProgress = useRef(new Animated.Value(0)).current;
   const hasNavigatedRef = useRef(false);
   const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -80,6 +151,40 @@ export function TutorialStepThreeScreen() {
     };
   }, [navigate, progressFillRatio]);
 
+  useEffect(() => {
+    const rotationAnimation = Animated.timing(rotationValue, {
+      toValue: 1,
+      duration: HOURGLASS_ROTATION_DURATION_MS,
+      easing: Easing.inOut(Easing.cubic),
+      useNativeDriver: true,
+    });
+    const sandFallAnimation = Animated.timing(sandFallProgress, {
+      toValue: 1,
+      duration: HOURGLASS_SAND_FALL_DURATION_MS,
+      easing: Easing.inOut(Easing.quad),
+      useNativeDriver: false,
+    });
+    const sequence = Animated.sequence([rotationAnimation, sandFallAnimation]);
+
+    rotationValue.setValue(0);
+    sandFallProgress.setValue(0);
+    sequence.start();
+
+    return () => {
+      sequence.stop();
+    };
+  }, [rotationValue, sandFallProgress]);
+
+  const hourglassRotation = rotationValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
+  const sandDrainHeight = sandFallProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, HOURGLASS_SAND_DRAIN_MAX],
+  });
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
@@ -104,7 +209,14 @@ export function TutorialStepThreeScreen() {
           </SizableText>
         </View>
 
-        <View style={styles.blankStage} testID="tutorial-step-three-blank-stage" />
+        <View style={styles.blankStage} testID="tutorial-step-three-blank-stage">
+          <Animated.View
+            style={[styles.hourglassWrapper, { transform: [{ rotate: hourglassRotation }] }]}
+            testID="tutorial-step-three-hourglass"
+          >
+            <HourglassIllustration sandDrainHeight={sandDrainHeight} />
+          </Animated.View>
+        </View>
 
         <View style={styles.actionArea}>
           <Pressable
@@ -193,6 +305,12 @@ const styles = StyleSheet.create({
   blankStage: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hourglassWrapper: {
+    width: 132,
+    height: 236,
   },
   actionArea: {
     position: 'absolute',

@@ -69,6 +69,7 @@ describe('TutorialStepThreeScreen', () => {
     expect(screen.getByTestId('tutorial-step-three-title')).toBeTruthy();
     expect(screen.getByText('学びを加速しよう')).toBeTruthy();
     expect(screen.getByTestId('tutorial-step-three-blank-stage')).toBeTruthy();
+    expect(screen.getByTestId('tutorial-step-three-hourglass')).toBeTruthy();
     expect(screen.getByTestId('tutorial-step-three-next')).toBeTruthy();
     expect(screen.getByTestId('tutorial-step-three-skip')).toBeTruthy();
   });
