@@ -10,8 +10,12 @@ import { Animated, Easing, Pressable, SafeAreaView, StyleSheet, View } from 'rea
 import { SizableText } from 'tamagui';
 
 import {
+  TUTORIAL_ACTION_AREA_BOTTOM_OFFSET,
+  TUTORIAL_ACTION_BUTTON_GAP,
+  TUTORIAL_ACTION_BUTTON_HEIGHT,
   TUTORIAL_PROGRESS_FILL_DURATION_MS,
   TUTORIAL_ROUTE_TRANSITION_DELAY_MS,
+  TUTORIAL_TWO_BUTTON_ACTION_AREA_RESERVE,
 } from '@/features/auth/screens/tutorialConfig';
 
 const NEXT_ROUTE = '/(auth)/sign-in' as unknown as Href;
@@ -145,9 +149,10 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+    position: 'relative',
     paddingTop: 20,
     paddingRight: 24,
-    paddingBottom: 28,
+    paddingBottom: TUTORIAL_TWO_BUTTON_ACTION_AREA_RESERVE,
     paddingLeft: 24,
   },
   progressRow: {
@@ -190,13 +195,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   actionArea: {
-    paddingTop: 28,
-    gap: 14,
+    position: 'absolute',
+    right: 24,
+    bottom: TUTORIAL_ACTION_AREA_BOTTOM_OFFSET,
+    left: 24,
+    gap: TUTORIAL_ACTION_BUTTON_GAP,
   },
   primaryButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    height: 52,
+    height: TUTORIAL_ACTION_BUTTON_HEIGHT,
     borderRadius: 18,
     backgroundColor: '#4B5CFF',
   },
@@ -212,7 +220,7 @@ const styles = StyleSheet.create({
   secondaryButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    height: 52,
+    height: TUTORIAL_ACTION_BUTTON_HEIGHT,
     borderWidth: 1.5,
     borderColor: '#8C8C8C',
     borderRadius: 18,

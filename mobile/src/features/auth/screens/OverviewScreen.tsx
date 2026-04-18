@@ -9,7 +9,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Image, ImageBackground, Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
 import { SizableText } from 'tamagui';
 
-import { TUTORIAL_ROUTE_TRANSITION_DELAY_MS } from '@/features/auth/screens/tutorialConfig';
+import {
+  TUTORIAL_ACTION_AREA_BOTTOM_OFFSET,
+  TUTORIAL_ACTION_BUTTON_HEIGHT,
+  TUTORIAL_ONE_BUTTON_ACTION_AREA_RESERVE,
+  TUTORIAL_ROUTE_TRANSITION_DELAY_MS,
+} from '@/features/auth/screens/tutorialConfig';
 
 const OVERVIEW_BACKGROUND = require('../../../../assets/images/overview-screen-background.png');
 const TYPOGRAPHY_WHITE = require('../../../../assets/images/typography_white.png');
@@ -110,8 +115,9 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    position: 'relative',
     paddingRight: 40,
-    paddingBottom: 28,
+    paddingBottom: TUTORIAL_ONE_BUTTON_ACTION_AREA_RESERVE,
     paddingLeft: 40,
   },
   heroContainer: {
@@ -156,12 +162,15 @@ const styles = StyleSheet.create({
     textShadowRadius: 18,
   },
   actionArea: {
-    paddingTop: 28,
+    position: 'absolute',
+    right: 40,
+    bottom: TUTORIAL_ACTION_AREA_BOTTOM_OFFSET,
+    left: 40,
   },
   primaryButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    height: 52,
+    height: TUTORIAL_ACTION_BUTTON_HEIGHT,
     borderRadius: 18,
     backgroundColor: '#4B5CFF',
   },

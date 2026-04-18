@@ -10,7 +10,13 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
 import { SizableText } from 'tamagui';
 
-import { TUTORIAL_ROUTE_TRANSITION_DELAY_MS } from '@/features/auth/screens/tutorialConfig';
+import {
+  TUTORIAL_ACTION_AREA_BOTTOM_OFFSET,
+  TUTORIAL_ACTION_BUTTON_GAP,
+  TUTORIAL_ACTION_BUTTON_HEIGHT,
+  TUTORIAL_ROUTE_TRANSITION_DELAY_MS,
+  TUTORIAL_TWO_BUTTON_ACTION_AREA_RESERVE,
+} from '@/features/auth/screens/tutorialConfig';
 
 type TutorialPhase = {
   key: 'input' | 'output' | 'break';
@@ -321,9 +327,10 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+    position: 'relative',
     paddingTop: 20,
     paddingRight: 24,
-    paddingBottom: 28,
+    paddingBottom: TUTORIAL_TWO_BUTTON_ACTION_AREA_RESERVE,
     paddingLeft: 24,
   },
   progressRow: {
@@ -445,13 +452,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#D7DBE8',
   },
   actionArea: {
-    paddingTop: 28,
-    gap: 14,
+    position: 'absolute',
+    right: 24,
+    bottom: TUTORIAL_ACTION_AREA_BOTTOM_OFFSET,
+    left: 24,
+    gap: TUTORIAL_ACTION_BUTTON_GAP,
   },
   primaryButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    height: 52,
+    height: TUTORIAL_ACTION_BUTTON_HEIGHT,
     borderRadius: 18,
     backgroundColor: '#4B5CFF',
   },
@@ -467,7 +477,7 @@ const styles = StyleSheet.create({
   secondaryButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    height: 52,
+    height: TUTORIAL_ACTION_BUTTON_HEIGHT,
     borderWidth: 1.5,
     borderColor: '#8C8C8C',
     borderRadius: 18,
