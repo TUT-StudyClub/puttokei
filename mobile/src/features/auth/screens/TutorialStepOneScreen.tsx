@@ -10,7 +10,10 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
 import { SizableText } from 'tamagui';
 
-import { TUTORIAL_ROUTE_TRANSITION_DELAY_MS } from '@/features/auth/screens/tutorialConfig';
+import {
+  TUTORIAL_PHASE_DURATION_MS,
+  TUTORIAL_ROUTE_TRANSITION_DELAY_MS,
+} from '@/features/auth/screens/tutorialConfig';
 
 type TutorialPhase = {
   key: 'input' | 'output' | 'break';
@@ -23,7 +26,7 @@ type TutorialPhase = {
 const NEXT_ROUTE = '/(auth)/tutorial-step-two' as unknown as Href;
 const SKIP_ROUTE = '/(auth)/sign-in' as unknown as Href;
 
-export const TUTORIAL_STEP_ONE_PHASE_DURATION_MS = 3200;
+export const TUTORIAL_STEP_ONE_PHASE_DURATION_MS = TUTORIAL_PHASE_DURATION_MS;
 export const TUTORIAL_STEP_ONE_PHASE_DISSOLVE_MS = 520;
 export const TUTORIAL_STEP_ONE_PHASE_VISIBLE_MS =
   TUTORIAL_STEP_ONE_PHASE_DURATION_MS - TUTORIAL_STEP_ONE_PHASE_DISSOLVE_MS;
@@ -51,6 +54,8 @@ export const TUTORIAL_STEP_ONE_PHASES: readonly TutorialPhase[] = [
     rows: [60, 88, 74],
   },
 ] as const;
+export const TUTORIAL_STEP_ONE_AUTO_ADVANCE_MS =
+  TUTORIAL_STEP_ONE_PHASE_DURATION_MS * TUTORIAL_STEP_ONE_PHASES.length;
 
 const TutorialPhasePane = memo(function TutorialPhasePane({
   phase,
@@ -89,24 +94,44 @@ const TutorialPhasePane = memo(function TutorialPhasePane({
 
 export function TutorialStepOneScreen() {
   const router = useRouter();
+  const routerRef = useRef(router);
   const [phaseSlotIndexes, setPhaseSlotIndexes] = useState<[number, number]>([0, 0]);
   const [isNavigating, setIsNavigating] = useState(false);
   const phaseOpacities = useRef([new Animated.Value(1), new Animated.Value(0)] as const).current;
   const progressFillRatio = useRef(new Animated.Value(1 / TUTORIAL_STEP_ONE_PHASES.length)).current;
   const phaseIndexRef = useRef(0);
   const visibleSlotRef = useRef(0);
+  const hasNavigatedRef = useRef(false);
   const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  routerRef.current = router;
+
+  const navigate = useCallback(
+    (route: Href) => {
+      if (hasNavigatedRef.current) return;
+
+      hasNavigatedRef.current = true;
+      routerRef.current.replace(route);
+    },
+    [],
+  );
 
   const scheduleNavigation = useCallback(
-    (route: Href) => {
-      if (isNavigating) return;
+    (route: Href, delayMs = TUTORIAL_ROUTE_TRANSITION_DELAY_MS) => {
+      if (isNavigating || navigationTimeoutRef.current !== null || hasNavigatedRef.current) return;
+
+      if (autoAdvanceTimeoutRef.current !== null) {
+        clearTimeout(autoAdvanceTimeoutRef.current);
+        autoAdvanceTimeoutRef.current = null;
+      }
 
       setIsNavigating(true);
       navigationTimeoutRef.current = setTimeout(() => {
-        router.replace(route);
-      }, TUTORIAL_ROUTE_TRANSITION_DELAY_MS);
+        navigate(route);
+      }, delayMs);
     },
-    [isNavigating, router],
+    [isNavigating, navigate],
   );
 
   useEffect(() => {
@@ -165,7 +190,10 @@ export function TutorialStepOneScreen() {
 
           phaseIndexRef.current = nextPhaseIndex;
           visibleSlotRef.current = nextSlot;
-          scheduleNextPhase();
+
+          if (nextPhaseIndex < TUTORIAL_STEP_ONE_PHASES.length - 1) {
+            scheduleNextPhase();
+          }
         });
       }, TUTORIAL_STEP_ONE_PHASE_VISIBLE_MS);
     };
@@ -182,12 +210,19 @@ export function TutorialStepOneScreen() {
   }, [phaseOpacities, progressFillRatio]);
 
   useEffect(() => {
+    autoAdvanceTimeoutRef.current = setTimeout(() => {
+      navigate(NEXT_ROUTE);
+    }, TUTORIAL_STEP_ONE_AUTO_ADVANCE_MS);
+
     return () => {
+      if (autoAdvanceTimeoutRef.current !== null) {
+        clearTimeout(autoAdvanceTimeoutRef.current);
+      }
       if (navigationTimeoutRef.current !== null) {
         clearTimeout(navigationTimeoutRef.current);
       }
     };
-  }, []);
+  }, [navigate]);
 
   return (
     <SafeAreaView style={styles.safeArea}>

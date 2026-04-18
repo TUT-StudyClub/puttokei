@@ -6,38 +6,78 @@
 import { useRouter, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
+import { Animated, Easing, Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
 import { SizableText } from 'tamagui';
 
-import { TUTORIAL_ROUTE_TRANSITION_DELAY_MS } from '@/features/auth/screens/tutorialConfig';
+import {
+  TUTORIAL_PROGRESS_FILL_DURATION_MS,
+  TUTORIAL_ROUTE_TRANSITION_DELAY_MS,
+} from '@/features/auth/screens/tutorialConfig';
 
 const NEXT_ROUTE = '/(auth)/sign-in' as unknown as Href;
 const SKIP_ROUTE = '/(auth)/sign-in' as unknown as Href;
 
 export function TutorialStepThreeScreen() {
   const router = useRouter();
+  const routerRef = useRef(router);
   const [isNavigating, setIsNavigating] = useState(false);
+  const progressFillRatio = useRef(new Animated.Value(0)).current;
+  const hasNavigatedRef = useRef(false);
   const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  routerRef.current = router;
+
+  const navigate = useCallback(
+    (route: Href) => {
+      if (hasNavigatedRef.current) return;
+
+      hasNavigatedRef.current = true;
+      routerRef.current.replace(route);
+    },
+    [],
+  );
 
   const scheduleNavigation = useCallback(
-    (route: Href) => {
-      if (isNavigating) return;
+    (route: Href, delayMs = TUTORIAL_ROUTE_TRANSITION_DELAY_MS) => {
+      if (isNavigating || navigationTimeoutRef.current !== null || hasNavigatedRef.current) return;
+
+      if (autoAdvanceTimeoutRef.current !== null) {
+        clearTimeout(autoAdvanceTimeoutRef.current);
+        autoAdvanceTimeoutRef.current = null;
+      }
 
       setIsNavigating(true);
       navigationTimeoutRef.current = setTimeout(() => {
-        router.replace(route);
-      }, TUTORIAL_ROUTE_TRANSITION_DELAY_MS);
+        navigate(route);
+      }, delayMs);
     },
-    [isNavigating, router],
+    [isNavigating, navigate],
   );
 
   useEffect(() => {
+    const progressAnimation = Animated.timing(progressFillRatio, {
+      toValue: 1,
+      duration: TUTORIAL_PROGRESS_FILL_DURATION_MS,
+      easing: Easing.linear,
+      useNativeDriver: true,
+    });
+
+    progressAnimation.start();
+    autoAdvanceTimeoutRef.current = setTimeout(() => {
+      navigate(NEXT_ROUTE);
+    }, TUTORIAL_PROGRESS_FILL_DURATION_MS);
+
     return () => {
+      progressAnimation.stop();
+      if (autoAdvanceTimeoutRef.current !== null) {
+        clearTimeout(autoAdvanceTimeoutRef.current);
+      }
       if (navigationTimeoutRef.current !== null) {
         clearTimeout(navigationTimeoutRef.current);
       }
     };
-  }, []);
+  }, [navigate, progressFillRatio]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -47,7 +87,13 @@ export function TutorialStepThreeScreen() {
           <View style={[styles.progressSegment, styles.progressSegmentComplete]} />
           <View style={[styles.progressSegment, styles.progressSegmentComplete]} />
           <View style={[styles.progressSegment, styles.progressSegmentCurrent]}>
-            <View style={styles.progressSegmentCurrentFill} />
+            <Animated.View
+              style={[
+                styles.progressSegmentCurrentFill,
+                { transform: [{ scaleX: progressFillRatio }] },
+              ]}
+              testID="tutorial-step-three-progress-fill"
+            />
           </View>
         </View>
 
@@ -125,10 +171,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#D9D9D9',
   },
   progressSegmentCurrentFill: {
-    width: '42%',
+    ...StyleSheet.absoluteFillObject,
     height: '100%',
     borderRadius: 999,
     backgroundColor: '#777777',
+    transformOrigin: 'left center',
   },
   hero: {
     alignItems: 'center',

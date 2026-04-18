@@ -8,6 +8,7 @@ import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../../tamagui.config';
 import {
+  TUTORIAL_STEP_ONE_AUTO_ADVANCE_MS,
   TUTORIAL_STEP_ONE_PHASES,
   TUTORIAL_STEP_ONE_PHASE_DISSOLVE_MS,
   TUTORIAL_STEP_ONE_PHASE_DURATION_MS,
@@ -202,6 +203,20 @@ describe('TutorialStepOneScreen', () => {
     expect(screen.getByText('5分アウトプット')).toBeTruthy();
     expect(screen.getByTestId('tutorial-step-one-preview-output')).toBeTruthy();
     expect(Math.max(getPhaseOpacity(screen, 0), getPhaseOpacity(screen, 1))).toBe(1);
+  });
+
+  it('3フェーズ完了後は自動で Step2 へ進む', () => {
+    renderWithProviders(<TutorialStepOneScreen />);
+
+    expect(mockReplace).not.toHaveBeenCalled();
+    act(() => {
+      jest.advanceTimersByTime(TUTORIAL_STEP_ONE_AUTO_ADVANCE_MS - 1);
+    });
+    expect(mockReplace).not.toHaveBeenCalled();
+    act(() => {
+      jest.advanceTimersByTime(1);
+    });
+    expect(mockReplace).toHaveBeenNthCalledWith(1, '/(auth)/tutorial-step-two');
   });
 
   it('次へは少し待ってから Step2 へ進む', () => {
