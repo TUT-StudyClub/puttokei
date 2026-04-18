@@ -92,9 +92,7 @@ export function TutorialStepOneScreen() {
   const [phaseSlotIndexes, setPhaseSlotIndexes] = useState<[number, number]>([0, 0]);
   const [isNavigating, setIsNavigating] = useState(false);
   const phaseOpacities = useRef([new Animated.Value(1), new Animated.Value(0)] as const).current;
-  const progressFillRatio = useRef(
-    new Animated.Value(1 / TUTORIAL_STEP_ONE_PHASES.length),
-  ).current;
+  const progressFillRatio = useRef(new Animated.Value(1 / TUTORIAL_STEP_ONE_PHASES.length)).current;
   const phaseIndexRef = useRef(0);
   const visibleSlotRef = useRef(0);
   const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);

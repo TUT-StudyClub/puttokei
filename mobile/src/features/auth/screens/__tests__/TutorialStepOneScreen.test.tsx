@@ -47,7 +47,10 @@ function getPhaseOpacity(screen: ReturnType<typeof renderWithProviders>, slotInd
     : flattenedStyle.opacity.__getValue();
 }
 
-function getProgressBackgroundColor(screen: ReturnType<typeof renderWithProviders>, stepNumber: 1 | 2 | 3) {
+function getProgressBackgroundColor(
+  screen: ReturnType<typeof renderWithProviders>,
+  stepNumber: 1 | 2 | 3,
+) {
   const flattenedStyle = StyleSheet.flatten(
     screen.getByTestId(`tutorial-step-one-progress-${stepNumber}`).props.style,
   ) as {
@@ -61,9 +64,9 @@ function getProgressFillScale(screen: ReturnType<typeof renderWithProviders>) {
   const flattenedStyle = StyleSheet.flatten(
     screen.getByTestId('tutorial-step-one-progress-1-fill').props.style,
   ) as {
-    transform?: Array<{
+    transform?: {
       scaleX?: number | { __getValue: () => number };
-    }>;
+    }[];
   };
 
   const scaleX = flattenedStyle.transform?.find(
