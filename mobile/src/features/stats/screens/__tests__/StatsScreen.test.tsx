@@ -75,7 +75,9 @@ describe('StatsScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
-    useAuthStore.setState({ uid: 'u-1', idToken: 'token-1' });
+    act(() => {
+      useAuthStore.setState({ uid: 'u-1', idToken: 'token-1' });
+    });
   });
 
   afterEach(() => {
@@ -83,7 +85,9 @@ describe('StatsScreen', () => {
     act(() => {
       jest.runOnlyPendingTimers();
     });
-    useAuthStore.setState({ uid: null, idToken: null });
+    act(() => {
+      useAuthStore.setState({ uid: null, idToken: null });
+    });
     jest.useRealTimers();
   });
 

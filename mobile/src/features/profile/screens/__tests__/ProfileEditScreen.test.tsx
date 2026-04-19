@@ -48,7 +48,9 @@ function renderWithProviders(ui: ReactNode) {
 describe('ProfileEditScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    useAuthStore.setState({ uid: 'u-1', idToken: 'token-1' });
+    act(() => {
+      useAuthStore.setState({ uid: 'u-1', idToken: 'token-1' });
+    });
     (profileApi.fetchMyProfile as jest.Mock).mockResolvedValue(PROFILE_FIXTURE);
     (profileApi.updateMyProfile as jest.Mock).mockResolvedValue({
       ...PROFILE_FIXTURE,
@@ -58,7 +60,9 @@ describe('ProfileEditScreen', () => {
 
   afterEach(() => {
     cleanup();
-    useAuthStore.setState({ uid: null, idToken: null });
+    act(() => {
+      useAuthStore.setState({ uid: null, idToken: null });
+    });
   });
 
   it('取得完了後に display_name が初期値として入る', async () => {
