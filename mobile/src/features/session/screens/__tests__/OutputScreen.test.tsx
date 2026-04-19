@@ -84,11 +84,11 @@ describe('OutputScreen', () => {
   });
 
   afterEach(() => {
-    act(() => {
-      jest.runOnlyPendingTimers();
-    });
-    jest.restoreAllMocks();
+    // CI (Ubuntu) で runOnlyPendingTimers が RTL の auto cleanup と組み合わさると
+    // 60s タイムアウトする事象が出ていたため、pending timer は捨ててから
+    // real timers に戻す。
     jest.useRealTimers();
+    jest.restoreAllMocks();
   });
 
   it('マウントで phase=output のタイマーが開始され、主要 UI が表示される', () => {
