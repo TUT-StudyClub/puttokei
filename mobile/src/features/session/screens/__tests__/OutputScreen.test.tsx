@@ -8,7 +8,7 @@
  * - submitOutput が失敗するとエラーメッセージが表示され、再度送信できる
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { Keyboard, type KeyboardEvent, type KeyboardEventListener } from 'react-native';
 import { TamaguiProvider } from 'tamagui';
@@ -84,9 +84,10 @@ describe('OutputScreen', () => {
   });
 
   afterEach(() => {
-    // CI (Ubuntu) で runOnlyPendingTimers が RTL の auto cleanup と組み合わさると
-    // 60s タイムアウトする事象が出ていたため、pending timer は捨ててから
-    // real timers に戻す。
+    // CI (Ubuntu) で RTL の auto cleanup (async) が 60s ハングしていたため、
+    // fake timers が有効なうちに先回りで unmount を済ませる。
+    // これで RTL afterEach の cleanup キューは空になり async 待ちが発生しない。
+    cleanup();
     jest.useRealTimers();
     jest.restoreAllMocks();
   });
