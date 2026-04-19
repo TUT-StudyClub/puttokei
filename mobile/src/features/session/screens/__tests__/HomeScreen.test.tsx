@@ -7,7 +7,7 @@
  * スタート押下で createSession が呼ばれて遷移することを検証する。
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { TamaguiProvider } from 'tamagui';
 
@@ -15,6 +15,7 @@ import config from '../../../../../tamagui.config';
 import * as sessionApi from '@/features/session/api/sessionApi';
 import { DEFAULT_TIMER } from '@/features/session/config';
 import { HomeScreen } from '@/features/session/screens/HomeScreen';
+import { useLoopStore } from '@/shared/stores/loopStore';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
@@ -40,6 +41,13 @@ function renderWithProviders(ui: ReactNode) {
 describe('HomeScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    useLoopStore.getState().reset();
+  });
+
+  afterEach(() => {
+    act(() => {
+      useLoopStore.getState().reset();
+    });
   });
 
   it('初期表示はインプットの時間を表示する', () => {
@@ -116,5 +124,27 @@ describe('HomeScreen', () => {
 
     expect(await findByText(/セッションの開始に失敗しました/)).toBeTruthy();
     expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('1 ループ目は左端の砂時計アイコンを大きく表示する', () => {
+    act(() => {
+      useLoopStore.getState().setCurrentLoop(1);
+    });
+    const { getByTestId } = renderWithProviders(<HomeScreen />);
+
+    const active = getByTestId('home-hourglass-badge-icon-1');
+    const other = getByTestId('home-hourglass-badge-icon-2');
+    expect(active.props.width).toBeGreaterThan(other.props.width);
+  });
+
+  it('3 ループ目は左から 3 番目の砂時計アイコンを大きく表示する', () => {
+    act(() => {
+      useLoopStore.getState().setCurrentLoop(3);
+    });
+    const { getByTestId } = renderWithProviders(<HomeScreen />);
+
+    const active = getByTestId('home-hourglass-badge-icon-3');
+    const inactive = getByTestId('home-hourglass-badge-icon-1');
+    expect(active.props.width).toBeGreaterThan(inactive.props.width);
   });
 });
