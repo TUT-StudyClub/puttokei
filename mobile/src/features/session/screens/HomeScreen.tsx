@@ -7,14 +7,18 @@
  * 科目 (subject) / トピック (topic) の入力フローは未実装のため、
  * 当面はプレースホルダー値で createSession を呼ぶ。後続タスクで入力 UI を追加する想定。
  */
+import { type Href, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import { Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
-import { Defs, LinearGradient, Path, Stop, Svg } from 'react-native-svg';
+import { Circle, Path, Svg } from 'react-native-svg';
 import { SizableText, Spinner } from 'tamagui';
 
 import { DEFAULT_TIMER } from '@/features/session/config';
 import { useCreateSession } from '@/features/session/hooks/useCreateSession';
+import { LOOP_COUNT_MAX, useLoopStore } from '@/shared/stores/loopStore';
+
+const SETTINGS_ROUTE = '/(tabs)/settings' as unknown as Href;
 
 const PHASES = ['input', 'output', 'break'] as const;
 type Phase = (typeof PHASES)[number];
@@ -31,27 +35,54 @@ const PHASE_MINUTES: Record<Phase, number> = {
   break: DEFAULT_TIMER.break_minutes,
 };
 
-const HOURGLASS_BADGE_COUNT = 8;
+const HOURGLASS_BADGE_COUNT = LOOP_COUNT_MAX;
+const HOURGLASS_BADGE_BASE_WIDTH = 18;
+const HOURGLASS_BADGE_BASE_HEIGHT = 24;
+const HOURGLASS_BADGE_ACTIVE_SCALE = 1.45;
+const HOURGLASS_BADGE_COLOR = '#9CA3AF';
 
 const HOURGLASS_ICON_PATH =
   'M2 2 H14 V4 C14 6.5 11 7.5 11 10 C11 12.5 14 13.5 14 16 V18 H2 V16 C2 13.5 5 12.5 5 10 C5 7.5 2 6.5 2 4 Z';
 
-function HourglassBadgeIcon() {
+type HourglassBadgeIconProps = {
+  active: boolean;
+  testID?: string;
+};
+
+function HourglassBadgeIcon({ active, testID }: HourglassBadgeIconProps) {
+  const width = active
+    ? HOURGLASS_BADGE_BASE_WIDTH * HOURGLASS_BADGE_ACTIVE_SCALE
+    : HOURGLASS_BADGE_BASE_WIDTH;
+  const height = active
+    ? HOURGLASS_BADGE_BASE_HEIGHT * HOURGLASS_BADGE_ACTIVE_SCALE
+    : HOURGLASS_BADGE_BASE_HEIGHT;
   return (
-    <Svg width={14} height={18} viewBox="0 0 16 20">
-      <Defs>
-        <LinearGradient id="badgeHourglass" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#7C8BFF" />
-          <Stop offset="1" stopColor="#4B5CFF" />
-        </LinearGradient>
-      </Defs>
+    <Svg width={width} height={height} viewBox="0 0 16 20" testID={testID}>
       <Path
         d={HOURGLASS_ICON_PATH}
-        stroke="url(#badgeHourglass)"
-        strokeWidth={1.4}
+        stroke={HOURGLASS_BADGE_COLOR}
+        strokeWidth={active ? 1.5 : 1.3}
         strokeLinejoin="round"
         fill="none"
       />
+    </Svg>
+  );
+}
+
+// 六角形 + 中央の小円で構成した設定アイコン
+const SETTINGS_ICON_HEX_PATH = 'M12 3 L20 7.5 V16.5 L12 21 L4 16.5 V7.5 Z';
+
+function SettingsIcon({ size = 26, color = '#2F2F2F' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d={SETTINGS_ICON_HEX_PATH}
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <Circle cx={12} cy={12} r={2.4} stroke={color} strokeWidth={1.8} fill="none" />
     </Svg>
   );
 }
@@ -61,7 +92,9 @@ function formatMinutes(minutes: number) {
 }
 
 export function HomeScreen() {
+  const router = useRouter();
   const [phase, setPhase] = useState<Phase>('input');
+  const currentLoop = useLoopStore((s) => s.currentLoop);
   const createSession = useCreateSession();
 
   const handleStart = () => {
@@ -81,39 +114,61 @@ export function HomeScreen() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
       <View style={styles.container} testID="home-root">
+        <View style={styles.settingsRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="設定"
+            onPress={() => router.push(SETTINGS_ROUTE)}
+            style={({ pressed }) => [
+              styles.settingsButton,
+              pressed ? styles.settingsButtonPressed : null,
+            ]}
+            hitSlop={8}
+            testID="home-settings-button"
+          >
+            <SettingsIcon />
+          </Pressable>
+        </View>
+
         <View style={styles.badgeRow}>
           <View style={styles.badge} testID="home-hourglass-badge">
-            {Array.from({ length: HOURGLASS_BADGE_COUNT }).map((_, index) => (
-              <HourglassBadgeIcon key={index} />
-            ))}
+            {Array.from({ length: HOURGLASS_BADGE_COUNT }).map((_, index) => {
+              // currentLoop は 1 始まり。N ループ目は左から N 番目を強調する。
+              const isActive = index + 1 === currentLoop;
+              return (
+                <HourglassBadgeIcon
+                  key={index}
+                  active={isActive}
+                  testID={`home-hourglass-badge-icon-${index + 1}`}
+                />
+              );
+            })}
           </View>
         </View>
 
         <View style={styles.phaseTabs} testID="home-phase-tabs">
-          {PHASES.map((p) => {
+          {PHASES.map((p, index) => {
             const isActive = p === phase;
+            const isLast = index === PHASES.length - 1;
             return (
-              <Pressable
-                key={p}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: isActive }}
-                onPress={() => setPhase(p)}
-                style={styles.phaseTab}
-                testID={`home-phase-tab-${p}`}
-              >
-                <SizableText
-                  size="$3"
-                  style={[styles.phaseTabLabel, isActive ? styles.phaseTabLabelActive : null]}
+              <View key={p} style={styles.phaseTabItemRow}>
+                <Pressable
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: isActive }}
+                  onPress={() => setPhase(p)}
+                  style={styles.phaseTab}
+                  testID={`home-phase-tab-${p}`}
                 >
-                  {PHASE_LABELS[p]}
-                </SizableText>
-                <View
-                  style={[
-                    styles.phaseTabUnderline,
-                    isActive ? styles.phaseTabUnderlineActive : null,
-                  ]}
-                />
-              </Pressable>
+                  <View style={[styles.phaseTabDot, isActive ? styles.phaseTabDotActive : null]} />
+                  <SizableText
+                    size="$3"
+                    style={[styles.phaseTabLabel, isActive ? styles.phaseTabLabelActive : null]}
+                  >
+                    {PHASE_LABELS[p]}
+                  </SizableText>
+                </Pressable>
+                {isLast ? null : <View style={styles.phaseTabSeparator} />}
+              </View>
             );
           })}
         </View>
@@ -125,7 +180,7 @@ export function HomeScreen() {
             </SizableText>
           </View>
           <SizableText style={styles.timerCaption} testID="home-timer-caption">
-            おすすめの時間配分です{'\n'}集中して取り組みましょう
+            まずは20分間勉強してみましょう{'\n'}集中できなくても大丈夫です
           </SizableText>
         </View>
 
@@ -175,12 +230,27 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 24,
   },
+  settingsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  settingsButton: {
+    width: 26,
+    height: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  settingsButtonPressed: {
+    opacity: 0.6,
+  },
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
     borderRadius: 999,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
@@ -193,31 +263,46 @@ const styles = StyleSheet.create({
   },
   phaseTabs: {
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 36,
   },
-  phaseTab: {
-    flex: 1,
+  phaseTabItemRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+  },
+  phaseTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  phaseTabDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1.5,
+    borderColor: '#D9D9D9',
+    backgroundColor: 'transparent',
+  },
+  phaseTabDotActive: {
+    borderColor: '#9CA3AF',
   },
   phaseTabLabel: {
-    color: '#9CA3AF',
+    color: '#D9D9D9',
     fontSize: 14,
     fontWeight: '600',
-    marginBottom: 6,
   },
   phaseTabLabelActive: {
     color: '#2F2F2F',
+    fontWeight: '700',
   },
-  phaseTabUnderline: {
-    width: '60%',
-    height: 2,
-    borderRadius: 999,
-    backgroundColor: 'transparent',
-  },
-  phaseTabUnderlineActive: {
-    backgroundColor: '#4B5CFF',
+  phaseTabSeparator: {
+    width: 16,
+    height: 1.5,
+    marginHorizontal: 6,
+    backgroundColor: '#D9D9D9',
   },
   timerStage: {
     flex: 1,
@@ -229,14 +314,14 @@ const styles = StyleSheet.create({
     width: 240,
     height: 240,
     borderRadius: 120,
-    borderWidth: 1.5,
+    borderWidth: 4,
     borderColor: '#D9D9D9',
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   timerText: {
-    color: '#2F2F2F',
+    color: '#D9D9D9',
     fontSize: 56,
     fontWeight: '700',
     lineHeight: 64,

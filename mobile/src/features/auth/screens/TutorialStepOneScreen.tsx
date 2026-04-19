@@ -17,6 +17,7 @@ import {
   TUTORIAL_ROUTE_TRANSITION_DELAY_MS,
   TUTORIAL_TWO_BUTTON_ACTION_AREA_RESERVE,
 } from '@/features/auth/screens/tutorialConfig';
+import { useTutorialStore } from '@/shared/stores/tutorialStore';
 
 type TutorialPhase = {
   key: 'input' | 'output' | 'break';
@@ -99,6 +100,8 @@ const TutorialPhasePane = memo(function TutorialPhasePane({
 export function TutorialStepOneScreen() {
   const router = useRouter();
   const routerRef = useRef(router);
+  const markTutorialCompleted = useTutorialStore((s) => s.markCompleted);
+  const markTutorialCompletedRef = useRef(markTutorialCompleted);
   const [phaseSlotIndexes, setPhaseSlotIndexes] = useState<[number, number]>([0, 0]);
   const [isNavigating, setIsNavigating] = useState(false);
   const phaseOpacities = useRef([new Animated.Value(1), new Animated.Value(0)] as const).current;
@@ -110,11 +113,16 @@ export function TutorialStepOneScreen() {
   const autoAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   routerRef.current = router;
+  markTutorialCompletedRef.current = markTutorialCompleted;
 
   const navigate = useCallback((route: Href) => {
     if (hasNavigatedRef.current) return;
 
     hasNavigatedRef.current = true;
+    // (auth) 配下を抜けるとき (= スキップ) は AuthGate に弾かれないよう完了をマーク
+    if (route === SKIP_ROUTE) {
+      markTutorialCompletedRef.current();
+    }
     routerRef.current.replace(route);
   }, []);
 
