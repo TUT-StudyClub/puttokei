@@ -114,10 +114,7 @@ function CircularTimer({ phaseLabel }: CircularTimerProps) {
   const dashOffset = circumference * (1 - progressRatio);
 
   return (
-    <View
-      style={[styles.timerWrap, { width: size, height: size }]}
-      testID="input-circular-timer"
-    >
+    <View style={[styles.timerWrap, { width: size, height: size }]} testID="input-circular-timer">
       <Svg width={size} height={size}>
         <Circle
           cx={size / 2}
@@ -275,9 +272,7 @@ export function InputScreen() {
             return (
               <View key={p} style={styles.phaseTabItemRow}>
                 <View style={styles.phaseTab} testID={`input-phase-tab-${p}`}>
-                  <View
-                    style={[styles.phaseTabDot, isActive ? styles.phaseTabDotActive : null]}
-                  />
+                  <View style={[styles.phaseTabDot, isActive ? styles.phaseTabDotActive : null]} />
                   <SizableText
                     size="$3"
                     style={[styles.phaseTabLabel, isActive ? styles.phaseTabLabelActive : null]}
