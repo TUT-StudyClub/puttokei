@@ -23,12 +23,35 @@ const NEXT_ROUTE = '/(auth)/sign-in' as unknown as Href;
 const SKIP_ROUTE = '/(auth)/sign-in' as unknown as Href;
 const HOURGLASS_FALL_DURATION_MS = 1500;
 const HOURGLASS_ROTATION_DURATION_MS = 1200;
+const HOURGLASS_EFFECT_FADE_DURATION_MS = 180;
 const HOURGLASS_VIEWBOX_WIDTH = 43.11;
 const HOURGLASS_TOP_BULB_TOP = 8;
 const HOURGLASS_PINCH = 38;
 const HOURGLASS_BOTTOM_BULB_BOTTOM = 68;
 const HOURGLASS_TOP_BULB_RANGE = HOURGLASS_PINCH - HOURGLASS_TOP_BULB_TOP;
 const HOURGLASS_BOTTOM_BULB_RANGE = HOURGLASS_BOTTOM_BULB_BOTTOM - HOURGLASS_PINCH;
+const ROTATION_EFFECT_STAGE_SIZE = 320;
+const ROTATION_EFFECT_RADIUS = 138;
+const ROTATION_EFFECT_ARC_SWEEP_DEG = 26;
+const ROTATION_EFFECT_ARC_CENTER_DEGS = [90, 270];
+
+function buildArcPath(startDeg: number, sweepDeg: number, radius: number) {
+  const startRad = (startDeg * Math.PI) / 180;
+  const endRad = ((startDeg + sweepDeg) * Math.PI) / 180;
+  const startX = radius * Math.cos(startRad);
+  const startY = radius * Math.sin(startRad);
+  const endX = radius * Math.cos(endRad);
+  const endY = radius * Math.sin(endRad);
+  return `M ${startX.toFixed(2)} ${startY.toFixed(2)} A ${radius} ${radius} 0 0 1 ${endX.toFixed(2)} ${endY.toFixed(2)}`;
+}
+
+const ROTATION_EFFECT_ARCS = ROTATION_EFFECT_ARC_CENTER_DEGS.map((centerDeg) =>
+  buildArcPath(
+    centerDeg - ROTATION_EFFECT_ARC_SWEEP_DEG / 2,
+    ROTATION_EFFECT_ARC_SWEEP_DEG,
+    ROTATION_EFFECT_RADIUS,
+  ),
+);
 
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
 const HOURGLASS_WHITE_FILL_PATH =
@@ -101,6 +124,7 @@ export function TutorialStepThreeScreen() {
   const progressFillRatio = useRef(new Animated.Value(0)).current;
   const rotationValue = useRef(new Animated.Value(0)).current;
   const sandFallProgress = useRef(new Animated.Value(0)).current;
+  const rotationEffectOpacity = useRef(new Animated.Value(0)).current;
   const hasNavigatedRef = useRef(false);
   const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -162,40 +186,52 @@ export function TutorialStepThreeScreen() {
       easing: Easing.inOut(Easing.quad),
       useNativeDriver: false,
     });
-    const rotateAndReset = Animated.parallel([
+    // 回転中は砂を動かさず、代わりにエフェクトラインをフェードで見せる
+    const rotateWithEffect = Animated.parallel([
       Animated.timing(rotationValue, {
         toValue: 1,
         duration: HOURGLASS_ROTATION_DURATION_MS,
         easing: Easing.inOut(Easing.cubic),
         useNativeDriver: true,
       }),
-      Animated.timing(sandFallProgress, {
-        toValue: 0,
-        duration: HOURGLASS_ROTATION_DURATION_MS,
-        easing: Easing.inOut(Easing.quad),
-        useNativeDriver: false,
-      }),
+      Animated.sequence([
+        Animated.timing(rotationEffectOpacity, {
+          toValue: 1,
+          duration: HOURGLASS_EFFECT_FADE_DURATION_MS,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.delay(HOURGLASS_ROTATION_DURATION_MS - HOURGLASS_EFFECT_FADE_DURATION_MS * 2),
+        Animated.timing(rotationEffectOpacity, {
+          toValue: 0,
+          duration: HOURGLASS_EFFECT_FADE_DURATION_MS,
+          easing: Easing.in(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]),
     ]);
+    // 180 度回転後は上下が入れ替わるので、砂の落下方向を逆向きに進める
     const secondFall = Animated.timing(sandFallProgress, {
-      toValue: 1,
+      toValue: 0,
       duration: HOURGLASS_FALL_DURATION_MS,
       easing: Easing.inOut(Easing.quad),
       useNativeDriver: false,
     });
-    const sequence = Animated.sequence([firstFall, rotateAndReset, secondFall]);
+    const sequence = Animated.sequence([firstFall, rotateWithEffect, secondFall]);
 
     rotationValue.setValue(0);
     sandFallProgress.setValue(0);
+    rotationEffectOpacity.setValue(0);
     sequence.start();
 
     return () => {
       sequence.stop();
     };
-  }, [rotationValue, sandFallProgress]);
+  }, [rotationEffectOpacity, rotationValue, sandFallProgress]);
 
   const hourglassRotation = rotationValue.interpolate({
     inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
+    outputRange: ['0deg', '180deg'],
   });
 
   const topSandY = sandFallProgress.interpolate({
@@ -236,16 +272,47 @@ export function TutorialStepThreeScreen() {
         </View>
 
         <View style={styles.blankStage} testID="tutorial-step-three-blank-stage">
-          <Animated.View
-            style={[styles.hourglassWrapper, { transform: [{ rotate: hourglassRotation }] }]}
-            testID="tutorial-step-three-hourglass"
-          >
-            <HourglassIllustration
-              topSandY={topSandY}
-              topSandHeight={topSandHeight}
-              bottomSandHeight={bottomSandHeight}
-            />
-          </Animated.View>
+          <View style={styles.hourglassStage}>
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.rotationEffect,
+                {
+                  opacity: rotationEffectOpacity,
+                  transform: [{ rotate: hourglassRotation }],
+                },
+              ]}
+              testID="tutorial-step-three-rotation-effect"
+            >
+              <Svg
+                width={ROTATION_EFFECT_STAGE_SIZE}
+                height={ROTATION_EFFECT_STAGE_SIZE}
+                viewBox={`-${ROTATION_EFFECT_STAGE_SIZE / 2} -${ROTATION_EFFECT_STAGE_SIZE / 2} ${ROTATION_EFFECT_STAGE_SIZE} ${ROTATION_EFFECT_STAGE_SIZE}`}
+              >
+                {ROTATION_EFFECT_ARCS.map((d) => (
+                  <Path
+                    key={d}
+                    d={d}
+                    stroke="#4B5CFF"
+                    strokeWidth={1.8}
+                    strokeLinecap="round"
+                    fill="none"
+                    opacity={0.5}
+                  />
+                ))}
+              </Svg>
+            </Animated.View>
+            <Animated.View
+              style={[styles.hourglassWrapper, { transform: [{ rotate: hourglassRotation }] }]}
+              testID="tutorial-step-three-hourglass"
+            >
+              <HourglassIllustration
+                topSandY={topSandY}
+                topSandHeight={topSandHeight}
+                bottomSandHeight={bottomSandHeight}
+              />
+            </Animated.View>
+          </View>
         </View>
 
         <View style={styles.actionArea}>
@@ -338,9 +405,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  hourglassStage: {
+    width: ROTATION_EFFECT_STAGE_SIZE,
+    height: ROTATION_EFFECT_STAGE_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   hourglassWrapper: {
     width: 272,
     height: 272,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rotationEffect: {
+    position: 'absolute',
+    width: ROTATION_EFFECT_STAGE_SIZE,
+    height: ROTATION_EFFECT_STAGE_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
   },
