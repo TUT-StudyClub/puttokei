@@ -1,4 +1,4 @@
-import { act, render, waitFor } from '@testing-library/react-native';
+import { act, cleanup, render, waitFor } from '@testing-library/react-native';
 import { Text } from 'react-native';
 import { TamaguiProvider } from 'tamagui';
 
@@ -47,6 +47,7 @@ describe('AuthGate', () => {
   });
 
   afterEach(() => {
+    cleanup();
     act(() => {
       jest.runOnlyPendingTimers();
     });
@@ -127,5 +128,20 @@ describe('AuthGate', () => {
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
     });
+  });
+
+  it('ローカル確認用の sign-in 画面は、認証済みでもそのまま表示できる', async () => {
+    act(() => {
+      useAuthStore.setState({ uid: 'dev-local-user', idToken: 'dev-mock-dev-local-user' });
+      useTutorialStore.getState().markCompleted();
+    });
+    mockSegments = ['(auth)', 'sign-in'];
+
+    renderAuthGate();
+
+    await waitFor(() => {
+      expect(mockHideSplashWhenReady).toHaveBeenCalledTimes(1);
+    });
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 });

@@ -8,7 +8,7 @@
  *   明示的な押下のみで再送される
  * - onSubmit は `content: 前後空白を除いた文字列` と `submitted_at: ISO8601` を渡す
  */
-import { act, fireEvent, render } from '@testing-library/react-native';
+import { act, cleanup, fireEvent, render } from '@testing-library/react-native';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../../tamagui.config';
@@ -29,6 +29,10 @@ describe('OutputEditor', () => {
   });
 
   afterEach(() => {
+    cleanup();
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
     jest.useRealTimers();
   });
 

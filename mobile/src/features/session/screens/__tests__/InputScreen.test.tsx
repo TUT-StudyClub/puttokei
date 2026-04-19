@@ -5,7 +5,7 @@
  * replace 遷移することを fakeTimers + mock API で確認する。
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, waitFor } from '@testing-library/react-native';
+import { act, cleanup, render, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { TamaguiProvider } from 'tamagui';
 
@@ -23,6 +23,10 @@ jest.mock('expo-router', () => ({
     output: '5',
     break: '5',
   }),
+}));
+
+jest.mock('@react-navigation/native', () => ({
+  useIsFocused: () => true,
 }));
 
 jest.mock('@/features/session/api/sessionApi');
@@ -55,6 +59,9 @@ describe('InputScreen', () => {
   });
 
   afterEach(() => {
+    // CI (Ubuntu) で RTL の auto cleanup (async) が 60s ハングしていたため、
+    // fake timers が有効なうちに先回りで unmount を済ませる。
+    cleanup();
     act(() => {
       jest.runOnlyPendingTimers();
     });
@@ -73,9 +80,7 @@ describe('InputScreen', () => {
     expect(useTimerStore.getState().totalSeconds).toBe(60);
   });
 
-  // FIXME: CI (GitHub Actions Ubuntu) でこのテストがハングする問題を調査中のため一時的にスキップする。
-  // ローカル (macOS) では通るので fakeTimers + waitFor の環境差起因が疑わしい。
-  it.skip('タイマー完了で PATCH status=output が送られ、output 画面へ replace する', async () => {
+  it('タイマー完了で PATCH status=output が送られ、output 画面へ replace する', async () => {
     (sessionApi.updateSessionStatus as jest.Mock).mockResolvedValue({
       id: 'ses-123',
       status: 'output',

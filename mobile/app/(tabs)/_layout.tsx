@@ -1,11 +1,8 @@
-import { type Href, Tabs, useRouter } from 'expo-router';
+import { Tabs } from 'expo-router';
 import { Circle, Path, Svg } from 'react-native-svg';
-
-import { useAuthStore } from '@/shared/stores/authStore';
 
 const ACTIVE_COLOR = '#4B5CFF';
 const INACTIVE_COLOR = '#9CA3AF';
-const SIGN_IN_ROUTE = '/(auth)/sign-in' as unknown as Href;
 
 function TimerTabIcon({ color, size = 24 }: { color: string; size?: number }) {
   // 時計風: 円形の文字盤 + 短針 (12時方向) + 長針 (3時方向)
@@ -44,9 +41,6 @@ function ReportTabIcon({ color, size = 24 }: { color: string; size?: number }) {
 }
 
 export default function TabsLayout() {
-  const router = useRouter();
-  const uid = useAuthStore((s) => s.uid);
-
   return (
     <Tabs
       screenOptions={{
@@ -69,15 +63,6 @@ export default function TabsLayout() {
         options={{
           title: 'レポート',
           tabBarIcon: ({ color }) => <ReportTabIcon color={color} />,
-        }}
-        listeners={{
-          tabPress: (event) => {
-            // 未認証の場合はレポートを開かずサインイン画面へ誘導する
-            if (uid === null) {
-              event.preventDefault();
-              router.push(SIGN_IN_ROUTE);
-            }
-          },
         }}
       />
       <Tabs.Screen name="history" options={{ href: null }} />

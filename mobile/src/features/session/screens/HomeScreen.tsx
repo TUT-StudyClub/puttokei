@@ -16,6 +16,7 @@ import { SizableText, Spinner } from 'tamagui';
 
 import { DEFAULT_TIMER } from '@/features/session/config';
 import { useCreateSession } from '@/features/session/hooks/useCreateSession';
+import { useSettings } from '@/features/settings/hooks/useSettings';
 import { LOOP_COUNT_MAX, useLoopStore } from '@/shared/stores/loopStore';
 
 const SETTINGS_ROUTE = '/(tabs)/settings' as unknown as Href;
@@ -27,12 +28,6 @@ const PHASE_LABELS: Record<Phase, string> = {
   input: 'インプット',
   output: 'アウトプット',
   break: '休憩',
-};
-
-const PHASE_MINUTES: Record<Phase, number> = {
-  input: DEFAULT_TIMER.input_minutes,
-  output: DEFAULT_TIMER.output_minutes,
-  break: DEFAULT_TIMER.break_minutes,
 };
 
 const HOURGLASS_BADGE_COUNT = LOOP_COUNT_MAX;
@@ -96,17 +91,27 @@ export function HomeScreen() {
   const [phase, setPhase] = useState<Phase>('input');
   const currentLoop = useLoopStore((s) => s.currentLoop);
   const createSession = useCreateSession();
+  const settingsQuery = useSettings();
+
+  // ユーザー設定が取れていればその値を、まだロード中 / 未ログインなら DEFAULT_TIMER を使う。
+  // 設定画面で更新すると useUpdateSettings が SETTINGS_QUERY_KEY のキャッシュを書き換えるため、
+  // 次回 HomeScreen を開いたタイミングでフェーズタブに即反映される。
+  const phaseMinutes: Record<Phase, number> = {
+    input: settingsQuery.data?.input_minutes ?? DEFAULT_TIMER.input_minutes,
+    output: settingsQuery.data?.output_minutes ?? DEFAULT_TIMER.output_minutes,
+    break: settingsQuery.data?.break_minutes ?? DEFAULT_TIMER.break_minutes,
+  };
 
   const handleStart = () => {
     if (createSession.isPending) return;
     // TODO: subject / topic 入力 UI を追加して、ユーザー入力を渡す。
-    // 当面はデフォルト値でセッションを作成して input 画面に遷移する。
+    // 当面はユーザー設定 (未取得時は DEFAULT_TIMER) でセッションを作成して input 画面に遷移する。
     createSession.mutate({
       subject: '未設定',
       topic: '未設定',
-      input_minutes: DEFAULT_TIMER.input_minutes,
-      output_minutes: DEFAULT_TIMER.output_minutes,
-      break_minutes: DEFAULT_TIMER.break_minutes,
+      input_minutes: phaseMinutes.input,
+      output_minutes: phaseMinutes.output,
+      break_minutes: phaseMinutes.break,
     });
   };
 
@@ -176,7 +181,7 @@ export function HomeScreen() {
         <View style={styles.timerStage}>
           <View style={styles.timerCircle} testID="home-timer-circle">
             <SizableText style={styles.timerText} testID="home-timer-text">
-              {formatMinutes(PHASE_MINUTES[phase])}
+              {formatMinutes(phaseMinutes[phase])}
             </SizableText>
           </View>
           <SizableText style={styles.timerCaption} testID="home-timer-caption">
