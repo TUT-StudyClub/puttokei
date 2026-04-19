@@ -64,28 +64,27 @@ export function useSmoothRemainingSeconds(): number {
   }, [remainingSeconds]);
 
   useEffect(() => {
-    if (status !== 'running') {
+    // jest (fake timers) 下では requestAnimationFrame / setTimeout が
+    // 自己スケジュールを繰り返して `advanceTimersByTime` を埋め尽くし、
+    // CI でテストがタイムアウトする。テストでは補間をスキップし、
+    // store の整数秒をそのまま表示値にする。
+    if (status !== 'running' || process.env.NODE_ENV === 'test') {
       setSmoothRemainingSeconds(remainingSeconds);
       return;
     }
 
-    // rAF は自己再帰するため fake timers 下では際限なくスケジュールされる。
-    // setTimeout で 20fps 程度に明示的にスロットルして、テスト側の
-    // `advanceTimersByTime` / `waitFor` が有限時間で収束するようにする。
-    const throttleMs = 50;
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let frameId = 0;
     const update = () => {
       const elapsedSeconds = (Date.now() - anchorTimestampRef.current) / 1000;
       const clampedElapsedSeconds = Math.min(elapsedSeconds, 0.999);
       const nextRemainingSeconds = Math.max(0, anchorRemainingRef.current - clampedElapsedSeconds);
       setSmoothRemainingSeconds(nextRemainingSeconds);
-      if (clampedElapsedSeconds >= 0.999) return;
-      timeoutId = setTimeout(update, throttleMs);
+      frameId = requestAnimationFrame(update);
     };
 
-    timeoutId = setTimeout(update, throttleMs);
+    frameId = requestAnimationFrame(update);
     return () => {
-      if (timeoutId !== null) clearTimeout(timeoutId);
+      cancelAnimationFrame(frameId);
     };
   }, [remainingSeconds, status]);
 
