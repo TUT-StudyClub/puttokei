@@ -20,6 +20,10 @@ jest.mock('expo-router', () => ({
   }),
 }));
 
+jest.mock('@react-navigation/native', () => ({
+  useIsFocused: () => true,
+}));
+
 function renderWithProviders(ui: ReactNode) {
   const queryClient = new QueryClient({
     defaultOptions: {

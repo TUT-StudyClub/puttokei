@@ -25,6 +25,10 @@ jest.mock('expo-router', () => ({
   }),
 }));
 
+jest.mock('@react-navigation/native', () => ({
+  useIsFocused: () => true,
+}));
+
 jest.mock('@/features/session/api/sessionApi');
 
 function renderWithProviders(ui: ReactNode) {

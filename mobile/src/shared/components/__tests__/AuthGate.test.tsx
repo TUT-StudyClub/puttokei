@@ -128,4 +128,19 @@ describe('AuthGate', () => {
       expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
     });
   });
+
+  it('ローカル確認用の sign-in 画面は、認証済みでもそのまま表示できる', async () => {
+    act(() => {
+      useAuthStore.setState({ uid: 'dev-local-user', idToken: 'dev-mock-dev-local-user' });
+      useTutorialStore.getState().markCompleted();
+    });
+    mockSegments = ['(auth)', 'sign-in'];
+
+    renderAuthGate();
+
+    await waitFor(() => {
+      expect(mockHideSplashWhenReady).toHaveBeenCalledTimes(1);
+    });
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
 });

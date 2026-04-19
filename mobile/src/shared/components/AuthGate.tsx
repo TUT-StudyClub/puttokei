@@ -18,6 +18,7 @@ import { useTutorialStore } from '@/shared/stores/tutorialStore';
 
 const AUTH_SEGMENT = '(auth)';
 const TABS_SEGMENT = '(tabs)';
+const SIGN_IN_SEGMENT = 'sign-in';
 const AUTH_OVERVIEW_ROUTE = '/(auth)/overview' as unknown as Href;
 const TABS_ROUTE = '/(tabs)' as unknown as Href;
 
@@ -40,6 +41,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const topSegment = segments[0];
+    const nestedSegment = segments[1];
 
     // 1. チュートリアル未完了は uid に関わらず (auth) 配下に固定する。
     if (!tutorialCompleted) {
@@ -54,6 +56,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
       if (topSegment !== AUTH_SEGMENT && topSegment !== TABS_SEGMENT) {
         router.replace(AUTH_OVERVIEW_ROUTE);
       }
+      return;
+    }
+
+    // ローカル確認中は、認証済みでも sign-in 画面の見た目確認を許可する。
+    if (__DEV__ && topSegment === AUTH_SEGMENT && nestedSegment === SIGN_IN_SEGMENT) {
       return;
     }
 

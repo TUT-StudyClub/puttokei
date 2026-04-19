@@ -8,6 +8,7 @@
  * 画面構成は HomeScreen と揃えた上で、中央に円形プログレス、下部に「中断する」
  * 「5分延長」の 2 ボタンを配置する。
  */
+import { useIsFocused } from '@react-navigation/native';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef } from 'react';
@@ -162,6 +163,7 @@ export function InputScreen() {
   const breakMinutes = Number(params.break) || DEFAULT_TIMER.break_minutes;
 
   const router = useRouter();
+  const isFocused = useIsFocused();
   const updateStatus = useUpdateSessionStatus();
   const cancelMutation = useUpdateSessionStatus();
   const currentLoop = useLoopStore((s) => s.currentLoop);
@@ -169,6 +171,7 @@ export function InputScreen() {
   const timerStatus = useTimerStore((s) => s.status);
 
   const { start, reset } = useTimer({
+    enabled: isFocused,
     onComplete: () => {
       updateStatus.mutate(
         { sessionId, status: 'output' },

@@ -29,6 +29,8 @@ export type OutputEditorProps = {
   errorMessage?: string | null;
   disabled?: boolean;
   maxLength?: number;
+  onFocus?: () => void;
+  onBlur?: () => void;
 };
 
 const DEFAULT_MAX_LENGTH = 2000;
@@ -41,6 +43,8 @@ export function OutputEditor({
   errorMessage,
   disabled = false,
   maxLength = DEFAULT_MAX_LENGTH,
+  onFocus,
+  onBlur,
 }: OutputEditorProps) {
   // 「送信する」を一度押したら true。連打抑止のため、その後の自動再有効化は行わず、
   // 失敗時は別途表示される「再送する」ボタンの明示操作のみで再送する。
@@ -77,9 +81,11 @@ export function OutputEditor({
     <YStack gap="$2" width="100%">
       <TextArea
         testID="output-editor-textarea"
-        placeholder="学んだ内容を自分の言葉で書いてください"
+        placeholder="覚えていることを書き出してみましょう"
         value={value}
         onChangeText={onChange}
+        onFocus={onFocus}
+        onBlur={onBlur}
         maxLength={maxLength}
         editable={!isSubmitting && !disabled}
         minHeight={160}

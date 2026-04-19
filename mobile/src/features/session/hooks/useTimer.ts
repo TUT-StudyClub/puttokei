@@ -20,6 +20,11 @@ import { useTimerStore, type TimerPhase, type TimerStatus } from '@/shared/store
 
 export type UseTimerOptions = {
   /**
+   * false の間は interval 駆動と完了通知を止める。
+   * 画面が mounted のまま blur されるナビゲーションで、裏画面から二重に tick しないために使う。
+   */
+  enabled?: boolean;
+  /**
    * フェーズが完了した瞬間に呼ばれるコールバック。`completionToken` の変化に同期し、
    * 1 つの hook インスタンスにつき完了 1 回ごとに 1 回だけ呼ばれる。
    */
@@ -49,6 +54,7 @@ export function formatMmSs(totalSeconds: number): string {
 }
 
 export function useTimer(options: UseTimerOptions = {}): UseTimerResult {
+  const enabled = options.enabled ?? true;
   const phase = useTimerStore((s) => s.phase);
   const status = useTimerStore((s) => s.status);
   const totalSeconds = useTimerStore((s) => s.totalSeconds);
@@ -68,20 +74,24 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerResult {
   }, [options.onComplete]);
 
   useEffect(() => {
-    if (status !== 'running') return;
+    if (!enabled || status !== 'running') return;
     const id = setInterval(() => {
       tick();
     }, 1000);
     return () => clearInterval(id);
-  }, [status, tick]);
+  }, [enabled, status, tick]);
 
   const previousTokenRef = useRef(completionToken);
   useEffect(() => {
+    if (!enabled) {
+      previousTokenRef.current = completionToken;
+      return;
+    }
     if (completionToken !== previousTokenRef.current) {
       previousTokenRef.current = completionToken;
       onCompleteRef.current?.(phase);
     }
-  }, [completionToken, phase]);
+  }, [completionToken, enabled, phase]);
 
   const startCb = useCallback(
     (p: Exclude<TimerPhase, 'idle'>, seconds: number) => start(p, seconds),

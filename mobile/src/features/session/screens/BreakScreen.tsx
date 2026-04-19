@@ -4,6 +4,7 @@
  * 状態機械上は `judging` に相当（判定待ちの期間を UI 上は「休憩」として扱う）。
  * タイマー完了後に結果画面へ遷移し、実際の判定取得は ResultScreen で行う。
  */
+import { useIsFocused } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { Paragraph, YStack } from 'tamagui';
@@ -24,8 +25,10 @@ export function BreakScreen() {
   const breakMinutes = Number(params.break) || DEFAULT_TIMER.break_minutes;
 
   const router = useRouter();
+  const isFocused = useIsFocused();
 
   const { start, reset } = useTimer({
+    enabled: isFocused,
     onComplete: () => {
       router.replace({
         pathname: '/session/[id]/result',
