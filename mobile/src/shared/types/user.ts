@@ -15,7 +15,6 @@ export type UserProfile = {
   auth_provider: AuthProvider;
   display_name: string | null;
   age_group: AgeGroup | null;
-  onboarding_completed: boolean;
   created_at: string;
   updated_at: string;
 };

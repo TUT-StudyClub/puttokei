@@ -27,7 +27,6 @@ const PROFILE_FIXTURE = {
   auth_provider: 'google' as const,
   display_name: '太郎',
   age_group: '30s' as const,
-  onboarding_completed: true,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
 };
