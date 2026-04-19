@@ -6,7 +6,7 @@
  * - unmount 時の cleanup
  * - onComplete の差し替えが反映される (ref 経由)
  */
-import { act, renderHook } from '@testing-library/react-native';
+import { act, cleanup, renderHook } from '@testing-library/react-native';
 
 import { formatMmSs, useTimer } from '../useTimer';
 import { useTimerStore } from '@/shared/stores/timerStore';
@@ -39,6 +39,7 @@ describe('useTimer', () => {
   });
 
   afterEach(() => {
+    cleanup();
     act(() => {
       jest.runOnlyPendingTimers();
     });

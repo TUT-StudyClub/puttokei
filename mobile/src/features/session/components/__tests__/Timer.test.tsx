@@ -4,7 +4,7 @@
  *
  * Tamagui の `SizableText` を使うため `TamaguiProvider` 配下でレンダする。
  */
-import { act, render } from '@testing-library/react-native';
+import { act, cleanup, render } from '@testing-library/react-native';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../../tamagui.config';
@@ -32,6 +32,7 @@ describe('Timer', () => {
   });
 
   afterEach(() => {
+    cleanup();
     act(() => {
       jest.runOnlyPendingTimers();
     });

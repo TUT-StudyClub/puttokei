@@ -2,7 +2,7 @@
  * Button が Tamagui の Provider 配下でレンダリングできることを確認する最低限のテスト。
  * 後続 Epic で variant / interaction のテストを追加する。
  */
-import { act, render } from '@testing-library/react-native';
+import { act, cleanup, render } from '@testing-library/react-native';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../tamagui.config';
@@ -14,6 +14,7 @@ describe('Button', () => {
   });
 
   afterEach(() => {
+    cleanup();
     act(() => {
       jest.runOnlyPendingTimers();
     });

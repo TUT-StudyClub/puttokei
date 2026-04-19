@@ -1,4 +1,4 @@
-import { act, render, waitFor } from '@testing-library/react-native';
+import { act, cleanup, render, waitFor } from '@testing-library/react-native';
 import { Text } from 'react-native';
 import { TamaguiProvider } from 'tamagui';
 
@@ -47,6 +47,7 @@ describe('AuthGate', () => {
   });
 
   afterEach(() => {
+    cleanup();
     act(() => {
       jest.runOnlyPendingTimers();
     });

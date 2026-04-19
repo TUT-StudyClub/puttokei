@@ -5,7 +5,7 @@
  * replace 遷移することを fakeTimers + mock API で確認する。
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, waitFor } from '@testing-library/react-native';
+import { act, cleanup, render, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { TamaguiProvider } from 'tamagui';
 
@@ -59,6 +59,9 @@ describe('InputScreen', () => {
   });
 
   afterEach(() => {
+    // CI (Ubuntu) で RTL の auto cleanup (async) が 60s ハングしていたため、
+    // fake timers が有効なうちに先回りで unmount を済ませる。
+    cleanup();
     act(() => {
       jest.runOnlyPendingTimers();
     });
