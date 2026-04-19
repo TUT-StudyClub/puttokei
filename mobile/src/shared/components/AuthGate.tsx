@@ -26,7 +26,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const uid = useAuthStore((s) => s.uid);
   const tutorialCompleted = useTutorialStore((s) => s.completed);
   const router = useRouter();
-  const segments = useSegments();
+  const segments = useSegments() as string[];
   const [bootMinimumElapsed, setBootMinimumElapsed] = useState(false);
 
   useEffect(() => {
