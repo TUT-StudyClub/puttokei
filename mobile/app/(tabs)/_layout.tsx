@@ -1,5 +1,5 @@
 import { type Href, Tabs, useRouter } from 'expo-router';
-import { Path, Rect, Svg } from 'react-native-svg';
+import { Circle, Path, Svg } from 'react-native-svg';
 
 import { useAuthStore } from '@/shared/stores/authStore';
 
@@ -8,58 +8,37 @@ const INACTIVE_COLOR = '#9CA3AF';
 const SIGN_IN_ROUTE = '/(auth)/sign-in' as unknown as Href;
 
 function TimerTabIcon({ color, size = 24 }: { color: string; size?: number }) {
+  // 時計風: 円形の文字盤 + 短針 (12時方向) + 長針 (3時方向)
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M9 2 H15"
-        stroke={color}
-        strokeWidth={1.8}
-        strokeLinecap="round"
-      />
-      <Path
-        d="M5 5 H19 V8 C19 11 15.5 12 15.5 14 C15.5 16 19 17 19 20 V23 H5 V20 C5 17 8.5 16 8.5 14 C8.5 12 5 11 5 8 Z"
-        stroke={color}
-        strokeWidth={1.8}
-        strokeLinejoin="round"
-        fill="none"
-      />
+      <Circle cx={12} cy={12} r={9} stroke={color} strokeWidth={1.8} fill="none" />
+      <Path d="M12 12 L12 7" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+      <Path d="M12 12 L16 12" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
     </Svg>
   );
 }
 
 function ReportTabIcon({ color, size = 24 }: { color: string; size?: number }) {
+  // 棒グラフ風: 低い棒 + 高い棒を近接配置
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect
-        x={3}
-        y={13}
-        width={4}
-        height={8}
-        rx={1}
+      <Path
+        d="M8 20 V14 H12 V20"
         stroke={color}
         strokeWidth={1.8}
+        strokeLinejoin="round"
+        strokeLinecap="round"
         fill="none"
       />
-      <Rect
-        x={10}
-        y={8}
-        width={4}
-        height={13}
-        rx={1}
+      <Path
+        d="M12 20 V8 H16 V20"
         stroke={color}
         strokeWidth={1.8}
+        strokeLinejoin="round"
+        strokeLinecap="round"
         fill="none"
       />
-      <Rect
-        x={17}
-        y={3}
-        width={4}
-        height={18}
-        rx={1}
-        stroke={color}
-        strokeWidth={1.8}
-        fill="none"
-      />
+      <Path d="M4 20 H20" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
     </Svg>
   );
 }
