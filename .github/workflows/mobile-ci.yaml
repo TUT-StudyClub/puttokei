@@ -40,7 +40,7 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Jest
-        run: npx jest --ci
+        run: npx jest --ci --forceExit
 
       - name: Expo Doctor
         run: npx expo-doctor
