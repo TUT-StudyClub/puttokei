@@ -70,8 +70,7 @@ function HourglassBadgeIcon({ active, testID }: HourglassBadgeIconProps) {
 }
 
 // 六角形 + 中央の小円で構成した設定アイコン
-const SETTINGS_ICON_HEX_PATH =
-  'M12 3 L20 7.5 V16.5 L12 21 L4 16.5 V7.5 Z';
+const SETTINGS_ICON_HEX_PATH = 'M12 3 L20 7.5 V16.5 L12 21 L4 16.5 V7.5 Z';
 
 function SettingsIcon({ size = 26, color = '#2F2F2F' }: { size?: number; color?: string }) {
   return (
@@ -120,7 +119,10 @@ export function HomeScreen() {
             accessibilityRole="button"
             accessibilityLabel="設定"
             onPress={() => router.push(SETTINGS_ROUTE)}
-            style={({ pressed }) => [styles.settingsButton, pressed ? styles.settingsButtonPressed : null]}
+            style={({ pressed }) => [
+              styles.settingsButton,
+              pressed ? styles.settingsButtonPressed : null,
+            ]}
             hitSlop={8}
             testID="home-settings-button"
           >
@@ -157,12 +159,7 @@ export function HomeScreen() {
                   style={styles.phaseTab}
                   testID={`home-phase-tab-${p}`}
                 >
-                  <View
-                    style={[
-                      styles.phaseTabDot,
-                      isActive ? styles.phaseTabDotActive : null,
-                    ]}
-                  />
+                  <View style={[styles.phaseTabDot, isActive ? styles.phaseTabDotActive : null]} />
                   <SizableText
                     size="$3"
                     style={[styles.phaseTabLabel, isActive ? styles.phaseTabLabelActive : null]}
