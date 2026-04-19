@@ -180,7 +180,8 @@ describe('AuthGate', () => {
       error: new Error('HTTP 401'),
     } as unknown as ReturnType<typeof useProfile>);
 
-    const screen = renderAuthGate();
+    const { queryClient, ...screen } = renderAuthGate();
+    const removeSpy = jest.spyOn(queryClient, 'removeQueries');
 
     act(() => {
       jest.advanceTimersByTime(BOOT_SCREEN_MIN_DURATION_MS);
@@ -195,6 +196,53 @@ describe('AuthGate', () => {
     await waitFor(() => {
       expect(mockSignOut).toHaveBeenCalledTimes(1);
     });
+    // signOut 成功後にキャッシュを除去する順序を担保する
+    expect(mockSignOut.mock.invocationCallOrder[0]).toBeLessThan(
+      removeSpy.mock.invocationCallOrder[0] ?? Infinity,
+    );
+    expect(removeSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: ['profile', 'me'] }),
+    );
+  });
+
+  it('signOut が失敗したらキャッシュを除去せず、エラー画面に留まる', async () => {
+    act(() => {
+      useAuthStore.setState({ uid: 'user-1', idToken: 'token-1' });
+    });
+    mockSegments = ['(auth)'];
+    mockUseProfile.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: new Error('HTTP 401'),
+    } as unknown as ReturnType<typeof useProfile>);
+
+    mockSignOut.mockRejectedValueOnce(new Error('network unavailable'));
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const { queryClient, ...screen } = renderAuthGate();
+    const removeSpy = jest.spyOn(queryClient, 'removeQueries');
+
+    act(() => {
+      jest.advanceTimersByTime(BOOT_SCREEN_MIN_DURATION_MS);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('profile-error-screen')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId('profile-error-sign-out'));
+    await waitFor(() => {
+      expect(mockSignOut).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(warnSpy).toHaveBeenCalledWith('signOut failed', expect.any(Error));
+    });
+
+    expect(removeSpy).not.toHaveBeenCalled();
+    expect(screen.getByTestId('profile-error-screen')).toBeTruthy();
+
+    warnSpy.mockRestore();
   });
 
   it('エラー画面で再試行ボタンを押すと profile query が invalidate される', async () => {

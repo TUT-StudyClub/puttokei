@@ -26,9 +26,8 @@ export function ProfileErrorScreen({ message, onRetry, onSignOut }: ProfileError
       padding="$6"
       backgroundColor="$background"
     >
-      <H2>接続に問題があります</H2>
+      <H2>プロフィールを取得できませんでした</H2>
       <Paragraph textAlign="center" theme="alt2">
-        プロフィール取得に失敗しました。{'\n'}
         {message}
       </Paragraph>
       <YStack gap="$3" width="100%" maxWidth={320}>

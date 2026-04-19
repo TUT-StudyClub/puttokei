@@ -82,10 +82,15 @@ export function AuthGate({ children }: { children: ReactNode }) {
             queryClient.invalidateQueries({ queryKey: PROFILE_QUERY_KEY });
           }}
           onSignOut={async () => {
-            // 別アカウント再ログイン時に古いエラー状態が残らないよう、
-            // profile キャッシュを明示的に破棄してから Firebase からサインアウトする。
-            queryClient.removeQueries({ queryKey: PROFILE_QUERY_KEY });
-            await signOut();
+            // signOut が失敗したらサインアウトは成立していないため、
+            // 成功確認後にキャッシュを破棄する。失敗時はエラー画面に留まって
+            // ユーザが再度ボタンを押せる状態を保つ。
+            try {
+              await signOut();
+              queryClient.removeQueries({ queryKey: PROFILE_QUERY_KEY });
+            } catch (e) {
+              console.warn('signOut failed', e);
+            }
           }}
         />
       ) : null}
