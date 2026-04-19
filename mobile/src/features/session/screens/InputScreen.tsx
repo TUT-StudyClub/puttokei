@@ -17,7 +17,7 @@ import { Circle, Path, Svg } from 'react-native-svg';
 import { SizableText } from 'tamagui';
 
 import { DEFAULT_TIMER } from '@/features/session/config';
-import { formatMmSs, useTimer } from '@/features/session/hooks/useTimer';
+import { formatMmSs, useSmoothRemainingSeconds, useTimer } from '@/features/session/hooks/useTimer';
 import { useUpdateSessionStatus } from '@/features/session/hooks/useUpdateSessionStatus';
 import { LOOP_COUNT_MAX, useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
@@ -102,16 +102,19 @@ type CircularTimerProps = {
 };
 
 function CircularTimer({ phaseLabel }: CircularTimerProps) {
-  const remainingSeconds = useTimerStore((s) => s.remainingSeconds);
+  const smoothRemainingSeconds = useSmoothRemainingSeconds();
   const totalSeconds = useTimerStore((s) => s.totalSeconds);
 
   const size = 260;
   const strokeWidth = 14;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
+  const displayRemainingSeconds = Math.max(0, Math.ceil(smoothRemainingSeconds));
   // 経過割合。経過分だけ progress ストロークが伸びる (12 時方向から時計回り)。
   const progressRatio =
-    totalSeconds > 0 ? Math.min(1, Math.max(0, 1 - remainingSeconds / totalSeconds)) : 0;
+    totalSeconds > 0
+      ? Math.min(1, Math.max(0, 1 - smoothRemainingSeconds / totalSeconds))
+      : 0;
   const dashOffset = circumference * (1 - progressRatio);
 
   return (
@@ -141,7 +144,7 @@ function CircularTimer({ phaseLabel }: CircularTimerProps) {
       <View style={styles.timerCenter} pointerEvents="none">
         <SizableText style={styles.timerPhaseLabel}>{phaseLabel}</SizableText>
         <SizableText style={styles.timerText} testID="timer-display">
-          {formatMmSs(remainingSeconds)}
+          {formatMmSs(displayRemainingSeconds)}
         </SizableText>
       </View>
     </View>

@@ -29,7 +29,11 @@ import { SizableText } from 'tamagui';
 import { OutputEditor } from '@/features/session/components/OutputEditor';
 import type { OutputEditorSubmitPayload } from '@/features/session/components/OutputEditor';
 import { DEFAULT_TIMER } from '@/features/session/config';
-import { formatMmSs, useTimer } from '@/features/session/hooks/useTimer';
+import {
+  formatMmSs,
+  useSmoothRemainingSeconds,
+  useTimer,
+} from '@/features/session/hooks/useTimer';
 import { useSubmitOutput } from '@/features/session/hooks/useSubmitOutput';
 import { isApiError } from '@/shared/lib/api';
 import { LOOP_COUNT_MAX, useLoopStore } from '@/shared/stores/loopStore';
@@ -112,15 +116,18 @@ type CircularTimerProps = {
 };
 
 function CircularTimer({ phaseLabel, compact = false }: CircularTimerProps) {
-  const remainingSeconds = useTimerStore((s) => s.remainingSeconds);
+  const smoothRemainingSeconds = useSmoothRemainingSeconds();
   const totalSeconds = useTimerStore((s) => s.totalSeconds);
 
   const size = compact ? 156 : 260;
   const strokeWidth = compact ? 10 : 14;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
+  const displayRemainingSeconds = Math.max(0, Math.ceil(smoothRemainingSeconds));
   const progressRatio =
-    totalSeconds > 0 ? Math.min(1, Math.max(0, 1 - remainingSeconds / totalSeconds)) : 0;
+    totalSeconds > 0
+      ? Math.min(1, Math.max(0, 1 - smoothRemainingSeconds / totalSeconds))
+      : 0;
   const dashOffset = circumference * (1 - progressRatio);
 
   return (
@@ -151,11 +158,16 @@ function CircularTimer({ phaseLabel, compact = false }: CircularTimerProps) {
         style={[styles.timerCenter, compact ? styles.timerCenterCompact : null]}
         pointerEvents="none"
       >
-        <SizableText style={[styles.timerPhaseLabel, compact ? styles.timerPhaseLabelCompact : null]}>
+        <SizableText
+          style={[styles.timerPhaseLabel, compact ? styles.timerPhaseLabelCompact : null]}
+        >
           {phaseLabel}
         </SizableText>
-        <SizableText style={[styles.timerText, compact ? styles.timerTextCompact : null]} testID="timer-display">
-          {formatMmSs(remainingSeconds)}
+        <SizableText
+          style={[styles.timerText, compact ? styles.timerTextCompact : null]}
+          testID="timer-display"
+        >
+          {formatMmSs(displayRemainingSeconds)}
         </SizableText>
       </View>
     </View>
