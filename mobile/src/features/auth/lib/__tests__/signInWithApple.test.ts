@@ -29,11 +29,26 @@ jest.mock('@react-native-firebase/auth', () => {
 });
 
 const AppleAuthentication = require('expo-apple-authentication');
+const authModule = require('@react-native-firebase/auth');
 const { signInWithApple } = require('@/features/auth/lib/signInWithApple');
 
 describe('signInWithApple', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('成功時に AppleAuthProvider.credential を identityToken / rawNonce で呼ぶ', async () => {
+    (AppleAuthentication.signInAsync as jest.Mock).mockResolvedValueOnce({
+      identityToken: 'apple-id-token',
+    });
+
+    await signInWithApple();
+
+    expect(authModule.default.AppleAuthProvider.credential).toHaveBeenCalledTimes(1);
+    expect(authModule.default.AppleAuthProvider.credential).toHaveBeenCalledWith(
+      'apple-id-token',
+      expect.any(String),
+    );
   });
 
   it('ネイティブの ERR_REQUEST_CANCELED を AuthFlowCancelledError に変換する', async () => {
