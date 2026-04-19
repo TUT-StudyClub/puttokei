@@ -1,15 +1,13 @@
 /**
- * OverviewScreen の初期表示と自動遷移を検証する。
+ * OverviewScreen の初期表示とボタン遷移を検証する。
  */
-import { act, cleanup, render } from '@testing-library/react-native';
+import { act, cleanup, fireEvent, render } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../../tamagui.config';
-import {
-  OVERVIEW_SCREEN_DURATION_MS,
-  OverviewScreen,
-} from '@/features/auth/screens/OverviewScreen';
+import { OverviewScreen } from '@/features/auth/screens/OverviewScreen';
+import { TUTORIAL_ROUTE_TRANSITION_DELAY_MS } from '@/features/auth/screens/tutorialConfig';
 
 const mockReplace = jest.fn();
 
@@ -49,19 +47,24 @@ describe('OverviewScreen', () => {
     expect(screen.getByText('へようこそ')).toBeTruthy();
     expect(screen.getByTestId('overview-description')).toBeTruthy();
     expect(screen.getByText(/インプットとアウトプットを/)).toBeTruthy();
+    expect(screen.getByTestId('overview-next')).toBeTruthy();
+    expect(screen.getByText('はじめる')).toBeTruthy();
   });
 
-  it('一定時間後にサインイン画面へ置き換え遷移する', () => {
-    renderWithProviders(<OverviewScreen />);
+  it('次へは少し待ってからチュートリアル Step1 へ進む', () => {
+    const screen = renderWithProviders(<OverviewScreen />);
 
+    fireEvent.press(screen.getByTestId('overview-next'));
+
+    expect(mockReplace).not.toHaveBeenCalled();
     act(() => {
-      jest.advanceTimersByTime(OVERVIEW_SCREEN_DURATION_MS - 1);
+      jest.advanceTimersByTime(TUTORIAL_ROUTE_TRANSITION_DELAY_MS - 1);
     });
     expect(mockReplace).not.toHaveBeenCalled();
 
     act(() => {
       jest.advanceTimersByTime(1);
     });
-    expect(mockReplace).toHaveBeenCalledWith('/(auth)/sign-in');
+    expect(mockReplace).toHaveBeenCalledWith('/(auth)/tutorial-step-one');
   });
 });

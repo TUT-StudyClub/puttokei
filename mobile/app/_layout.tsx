@@ -46,7 +46,7 @@ export default function RootLayout() {
     <TamaguiProvider config={config} defaultTheme="light">
       <QueryClientProvider client={queryClient}>
         <AuthGate>
-          <Stack screenOptions={{ headerShown: false }} />
+          <Stack screenOptions={{ headerShown: false, animation: 'none' }} />
         </AuthGate>
       </QueryClientProvider>
     </TamaguiProvider>
