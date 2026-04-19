@@ -12,6 +12,7 @@ import {
   TUTORIAL_PROGRESS_FILL_DURATION_MS,
   TUTORIAL_ROUTE_TRANSITION_DELAY_MS,
 } from '@/features/auth/screens/tutorialConfig';
+import { useTutorialStore } from '@/shared/stores/tutorialStore';
 
 const mockReplace = jest.fn();
 
@@ -51,6 +52,7 @@ describe('TutorialStepThreeScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+    useTutorialStore.getState().reset();
   });
 
   afterEach(() => {
@@ -59,6 +61,7 @@ describe('TutorialStepThreeScreen', () => {
       jest.runOnlyPendingTimers();
     });
     jest.useRealTimers();
+    useTutorialStore.getState().reset();
   });
 
   it('Step3 の UI を表示する', () => {
@@ -91,7 +94,7 @@ describe('TutorialStepThreeScreen', () => {
     expect(getProgressFillScale(screen)).toBeCloseTo(1, 3);
   });
 
-  it('5秒後に自動でサインイン画面へ進む', () => {
+  it('5秒後に自動でホーム画面へ進む', () => {
     renderWithProviders(<TutorialStepThreeScreen />);
 
     expect(mockReplace).not.toHaveBeenCalled();
@@ -102,10 +105,10 @@ describe('TutorialStepThreeScreen', () => {
     act(() => {
       jest.advanceTimersByTime(1);
     });
-    expect(mockReplace).toHaveBeenNthCalledWith(1, '/(auth)/sign-in');
+    expect(mockReplace).toHaveBeenNthCalledWith(1, '/(tabs)');
   });
 
-  it('次へは少し待ってからサインイン画面へ進む', () => {
+  it('次へは少し待ってからホーム画面へ進む', () => {
     const screen = renderWithProviders(<TutorialStepThreeScreen />);
 
     fireEvent.press(screen.getByTestId('tutorial-step-three-next'));
@@ -118,10 +121,10 @@ describe('TutorialStepThreeScreen', () => {
     act(() => {
       jest.advanceTimersByTime(1);
     });
-    expect(mockReplace).toHaveBeenNthCalledWith(1, '/(auth)/sign-in');
+    expect(mockReplace).toHaveBeenNthCalledWith(1, '/(tabs)');
   });
 
-  it('スキップするは少し待ってからサインイン画面へ進む', () => {
+  it('スキップするは少し待ってからホーム画面へ進む', () => {
     const screen = renderWithProviders(<TutorialStepThreeScreen />);
 
     fireEvent.press(screen.getByTestId('tutorial-step-three-skip'));
@@ -134,6 +137,19 @@ describe('TutorialStepThreeScreen', () => {
     act(() => {
       jest.advanceTimersByTime(1);
     });
-    expect(mockReplace).toHaveBeenNthCalledWith(1, '/(auth)/sign-in');
+    expect(mockReplace).toHaveBeenNthCalledWith(1, '/(tabs)');
+  });
+
+  it('ホームへ遷移する際にチュートリアル完了フラグが立つ', () => {
+    const screen = renderWithProviders(<TutorialStepThreeScreen />);
+
+    expect(useTutorialStore.getState().completed).toBe(false);
+
+    fireEvent.press(screen.getByTestId('tutorial-step-three-next'));
+    act(() => {
+      jest.advanceTimersByTime(TUTORIAL_ROUTE_TRANSITION_DELAY_MS);
+    });
+
+    expect(useTutorialStore.getState().completed).toBe(true);
   });
 });

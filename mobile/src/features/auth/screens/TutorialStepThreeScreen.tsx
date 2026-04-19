@@ -18,9 +18,10 @@ import {
   TUTORIAL_ROUTE_TRANSITION_DELAY_MS,
   TUTORIAL_TWO_BUTTON_ACTION_AREA_RESERVE,
 } from '@/features/auth/screens/tutorialConfig';
+import { useTutorialStore } from '@/shared/stores/tutorialStore';
 
-const NEXT_ROUTE = '/(auth)/sign-in' as unknown as Href;
-const SKIP_ROUTE = '/(auth)/sign-in' as unknown as Href;
+const NEXT_ROUTE = '/(tabs)' as unknown as Href;
+const SKIP_ROUTE = '/(tabs)' as unknown as Href;
 const HOURGLASS_FALL_DURATION_MS = 1500;
 const HOURGLASS_ROTATION_DURATION_MS = 1200;
 const HOURGLASS_EFFECT_FADE_DURATION_MS = 180;
@@ -120,6 +121,8 @@ function HourglassIllustration({
 export function TutorialStepThreeScreen() {
   const router = useRouter();
   const routerRef = useRef(router);
+  const markTutorialCompleted = useTutorialStore((s) => s.markCompleted);
+  const markTutorialCompletedRef = useRef(markTutorialCompleted);
   const [isNavigating, setIsNavigating] = useState(false);
   const progressFillRatio = useRef(new Animated.Value(0)).current;
   const rotationValue = useRef(new Animated.Value(0)).current;
@@ -130,11 +133,15 @@ export function TutorialStepThreeScreen() {
   const autoAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   routerRef.current = router;
+  markTutorialCompletedRef.current = markTutorialCompleted;
 
   const navigate = useCallback((route: Href) => {
     if (hasNavigatedRef.current) return;
 
     hasNavigatedRef.current = true;
+    // チュートリアル完了をマークしてから (tabs) などへ遷移する。
+    // AuthGate がフラグを参照して overview に戻さないようにする。
+    markTutorialCompletedRef.current();
     routerRef.current.replace(route);
   }, []);
 

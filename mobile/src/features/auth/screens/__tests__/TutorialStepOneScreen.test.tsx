@@ -248,6 +248,6 @@ describe('TutorialStepOneScreen', () => {
     act(() => {
       jest.advanceTimersByTime(1);
     });
-    expect(mockReplace).toHaveBeenNthCalledWith(1, '/(auth)/sign-in');
+    expect(mockReplace).toHaveBeenNthCalledWith(1, '/(tabs)');
   });
 });

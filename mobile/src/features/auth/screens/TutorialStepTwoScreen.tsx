@@ -19,7 +19,7 @@ import {
 } from '@/features/auth/screens/tutorialConfig';
 
 const NEXT_ROUTE = '/(auth)/tutorial-step-three' as unknown as Href;
-const SKIP_ROUTE = '/(auth)/sign-in' as unknown as Href;
+const SKIP_ROUTE = '/(tabs)' as unknown as Href;
 
 export function TutorialStepTwoScreen() {
   const router = useRouter();

@@ -8,6 +8,7 @@ import { AuthGate } from '@/shared/components/AuthGate';
 import { BOOT_SCREEN_MIN_DURATION_MS } from '@/shared/components/BootScreen';
 import { hideSplashWhenReady } from '@/shared/lib/splash';
 import { useAuthStore } from '@/shared/stores/authStore';
+import { useTutorialStore } from '@/shared/stores/tutorialStore';
 import type { UserProfile } from '@/shared/types/user';
 
 const mockReplace = jest.fn();
@@ -56,6 +57,7 @@ describe('AuthGate', () => {
     mockSegments = [];
     act(() => {
       useAuthStore.setState({ uid: null, idToken: null });
+      useTutorialStore.getState().reset();
     });
     mockUseProfile.mockReturnValue({
       data: undefined,
@@ -69,6 +71,7 @@ describe('AuthGate', () => {
     });
     act(() => {
       useAuthStore.setState({ uid: null, idToken: null });
+      useTutorialStore.getState().reset();
     });
     jest.useRealTimers();
   });
@@ -93,6 +96,38 @@ describe('AuthGate', () => {
     });
     await waitFor(() => {
       expect(screen.queryByTestId('boot-screen')).toBeNull();
+    });
+  });
+
+  it('未認証でチュートリアル完了済みなら (tabs) 配下に滞在できる', async () => {
+    mockSegments = ['(tabs)'];
+    act(() => {
+      useTutorialStore.getState().markCompleted();
+    });
+
+    const screen = renderAuthGate();
+
+    await waitFor(() => {
+      expect(mockHideSplashWhenReady).toHaveBeenCalledTimes(1);
+    });
+    expect(mockReplace).not.toHaveBeenCalled();
+
+    act(() => {
+      jest.advanceTimersByTime(BOOT_SCREEN_MIN_DURATION_MS);
+    });
+    await waitFor(() => {
+      expect(screen.queryByTestId('boot-screen')).toBeNull();
+    });
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('未認証かつチュートリアル未完了で (tabs) 配下にいる場合は overview に戻す', async () => {
+    mockSegments = ['(tabs)'];
+
+    renderAuthGate();
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/(auth)/overview');
     });
   });
 

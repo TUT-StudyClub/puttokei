@@ -27,7 +27,7 @@ type TutorialPhase = {
 };
 
 const NEXT_ROUTE = '/(auth)/tutorial-step-two' as unknown as Href;
-const SKIP_ROUTE = '/(auth)/sign-in' as unknown as Href;
+const SKIP_ROUTE = '/(tabs)' as unknown as Href;
 export const TUTORIAL_STEP_ONE_TOTAL_DURATION_MS = 7500;
 
 export const TUTORIAL_STEP_ONE_PHASES: readonly TutorialPhase[] = [
