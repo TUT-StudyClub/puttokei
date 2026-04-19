@@ -29,11 +29,7 @@ import { SizableText } from 'tamagui';
 import { OutputEditor } from '@/features/session/components/OutputEditor';
 import type { OutputEditorSubmitPayload } from '@/features/session/components/OutputEditor';
 import { DEFAULT_TIMER } from '@/features/session/config';
-import {
-  formatMmSs,
-  useSmoothRemainingSeconds,
-  useTimer,
-} from '@/features/session/hooks/useTimer';
+import { formatMmSs, useSmoothRemainingSeconds, useTimer } from '@/features/session/hooks/useTimer';
 import { useSubmitOutput } from '@/features/session/hooks/useSubmitOutput';
 import { isApiError } from '@/shared/lib/api';
 import { LOOP_COUNT_MAX, useLoopStore } from '@/shared/stores/loopStore';
@@ -125,9 +121,7 @@ function CircularTimer({ phaseLabel, compact = false }: CircularTimerProps) {
   const circumference = 2 * Math.PI * radius;
   const displayRemainingSeconds = Math.max(0, Math.ceil(smoothRemainingSeconds));
   const progressRatio =
-    totalSeconds > 0
-      ? Math.min(1, Math.max(0, 1 - smoothRemainingSeconds / totalSeconds))
-      : 0;
+    totalSeconds > 0 ? Math.min(1, Math.max(0, 1 - smoothRemainingSeconds / totalSeconds)) : 0;
   const dashOffset = circumference * (1 - progressRatio);
 
   return (
@@ -401,10 +395,7 @@ export function OutputScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View
-            style={[
-              styles.container,
-              isKeyboardVisible ? styles.containerKeyboardVisible : null,
-            ]}
+            style={[styles.container, isKeyboardVisible ? styles.containerKeyboardVisible : null]}
             testID="output-root"
           >
             {isKeyboardVisible ? null : (
@@ -454,10 +445,7 @@ export function OutputScreen() {
                       />
                       <SizableText
                         size="$3"
-                        style={[
-                          styles.phaseTabLabel,
-                          isActive ? styles.phaseTabLabelActive : null,
-                        ]}
+                        style={[styles.phaseTabLabel, isActive ? styles.phaseTabLabelActive : null]}
                       >
                         {PHASE_LABELS[p]}
                       </SizableText>

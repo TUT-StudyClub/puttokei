@@ -73,10 +73,7 @@ export function useSmoothRemainingSeconds(): number {
     const update = () => {
       const elapsedSeconds = (Date.now() - anchorTimestampRef.current) / 1000;
       const clampedElapsedSeconds = Math.min(elapsedSeconds, 0.999);
-      const nextRemainingSeconds = Math.max(
-        0,
-        anchorRemainingRef.current - clampedElapsedSeconds,
-      );
+      const nextRemainingSeconds = Math.max(0, anchorRemainingRef.current - clampedElapsedSeconds);
       setSmoothRemainingSeconds(nextRemainingSeconds);
       frameId = requestAnimationFrame(update);
     };

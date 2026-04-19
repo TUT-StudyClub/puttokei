@@ -112,9 +112,7 @@ function CircularTimer({ phaseLabel }: CircularTimerProps) {
   const displayRemainingSeconds = Math.max(0, Math.ceil(smoothRemainingSeconds));
   // 経過割合。経過分だけ progress ストロークが伸びる (12 時方向から時計回り)。
   const progressRatio =
-    totalSeconds > 0
-      ? Math.min(1, Math.max(0, 1 - smoothRemainingSeconds / totalSeconds))
-      : 0;
+    totalSeconds > 0 ? Math.min(1, Math.max(0, 1 - smoothRemainingSeconds / totalSeconds)) : 0;
   const dashOffset = circumference * (1 - progressRatio);
 
   return (

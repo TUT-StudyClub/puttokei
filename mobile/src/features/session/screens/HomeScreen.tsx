@@ -30,7 +30,6 @@ const PHASE_LABELS: Record<Phase, string> = {
   break: '休憩',
 };
 
-
 const HOURGLASS_BADGE_COUNT = LOOP_COUNT_MAX;
 const HOURGLASS_BADGE_BASE_WIDTH = 18;
 const HOURGLASS_BADGE_BASE_HEIGHT = 24;
