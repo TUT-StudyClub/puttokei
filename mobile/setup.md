@@ -74,17 +74,25 @@ iOS の URL Scheme は `GoogleService-Info.plist` 内の `REVERSED_CLIENT_ID`
 
 1. [Apple Developer](https://developer.apple.com) で **App ID** を作成し、
    `mobile/app.json` の `ios.bundleIdentifier` と一致させる。`Sign in with
-   Apple` capability を有効にする。
+Apple` capability を有効にする。
 2. **Services ID** を作成（Web 側の OAuth 識別子）。戻りの URL には
    Firebase Console が提示する `https://<project>.firebaseapp.com/__/auth/handler`
    を登録する。
 3. **Key** を作成し `Sign in with Apple` を有効化 → `.p8` ファイルをダウンロード。
 4. Firebase Console → Authentication → Sign-in method → **Apple** を有効化。
    - Services ID、Apple Team ID、Key ID、ダウンロードした `.p8` の中身を貼る。
-5. `npx expo prebuild -p ios --clean` で `ios/` を再生成（`usesAppleSignIn: true`
-   から `entitlements` と capability が自動付与される）。
+5. `ios/` を再生成する。`usesAppleSignIn: true` から `entitlements` と
+   capability が自動付与される。次のどちらかで実行する。
+   - **差分 prebuild（推奨）**: `npx expo prebuild -p ios` で差分更新する。
+     Xcode の独自設定や Signing 情報を保ったまま capability だけ追加される。
+     反映されない場合は Xcode の Signing & Capabilities タブで
+     `+ Capability` → **Sign in with Apple** を手動追加する。
+   - **クリーン再生成**: `npx expo prebuild -p ios --clean` で `ios/` を
+     全面再生成する。確実に設定が反映される代わりに **ローカルの `ios/`
+     変更は全消去される** ので注意。手動で加えた Podfile 修正や Xcode 設定
+     は事前に退避しておく。
 6. Xcode の Signing & Capabilities で **Sign in with Apple** が付いていること
-   を確認。付いていなければ `+ Capability` から追加する。
+   を確認。
 7. 実機ビルドして動作確認する。
 
 ### 1-5. ios ディレクトリを作成する
