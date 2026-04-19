@@ -70,11 +70,17 @@ export function useSmoothRemainingSeconds(): number {
     }
 
     let frameId = 0;
+    let lastElapsedSeconds = -1;
     const update = () => {
       const elapsedSeconds = (Date.now() - anchorTimestampRef.current) / 1000;
       const clampedElapsedSeconds = Math.min(elapsedSeconds, 0.999);
       const nextRemainingSeconds = Math.max(0, anchorRemainingRef.current - clampedElapsedSeconds);
       setSmoothRemainingSeconds(nextRemainingSeconds);
+      // 次の秒に到達するか、時計が進まない (テストの fake timers 等) 場合は
+      // ループを終了し、CI での暴走的な再レンダリングを防ぐ。
+      if (clampedElapsedSeconds >= 0.999) return;
+      if (elapsedSeconds === lastElapsedSeconds) return;
+      lastElapsedSeconds = elapsedSeconds;
       frameId = requestAnimationFrame(update);
     };
 
