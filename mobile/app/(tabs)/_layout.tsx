@@ -82,6 +82,10 @@ export default function TabsLayout() {
       />
       <Tabs.Screen name="history" options={{ href: null }} />
       <Tabs.Screen name="settings" options={{ href: null }} />
+      <Tabs.Screen name="session/[id]/input" options={{ href: null }} />
+      <Tabs.Screen name="session/[id]/output" options={{ href: null }} />
+      <Tabs.Screen name="session/[id]/break" options={{ href: null }} />
+      <Tabs.Screen name="session/[id]/result" options={{ href: null }} />
     </Tabs>
   );
 }

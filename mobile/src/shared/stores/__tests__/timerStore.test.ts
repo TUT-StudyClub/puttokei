@@ -112,6 +112,35 @@ describe('timerStore', () => {
     expect(useTimerStore.getState().status).toBe('completed');
   });
 
+  it('extend は running / paused の残り秒数と合計秒数に加算する', () => {
+    useTimerStore.getState().start('input', 60);
+    useTimerStore.getState().extend(30);
+    let s = useTimerStore.getState();
+    expect(s.remainingSeconds).toBe(90);
+    expect(s.totalSeconds).toBe(90);
+
+    useTimerStore.getState().pause();
+    useTimerStore.getState().extend(15);
+    s = useTimerStore.getState();
+    expect(s.remainingSeconds).toBe(105);
+    expect(s.totalSeconds).toBe(105);
+  });
+
+  it('extend は idle / completed では no-op', () => {
+    // idle
+    useTimerStore.getState().extend(30);
+    expect(useTimerStore.getState().remainingSeconds).toBe(0);
+    expect(useTimerStore.getState().totalSeconds).toBe(0);
+
+    // completed
+    useTimerStore.getState().start('input', 1);
+    useTimerStore.getState().tick();
+    const totalBefore = useTimerStore.getState().totalSeconds;
+    useTimerStore.getState().extend(30);
+    expect(useTimerStore.getState().remainingSeconds).toBe(0);
+    expect(useTimerStore.getState().totalSeconds).toBe(totalBefore);
+  });
+
   it('reset は idle に戻すが completionToken は保持する', () => {
     useTimerStore.getState().start('input', 1);
     useTimerStore.getState().tick(); // completed, token +1

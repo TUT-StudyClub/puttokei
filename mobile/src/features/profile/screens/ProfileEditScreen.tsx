@@ -3,8 +3,7 @@
  *
  * 設定画面（SettingsScreen）から遷移し、display_name と age_group を変更できる。
  * 既存の useProfile / useUpdateProfile を再利用し、保存成功後は router.back() で
- * 設定画面に戻る。AgeGroupSelectScreen はオンボーディング専用のため、本画面では
- * 既存ユーザー向けに display_name も同時編集できる構成にする。
+ * 設定画面に戻る。
  */
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';

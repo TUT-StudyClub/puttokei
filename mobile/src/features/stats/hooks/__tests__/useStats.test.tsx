@@ -44,7 +44,9 @@ function wrapper({ children }: { children: ReactNode }) {
 describe('useStats', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    useAuthStore.setState({ uid: null, idToken: null });
+    act(() => {
+      useAuthStore.setState({ uid: null, idToken: null });
+    });
   });
 
   afterEach(() => {
@@ -64,7 +66,9 @@ describe('useStats', () => {
   });
 
   it('idToken があれば period を引数に fetchStatsByPeriod を呼ぶ', async () => {
-    useAuthStore.setState({ uid: 'u-1', idToken: 'token-1' });
+    act(() => {
+      useAuthStore.setState({ uid: 'u-1', idToken: 'token-1' });
+    });
     (statsApi.fetchStatsByPeriod as jest.Mock).mockResolvedValue(makeResponse('weekly'));
 
     const { result } = renderHook(() => useStats('weekly'), { wrapper });

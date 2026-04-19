@@ -3,13 +3,11 @@ import { Text } from 'react-native';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../tamagui.config';
-import { useProfile } from '@/features/profile/hooks/useProfile';
 import { AuthGate } from '@/shared/components/AuthGate';
 import { BOOT_SCREEN_MIN_DURATION_MS } from '@/shared/components/BootScreen';
 import { hideSplashWhenReady } from '@/shared/lib/splash';
 import { useAuthStore } from '@/shared/stores/authStore';
 import { useTutorialStore } from '@/shared/stores/tutorialStore';
-import type { UserProfile } from '@/shared/types/user';
 
 const mockReplace = jest.fn();
 let mockSegments: string[] = [];
@@ -19,26 +17,13 @@ jest.mock('expo-router', () => ({
   useSegments: () => mockSegments,
 }));
 
-jest.mock('@/features/profile/hooks/useProfile');
 jest.mock('@/shared/lib/splash', () => ({
   hideSplashWhenReady: jest.fn(),
 }));
 
-const mockUseProfile = useProfile as jest.MockedFunction<typeof useProfile>;
 const mockHideSplashWhenReady = hideSplashWhenReady as jest.MockedFunction<
   typeof hideSplashWhenReady
 >;
-
-const ONBOARDED_PROFILE: UserProfile = {
-  id: 'user-1',
-  firebase_uid: 'firebase-user-1',
-  auth_provider: 'apple',
-  display_name: 'Hourglass User',
-  age_group: '20s',
-  onboarding_completed: true,
-  created_at: '2026-04-17T00:00:00Z',
-  updated_at: '2026-04-17T00:00:00Z',
-};
 
 function renderAuthGate() {
   return render(
@@ -59,10 +44,6 @@ describe('AuthGate', () => {
       useAuthStore.setState({ uid: null, idToken: null });
       useTutorialStore.getState().reset();
     });
-    mockUseProfile.mockReturnValue({
-      data: undefined,
-      isLoading: false,
-    } as ReturnType<typeof useProfile>);
   });
 
   afterEach(() => {
@@ -76,14 +57,12 @@ describe('AuthGate', () => {
     jest.useRealTimers();
   });
 
-  it('未認証でも一定時間はブート画面を表示する', async () => {
+  it('起動直後はブート画面を表示し、最小時間経過後に消える', async () => {
     const screen = renderAuthGate();
 
     await waitFor(() => {
       expect(mockHideSplashWhenReady).toHaveBeenCalledTimes(1);
     });
-    expect(mockReplace).toHaveBeenCalledWith('/(auth)/overview');
-
     expect(screen.getByTestId('boot-screen')).toBeTruthy();
 
     act(() => {
@@ -99,29 +78,7 @@ describe('AuthGate', () => {
     });
   });
 
-  it('未認証でチュートリアル完了済みなら (tabs) 配下に滞在できる', async () => {
-    mockSegments = ['(tabs)'];
-    act(() => {
-      useTutorialStore.getState().markCompleted();
-    });
-
-    const screen = renderAuthGate();
-
-    await waitFor(() => {
-      expect(mockHideSplashWhenReady).toHaveBeenCalledTimes(1);
-    });
-    expect(mockReplace).not.toHaveBeenCalled();
-
-    act(() => {
-      jest.advanceTimersByTime(BOOT_SCREEN_MIN_DURATION_MS);
-    });
-    await waitFor(() => {
-      expect(screen.queryByTestId('boot-screen')).toBeNull();
-    });
-    expect(mockReplace).not.toHaveBeenCalled();
-  });
-
-  it('未認証かつチュートリアル未完了で (tabs) 配下にいる場合は overview に戻す', async () => {
+  it('チュートリアル未完了 & 未認証 → overview へ遷移する', async () => {
     mockSegments = ['(tabs)'];
 
     renderAuthGate();
@@ -131,42 +88,44 @@ describe('AuthGate', () => {
     });
   });
 
-  it('認証済みでプロフィール取得中は最低時間経過後もブート画面を維持する', async () => {
+  it('チュートリアル未完了 & 認証済でも overview へ遷移する (dev-mock でも必ず表示)', async () => {
     act(() => {
-      useAuthStore.setState({ uid: 'user-1', idToken: 'token-1' });
+      useAuthStore.setState({ uid: 'dev-local-user', idToken: 'dev-mock-dev-local-user' });
+    });
+    mockSegments = ['(tabs)'];
+
+    renderAuthGate();
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/(auth)/overview');
+    });
+  });
+
+  it('チュートリアル完了 & 未認証 → (tabs) 配下に滞在できる', async () => {
+    mockSegments = ['(tabs)'];
+    act(() => {
+      useTutorialStore.getState().markCompleted();
+    });
+
+    renderAuthGate();
+
+    await waitFor(() => {
+      expect(mockHideSplashWhenReady).toHaveBeenCalledTimes(1);
+    });
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('チュートリアル完了 & 認証済 & (auth) 配下 → (tabs) へ抜ける', async () => {
+    act(() => {
+      useAuthStore.setState({ uid: 'dev-local-user', idToken: 'dev-mock-dev-local-user' });
+      useTutorialStore.getState().markCompleted();
     });
     mockSegments = ['(auth)'];
-    mockUseProfile.mockReturnValue({
-      data: undefined,
-      isLoading: true,
-    } as ReturnType<typeof useProfile>);
 
-    const screen = renderAuthGate();
-
-    expect(mockHideSplashWhenReady).toHaveBeenCalledTimes(1);
-    expect(mockReplace).not.toHaveBeenCalledWith('/(tabs)');
-    act(() => {
-      jest.advanceTimersByTime(BOOT_SCREEN_MIN_DURATION_MS);
-    });
-    expect(screen.getByTestId('boot-screen')).toBeTruthy();
-
-    mockUseProfile.mockReturnValue({
-      data: ONBOARDED_PROFILE,
-      isLoading: false,
-    } as ReturnType<typeof useProfile>);
-    screen.rerender(
-      <TamaguiProvider config={config} defaultTheme="light">
-        <AuthGate>
-          <Text>child</Text>
-        </AuthGate>
-      </TamaguiProvider>,
-    );
+    renderAuthGate();
 
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
-    });
-    await waitFor(() => {
-      expect(screen.queryByTestId('boot-screen')).toBeNull();
     });
   });
 });

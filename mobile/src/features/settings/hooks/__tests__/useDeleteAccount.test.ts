@@ -28,12 +28,16 @@ function buildWrapper() {
 describe('useDeleteAccount', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    useAuthStore.setState({ uid: 'u-1', idToken: 'token-1' });
+    act(() => {
+      useAuthStore.setState({ uid: 'u-1', idToken: 'token-1' });
+    });
   });
 
   afterEach(() => {
     cleanup();
-    useAuthStore.setState({ uid: null, idToken: null });
+    act(() => {
+      useAuthStore.setState({ uid: null, idToken: null });
+    });
   });
 
   it('mutate で deleteMyAccount を呼び、成功時に queryClient.clear() と authStore.clear() を実行する', async () => {

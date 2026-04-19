@@ -27,7 +27,6 @@ const PROFILE_FIXTURE = {
   auth_provider: 'google' as const,
   display_name: '太郎',
   age_group: '30s' as const,
-  onboarding_completed: true,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
 };
@@ -49,7 +48,9 @@ function renderWithProviders(ui: ReactNode) {
 describe('ProfileEditScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    useAuthStore.setState({ uid: 'u-1', idToken: 'token-1' });
+    act(() => {
+      useAuthStore.setState({ uid: 'u-1', idToken: 'token-1' });
+    });
     (profileApi.fetchMyProfile as jest.Mock).mockResolvedValue(PROFILE_FIXTURE);
     (profileApi.updateMyProfile as jest.Mock).mockResolvedValue({
       ...PROFILE_FIXTURE,
@@ -59,7 +60,9 @@ describe('ProfileEditScreen', () => {
 
   afterEach(() => {
     cleanup();
-    useAuthStore.setState({ uid: null, idToken: null });
+    act(() => {
+      useAuthStore.setState({ uid: null, idToken: null });
+    });
   });
 
   it('取得完了後に display_name が初期値として入る', async () => {

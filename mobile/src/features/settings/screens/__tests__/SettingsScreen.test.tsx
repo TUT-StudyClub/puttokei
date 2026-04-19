@@ -63,7 +63,9 @@ describe('SettingsScreen', () => {
     jest.clearAllMocks();
     jest.useFakeTimers();
     // useSettings の enabled が true になるよう idToken をセット
-    useAuthStore.setState({ uid: 'u-1', idToken: 'token-1' });
+    act(() => {
+      useAuthStore.setState({ uid: 'u-1', idToken: 'token-1' });
+    });
     (settingsApi.fetchMySettings as jest.Mock).mockResolvedValue(SETTINGS_FIXTURE);
     (settingsApi.updateMySettings as jest.Mock).mockResolvedValue(SETTINGS_FIXTURE);
     (settingsApi.deleteMyAccount as jest.Mock).mockResolvedValue(undefined);
@@ -74,7 +76,9 @@ describe('SettingsScreen', () => {
     act(() => {
       jest.runOnlyPendingTimers();
     });
-    useAuthStore.setState({ uid: null, idToken: null });
+    act(() => {
+      useAuthStore.setState({ uid: null, idToken: null });
+    });
     jest.useRealTimers();
   });
 
