@@ -5,7 +5,7 @@
  * replace 遷移することを fakeTimers + mock API で確認する。
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, waitFor } from '@testing-library/react-native';
+import { act, cleanup, render, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { TamaguiProvider } from 'tamagui';
 
@@ -23,6 +23,10 @@ jest.mock('expo-router', () => ({
     output: '5',
     break: '5',
   }),
+}));
+
+jest.mock('@react-navigation/native', () => ({
+  useIsFocused: () => true,
 }));
 
 jest.mock('@/features/session/api/sessionApi');
@@ -55,16 +59,23 @@ describe('InputScreen', () => {
   });
 
   afterEach(() => {
+    // CI (Ubuntu) で RTL の auto cleanup (async) が 60s ハングしていたため、
+    // fake timers が有効なうちに先回りで unmount を済ませる。
+    cleanup();
     act(() => {
       jest.runOnlyPendingTimers();
     });
     jest.useRealTimers();
   });
 
-  it('マウント時にタイマーが start され、ヘッダーとタイマー表示がレンダリングされる', () => {
-    const { getByText, getByTestId } = renderWithProviders(<InputScreen />);
-    expect(getByText('インプット')).toBeTruthy();
+  it('マウント時にタイマーが start され、フェーズ表記とタイマー表示がレンダリングされる', () => {
+    const { getAllByText, getByTestId } = renderWithProviders(<InputScreen />);
+    // フェーズタブと円中央の 2 箇所に「インプット」が表示される。
+    expect(getAllByText('インプット').length).toBeGreaterThanOrEqual(1);
     expect(getByTestId('timer-display')).toBeTruthy();
+    expect(getByTestId('input-circular-timer')).toBeTruthy();
+    expect(getByTestId('input-cancel-button')).toBeTruthy();
+    expect(getByTestId('input-extend-button')).toBeTruthy();
     expect(useTimerStore.getState().phase).toBe('input');
     expect(useTimerStore.getState().totalSeconds).toBe(60);
   });

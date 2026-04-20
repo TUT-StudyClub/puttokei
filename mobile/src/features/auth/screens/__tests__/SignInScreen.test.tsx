@@ -1,11 +1,17 @@
 /**
- * SignInScreen の表示と操作を検証する。
+ * SignInScreen の初期表示・サインイン導線・スキップ導線を検証する。
  */
-import { fireEvent, render } from '@testing-library/react-native';
-import { Platform } from 'react-native';
+import { cleanup, fireEvent, render } from '@testing-library/react-native';
+import type { ReactNode } from 'react';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../../tamagui.config';
+
+const mockReplace = jest.fn();
+
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ replace: mockReplace }),
+}));
 
 jest.mock('../../hooks/useSignIn', () => ({
   useSignIn: jest.fn(),
@@ -16,17 +22,15 @@ const { useSignIn } = require('../../hooks/useSignIn') as typeof import('../../h
 
 const mockUseSignIn = useSignIn as jest.MockedFunction<typeof useSignIn>;
 
-function renderScreen() {
+function renderWithProviders(ui: ReactNode) {
   return render(
     <TamaguiProvider config={config} defaultTheme="light">
-      <SignInScreen />
+      {ui}
     </TamaguiProvider>,
   );
 }
 
 describe('SignInScreen', () => {
-  const originalPlatform = Platform.OS;
-
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseSignIn.mockReturnValue({
@@ -39,16 +43,25 @@ describe('SignInScreen', () => {
   });
 
   afterEach(() => {
-    Object.defineProperty(Platform, 'OS', { value: originalPlatform });
+    cleanup();
   });
 
-  it('iOS では Apple / Google サインイン導線を表示する', () => {
-    Object.defineProperty(Platform, 'OS', { value: 'ios' });
+  it('サインイン導線のヒーローとボタンを表示する', () => {
+    const screen = renderWithProviders(<SignInScreen />);
 
-    const { getByTestId } = renderScreen();
-
-    expect(getByTestId('sign-in-apple')).toBeTruthy();
-    expect(getByTestId('sign-in-google')).toBeTruthy();
+    expect(screen.getByTestId('sign-in-root')).toBeTruthy();
+    expect(screen.getByTestId('sign-in-logo')).toBeTruthy();
+    expect(screen.getByTestId('sign-in-title')).toBeTruthy();
+    expect(screen.getByText(/アカウントを作って/)).toBeTruthy();
+    expect(screen.getByText(/学習の成果を振り返りましょう/)).toBeTruthy();
+    expect(screen.getByText('会員登録後レポート機能を使用できます')).toBeTruthy();
+    expect(screen.getByTestId('sign-in-apple')).toBeTruthy();
+    expect(screen.getByText('Appleで続ける')).toBeTruthy();
+    expect(screen.getByTestId('sign-in-google')).toBeTruthy();
+    expect(screen.getByText('Googleで続ける')).toBeTruthy();
+    expect(screen.getByText('利用規約・プライバシーポリシー')).toBeTruthy();
+    expect(screen.getByTestId('sign-in-skip')).toBeTruthy();
+    expect(screen.getByText('あとで')).toBeTruthy();
   });
 
   it('Google ボタン押下で Google サインイン処理を呼ぶ', () => {
@@ -61,13 +74,29 @@ describe('SignInScreen', () => {
       clearError: jest.fn(),
     });
 
-    const { getByTestId } = renderScreen();
-    fireEvent.press(getByTestId('sign-in-google'));
+    const screen = renderWithProviders(<SignInScreen />);
+    fireEvent.press(screen.getByTestId('sign-in-google'));
 
     expect(signInWithGoogle).toHaveBeenCalledTimes(1);
   });
 
-  it('エラー表示を押すと clearError を呼ぶ', () => {
+  it('Apple ボタン押下で Apple サインイン処理を呼ぶ', () => {
+    const signInWithApple = jest.fn();
+    mockUseSignIn.mockReturnValue({
+      loading: false,
+      error: null,
+      signInWithApple,
+      signInWithGoogle: jest.fn(),
+      clearError: jest.fn(),
+    });
+
+    const screen = renderWithProviders(<SignInScreen />);
+    fireEvent.press(screen.getByTestId('sign-in-apple'));
+
+    expect(signInWithApple).toHaveBeenCalledTimes(1);
+  });
+
+  it('エラーが渡されたら赤文字で表示し、タップで clearError を呼ぶ', () => {
     const clearError = jest.fn();
     mockUseSignIn.mockReturnValue({
       loading: false,
@@ -77,9 +106,18 @@ describe('SignInScreen', () => {
       clearError,
     });
 
-    const { getByText } = renderScreen();
-    fireEvent.press(getByText('認証に失敗しました'));
+    const screen = renderWithProviders(<SignInScreen />);
+    expect(screen.getByText('認証に失敗しました')).toBeTruthy();
 
+    fireEvent.press(screen.getByTestId('sign-in-error'));
     expect(clearError).toHaveBeenCalledTimes(1);
+  });
+
+  it('あとでを押すとタブ画面へ置き換え遷移する', () => {
+    const screen = renderWithProviders(<SignInScreen />);
+
+    fireEvent.press(screen.getByTestId('sign-in-skip'));
+
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
   });
 });

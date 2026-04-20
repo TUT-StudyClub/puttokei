@@ -14,11 +14,16 @@
  * - JS がバックグラウンドに入ると `setInterval` が止まる問題は本タスクのスコープ外。
  *   後続タスクで `Date.now()` ベースの再計算を導入する想定。
  */
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useTimerStore, type TimerPhase, type TimerStatus } from '@/shared/stores/timerStore';
 
 export type UseTimerOptions = {
+  /**
+   * false の間は interval 駆動と完了通知を止める。
+   * 画面が mounted のまま blur されるナビゲーションで、裏画面から二重に tick しないために使う。
+   */
+  enabled?: boolean;
   /**
    * フェーズが完了した瞬間に呼ばれるコールバック。`completionToken` の変化に同期し、
    * 1 つの hook インスタンスにつき完了 1 回ごとに 1 回だけ呼ばれる。
@@ -40,6 +45,52 @@ export type UseTimerResult = {
   reset: () => void;
 };
 
+/**
+ * running 中の残り秒数を小数込みで補間し、円形プログレスを滑らかに描画するために使う。
+ * 表示用の状態機械は整数秒のままにして、UI だけを `requestAnimationFrame` で補完する。
+ */
+export function useSmoothRemainingSeconds(): number {
+  const status = useTimerStore((s) => s.status);
+  const remainingSeconds = useTimerStore((s) => s.remainingSeconds);
+  const [smoothRemainingSeconds, setSmoothRemainingSeconds] = useState(remainingSeconds);
+
+  const anchorRemainingRef = useRef(remainingSeconds);
+  const anchorTimestampRef = useRef(Date.now());
+
+  useEffect(() => {
+    anchorRemainingRef.current = remainingSeconds;
+    anchorTimestampRef.current = Date.now();
+    setSmoothRemainingSeconds(remainingSeconds);
+  }, [remainingSeconds]);
+
+  useEffect(() => {
+    // jest (fake timers) 下では requestAnimationFrame / setTimeout が
+    // 自己スケジュールを繰り返して `advanceTimersByTime` を埋め尽くし、
+    // CI でテストがタイムアウトする。テストでは補間をスキップし、
+    // store の整数秒をそのまま表示値にする。
+    if (status !== 'running' || process.env.NODE_ENV === 'test') {
+      setSmoothRemainingSeconds(remainingSeconds);
+      return;
+    }
+
+    let frameId = 0;
+    const update = () => {
+      const elapsedSeconds = (Date.now() - anchorTimestampRef.current) / 1000;
+      const clampedElapsedSeconds = Math.min(elapsedSeconds, 0.999);
+      const nextRemainingSeconds = Math.max(0, anchorRemainingRef.current - clampedElapsedSeconds);
+      setSmoothRemainingSeconds(nextRemainingSeconds);
+      frameId = requestAnimationFrame(update);
+    };
+
+    frameId = requestAnimationFrame(update);
+    return () => {
+      cancelAnimationFrame(frameId);
+    };
+  }, [remainingSeconds, status]);
+
+  return smoothRemainingSeconds;
+}
+
 /** 秒数を `'MM:SS'` 形式の文字列にフォーマットする。負数は `'00:00'` にクランプする。 */
 export function formatMmSs(totalSeconds: number): string {
   const safe = Math.max(0, Math.floor(totalSeconds));
@@ -49,6 +100,7 @@ export function formatMmSs(totalSeconds: number): string {
 }
 
 export function useTimer(options: UseTimerOptions = {}): UseTimerResult {
+  const enabled = options.enabled ?? true;
   const phase = useTimerStore((s) => s.phase);
   const status = useTimerStore((s) => s.status);
   const totalSeconds = useTimerStore((s) => s.totalSeconds);
@@ -68,20 +120,24 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerResult {
   }, [options.onComplete]);
 
   useEffect(() => {
-    if (status !== 'running') return;
+    if (!enabled || status !== 'running') return;
     const id = setInterval(() => {
       tick();
     }, 1000);
     return () => clearInterval(id);
-  }, [status, tick]);
+  }, [enabled, status, tick]);
 
   const previousTokenRef = useRef(completionToken);
   useEffect(() => {
+    if (!enabled) {
+      previousTokenRef.current = completionToken;
+      return;
+    }
     if (completionToken !== previousTokenRef.current) {
       previousTokenRef.current = completionToken;
       onCompleteRef.current?.(phase);
     }
-  }, [completionToken, phase]);
+  }, [completionToken, enabled, phase]);
 
   const startCb = useCallback(
     (p: Exclude<TimerPhase, 'idle'>, seconds: number) => start(p, seconds),

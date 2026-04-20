@@ -1,18 +1,21 @@
 /**
  * HomeScreen の基本的な振る舞いを検証する。
  *
- * react-hook-form + zodResolver の validation は非同期で errors state を更新するため、
- * `fireEvent` 直後ではなく `findBy*` / `waitFor` で UI への反映を待ってから assertion する
- * ことで act(...) 警告を回避する。
+ * 現状の HomeScreen は subject / topic 入力 UI を持たず、
+ * デフォルト値 (DEFAULT_TIMER) でセッションを開始するプレースホルダー実装になっている。
+ * フェーズタブでインプット / アウトプット / 休憩 の表示時間が切り替わることと、
+ * スタート押下で createSession が呼ばれて遷移することを検証する。
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../../tamagui.config';
 import * as sessionApi from '@/features/session/api/sessionApi';
+import { DEFAULT_TIMER } from '@/features/session/config';
 import { HomeScreen } from '@/features/session/screens/HomeScreen';
+import { useLoopStore } from '@/shared/stores/loopStore';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
@@ -38,61 +41,66 @@ function renderWithProviders(ui: ReactNode) {
 describe('HomeScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    useLoopStore.getState().reset();
   });
 
-  it('初期表示は preset=recommended、subject / topic は空でカスタム入力欄は表示しない', () => {
-    const { getByTestId, queryByTestId } = renderWithProviders(<HomeScreen />);
-
-    expect(getByTestId('home-subject-input').props.value).toBe('');
-    expect(getByTestId('home-topic-input').props.value).toBe('');
-    expect(queryByTestId('home-input-minutes')).toBeNull();
-    expect(queryByTestId('home-output-minutes')).toBeNull();
-    expect(queryByTestId('home-break-minutes')).toBeNull();
+  afterEach(() => {
+    act(() => {
+      useLoopStore.getState().reset();
+    });
   });
 
-  it('subject / topic 未入力で start を押しても createSession は呼ばれない', async () => {
-    const { getByTestId, findByText } = renderWithProviders(<HomeScreen />);
-    fireEvent.press(getByTestId('home-start-button'));
-    // バリデーションエラー表示を待つことで、非同期の errors state 更新の完了を待つ
-    expect(await findByText('科目を入力してください')).toBeTruthy();
-    expect(sessionApi.createSession).not.toHaveBeenCalled();
+  it('初期表示はインプットの時間を表示する', () => {
+    const { getByTestId } = renderWithProviders(<HomeScreen />);
+    expect(getByTestId('home-timer-text').props.children).toBe(
+      `${String(DEFAULT_TIMER.input_minutes).padStart(2, '0')}:00`,
+    );
   });
 
-  it('preset を custom にするとカスタム入力欄が表示される', async () => {
-    const { getByTestId, findByTestId } = renderWithProviders(<HomeScreen />);
-    fireEvent.press(getByTestId('home-preset-custom'));
-    expect(await findByTestId('home-input-minutes')).toBeTruthy();
-    expect(getByTestId('home-output-minutes')).toBeTruthy();
-    expect(getByTestId('home-break-minutes')).toBeTruthy();
+  it('フェーズタブを切り替えると表示時間が切り替わる', () => {
+    const { getByTestId } = renderWithProviders(<HomeScreen />);
+
+    fireEvent.press(getByTestId('home-phase-tab-output'));
+    expect(getByTestId('home-timer-text').props.children).toBe(
+      `${String(DEFAULT_TIMER.output_minutes).padStart(2, '0')}:00`,
+    );
+
+    fireEvent.press(getByTestId('home-phase-tab-break'));
+    expect(getByTestId('home-timer-text').props.children).toBe(
+      `${String(DEFAULT_TIMER.break_minutes).padStart(2, '0')}:00`,
+    );
+
+    fireEvent.press(getByTestId('home-phase-tab-input'));
+    expect(getByTestId('home-timer-text').props.children).toBe(
+      `${String(DEFAULT_TIMER.input_minutes).padStart(2, '0')}:00`,
+    );
   });
 
-  it('正常入力で start を押すと createSession が呼ばれ、成功時に push 遷移する', async () => {
+  it('スタート押下で createSession がデフォルト値で呼ばれ、成功時に push 遷移する', async () => {
     (sessionApi.createSession as jest.Mock).mockResolvedValue({
       id: 'ses-123',
       user_id: 'usr-1',
       status: 'input',
-      subject: '英語',
-      topic: '関係代名詞',
-      input_minutes: 20,
-      output_minutes: 5,
-      break_minutes: 5,
+      subject: '未設定',
+      topic: '未設定',
+      input_minutes: DEFAULT_TIMER.input_minutes,
+      output_minutes: DEFAULT_TIMER.output_minutes,
+      break_minutes: DEFAULT_TIMER.break_minutes,
       started_at: '2026-04-15T10:00:00Z',
       completed_at: null,
       created_at: '2026-04-15T10:00:00Z',
     });
 
     const { getByTestId } = renderWithProviders(<HomeScreen />);
-    fireEvent.changeText(getByTestId('home-subject-input'), '英語');
-    fireEvent.changeText(getByTestId('home-topic-input'), '関係代名詞');
     fireEvent.press(getByTestId('home-start-button'));
 
     await waitFor(() => {
       expect(sessionApi.createSession).toHaveBeenCalledWith({
-        subject: '英語',
-        topic: '関係代名詞',
-        input_minutes: 20,
-        output_minutes: 5,
-        break_minutes: 5,
+        subject: '未設定',
+        topic: '未設定',
+        input_minutes: DEFAULT_TIMER.input_minutes,
+        output_minutes: DEFAULT_TIMER.output_minutes,
+        break_minutes: DEFAULT_TIMER.break_minutes,
       });
     });
     await waitFor(() => {
@@ -100,47 +108,10 @@ describe('HomeScreen', () => {
         pathname: '/session/[id]/input',
         params: {
           id: 'ses-123',
-          input: '20',
-          output: '5',
-          break: '5',
+          input: String(DEFAULT_TIMER.input_minutes),
+          output: String(DEFAULT_TIMER.output_minutes),
+          break: String(DEFAULT_TIMER.break_minutes),
         },
-      });
-    });
-  });
-
-  it('カスタム時間で start を押すとカスタム値が createSession に渡る', async () => {
-    (sessionApi.createSession as jest.Mock).mockResolvedValue({
-      id: 'ses-456',
-      user_id: 'usr-1',
-      status: 'input',
-      subject: '数学',
-      topic: '極限',
-      input_minutes: 30,
-      output_minutes: 10,
-      break_minutes: 3,
-      started_at: '2026-04-15T11:00:00Z',
-      completed_at: null,
-      created_at: '2026-04-15T11:00:00Z',
-    });
-
-    const { getByTestId, findByTestId } = renderWithProviders(<HomeScreen />);
-    fireEvent.changeText(getByTestId('home-subject-input'), '数学');
-    fireEvent.changeText(getByTestId('home-topic-input'), '極限');
-    fireEvent.press(getByTestId('home-preset-custom'));
-    // カスタム入力欄の表示を待ってから値を入れる
-    await findByTestId('home-input-minutes');
-    fireEvent.changeText(getByTestId('home-input-minutes'), '30');
-    fireEvent.changeText(getByTestId('home-output-minutes'), '10');
-    fireEvent.changeText(getByTestId('home-break-minutes'), '3');
-    fireEvent.press(getByTestId('home-start-button'));
-
-    await waitFor(() => {
-      expect(sessionApi.createSession).toHaveBeenCalledWith({
-        subject: '数学',
-        topic: '極限',
-        input_minutes: 30,
-        output_minutes: 10,
-        break_minutes: 3,
       });
     });
   });
@@ -149,11 +120,31 @@ describe('HomeScreen', () => {
     (sessionApi.createSession as jest.Mock).mockRejectedValue(new Error('HTTP 500'));
 
     const { getByTestId, findByText } = renderWithProviders(<HomeScreen />);
-    fireEvent.changeText(getByTestId('home-subject-input'), '英語');
-    fireEvent.changeText(getByTestId('home-topic-input'), '関係代名詞');
     fireEvent.press(getByTestId('home-start-button'));
 
     expect(await findByText(/セッションの開始に失敗しました/)).toBeTruthy();
     expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('1 ループ目は左端の砂時計アイコンを大きく表示する', () => {
+    act(() => {
+      useLoopStore.getState().setCurrentLoop(1);
+    });
+    const { getByTestId } = renderWithProviders(<HomeScreen />);
+
+    const active = getByTestId('home-hourglass-badge-icon-1');
+    const other = getByTestId('home-hourglass-badge-icon-2');
+    expect(active.props.width).toBeGreaterThan(other.props.width);
+  });
+
+  it('3 ループ目は左から 3 番目の砂時計アイコンを大きく表示する', () => {
+    act(() => {
+      useLoopStore.getState().setCurrentLoop(3);
+    });
+    const { getByTestId } = renderWithProviders(<HomeScreen />);
+
+    const active = getByTestId('home-hourglass-badge-icon-3');
+    const inactive = getByTestId('home-hourglass-badge-icon-1');
+    expect(active.props.width).toBeGreaterThan(inactive.props.width);
   });
 });

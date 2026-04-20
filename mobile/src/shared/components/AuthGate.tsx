@@ -1,31 +1,32 @@
 /**
- * 認証状態 / プロフィール状態に応じたルーティングガード。
+ * ルーティングガード。以下の優先順位で遷移を制御する。
  *
- * - 未認証（uid == null） → `/(auth)/sign-in`
- * - 認証済みだがプロフィール未設定（onboarding_completed == false） → `/(onboarding)/age-group`
- * - どちらも満たす → そのまま（tabs など）
- * - 認証済みだがプロフィール取得でエラー → エラー画面（再試行 / サインアウト）
+ * 1. チュートリアル未完了 → `/(auth)/overview` (uid の有無に関わらず最優先)
+ * 2. チュートリアル完了 & 未認証 → `(tabs)` / `(auth)` 配下の滞在を許可、それ以外は overview へ
+ * 3. チュートリアル完了 & 認証済 → `(auth)` から `(tabs)` へ
+ *
+ * チュートリアル完了フラグはメモリ内 (Zustand) に保持するため、
+ * アプリを再起動するたびにチュートリアルが再表示される。
  */
-import { useQueryClient } from '@tanstack/react-query';
-import { useRouter, useSegments } from 'expo-router';
+import { type Href, useRouter, useSegments } from 'expo-router';
 import { type ReactNode, useEffect, useState } from 'react';
 
-import { signOut } from '@/features/auth/lib/signOut';
-import { PROFILE_QUERY_KEY, useProfile } from '@/features/profile/hooks/useProfile';
 import { BOOT_SCREEN_MIN_DURATION_MS, BootScreen } from '@/shared/components/BootScreen';
-import { ProfileErrorScreen } from '@/shared/components/ProfileErrorScreen';
 import { hideSplashWhenReady } from '@/shared/lib/splash';
 import { useAuthStore } from '@/shared/stores/authStore';
+import { useTutorialStore } from '@/shared/stores/tutorialStore';
 
 const AUTH_SEGMENT = '(auth)';
-const ONBOARDING_SEGMENT = '(onboarding)';
+const TABS_SEGMENT = '(tabs)';
+const SIGN_IN_SEGMENT = 'sign-in';
+const AUTH_OVERVIEW_ROUTE = '/(auth)/overview' as unknown as Href;
+const TABS_ROUTE = '/(tabs)' as unknown as Href;
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const uid = useAuthStore((s) => s.uid);
-  const { data: profile, isLoading, isError, error } = useProfile();
+  const tutorialCompleted = useTutorialStore((s) => s.completed);
   const router = useRouter();
-  const segments = useSegments();
-  const queryClient = useQueryClient();
+  const segments = useSegments() as string[];
   const [bootMinimumElapsed, setBootMinimumElapsed] = useState(false);
 
   useEffect(() => {
@@ -40,60 +41,43 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const topSegment = segments[0];
+    const nestedSegment = segments[1];
 
-    if (uid === null) {
+    // 1. チュートリアル未完了は uid に関わらず (auth) 配下に固定する。
+    if (!tutorialCompleted) {
       if (topSegment !== AUTH_SEGMENT) {
-        router.replace('/(auth)/sign-in');
+        router.replace(AUTH_OVERVIEW_ROUTE);
       }
       return;
     }
 
-    if (isLoading) return;
-
-    if (profile !== undefined && !profile.onboarding_completed) {
-      if (topSegment !== ONBOARDING_SEGMENT) {
-        router.replace('/(onboarding)/age-group');
+    // 2. 未認証 & チュートリアル完了 → (tabs) or (auth)/sign-in を許可。
+    if (uid === null) {
+      if (topSegment !== AUTH_SEGMENT && topSegment !== TABS_SEGMENT) {
+        router.replace(AUTH_OVERVIEW_ROUTE);
       }
       return;
     }
 
-    if (profile !== undefined && profile.onboarding_completed) {
-      if (topSegment === AUTH_SEGMENT || topSegment === ONBOARDING_SEGMENT) {
-        router.replace('/(tabs)');
-      }
+    // ローカル確認中は、認証済みでも sign-in 画面の見た目確認を許可する。
+    if (__DEV__ && topSegment === AUTH_SEGMENT && nestedSegment === SIGN_IN_SEGMENT) {
+      return;
     }
-  }, [uid, profile, isLoading, segments, router]);
+
+    // 3. 認証済 & チュートリアル完了 → (auth) から (tabs) へ抜けさせる。
+    if (topSegment === AUTH_SEGMENT) {
+      router.replace(TABS_ROUTE);
+    }
+  }, [uid, tutorialCompleted, segments, router]);
 
   useEffect(() => {
     hideSplashWhenReady();
   }, []);
 
-  const shouldShowBootScreen = !bootMinimumElapsed || (uid !== null && isLoading);
-  const shouldShowProfileError = uid !== null && !isLoading && isError && profile === undefined;
-
   return (
     <>
       {children}
-      {shouldShowBootScreen ? <BootScreen /> : null}
-      {shouldShowProfileError ? (
-        <ProfileErrorScreen
-          message={error instanceof Error ? error.message : 'プロフィールを取得できませんでした'}
-          onRetry={() => {
-            queryClient.invalidateQueries({ queryKey: PROFILE_QUERY_KEY });
-          }}
-          onSignOut={async () => {
-            // signOut が失敗したらサインアウトは成立していないため、
-            // 成功確認後にキャッシュを破棄する。失敗時はエラー画面に留まって
-            // ユーザが再度ボタンを押せる状態を保つ。
-            try {
-              await signOut();
-              queryClient.removeQueries({ queryKey: PROFILE_QUERY_KEY });
-            } catch (e) {
-              console.warn('signOut failed', e);
-            }
-          }}
-        />
-      ) : null}
+      {!bootMinimumElapsed ? <BootScreen /> : null}
     </>
   );
 }

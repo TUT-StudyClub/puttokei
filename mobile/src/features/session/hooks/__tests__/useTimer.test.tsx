@@ -6,7 +6,7 @@
  * - unmount 時の cleanup
  * - onComplete の差し替えが反映される (ref 経由)
  */
-import { act, renderHook } from '@testing-library/react-native';
+import { act, cleanup, renderHook } from '@testing-library/react-native';
 
 import { formatMmSs, useTimer } from '../useTimer';
 import { useTimerStore } from '@/shared/stores/timerStore';
@@ -39,6 +39,7 @@ describe('useTimer', () => {
   });
 
   afterEach(() => {
+    cleanup();
     act(() => {
       jest.runOnlyPendingTimers();
     });
@@ -155,6 +156,51 @@ describe('useTimer', () => {
     expect(result.current.remainingSeconds).toBe(0);
     expect(onComplete).toHaveBeenCalledTimes(1);
     expect(onComplete).toHaveBeenCalledWith('output');
+  });
+
+  it('enabled=false の間は tick も onComplete も止まる', () => {
+    const onComplete = jest.fn();
+    const { result, rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) => useTimer({ enabled, onComplete }),
+      { initialProps: { enabled: false } },
+    );
+
+    act(() => {
+      result.current.start('input', 3);
+    });
+    act(() => {
+      jest.advanceTimersByTime(3000);
+    });
+    expect(result.current.remainingSeconds).toBe(3);
+    expect(onComplete).not.toHaveBeenCalled();
+
+    rerender({ enabled: true });
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+    expect(result.current.remainingSeconds).toBe(2);
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  it('enabled=false 中に進んだ completionToken は、再度 enabled=true になっても遅延発火しない', () => {
+    const onComplete = jest.fn();
+    const { rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) => useTimer({ enabled, onComplete }),
+      { initialProps: { enabled: false } },
+    );
+
+    act(() => {
+      useTimerStore.setState({
+        phase: 'output',
+        status: 'completed',
+        totalSeconds: 60,
+        remainingSeconds: 0,
+        completionToken: 1,
+      });
+    });
+
+    rerender({ enabled: true });
+    expect(onComplete).not.toHaveBeenCalled();
   });
 
   it('reset で idle に戻り、再度 start して完了すると onComplete が再発火する', () => {

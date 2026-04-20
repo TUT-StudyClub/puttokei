@@ -1,17 +1,13 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
-import type { ReactNode } from 'react';
+import { act, cleanup, render, waitFor } from '@testing-library/react-native';
 import { Text } from 'react-native';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../tamagui.config';
-import { signOut } from '@/features/auth/lib/signOut';
-import { useProfile } from '@/features/profile/hooks/useProfile';
 import { AuthGate } from '@/shared/components/AuthGate';
 import { BOOT_SCREEN_MIN_DURATION_MS } from '@/shared/components/BootScreen';
 import { hideSplashWhenReady } from '@/shared/lib/splash';
 import { useAuthStore } from '@/shared/stores/authStore';
-import type { UserProfile } from '@/shared/types/user';
+import { useTutorialStore } from '@/shared/stores/tutorialStore';
 
 const mockReplace = jest.fn();
 let mockSegments: string[] = [];
@@ -21,59 +17,22 @@ jest.mock('expo-router', () => ({
   useSegments: () => mockSegments,
 }));
 
-jest.mock('@/features/profile/hooks/useProfile', () => {
-  const actual = jest.requireActual('@/features/profile/hooks/useProfile');
-  return {
-    ...actual,
-    useProfile: jest.fn(),
-  };
-});
 jest.mock('@/shared/lib/splash', () => ({
   hideSplashWhenReady: jest.fn(),
 }));
-jest.mock('@/features/auth/lib/signOut', () => ({
-  signOut: jest.fn().mockResolvedValue(undefined),
-}));
 
-const mockUseProfile = useProfile as jest.MockedFunction<typeof useProfile>;
 const mockHideSplashWhenReady = hideSplashWhenReady as jest.MockedFunction<
   typeof hideSplashWhenReady
 >;
-const mockSignOut = signOut as jest.MockedFunction<typeof signOut>;
-
-const ONBOARDED_PROFILE: UserProfile = {
-  id: 'user-1',
-  firebase_uid: 'firebase-user-1',
-  auth_provider: 'apple',
-  display_name: 'Hourglass User',
-  age_group: '20s',
-  onboarding_completed: true,
-  created_at: '2026-04-17T00:00:00Z',
-  updated_at: '2026-04-17T00:00:00Z',
-};
-
-function createWrapper() {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  const Wrapper = ({ children }: { children: ReactNode }) => (
-    <TamaguiProvider config={config} defaultTheme="light">
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    </TamaguiProvider>
-  );
-  return { queryClient, Wrapper };
-}
 
 function renderAuthGate() {
-  const { queryClient, Wrapper } = createWrapper();
-  const utils = render(
-    <Wrapper>
+  return render(
+    <TamaguiProvider config={config} defaultTheme="light">
       <AuthGate>
         <Text>child</Text>
       </AuthGate>
-    </Wrapper>,
+    </TamaguiProvider>,
   );
-  return { ...utils, queryClient, Wrapper };
 }
 
 describe('AuthGate', () => {
@@ -83,33 +42,28 @@ describe('AuthGate', () => {
     mockSegments = [];
     act(() => {
       useAuthStore.setState({ uid: null, idToken: null });
+      useTutorialStore.getState().reset();
     });
-    mockUseProfile.mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      isError: false,
-      error: null,
-    } as unknown as ReturnType<typeof useProfile>);
   });
 
   afterEach(() => {
+    cleanup();
     act(() => {
       jest.runOnlyPendingTimers();
     });
     act(() => {
       useAuthStore.setState({ uid: null, idToken: null });
+      useTutorialStore.getState().reset();
     });
     jest.useRealTimers();
   });
 
-  it('未認証でも一定時間はブート画面を表示する', async () => {
+  it('起動直後はブート画面を表示し、最小時間経過後に消える', async () => {
     const screen = renderAuthGate();
 
     await waitFor(() => {
       expect(mockHideSplashWhenReady).toHaveBeenCalledTimes(1);
     });
-    expect(mockReplace).toHaveBeenCalledWith('/(auth)/sign-in');
-
     expect(screen.getByTestId('boot-screen')).toBeTruthy();
 
     act(() => {
@@ -125,152 +79,69 @@ describe('AuthGate', () => {
     });
   });
 
-  it('認証済みでプロフィール取得中は最低時間経過後もブート画面を維持する', async () => {
+  it('チュートリアル未完了 & 未認証 → overview へ遷移する', async () => {
+    mockSegments = ['(tabs)'];
+
+    renderAuthGate();
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/(auth)/overview');
+    });
+  });
+
+  it('チュートリアル未完了 & 認証済でも overview へ遷移する (dev-mock でも必ず表示)', async () => {
     act(() => {
-      useAuthStore.setState({ uid: 'user-1', idToken: 'token-1' });
+      useAuthStore.setState({ uid: 'dev-local-user', idToken: 'dev-mock-dev-local-user' });
+    });
+    mockSegments = ['(tabs)'];
+
+    renderAuthGate();
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/(auth)/overview');
+    });
+  });
+
+  it('チュートリアル完了 & 未認証 → (tabs) 配下に滞在できる', async () => {
+    mockSegments = ['(tabs)'];
+    act(() => {
+      useTutorialStore.getState().markCompleted();
+    });
+
+    renderAuthGate();
+
+    await waitFor(() => {
+      expect(mockHideSplashWhenReady).toHaveBeenCalledTimes(1);
+    });
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('チュートリアル完了 & 認証済 & (auth) 配下 → (tabs) へ抜ける', async () => {
+    act(() => {
+      useAuthStore.setState({ uid: 'dev-local-user', idToken: 'dev-mock-dev-local-user' });
+      useTutorialStore.getState().markCompleted();
     });
     mockSegments = ['(auth)'];
-    mockUseProfile.mockReturnValue({
-      data: undefined,
-      isLoading: true,
-      isError: false,
-      error: null,
-    } as unknown as ReturnType<typeof useProfile>);
 
-    const { Wrapper, ...screen } = renderAuthGate();
-
-    expect(mockHideSplashWhenReady).toHaveBeenCalledTimes(1);
-    expect(mockReplace).not.toHaveBeenCalledWith('/(tabs)');
-    act(() => {
-      jest.advanceTimersByTime(BOOT_SCREEN_MIN_DURATION_MS);
-    });
-    expect(screen.getByTestId('boot-screen')).toBeTruthy();
-
-    mockUseProfile.mockReturnValue({
-      data: ONBOARDED_PROFILE,
-      isLoading: false,
-      isError: false,
-      error: null,
-    } as unknown as ReturnType<typeof useProfile>);
-    screen.rerender(
-      <Wrapper>
-        <AuthGate>
-          <Text>child</Text>
-        </AuthGate>
-      </Wrapper>,
-    );
+    renderAuthGate();
 
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
     });
-    await waitFor(() => {
-      expect(screen.queryByTestId('boot-screen')).toBeNull();
-    });
   });
 
-  it('認証済みだがプロフィール取得が失敗したらエラー画面を表示する', async () => {
+  it('ローカル確認用の sign-in 画面は、認証済みでもそのまま表示できる', async () => {
     act(() => {
-      useAuthStore.setState({ uid: 'user-1', idToken: 'token-1' });
+      useAuthStore.setState({ uid: 'dev-local-user', idToken: 'dev-mock-dev-local-user' });
+      useTutorialStore.getState().markCompleted();
     });
-    mockSegments = ['(auth)'];
-    mockUseProfile.mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      isError: true,
-      error: new Error('HTTP 401'),
-    } as unknown as ReturnType<typeof useProfile>);
+    mockSegments = ['(auth)', 'sign-in'];
 
-    const { queryClient, ...screen } = renderAuthGate();
-    const removeSpy = jest.spyOn(queryClient, 'removeQueries');
-
-    act(() => {
-      jest.advanceTimersByTime(BOOT_SCREEN_MIN_DURATION_MS);
-    });
+    renderAuthGate();
 
     await waitFor(() => {
-      expect(screen.getByTestId('profile-error-screen')).toBeTruthy();
+      expect(mockHideSplashWhenReady).toHaveBeenCalledTimes(1);
     });
-    expect(screen.queryByTestId('boot-screen')).toBeNull();
-
-    fireEvent.press(screen.getByTestId('profile-error-sign-out'));
-    await waitFor(() => {
-      expect(mockSignOut).toHaveBeenCalledTimes(1);
-    });
-    // signOut 成功後にキャッシュを除去する順序を担保する
-    expect(mockSignOut.mock.invocationCallOrder[0]).toBeLessThan(
-      removeSpy.mock.invocationCallOrder[0] ?? Infinity,
-    );
-    expect(removeSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ queryKey: ['profile', 'me'] }),
-    );
-  });
-
-  it('signOut が失敗したらキャッシュを除去せず、エラー画面に留まる', async () => {
-    act(() => {
-      useAuthStore.setState({ uid: 'user-1', idToken: 'token-1' });
-    });
-    mockSegments = ['(auth)'];
-    mockUseProfile.mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      isError: true,
-      error: new Error('HTTP 401'),
-    } as unknown as ReturnType<typeof useProfile>);
-
-    mockSignOut.mockRejectedValueOnce(new Error('network unavailable'));
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-
-    const { queryClient, ...screen } = renderAuthGate();
-    const removeSpy = jest.spyOn(queryClient, 'removeQueries');
-
-    act(() => {
-      jest.advanceTimersByTime(BOOT_SCREEN_MIN_DURATION_MS);
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('profile-error-screen')).toBeTruthy();
-    });
-
-    fireEvent.press(screen.getByTestId('profile-error-sign-out'));
-    await waitFor(() => {
-      expect(mockSignOut).toHaveBeenCalledTimes(1);
-    });
-    await waitFor(() => {
-      expect(warnSpy).toHaveBeenCalledWith('signOut failed', expect.any(Error));
-    });
-
-    expect(removeSpy).not.toHaveBeenCalled();
-    expect(screen.getByTestId('profile-error-screen')).toBeTruthy();
-
-    warnSpy.mockRestore();
-  });
-
-  it('エラー画面で再試行ボタンを押すと profile query が invalidate される', async () => {
-    act(() => {
-      useAuthStore.setState({ uid: 'user-1', idToken: 'token-1' });
-    });
-    mockSegments = ['(auth)'];
-    mockUseProfile.mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      isError: true,
-      error: new Error('HTTP 500'),
-    } as unknown as ReturnType<typeof useProfile>);
-
-    const { queryClient, ...screen } = renderAuthGate();
-    const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
-
-    act(() => {
-      jest.advanceTimersByTime(BOOT_SCREEN_MIN_DURATION_MS);
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('profile-error-retry')).toBeTruthy();
-    });
-
-    fireEvent.press(screen.getByTestId('profile-error-retry'));
-    expect(invalidateSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ queryKey: ['profile', 'me'] }),
-    );
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 });

@@ -3,7 +3,7 @@
  * タイマー完了で result 画面へ replace する。
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, waitFor } from '@testing-library/react-native';
+import { act, cleanup, render, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { TamaguiProvider } from 'tamagui';
 
@@ -18,6 +18,10 @@ jest.mock('expo-router', () => ({
     id: 'ses-123',
     break: '1',
   }),
+}));
+
+jest.mock('@react-navigation/native', () => ({
+  useIsFocused: () => true,
 }));
 
 function renderWithProviders(ui: ReactNode) {
@@ -48,6 +52,9 @@ describe('BreakScreen', () => {
   });
 
   afterEach(() => {
+    // CI (Ubuntu) で RTL の auto cleanup (async) が 60s ハングしていたため、
+    // fake timers が有効なうちに先回りで unmount を済ませる。
+    cleanup();
     act(() => {
       jest.runOnlyPendingTimers();
     });

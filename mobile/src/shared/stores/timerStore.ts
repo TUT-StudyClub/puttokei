@@ -40,6 +40,12 @@ export type TimerState = {
   tick: () => void;
   /** 強制的に完了状態へ遷移させる。既に completed の場合は token を増やさない。 */
   complete: () => void;
+  /**
+   * running / paused 中に残り秒数と合計秒数へ `seconds` を加算する。
+   * 進捗表示 (remaining / total) を崩さないよう totalSeconds も同時に増やす。
+   * idle / completed では no-op。
+   */
+  extend: (seconds: number) => void;
   /** idle へ戻す。`completionToken` は保持する (履歴リセットは行わない)。 */
   reset: () => void;
 };
@@ -102,6 +108,17 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       remainingSeconds: 0,
       status: 'completed',
       completionToken: state.completionToken + 1,
+    }));
+  },
+
+  extend: (seconds) => {
+    const { status } = get();
+    if (status !== 'running' && status !== 'paused') return;
+    const add = Math.max(0, Math.floor(seconds));
+    if (add === 0) return;
+    set((state) => ({
+      remainingSeconds: state.remainingSeconds + add,
+      totalSeconds: state.totalSeconds + add,
     }));
   },
 
