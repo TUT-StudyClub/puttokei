@@ -1,0 +1,25 @@
+name: LLM Smoke Test
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * 1"
+  pull_request:
+    paths:
+      - "backend/src/infrastructure/llm/**"
+      - "backend/src/domain/services/llm_judge_service.py"
+      - "backend/src/config.py"
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    environment: llm-smoke
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - name: Install dependencies
+        run: cd backend && uv sync
+      - name: Run smoke tests
+        run: cd backend && uv run pytest tests/smoke -v
+        env:
+          LLM_GEMINI_API_KEY: ${{ secrets.LLM_GEMINI_API_KEY_SMOKE }}
