@@ -45,6 +45,45 @@ class Settings(BaseSettings):
     )
 
 
+class LLMSettings(BaseSettings):
+    """LLM プロバイダー用の設定。"""
+
+    model_config = SettingsConfigDict(
+        env_prefix="LLM_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    provider: Literal["gemini"] = Field(
+        default="gemini",
+        description="利用する LLM プロバイダー",
+    )
+    gemini_api_key: str = Field(
+        default="",
+        description="Gemini API キー",
+    )
+    gemini_model: str = Field(
+        default="gemini-3-flash-preview",
+        description="Gemini のモデル ID",
+    )
+    gemini_thinking_level: Literal["MINIMAL", "LOW", "MEDIUM", "HIGH"] = Field(
+        default="MEDIUM",
+        description="Gemini の thinking level",
+    )
+    gemini_temperature: float = Field(
+        default=0.2,
+        ge=0.0,
+        le=2.0,
+        description="Gemini の temperature",
+    )
+    timeout_seconds: int = Field(
+        default=30,
+        ge=1,
+        description="LLM リクエストのタイムアウト秒数",
+    )
+
+
 @lru_cache
 def get_settings() -> Settings:
     """設定インスタンスをキャッシュ付きで返す。"""
