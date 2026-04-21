@@ -13,4 +13,5 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 
     skip_marker = pytest.mark.skip(reason="LLM_GEMINI_API_KEY が未設定のため smoke test をスキップ")
     for item in items:
-        item.add_marker(skip_marker)
+        if item.nodeid.startswith("tests/smoke/"):
+            item.add_marker(skip_marker)

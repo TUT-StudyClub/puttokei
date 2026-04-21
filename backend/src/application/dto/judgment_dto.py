@@ -141,9 +141,7 @@ class LLMJudgmentOutputDTO(FrozenModel):
     @classmethod
     def from_domain(cls, output_data: LLMJudgmentOutput) -> "LLMJudgmentOutputDTO":
         token_usage = output_data.token_usage
-        token_usage_dto = (
-            None if token_usage is None else TokenUsageDTO.from_domain(token_usage)
-        )
+        token_usage_dto = None if token_usage is None else TokenUsageDTO.from_domain(token_usage)
         return cls(
             verdict=output_data.verdict,
             score=output_data.score,

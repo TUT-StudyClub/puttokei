@@ -37,8 +37,7 @@ def main() -> None:
         raise SystemExit(str(exc)) from exc
     except LLMRateLimitError as exc:
         raise SystemExit(
-            "Gemini API の利用上限に達したため、手動スモークを中断しました。\n"
-            f"{exc}"
+            "Gemini API の利用上限に達したため、手動スモークを中断しました。\n" f"{exc}"
         ) from exc
 
 

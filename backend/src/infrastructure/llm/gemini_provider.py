@@ -126,9 +126,7 @@ class GeminiProvider(BaseLLMProvider):
             case _:
                 raise ValueError(f"Unsupported prompt version: {input_data.prompt_version}")
 
-    def _build_generation_config(
-        self, system_prompt: str
-    ) -> types.GenerateContentConfig:
+    def _build_generation_config(self, system_prompt: str) -> types.GenerateContentConfig:
         return types.GenerateContentConfig(
             system_instruction=system_prompt,
             response_mime_type="application/json",
