@@ -1,0 +1,34 @@
+"""実 Gemini API を使う最小 smoke test。"""
+
+import pytest
+
+from src.config import LLMSettings
+from src.domain.services.llm_judge_service import LLMJudgmentInput
+from src.infrastructure.llm.factory import create_llm_provider
+
+
+@pytest.mark.asyncio
+async def test_gemini_smoke_returns_structured_output():
+    settings = LLMSettings()
+    provider = create_llm_provider(settings)
+
+    result = await provider.judge(
+        LLMJudgmentInput(
+            subject="理科",
+            topic="光合成",
+            content=(
+                "光合成は植物が光エネルギーを使って二酸化炭素と水から"
+                "有機物を作り、酸素を放出するはたらきです。"
+            ),
+            age_group="10s",
+            prompt_version="v1",
+        )
+    )
+
+    assert result.provider_name == "gemini"
+    assert result.model_name == settings.gemini_model
+    assert result.verdict in {"correct", "partial", "incorrect", "rejected"}
+    assert 0 <= result.score <= 100
+    assert result.items
+    assert result.advice
+    assert result.latency_ms < 60000
