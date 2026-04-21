@@ -4,6 +4,8 @@
 presentation からは `request.app.state.container` 経由で参照する。
 """
 
+from typing import TYPE_CHECKING
+
 from pydantic import BaseModel, ConfigDict
 
 from src.application.use_cases.create_session import CreateSession
@@ -32,6 +34,9 @@ from src.infrastructure.persistence.repositories.pg_session_repository import (
 )
 from src.infrastructure.persistence.repositories.pg_user_repository import PgUserRepository
 
+if TYPE_CHECKING:
+    from src.domain.services.llm_judge_service import BaseLLMProvider
+
 
 class Container(BaseModel):
     """アプリ全体で共有する依存物。
@@ -57,6 +62,14 @@ class Container(BaseModel):
     update_session_status: UpdateSessionStatus
     submit_output: SubmitOutput
     get_judgment: GetJudgment
+
+    @property
+    def llm_provider(self) -> "BaseLLMProvider":
+        """LLM provider を返す薄いアダプタ。"""
+
+        from src.infrastructure.llm.container import get_llm_provider
+
+        return get_llm_provider()
 
 
 def build_container(settings: Settings) -> Container:
