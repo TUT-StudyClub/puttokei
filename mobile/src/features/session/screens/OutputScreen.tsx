@@ -559,7 +559,8 @@ export function OutputScreen() {
               inactiveDotColors={{ input: INPUT_PHASE_SOFT_COLOR }}
               activeTextColor={PRIMARY_COLOR}
               inactiveTextColors={{ input: INPUT_PHASE_SOFT_COLOR }}
-              marginBottom={isImageMethod ? 16 : 24}
+              inactiveDotFilledPhases={{ input: true }}
+              marginBottom={isImageMethod ? 10 : 24}
             />
 
             <View
@@ -581,7 +582,7 @@ export function OutputScreen() {
                   primaryColor={PRIMARY_COLOR}
                   trackColor={PRIMARY_SOFT_COLOR}
                   testID="output-circular-timer"
-                  compact={isKeyboardVisible}
+                  compact={isKeyboardVisible || isImageMethod}
                 />
                 {isKeyboardVisible || isImageMethod ? null : (
                   <SizableText style={styles.timerCaption} testID="output-timer-caption">
@@ -668,7 +669,9 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   containerImageMethod: {
-    paddingTop: 56,
+    paddingTop: 12,
+    paddingRight: 14,
+    paddingLeft: 14,
   },
   mainContent: {
     flex: 1,
@@ -681,7 +684,7 @@ const styles = StyleSheet.create({
   },
   mainContentImageMethod: {
     justifyContent: 'flex-start',
-    gap: 24,
+    gap: 10,
   },
   timerStage: {
     flex: 1,
@@ -730,7 +733,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#EDEDED',
   },
   methodTabsImagePanel: {
-    marginHorizontal: 20,
+    marginHorizontal: 0,
   },
   methodTab: {
     flexDirection: 'row',
