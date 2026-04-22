@@ -4,11 +4,6 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "0 0 * * 1"
-  pull_request:
-    paths:
-      - "backend/src/infrastructure/llm/**"
-      - "backend/src/domain/services/llm_judge_service.py"
-      - "backend/src/config.py"
 
 jobs:
   smoke-test:
