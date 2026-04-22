@@ -160,6 +160,7 @@ type PhaseTabsProps = {
   activeDotColor: string;
   activeDotFilled?: boolean;
   inactiveDotFilled?: boolean;
+  inactiveDotFilledPhases?: Partial<Record<SessionPhase, boolean>>;
   inactiveDotColor?: string;
   inactiveDotColors?: Partial<Record<SessionPhase, string>>;
   activeTextColor?: string;
@@ -176,6 +177,7 @@ export function PhaseTabs({
   activeDotColor,
   activeDotFilled = true,
   inactiveDotFilled = false,
+  inactiveDotFilledPhases,
   inactiveDotColor = DOT_INACTIVE,
   inactiveDotColors,
   activeTextColor = TEXT_ACTIVE,
@@ -191,6 +193,7 @@ export function PhaseTabs({
         const isActive = phase === activePhase;
         const isLast = index === SESSION_PHASES.length - 1;
         const phaseInactiveDotColor = inactiveDotColors?.[phase] ?? inactiveDotColor;
+        const phaseInactiveDotFilled = inactiveDotFilledPhases?.[phase] ?? inactiveDotFilled;
         const phaseInactiveTextColor = inactiveTextColors?.[phase] ?? inactiveTextColor;
         const tabContent = (
           <>
@@ -199,7 +202,7 @@ export function PhaseTabs({
                 styles.phaseTabDot,
                 {
                   borderColor: phaseInactiveDotColor,
-                  backgroundColor: inactiveDotFilled ? phaseInactiveDotColor : 'transparent',
+                  backgroundColor: phaseInactiveDotFilled ? phaseInactiveDotColor : 'transparent',
                 },
                 isActive
                   ? {
@@ -208,6 +211,7 @@ export function PhaseTabs({
                     }
                   : null,
               ]}
+              testID={`${testIDPrefix}-phase-tab-${phase}-dot`}
             />
             <SizableText
               size="$3"

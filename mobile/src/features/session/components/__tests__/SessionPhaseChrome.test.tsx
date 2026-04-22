@@ -1,5 +1,6 @@
 import { act, cleanup, fireEvent, render } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
+import { StyleSheet } from 'react-native';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../../tamagui.config';
@@ -55,6 +56,29 @@ describe('SessionPhaseChrome', () => {
 
     fireEvent.press(getByTestId('session-phase-tab-break'));
     expect(onChange).toHaveBeenCalledWith('break');
+  });
+
+  it('PhaseTabs は非 active の dot をフェーズ単位で塗りつぶせる', () => {
+    const { getByTestId } = renderWithProvider(
+      <PhaseTabs
+        activePhase="output"
+        testIDPrefix="session"
+        activeDotColor="#EC4899"
+        inactiveDotColors={{ input: '#B9DFFF' }}
+        inactiveDotFilledPhases={{ input: true }}
+      />,
+    );
+
+    const inputDotStyle = StyleSheet.flatten(
+      getByTestId('session-phase-tab-input-dot').props.style,
+    );
+    const breakDotStyle = StyleSheet.flatten(
+      getByTestId('session-phase-tab-break-dot').props.style,
+    );
+
+    expect(inputDotStyle.backgroundColor).toBe('#B9DFFF');
+    expect(inputDotStyle.borderColor).toBe('#B9DFFF');
+    expect(breakDotStyle.backgroundColor).toBe('transparent');
   });
 
   it('CircularPhaseTimer は timerStore の残秒数を MM:SS 形式で表示する', () => {
