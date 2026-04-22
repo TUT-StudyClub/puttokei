@@ -1,4 +1,4 @@
-"""LLM 判定プロンプト v1。"""
+"""LLM prompt の組み立て。"""
 
 from __future__ import annotations
 
@@ -91,9 +91,13 @@ SYSTEM_PROMPT = """
 """.strip()
 
 
-def build_v1_prompt(judgment_input: LLMJudgmentInput) -> str:
-    """Gemini に渡すユーザープロンプトを組み立てる。"""
+def build_prompt_pair(input_data: LLMJudgmentInput) -> tuple[str, str]:
+    """Gemini に渡す system / user prompt を組み立てる。"""
 
+    return SYSTEM_PROMPT, _build_user_prompt(input_data)
+
+
+def _build_user_prompt(judgment_input: LLMJudgmentInput) -> str:
     lines = [
         "以下の学習アウトプットを、システム指示のルールと例にならって採点してください。",
         "出力は JSON のみで返してください。",

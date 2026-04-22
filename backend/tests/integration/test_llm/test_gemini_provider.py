@@ -167,28 +167,6 @@ async def test_gemini_provider_includes_input_fields_in_prompt(
 
 
 @pytest.mark.asyncio
-async def test_gemini_provider_uses_prompt_version_branching(
-    mock_gemini_client: MockGeminiClient,
-) -> None:
-    mock_gemini_client.generate_content.return_value = _build_gemini_response(SAMPLE_GEMINI_PAYLOAD)
-    provider = _build_provider()
-
-    result = await provider.judge(SAMPLE_LLM_INPUT)
-
-    assert result.model_name == "gemini-3-flash-preview"
-
-    unsupported = SAMPLE_LLM_INPUT.__class__(
-        subject=SAMPLE_LLM_INPUT.subject,
-        topic=SAMPLE_LLM_INPUT.topic,
-        content=SAMPLE_LLM_INPUT.content,
-        age_group=SAMPLE_LLM_INPUT.age_group,
-        prompt_version="v999",
-    )
-    with pytest.raises(ValueError, match="Unsupported prompt version"):
-        await provider.judge(unsupported)
-
-
-@pytest.mark.asyncio
 async def test_gemini_provider_reflects_generation_settings(
     mock_gemini_client: MockGeminiClient,
 ) -> None:

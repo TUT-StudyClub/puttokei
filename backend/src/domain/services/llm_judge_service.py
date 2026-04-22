@@ -19,7 +19,6 @@ class LLMJudgmentInput(FrozenModel):
     topic: StrictStr
     content: StrictStr
     age_group: StrictStr | None
-    prompt_version: StrictStr = Field(min_length=1)
 
 
 class LLMJudgmentItem(FrozenModel):

@@ -43,7 +43,6 @@ class JudgeOutputWithLLMCommand(FrozenModel):
     topic: str
     content: str
     age_group: str | None
-    prompt_version: str
 
 
 class JudgeOutputWithLLMItemView(FrozenModel):

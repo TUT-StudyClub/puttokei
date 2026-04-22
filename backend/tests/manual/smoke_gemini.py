@@ -24,7 +24,6 @@ async def _main() -> None:
             topic="現在完了",
             content="現在完了は過去の出来事が現在に影響しているときに使う表現です。",
             age_group="10s",
-            prompt_version="v1",
         )
     )
     print(json.dumps(asdict(result), ensure_ascii=False, indent=2))

@@ -16,7 +16,6 @@ SAMPLE_LLM_INPUT = LLMJudgmentInput(
         "デンプンなどの有機物を作り、酸素を放出するはたらきです。"
     ),
     age_group="10s",
-    prompt_version="v1",
 )
 
 

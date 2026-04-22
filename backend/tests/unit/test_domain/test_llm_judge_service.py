@@ -25,7 +25,6 @@ def test_llm_judgment_input_is_frozen_model():
         topic="極限",
         content="極限は近づく値です。",
         age_group="20s",
-        prompt_version="v1",
     )
 
     with pytest.raises(ValidationError, match="Instance is frozen"):
@@ -88,17 +87,6 @@ def test_llm_judgment_output_rejects_unknown_verdict():
             model_name="gemini-3-flash-preview",
             latency_ms=1,
             token_usage=None,
-        )
-
-
-def test_llm_judgment_input_rejects_empty_prompt_version():
-    with pytest.raises(ValidationError, match="prompt_version"):
-        LLMJudgmentInput(
-            subject="数学",
-            topic="極限",
-            content="極限は近づく値です。",
-            age_group="20s",
-            prompt_version="",
         )
 
 

@@ -25,7 +25,7 @@ from src.infrastructure.llm.gemini_schema import (
     parse_response,
     to_domain_output,
 )
-from src.infrastructure.llm.prompts import build_prompt_pair
+from src.infrastructure.llm.prompts.builder import build_prompt_pair
 
 _MILLISECONDS_PER_SECOND = 1_000
 

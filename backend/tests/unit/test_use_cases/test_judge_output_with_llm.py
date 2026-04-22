@@ -51,7 +51,6 @@ async def test_execute_converts_command_to_domain_and_returns_view():
         topic="光合成",
         content="植物が光を使って栄養を作る働きです。",
         age_group="10s",
-        prompt_version="v1",
     )
 
     result = await use_case.execute(command)
@@ -61,7 +60,6 @@ async def test_execute_converts_command_to_domain_and_returns_view():
         topic="光合成",
         content="植物が光を使って栄養を作る働きです。",
         age_group="10s",
-        prompt_version="v1",
     )
     assert result == JudgeOutputWithLLMView(
         verdict="partial",
@@ -106,7 +104,6 @@ async def test_execute_returns_none_token_usage_as_is():
             topic="極限",
             content="極限はある値に近づく考え方です。",
             age_group=None,
-            prompt_version="v1",
         )
     )
 

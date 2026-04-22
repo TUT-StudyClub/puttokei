@@ -21,7 +21,6 @@ async def test_gemini_smoke_returns_structured_output():
                 "有機物を作り、酸素を放出するはたらきです。"
             ),
             age_group="10s",
-            prompt_version="v1",
         )
     )
 

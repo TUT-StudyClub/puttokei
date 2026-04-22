@@ -24,7 +24,6 @@ class JudgeOutputWithLLMMapper:
             topic=command.topic,
             content=command.content,
             age_group=command.age_group,
-            prompt_version=command.prompt_version,
         )
 
     @staticmethod
