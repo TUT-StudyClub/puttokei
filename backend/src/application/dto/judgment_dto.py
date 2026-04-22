@@ -1,10 +1,4 @@
-"""判定関連ユースケースの入出力 DTO。
-
-CQRS 的な命名で役割を明示する:
-- `JudgmentView`: クライアントに返却する読み出し用ビュー
-- `JudgeOutputWithLLMCommand`: LLM 判定実行の意図を表すコマンド
-- `JudgeOutputWithLLMView`: LLM 判定結果の読み出し用ビュー
-"""
+"""判定関連ユースケースの入出力 DTO。"""
 
 from datetime import datetime
 from typing import Literal
