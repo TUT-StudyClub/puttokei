@@ -4,7 +4,7 @@ from src.application.dto.judgment_dto import (
     JudgeOutputWithLLMCommand,
     JudgeOutputWithLLMView,
 )
-from src.application.mappers.judge_output_with_llm_mapper import to_domain_input, to_view
+from src.application.mappers.judge_output_with_llm_mapper import JudgeOutputWithLLMMapper
 from src.domain.services.llm_judge_service import LLMProvider
 
 
@@ -15,5 +15,5 @@ class JudgeOutputWithLLM:
         self._llm_provider = llm_provider
 
     async def execute(self, command: JudgeOutputWithLLMCommand) -> JudgeOutputWithLLMView:
-        output = await self._llm_provider.judge(to_domain_input(command))
-        return to_view(output)
+        output = await self._llm_provider.judge(JudgeOutputWithLLMMapper.to_domain_input(command))
+        return JudgeOutputWithLLMMapper.to_view(output)
