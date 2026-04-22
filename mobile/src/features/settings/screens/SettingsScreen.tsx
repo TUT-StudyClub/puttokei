@@ -9,15 +9,7 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
-import {
-  Alert,
-  Modal,
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { Alert, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { Path, Svg } from 'react-native-svg';
 import { SizableText, Spinner } from 'tamagui';
 
@@ -88,21 +80,17 @@ export function SettingsScreen() {
   };
 
   const onPressLogout = () => {
-    Alert.alert(
-      'ログアウトしますか？',
-      '再度ご利用いただくにはサインインが必要です。',
-      [
-        { text: 'キャンセル', style: 'cancel' },
-        {
-          text: 'ログアウトする',
-          style: 'destructive',
-          onPress: () => {
-            clearAuth();
-            router.replace('/(auth)/sign-in');
-          },
+    Alert.alert('ログアウトしますか？', '再度ご利用いただくにはサインインが必要です。', [
+      { text: 'キャンセル', style: 'cancel' },
+      {
+        text: 'ログアウトする',
+        style: 'destructive',
+        onPress: () => {
+          clearAuth();
+          router.replace('/(auth)/sign-in');
         },
-      ],
-    );
+      },
+    ]);
   };
 
   const onPressDelete = () => {
