@@ -9,11 +9,14 @@ import { useMutation } from '@tanstack/react-query';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
+  type GestureResponderEvent,
   Image,
+  type LayoutChangeEvent,
+  PanResponder,
   Pressable,
   SafeAreaView,
   StyleSheet,
@@ -50,6 +53,13 @@ import { useTimerStore } from '@/shared/stores/timerStore';
 const SETTINGS_ROUTE = '/(tabs)/settings' as unknown as Href;
 const NEXT_CYCLE_HOURGLASS_ASSET = require('../../../../assets/images/hourglass_gradation.svg');
 const NEXT_CYCLE_HOURGLASS_ASPECT_RATIO = 76.91 / 43.11;
+const NEXT_CYCLE_IDLE_ROTATION_DEGREES = 5;
+const NEXT_CYCLE_ROTATE_THRESHOLD_DEGREES = 360;
+const NEXT_CYCLE_MAX_DRAG_ROTATION_DEGREES = 1080;
+const NEXT_CYCLE_ROTATION_SENSITIVITY = 1.25;
+const NEXT_CYCLE_PATH_ROTATION_DEGREES_PER_PIXEL = 1.15;
+const NEXT_CYCLE_MIN_ROTATION_RADIUS = 48;
+const NEXT_CYCLE_ROTATION_AREA_FALLBACK = { width: 320, height: 430 };
 
 const CURRENT_PHASE: SessionPhase = 'break';
 
@@ -119,9 +129,13 @@ function cssDeclarationsToSvgAttributes(declarations: string) {
 }
 
 function inlineSvgClassStyles(xml: string) {
-  const styleMatch = xml.match(/<style>\s*([\s\S]*?)\s*<\/style>/);
+  const xmlWithoutUnsupportedHighlight = xml.replace(
+    /\s*<rect class="cls-10" x="-9\.33" y="-28\.16" width="67\.08" height="107\.05"\/>/g,
+    '',
+  );
+  const styleMatch = xmlWithoutUnsupportedHighlight.match(/<style>\s*([\s\S]*?)\s*<\/style>/);
   const stylesheet = styleMatch?.[1];
-  if (!stylesheet) return xml;
+  if (!stylesheet) return xmlWithoutUnsupportedHighlight;
 
   const classRules: Record<string, string[]> = {};
   const classRulePattern = /\.([A-Za-z0-9_-]+)\s*\{([^}]+)\}/g;
@@ -134,7 +148,7 @@ function inlineSvgClassStyles(xml: string) {
     classRules[className] = cssDeclarationsToSvgAttributes(declarations);
   }
 
-  return xml
+  return xmlWithoutUnsupportedHighlight
     .replace(/<style>[\s\S]*?<\/style>/g, '')
     .replace(/class="([^"]+)"/g, (_classAttribute: string, classNames: string) => {
       const attributes = classNames
@@ -459,105 +473,253 @@ function TurnArrow() {
   );
 }
 
+function clampRotation(rotation: number) {
+  return Math.max(
+    -NEXT_CYCLE_MAX_DRAG_ROTATION_DEGREES,
+    Math.min(NEXT_CYCLE_MAX_DRAG_ROTATION_DEGREES, rotation),
+  );
+}
+
+function normalizeRotationDelta(delta: number) {
+  if (delta > 180) return delta - 360;
+  if (delta < -180) return delta + 360;
+  return delta;
+}
+
+function getGestureAngle(
+  event: GestureResponderEvent,
+  areaSize: { width: number; height: number },
+) {
+  const { locationX, locationY } = event.nativeEvent;
+  if (!Number.isFinite(locationX) || !Number.isFinite(locationY)) return null;
+
+  const dx = locationX - areaSize.width / 2;
+  const dy = locationY - areaSize.height / 2;
+  if (Math.hypot(dx, dy) < NEXT_CYCLE_MIN_ROTATION_RADIUS) return null;
+
+  return (Math.atan2(dy, dx) * 180) / Math.PI;
+}
+
+function getGesturePoint(event: GestureResponderEvent) {
+  const { locationX, locationY, pageX, pageY } = event.nativeEvent;
+  if (Number.isFinite(pageX) && Number.isFinite(pageY)) {
+    return { x: pageX, y: pageY };
+  }
+  if (Number.isFinite(locationX) && Number.isFinite(locationY)) {
+    return { x: locationX, y: locationY };
+  }
+
+  return null;
+}
+
 function NextCycleReadyView({
   isStarting,
   hasStartError,
   onStart,
   onCancel,
 }: NextCycleReadyViewProps) {
-  const sway = useRef(new Animated.Value(0)).current;
+  const hourglassRotation = useRef(new Animated.Value(-NEXT_CYCLE_IDLE_ROTATION_DEGREES)).current;
+  const idleAnimation = useRef<Animated.CompositeAnimation | null>(null);
   const { height: windowHeight } = useWindowDimensions();
   const isCompactHeight = windowHeight < 820;
-  const hourglassHeight = isCompactHeight ? 292 : 322;
+  const hourglassHeight = isCompactHeight ? 258 : 286;
   const hourglassWidth = hourglassHeight / NEXT_CYCLE_HOURGLASS_ASPECT_RATIO;
+  const rotationAreaSize = useRef(NEXT_CYCLE_ROTATION_AREA_FALLBACK);
+  const lastTouchAngle = useRef<number | null>(null);
+  const lastTouchPoint = useRef<{ x: number; y: number } | null>(null);
+  const draggedRotation = useRef(0);
+  const pathRotation = useRef(0);
+  const hasCompletedRotationGesture = useRef(false);
+  const hasTriggeredRotationStart = useRef(false);
 
-  useEffect(() => {
+  const startIdleAnimation = useCallback(() => {
+    idleAnimation.current?.stop();
+    hourglassRotation.setValue(-NEXT_CYCLE_IDLE_ROTATION_DEGREES);
     const animation = Animated.loop(
       Animated.sequence([
-        Animated.timing(sway, {
-          toValue: 1,
-          duration: 720,
+        Animated.timing(hourglassRotation, {
+          toValue: NEXT_CYCLE_IDLE_ROTATION_DEGREES,
+          duration: 1400,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
-        Animated.timing(sway, {
-          toValue: -1,
-          duration: 1440,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(sway, {
-          toValue: 0,
-          duration: 720,
+        Animated.timing(hourglassRotation, {
+          toValue: -NEXT_CYCLE_IDLE_ROTATION_DEGREES,
+          duration: 1400,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
       ]),
     );
 
+    idleAnimation.current = animation;
     animation.start();
-    return () => {
-      animation.stop();
-    };
-  }, [sway]);
+  }, [hourglassRotation]);
 
-  const swayRotation = sway.interpolate({
-    inputRange: [-1, 1],
-    outputRange: ['-5deg', '5deg'],
+  useEffect(() => {
+    startIdleAnimation();
+    return () => {
+      idleAnimation.current?.stop();
+    };
+  }, [startIdleAnimation]);
+
+  const hourglassRotationStyle = hourglassRotation.interpolate({
+    inputRange: [-NEXT_CYCLE_MAX_DRAG_ROTATION_DEGREES, NEXT_CYCLE_MAX_DRAG_ROTATION_DEGREES],
+    outputRange: [
+      `${-NEXT_CYCLE_MAX_DRAG_ROTATION_DEGREES}deg`,
+      `${NEXT_CYCLE_MAX_DRAG_ROTATION_DEGREES}deg`,
+    ],
   });
+
+  const triggerNextCycleByRotation = useCallback(() => {
+    if (hasTriggeredRotationStart.current || isStarting) return;
+
+    hasTriggeredRotationStart.current = true;
+    onStart();
+  }, [isStarting, onStart]);
+
+  const handleRotationAreaLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    if (width <= 0 || height <= 0) return;
+
+    rotationAreaSize.current = { width, height };
+  }, []);
+
+  const rotationResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponderCapture: () => !isStarting,
+        onStartShouldSetPanResponder: () => !isStarting,
+        onMoveShouldSetPanResponderCapture: () => !isStarting,
+        onMoveShouldSetPanResponder: () => !isStarting,
+        onPanResponderGrant: (event) => {
+          idleAnimation.current?.stop();
+          lastTouchAngle.current = getGestureAngle(event, rotationAreaSize.current);
+          lastTouchPoint.current = getGesturePoint(event);
+          draggedRotation.current = 0;
+          pathRotation.current = 0;
+          hasCompletedRotationGesture.current = false;
+          hourglassRotation.setValue(0);
+          hasTriggeredRotationStart.current = false;
+        },
+        onPanResponderMove: (event) => {
+          if (isStarting || hasTriggeredRotationStart.current) return;
+
+          const currentPoint = getGesturePoint(event);
+          if (currentPoint !== null) {
+            if (lastTouchPoint.current !== null) {
+              const dx = currentPoint.x - lastTouchPoint.current.x;
+              const dy = currentPoint.y - lastTouchPoint.current.y;
+              pathRotation.current +=
+                Math.hypot(dx, dy) * NEXT_CYCLE_PATH_ROTATION_DEGREES_PER_PIXEL;
+            }
+            lastTouchPoint.current = currentPoint;
+          }
+
+          const currentAngle = getGestureAngle(event, rotationAreaSize.current);
+          if (currentAngle !== null && lastTouchAngle.current === null) {
+            lastTouchAngle.current = currentAngle;
+            return;
+          }
+
+          if (currentAngle !== null && lastTouchAngle.current !== null) {
+            const rotationDelta =
+              normalizeRotationDelta(lastTouchAngle.current - currentAngle) *
+              NEXT_CYCLE_ROTATION_SENSITIVITY;
+            const nextRotation = clampRotation(draggedRotation.current + rotationDelta);
+            draggedRotation.current = nextRotation;
+            hourglassRotation.setValue(nextRotation);
+            lastTouchAngle.current = currentAngle;
+          }
+
+          hasCompletedRotationGesture.current =
+            Math.max(Math.abs(draggedRotation.current), pathRotation.current) >=
+            NEXT_CYCLE_ROTATE_THRESHOLD_DEGREES;
+        },
+        onPanResponderRelease: () => {
+          const shouldStart = hasCompletedRotationGesture.current;
+          lastTouchAngle.current = null;
+          lastTouchPoint.current = null;
+          draggedRotation.current = 0;
+          pathRotation.current = 0;
+          hasCompletedRotationGesture.current = false;
+
+          if (shouldStart) {
+            triggerNextCycleByRotation();
+          } else {
+            hourglassRotation.setValue(0);
+            startIdleAnimation();
+          }
+        },
+        onPanResponderTerminate: () => {
+          lastTouchAngle.current = null;
+          lastTouchPoint.current = null;
+          draggedRotation.current = 0;
+          pathRotation.current = 0;
+          hasCompletedRotationGesture.current = false;
+          if (!hasTriggeredRotationStart.current) {
+            hourglassRotation.setValue(0);
+            startIdleAnimation();
+          }
+        },
+      }),
+    [hourglassRotation, isStarting, startIdleAnimation, triggerNextCycleByRotation],
+  );
 
   return (
     <View style={styles.nextReadyContent} testID="break-next-cycle-view">
-      <SizableText style={styles.nextReadyTitle}>砂時計を回して次のサイクルを回そう！</SizableText>
-
       <View
-        style={[
-          styles.nextReadyGraphicArea,
-          isCompactHeight ? styles.nextReadyGraphicAreaCompact : null,
-        ]}
+        accessibilityLabel="砂時計を回して次のインプットを開始"
+        onLayout={handleRotationAreaLayout}
+        style={styles.nextReadyRotationArea}
+        testID="break-next-cycle-rotation-area"
+        {...rotationResponder.panHandlers}
       >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="次のインプットを開始"
-          disabled={isStarting}
-          onPress={onStart}
-          style={({ pressed }) => [
-            styles.nextHourglassButton,
-            pressed ? styles.buttonPressed : null,
-            isStarting ? styles.buttonDisabled : null,
+        <SizableText style={styles.nextReadyTitle}>
+          砂時計を回して次のサイクルを回そう！
+        </SizableText>
+
+        <View
+          style={[
+            styles.nextReadyGraphicArea,
+            isCompactHeight ? styles.nextReadyGraphicAreaCompact : null,
           ]}
-          testID="break-next-cycle-hourglass"
         >
-          <Animated.View
-            style={[
-              styles.nextCycleHourglassAsset,
-              {
-                width: hourglassWidth,
-                height: hourglassHeight,
-                transform: [{ rotate: swayRotation }],
-              },
-            ]}
+          <View
+            style={[styles.nextHourglassButton, isStarting ? styles.buttonDisabled : null]}
+            testID="break-next-cycle-hourglass"
           >
-            <NextCycleHourglassAsset />
-          </Animated.View>
-          {isStarting ? (
-            <View style={styles.nextStartingOverlay}>
-              <Spinner color={INPUT_COLOR} />
-            </View>
-          ) : null}
-        </Pressable>
+            <Animated.View
+              style={[
+                styles.nextCycleHourglassAsset,
+                {
+                  width: hourglassWidth,
+                  height: hourglassHeight,
+                  transform: [{ rotate: hourglassRotationStyle }],
+                },
+              ]}
+            >
+              <NextCycleHourglassAsset />
+            </Animated.View>
+            {isStarting ? (
+              <View style={styles.nextStartingOverlay}>
+                <Spinner color={INPUT_COLOR} />
+              </View>
+            ) : null}
+          </View>
 
-        <View style={styles.turnArrow}>
-          <TurnArrow />
+          <View style={styles.turnArrow}>
+            <TurnArrow />
+          </View>
         </View>
-      </View>
 
-      <View style={styles.nextReadyBottom}>
         <SizableText style={styles.nextReadyDescription}>
           回すと次のインプットがスタートします。{'\n'}
           スタート後、アウトプットの評価を見ることができます。
         </SizableText>
+      </View>
 
+      <View style={styles.nextReadyBottom}>
         {hasStartError ? (
           <SizableText style={styles.errorText} testID="break-next-cycle-error">
             次のサイクルを開始できませんでした。通信環境を確認してもう一度お試しください。
@@ -633,16 +795,13 @@ export function BreakScreen() {
     },
   });
 
-  const startedRef = useRef(false);
   useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
+    setScreenMode('resting');
     start('break', breakMinutes * 60);
     return () => {
       reset();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [breakMinutes, reset, sessionId, start]);
 
   const handleStartNextCycle = () => {
     if (createNextCycle.isPending) return;
@@ -941,6 +1100,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 10,
   },
+  nextReadyRotationArea: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
   nextReadyTitle: {
     color: TEXT_ACTIVE,
     fontSize: 19,
@@ -952,12 +1117,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-    minHeight: 308,
-    marginTop: 16,
-  },
-  nextReadyGraphicAreaCompact: {
     minHeight: 280,
     marginTop: 12,
+  },
+  nextReadyGraphicAreaCompact: {
+    minHeight: 252,
+    marginTop: 10,
   },
   nextHourglassButton: {
     alignItems: 'center',
@@ -978,8 +1143,8 @@ const styles = StyleSheet.create({
   },
   turnArrow: {
     position: 'absolute',
-    right: 16,
-    bottom: 56,
+    right: 24,
+    bottom: 48,
   },
   nextReadyBottom: {
     alignItems: 'center',
@@ -988,9 +1153,9 @@ const styles = StyleSheet.create({
   },
   nextReadyDescription: {
     color: '#9B9B9B',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    lineHeight: 21,
+    lineHeight: 20,
     textAlign: 'center',
   },
   abortButton: {

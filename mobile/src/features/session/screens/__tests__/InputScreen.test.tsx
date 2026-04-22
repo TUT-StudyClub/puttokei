@@ -6,7 +6,7 @@
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, render, waitFor } from '@testing-library/react-native';
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../../tamagui.config';
@@ -15,14 +15,16 @@ import { InputScreen } from '@/features/session/screens/InputScreen';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
 const mockReplace = jest.fn();
+let mockRouteParams = {
+  id: 'ses-123',
+  input: '1',
+  output: '5',
+  break: '5',
+};
+
 jest.mock('expo-router', () => ({
   useRouter: () => ({ replace: mockReplace, push: jest.fn() }),
-  useLocalSearchParams: () => ({
-    id: 'ses-123',
-    input: '1',
-    output: '5',
-    break: '5',
-  }),
+  useLocalSearchParams: () => mockRouteParams,
 }));
 
 jest.mock('@react-navigation/native', () => ({
@@ -31,23 +33,37 @@ jest.mock('@react-navigation/native', () => ({
 
 jest.mock('@/features/session/api/sessionApi');
 
-function renderWithProviders(ui: ReactNode) {
+function renderWithProviders(ui: ReactElement) {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false, gcTime: Infinity },
       mutations: { retry: false, gcTime: Infinity },
     },
   });
-  return render(
-    <TamaguiProvider config={config} defaultTheme="light">
-      <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
-    </TamaguiProvider>,
-  );
+  function Providers({ children }: { children: ReactNode }) {
+    return (
+      <TamaguiProvider config={config} defaultTheme="light">
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      </TamaguiProvider>
+    );
+  }
+
+  return render(ui, { wrapper: Providers });
+}
+
+function resetRouteParams() {
+  mockRouteParams = {
+    id: 'ses-123',
+    input: '1',
+    output: '5',
+    break: '5',
+  };
 }
 
 describe('InputScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    resetRouteParams();
     useTimerStore.setState({
       phase: 'idle',
       status: 'idle',
@@ -101,5 +117,27 @@ describe('InputScreen', () => {
         params: { id: 'ses-123', input: '1', output: '5', break: '5' },
       });
     });
+  });
+
+  it('session id が変わったら同じ画面インスタンスでも input タイマーを再開始する', () => {
+    const { rerender } = renderWithProviders(<InputScreen />);
+
+    expect(useTimerStore.getState().totalSeconds).toBe(60);
+
+    act(() => {
+      useTimerStore.getState().reset();
+      mockRouteParams = {
+        id: 'ses-next',
+        input: '2',
+        output: '5',
+        break: '5',
+      };
+      rerender(<InputScreen />);
+    });
+
+    expect(useTimerStore.getState().phase).toBe('input');
+    expect(useTimerStore.getState().status).toBe('running');
+    expect(useTimerStore.getState().totalSeconds).toBe(120);
+    expect(useTimerStore.getState().remainingSeconds).toBe(120);
   });
 });

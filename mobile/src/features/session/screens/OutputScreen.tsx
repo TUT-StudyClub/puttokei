@@ -176,7 +176,13 @@ export function OutputScreen() {
 
   const router = useRouter();
   const isFocused = useIsFocused();
-  const submit = useSubmitOutput();
+  const {
+    error: submitError,
+    isError: isSubmitError,
+    isPending: isSubmitPending,
+    mutate: submitOutputMutate,
+    reset: resetSubmit,
+  } = useSubmitOutput();
   const currentLoop = useLoopStore((s) => s.currentLoop);
   const scrollRef = useRef<ScrollView>(null);
 
@@ -200,15 +206,15 @@ export function OutputScreen() {
   const handleEditorSubmit = useCallback(
     ({ content: nextContent, submitted_at }: OutputEditorSubmitPayload) => {
       setLocalErrorMessage(null);
-      submit.reset();
-      submit.mutate(
+      resetSubmit();
+      submitOutputMutate(
         { sessionId, content: nextContent, submitted_at },
         {
           onSuccess: navigateToBreak,
         },
       );
     },
-    [submit, sessionId, navigateToBreak],
+    [navigateToBreak, resetSubmit, sessionId, submitOutputMutate],
   );
 
   const { start, reset } = useTimer({
@@ -223,18 +229,16 @@ export function OutputScreen() {
     },
   });
 
-  const startedRef = useRef(false);
   useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
+    setContent('');
+    setInputMethod('text');
+    setLocalErrorMessage(null);
+    resetSubmit();
     start('output', outputMinutes * 60);
     return () => {
       reset();
     };
-    // 依存を意図的に空にしている: start/reset が参照として安定しているうえ、
-    // startedRef で二重 start を防いでいるため再実行は不要。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [outputMinutes, reset, resetSubmit, sessionId, start]);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -261,9 +265,9 @@ export function OutputScreen() {
 
   const submitErrorMessage =
     localErrorMessage ??
-    (submit.isError
-      ? isApiError(submit.error)
-        ? (submit.error.problem?.detail ?? '送信に失敗しました。時間をおいて再度お試しください。')
+    (isSubmitError
+      ? isApiError(submitError)
+        ? (submitError.problem?.detail ?? '送信に失敗しました。時間をおいて再度お試しください。')
         : '送信に失敗しました。時間をおいて再度お試しください。'
       : null);
 
@@ -344,18 +348,19 @@ export function OutputScreen() {
 
                 <View style={styles.editorArea}>
                   <OutputEditor
+                    key={sessionId}
                     value={content}
                     onChange={(nextValue) => {
                       setContent(nextValue);
                       if (localErrorMessage !== null) {
                         setLocalErrorMessage(null);
                       }
-                      if (submit.isError) {
-                        submit.reset();
+                      if (isSubmitError) {
+                        resetSubmit();
                       }
                     }}
                     onSubmit={handleEditorSubmit}
-                    isSubmitting={submit.isPending}
+                    isSubmitting={isSubmitPending}
                     errorMessage={submitErrorMessage}
                     disabled={isEditorDisabled}
                     onFocus={() => {

@@ -9,7 +9,7 @@
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react-native';
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { Keyboard, type KeyboardEvent, type KeyboardEventListener } from 'react-native';
 import { TamaguiProvider } from 'tamagui';
 
@@ -19,14 +19,16 @@ import { OutputScreen } from '@/features/session/screens/OutputScreen';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
 const mockReplace = jest.fn();
+let mockRouteParams = {
+  id: 'ses-123',
+  input: '20',
+  output: '1',
+  break: '5',
+};
+
 jest.mock('expo-router', () => ({
   useRouter: () => ({ replace: mockReplace, push: jest.fn() }),
-  useLocalSearchParams: () => ({
-    id: 'ses-123',
-    input: '20',
-    output: '1',
-    break: '5',
-  }),
+  useLocalSearchParams: () => mockRouteParams,
 }));
 
 jest.mock('@react-navigation/native', () => ({
@@ -37,18 +39,31 @@ jest.mock('@/features/session/api/sessionApi');
 
 const keyboardListeners = new Map<string, KeyboardEventListener>();
 
-function renderWithProviders(ui: ReactNode) {
+function renderWithProviders(ui: ReactElement) {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false, gcTime: Infinity },
       mutations: { retry: false, gcTime: Infinity },
     },
   });
-  return render(
-    <TamaguiProvider config={config} defaultTheme="light">
-      <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
-    </TamaguiProvider>,
-  );
+  function Providers({ children }: { children: ReactNode }) {
+    return (
+      <TamaguiProvider config={config} defaultTheme="light">
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      </TamaguiProvider>
+    );
+  }
+
+  return render(ui, { wrapper: Providers });
+}
+
+function resetRouteParams() {
+  mockRouteParams = {
+    id: 'ses-123',
+    input: '20',
+    output: '1',
+    break: '5',
+  };
 }
 
 const submitSuccessResponse = {
@@ -64,6 +79,7 @@ const submitSuccessResponse = {
 describe('OutputScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    resetRouteParams();
     keyboardListeners.clear();
     jest.spyOn(Keyboard, 'addListener').mockImplementation((eventName, listener) => {
       keyboardListeners.set(eventName, listener);
@@ -212,5 +228,58 @@ describe('OutputScreen', () => {
         params: { id: 'ses-123', input: '20', output: '1', break: '5' },
       });
     });
+  });
+
+  it('session id が変わったら前サイクルの送信状態を引き継がずに新しいアウトプットを送信できる', async () => {
+    (sessionApi.submitOutput as jest.Mock)
+      .mockResolvedValueOnce(submitSuccessResponse)
+      .mockResolvedValueOnce({
+        status: 'judging',
+        output: {
+          id: 'out-2',
+          session_id: 'ses-next',
+          content: '2回目の本文',
+          submitted_at: '2026-04-10T15:25:00.000Z',
+        },
+      });
+
+    const { getByTestId, rerender } = renderWithProviders(<OutputScreen />);
+
+    fireEvent.changeText(getByTestId('output-editor-textarea'), '1回目の本文');
+    act(() => {
+      fireEvent.press(getByTestId('output-editor-submit'));
+    });
+
+    await waitFor(() => {
+      expect(sessionApi.submitOutput).toHaveBeenCalledWith('ses-123', {
+        content: '1回目の本文',
+        submitted_at: '2026-04-10T15:25:00.000Z',
+      });
+    });
+
+    act(() => {
+      mockRouteParams = {
+        id: 'ses-next',
+        input: '20',
+        output: '1',
+        break: '5',
+      };
+      rerender(<OutputScreen />);
+    });
+
+    expect(getByTestId('output-editor-textarea').props.value).toBe('');
+
+    fireEvent.changeText(getByTestId('output-editor-textarea'), '2回目の本文');
+    act(() => {
+      fireEvent.press(getByTestId('output-editor-submit'));
+    });
+
+    await waitFor(() => {
+      expect(sessionApi.submitOutput).toHaveBeenCalledWith('ses-next', {
+        content: '2回目の本文',
+        submitted_at: expect.any(String),
+      });
+    });
+    expect(sessionApi.submitOutput).toHaveBeenCalledTimes(2);
   });
 });

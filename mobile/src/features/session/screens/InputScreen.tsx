@@ -1,7 +1,7 @@
 /**
  * インプットフェーズ画面。
  *
- * マウント時に `useTimer.start('input', input_minutes * 60)` でカウントダウンを開始し、
+ * session id ごとに `useTimer.start('input', input_minutes * 60)` でカウントダウンを開始し、
  * タイマー完了時に `PATCH status=output` を送る。成功後に `/session/{id}/output` へ
  * `router.replace` で遷移する（history に残さない方針）。
  *
@@ -11,7 +11,7 @@
 import { useIsFocused } from '@react-navigation/native';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { Alert, Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
 import { SizableText } from 'tamagui';
 
@@ -85,18 +85,12 @@ export function InputScreen() {
     },
   });
 
-  const startedRef = useRef(false);
   useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
     start('input', inputMinutes * 60);
     return () => {
       reset();
     };
-    // 依存を意図的に空にしている: start/reset が参照として安定しているうえ、
-    // startedRef で二重 start を防いでいるため再実行は不要。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [inputMinutes, reset, sessionId, start]);
 
   const handleCancel = () => {
     if (cancelMutation.isPending) return;

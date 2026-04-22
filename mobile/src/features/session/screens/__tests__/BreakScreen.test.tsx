@@ -45,6 +45,34 @@ function renderWithProviders(ui: ReactNode) {
   );
 }
 
+function rotationResponderEvent(
+  locationX: number,
+  locationY: number,
+  previousLocationX = locationX,
+  previousLocationY = locationY,
+  timestamp = 1,
+) {
+  return {
+    nativeEvent: { locationX, locationY },
+    touchHistory: {
+      numberActiveTouches: 1,
+      indexOfSingleActiveTouch: 0,
+      mostRecentTimeStamp: timestamp,
+      touchBank: [
+        {
+          touchActive: true,
+          currentPageX: locationX,
+          currentPageY: locationY,
+          previousPageX: previousLocationX,
+          previousPageY: previousLocationY,
+          currentTimeStamp: timestamp,
+          previousTimeStamp: timestamp - 1,
+        },
+      ],
+    },
+  };
+}
+
 describe('BreakScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -124,7 +152,7 @@ describe('BreakScreen', () => {
     expect(getByTestId('break-next-cycle-cancel')).toBeTruthy();
   });
 
-  it('次サイクル準備画面の砂時計押下で新しいセッションを作成し input へ遷移する', async () => {
+  it('次サイクル準備画面の砂時計を回転させると新しいセッションを作成し input へ遷移する', async () => {
     (sessionApi.createSession as jest.Mock).mockResolvedValue({
       id: 'ses-next',
       user_id: 'usr-1',
@@ -151,6 +179,41 @@ describe('BreakScreen', () => {
 
     fireEvent.press(getByTestId('break-next-cycle-button'));
     fireEvent.press(getByTestId('break-next-cycle-hourglass'));
+    expect(sessionApi.createSession).not.toHaveBeenCalled();
+
+    fireEvent(
+      getByTestId('break-next-cycle-rotation-area'),
+      'responderGrant',
+      rotationResponderEvent(260, 215),
+    );
+    fireEvent(
+      getByTestId('break-next-cycle-rotation-area'),
+      'responderMove',
+      rotationResponderEvent(160, 115, 260, 215, 2),
+    );
+    fireEvent(
+      getByTestId('break-next-cycle-rotation-area'),
+      'responderMove',
+      rotationResponderEvent(60, 215, 160, 115, 3),
+    );
+    fireEvent(
+      getByTestId('break-next-cycle-rotation-area'),
+      'responderMove',
+      rotationResponderEvent(160, 315, 60, 215, 4),
+    );
+    fireEvent(
+      getByTestId('break-next-cycle-rotation-area'),
+      'responderMove',
+      rotationResponderEvent(260, 215, 160, 315, 5),
+    );
+
+    expect(sessionApi.createSession).not.toHaveBeenCalled();
+
+    fireEvent(
+      getByTestId('break-next-cycle-rotation-area'),
+      'responderRelease',
+      rotationResponderEvent(260, 215, 260, 215, 6),
+    );
 
     await waitFor(() => {
       expect(sessionApi.createSession).toHaveBeenCalledWith({
@@ -173,6 +236,43 @@ describe('BreakScreen', () => {
       });
     });
     expect(useLoopStore.getState().currentLoop).toBe(2);
+  });
+
+  it('次サイクル準備画面で一周未満の回転では指を離しても開始しない', async () => {
+    const { getByTestId } = renderWithProviders(<BreakScreen />);
+
+    act(() => {
+      jest.advanceTimersByTime(60 * 1000);
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('break-next-cycle-button')).toBeTruthy();
+    });
+
+    fireEvent.press(getByTestId('break-next-cycle-button'));
+
+    fireEvent(
+      getByTestId('break-next-cycle-rotation-area'),
+      'responderGrant',
+      rotationResponderEvent(260, 215),
+    );
+    fireEvent(
+      getByTestId('break-next-cycle-rotation-area'),
+      'responderMove',
+      rotationResponderEvent(160, 115, 260, 215, 2),
+    );
+    fireEvent(
+      getByTestId('break-next-cycle-rotation-area'),
+      'responderMove',
+      rotationResponderEvent(60, 215, 160, 115, 3),
+    );
+    fireEvent(
+      getByTestId('break-next-cycle-rotation-area'),
+      'responderRelease',
+      rotationResponderEvent(60, 215, 60, 215, 4),
+    );
+
+    expect(sessionApi.createSession).not.toHaveBeenCalled();
   });
 
   it('次サイクル準備画面の中断ボタン押下でホームへ戻る', async () => {
