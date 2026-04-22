@@ -410,14 +410,7 @@ export function OutputScreen() {
         onSuccess: navigateToBreak,
       },
     );
-  }, [
-    imageUris,
-    isSubmitPending,
-    navigateToBreak,
-    resetSubmit,
-    sessionId,
-    submitOutputMutate,
-  ]);
+  }, [imageUris, isSubmitPending, navigateToBreak, resetSubmit, sessionId, submitOutputMutate]);
 
   const handleAddImage = useCallback(async () => {
     setLocalErrorMessage(null);
