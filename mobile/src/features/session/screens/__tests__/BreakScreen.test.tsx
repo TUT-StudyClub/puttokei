@@ -174,4 +174,21 @@ describe('BreakScreen', () => {
     });
     expect(useLoopStore.getState().currentLoop).toBe(2);
   });
+
+  it('次サイクル準備画面の中断ボタン押下でホームへ戻る', async () => {
+    const { getByTestId } = renderWithProviders(<BreakScreen />);
+
+    act(() => {
+      jest.advanceTimersByTime(60 * 1000);
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('break-next-cycle-button')).toBeTruthy();
+    });
+
+    fireEvent.press(getByTestId('break-next-cycle-button'));
+    fireEvent.press(getByTestId('break-next-cycle-cancel'));
+
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
+  });
 });

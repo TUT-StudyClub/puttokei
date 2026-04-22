@@ -10,7 +10,16 @@ import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Image, Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
+import {
+  Animated,
+  Easing,
+  Image,
+  Pressable,
+  SafeAreaView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import {
   Circle,
   Defs,
@@ -40,9 +49,9 @@ import { useTimerStore } from '@/shared/stores/timerStore';
 
 const SETTINGS_ROUTE = '/(tabs)/settings' as unknown as Href;
 const NEXT_CYCLE_HOURGLASS_ASSET = require('../../../../assets/images/hourglass_gradation.svg');
+const NEXT_CYCLE_HOURGLASS_ASPECT_RATIO = 76.91 / 43.11;
 
 const CURRENT_PHASE: SessionPhase = 'break';
-const NEXT_PHASE: SessionPhase = 'input';
 
 // 休憩中はグレー、次サイクル準備ではインプットと同じブルーを使う。
 const BREAK_COLOR = '#9CA3AF';
@@ -442,7 +451,7 @@ function TurnArrow() {
         d="M58 10 C70 43 62 76 31 95"
         stroke="#2F2F2F"
         strokeWidth={14}
-        strokeLinecap="round"
+        strokeLinecap="butt"
         fill="none"
       />
       <Path d="M27 71 L28 108 L60 89 Z" fill="#2F2F2F" />
@@ -457,6 +466,10 @@ function NextCycleReadyView({
   onCancel,
 }: NextCycleReadyViewProps) {
   const sway = useRef(new Animated.Value(0)).current;
+  const { height: windowHeight } = useWindowDimensions();
+  const isCompactHeight = windowHeight < 820;
+  const hourglassHeight = isCompactHeight ? 292 : 322;
+  const hourglassWidth = hourglassHeight / NEXT_CYCLE_HOURGLASS_ASPECT_RATIO;
 
   useEffect(() => {
     const animation = Animated.loop(
@@ -497,7 +510,12 @@ function NextCycleReadyView({
     <View style={styles.nextReadyContent} testID="break-next-cycle-view">
       <SizableText style={styles.nextReadyTitle}>砂時計を回して次のサイクルを回そう！</SizableText>
 
-      <View style={styles.nextReadyGraphicArea}>
+      <View
+        style={[
+          styles.nextReadyGraphicArea,
+          isCompactHeight ? styles.nextReadyGraphicAreaCompact : null,
+        ]}
+      >
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="次のインプットを開始"
@@ -511,7 +529,14 @@ function NextCycleReadyView({
           testID="break-next-cycle-hourglass"
         >
           <Animated.View
-            style={[styles.nextCycleHourglassAsset, { transform: [{ rotate: swayRotation }] }]}
+            style={[
+              styles.nextCycleHourglassAsset,
+              {
+                width: hourglassWidth,
+                height: hourglassHeight,
+                transform: [{ rotate: swayRotation }],
+              },
+            ]}
           >
             <NextCycleHourglassAsset />
           </Animated.View>
@@ -632,10 +657,7 @@ export function BreakScreen() {
 
   const handleCancelNextCycle = () => {
     reset();
-    router.replace({
-      pathname: '/session/[id]/result',
-      params: { id: sessionId },
-    });
+    router.replace('/(tabs)');
   };
 
   const captionText = isJudgmentReady
@@ -643,12 +665,12 @@ export function BreakScreen() {
     : 'AI採点中です。ゆっくり休憩してください。';
 
   const isNextCycleMode = screenMode === 'nextCycle';
-  const displayedPhase =
-    screenMode === 'completed' ? null : isNextCycleMode ? NEXT_PHASE : CURRENT_PHASE;
-  const phaseActiveColor = isNextCycleMode ? INPUT_COLOR : BREAK_COLOR;
+  const usesCompletedPhasePalette = screenMode === 'completed' || isNextCycleMode;
+  const displayedPhase = usesCompletedPhasePalette ? null : CURRENT_PHASE;
+  const phaseActiveColor = BREAK_COLOR;
   const badgeActiveColor = screenMode === 'resting' ? BREAK_COLOR : INPUT_COLOR;
   const displayedLoop = isNextCycleMode ? Math.min(currentLoop + 1, LOOP_COUNT_MAX) : currentLoop;
-  const completedPhaseColors = screenMode === 'completed' ? COMPLETED_PHASE_COLORS : undefined;
+  const completedPhaseColors = usesCompletedPhasePalette ? COMPLETED_PHASE_COLORS : undefined;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -674,12 +696,12 @@ export function BreakScreen() {
           activePhase={displayedPhase}
           testIDPrefix="break"
           activeDotColor={phaseActiveColor}
-          activeTextColor={isNextCycleMode ? INPUT_COLOR : TEXT_ACTIVE}
-          inactiveDotFilled={screenMode === 'completed'}
+          activeTextColor={TEXT_ACTIVE}
+          inactiveDotFilled={usesCompletedPhasePalette}
           inactiveDotColor={DOT_INACTIVE}
           inactiveDotColors={completedPhaseColors}
           inactiveTextColors={completedPhaseColors}
-          marginBottom={isNextCycleMode ? 28 : 20}
+          marginBottom={isNextCycleMode ? 18 : 20}
         />
 
         {screenMode === 'resting' ? (
@@ -917,7 +939,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 22,
+    paddingTop: 10,
   },
   nextReadyTitle: {
     color: TEXT_ACTIVE,
@@ -930,8 +952,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-    minHeight: 330,
-    marginTop: 6,
+    minHeight: 308,
+    marginTop: 16,
+  },
+  nextReadyGraphicAreaCompact: {
+    minHeight: 280,
+    marginTop: 12,
   },
   nextHourglassButton: {
     alignItems: 'center',
@@ -940,8 +966,6 @@ const styles = StyleSheet.create({
   nextCycleHourglassAsset: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 210,
-    height: 376,
   },
   nextStartingOverlay: {
     position: 'absolute',
@@ -954,19 +978,19 @@ const styles = StyleSheet.create({
   },
   turnArrow: {
     position: 'absolute',
-    right: 4,
-    bottom: 66,
+    right: 16,
+    bottom: 56,
   },
   nextReadyBottom: {
     alignItems: 'center',
     width: '100%',
-    gap: 18,
+    gap: 14,
   },
   nextReadyDescription: {
     color: '#9B9B9B',
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '600',
-    lineHeight: 24,
+    lineHeight: 21,
     textAlign: 'center',
   },
   abortButton: {
