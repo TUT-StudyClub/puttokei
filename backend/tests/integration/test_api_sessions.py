@@ -405,7 +405,7 @@ async def test_submit_output_allows_resubmission_and_overwrites_existing_output(
     client: AsyncClient,
 ):
     """1 セッション 1 アウトプット制約と重複送信時の上書き挙動を固定する。"""
-    auth_uid = "submit-user-resubmit"
+    auth_uid = "submit-user-005"
     created = await _create_session(client, auth_uid)
     session_id = created["id"]
     await _advance_status(client, auth_uid, session_id, "output")
@@ -430,6 +430,8 @@ async def test_submit_output_allows_resubmission_and_overwrites_existing_output(
     assert second.status_code == 202
     first_body = first.json()
     second_body = second.json()
+    # JUDGING からの再送でも受理され、status は judging のまま
+    # (SubmitOutput の update スキップ分岐)
     assert second_body["status"] == "judging"
     assert second_body["output"]["session_id"] == session_id
     # UNIQUE(session_id) と upsert により output.id は再利用される
