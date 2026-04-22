@@ -46,3 +46,4 @@ coverage/
 .aider*
 .cursorignore.local
 .claude/scheduled_tasks.lock
+.claude/settings.local.json
