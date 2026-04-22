@@ -39,10 +39,6 @@ class LLMRateLimitError(LLMProviderError):
     http_status_codes: ClassVar[frozenset[int]] = frozenset({429})
 
 
-class LLMResponseParseError(LLMProviderError):
-    """LLM の応答を期待スキーマへ変換できなかった。"""
-
-
 class LLMAuthenticationError(LLMProviderError):
     """LLM プロバイダーの認証に失敗した。"""
 

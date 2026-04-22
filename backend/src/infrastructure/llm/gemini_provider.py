@@ -19,11 +19,7 @@ from src.infrastructure.llm.errors.exceptions import (
     LLMTimeoutError,
     LLMUnknownError,
 )
-from src.infrastructure.llm.gemini_schema import (
-    build_response_json_schema,
-    parse_response,
-    to_domain_output,
-)
+from src.infrastructure.llm.gemini_schema import GeminiJudgmentSchema
 from src.infrastructure.llm.prompts.builder import LLMJudgmentPromptBuilder
 
 _MILLISECONDS_PER_SECOND = 1_000
@@ -46,7 +42,7 @@ class GeminiProvider(LLMProvider):
         self.thinking_level = thinking_level
         self.timeout_seconds = timeout_seconds
         self._client = client
-        self._response_json_schema = build_response_json_schema()
+        self._response_json_schema = GeminiJudgmentSchema.response_json_schema()
 
     async def judge(self, input_data: LLMJudgmentInput) -> LLMJudgmentOutput:
         """Gemini に構造化出力を要求し、ドメインモデルへ詰め替えて返す。"""
@@ -59,9 +55,8 @@ class GeminiProvider(LLMProvider):
             user_prompt=user_prompt,
         )
         latency_ms = int((time.perf_counter() - started_at) * _MILLISECONDS_PER_SECOND)
-        parsed = parse_response(response)
-        return to_domain_output(
-            parsed,
+        parsed = GeminiJudgmentSchema.parse_response(response)
+        return parsed.to_domain_output(
             model_name=self.model,
             latency_ms=latency_ms,
             token_usage=self._extract_token_usage(response),

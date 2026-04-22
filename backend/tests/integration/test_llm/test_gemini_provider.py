@@ -11,13 +11,13 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from google.genai import errors
+from pydantic import ValidationError
 
 from src.config import GeminiThinkingLevel
 from src.domain.services.llm_judge_service import TokenUsage
 from src.infrastructure.llm.errors import (
     LLMAuthenticationError,
     LLMRateLimitError,
-    LLMResponseParseError,
     LLMTimeoutError,
     LLMUnknownError,
 )
@@ -189,7 +189,7 @@ async def test_gemini_provider_raises_parse_error_on_invalid_json(
     )
     provider = _build_provider(mock_gemini_client)
 
-    with pytest.raises(LLMResponseParseError):
+    with pytest.raises(ValidationError):
         await provider.judge(SAMPLE_LLM_INPUT)
 
 
@@ -202,7 +202,7 @@ async def test_gemini_provider_raises_parse_error_on_schema_mismatch(
     )
     provider = _build_provider(mock_gemini_client)
 
-    with pytest.raises(LLMResponseParseError):
+    with pytest.raises(ValidationError):
         await provider.judge(SAMPLE_LLM_INPUT)
 
 
