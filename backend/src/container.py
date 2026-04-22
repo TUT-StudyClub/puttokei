@@ -5,7 +5,6 @@ presentation からは `request.app.state.container` 経由で参照する。
 """
 
 from functools import cache
-from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
 
@@ -24,6 +23,7 @@ from src.domain.repositories.output_repository import OutputRepository
 from src.domain.repositories.session_repository import SessionRepository
 from src.domain.repositories.user_repository import UserRepository
 from src.domain.services.auth_verifier import AuthVerifier
+from src.domain.services.llm_judge_service import LLMProvider
 from src.infrastructure.auth.firebase_auth import FirebaseAuthVerifier
 from src.infrastructure.persistence.database import Database
 from src.infrastructure.persistence.repositories.pg_judgment_repository import (
@@ -35,12 +35,9 @@ from src.infrastructure.persistence.repositories.pg_session_repository import (
 )
 from src.infrastructure.persistence.repositories.pg_user_repository import PgUserRepository
 
-if TYPE_CHECKING:
-    from src.domain.services.llm_judge_service import LLMProvider
-
 
 @cache
-def get_llm_provider() -> "LLMProvider":
+def get_llm_provider() -> LLMProvider:
     """LLM provider を遅延初期化し、プロセス内で共有する。"""
 
     from src.config import LLMSettings
@@ -74,12 +71,6 @@ class Container(BaseModel):
     update_session_status: UpdateSessionStatus
     submit_output: SubmitOutput
     get_judgment: GetJudgment
-
-    @property
-    def llm_provider(self) -> "LLMProvider":
-        """LLM provider を返す薄いアダプタ。"""
-
-        return get_llm_provider()
 
 
 def build_container(settings: Settings) -> Container:

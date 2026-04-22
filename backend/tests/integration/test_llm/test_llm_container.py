@@ -54,19 +54,6 @@ def test_get_llm_provider_raises_when_gemini_api_key_is_missing(
         get_llm_provider()
 
 
-def test_existing_container_exposes_same_llm_provider_instance(
-    monkeypatch: pytest.MonkeyPatch,
-    mock_gemini_client: dict[str, Any],
-    container: Container,
-) -> None:
-    monkeypatch.setenv("LLM_GEMINI_API_KEY", "test-key")
-
-    provider_from_container = container.llm_provider
-    provider_from_helper = get_llm_provider()
-
-    assert provider_from_container is provider_from_helper
-
-
 def test_src_container_import_is_lazy_for_llm_modules() -> None:
     module_names = [
         "src.container",
@@ -100,4 +87,4 @@ def test_existing_container_other_dependencies_still_work(
 
     assert container.database is not None
     assert container.user_repository is not None
-    assert container.llm_provider.__class__.__name__ == "GeminiProvider"
+    assert get_llm_provider().__class__.__name__ == "GeminiProvider"
