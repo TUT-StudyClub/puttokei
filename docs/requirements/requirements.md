@@ -297,8 +297,8 @@ outputs ||--|| judgments : "対象"
 | id | UUID PK | NO | セッション ID |
 | user_id | UUID FK -> users | NO | ユーザ ID |
 | status | VARCHAR | NO | input / output / judging / judged / cancelled |
-| subject | VARCHAR(50) | NO | 学習科目（例: 英語）。1〜50 文字 |
-| topic | VARCHAR(200) | NO | 学習トピック（例: 関係代名詞）。1〜200 文字 |
+| subject | VARCHAR(50) | NO | 学習科目（例: 英語）。 |
+| topic | VARCHAR(200) | NO | 学習トピック（例: 関係代名詞）。 |
 | input_minutes | INTEGER | NO | 実際のインプット時間 |
 | output_minutes | INTEGER | NO | 実際のアウトプット時間 |
 | break_minutes | INTEGER | NO | 実際の休憩時間 |
