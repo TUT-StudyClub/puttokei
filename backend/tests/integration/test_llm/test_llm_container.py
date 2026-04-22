@@ -73,7 +73,6 @@ def test_src_container_import_is_lazy_for_llm_modules() -> None:
         "src.infrastructure.llm",
         "src.infrastructure.llm.errors",
         "src.infrastructure.llm.errors.exceptions",
-        "src.infrastructure.llm.errors.http",
         "src.infrastructure.llm.gemini_provider",
     ]
     original_modules = {module_name: sys.modules.get(module_name) for module_name in module_names}

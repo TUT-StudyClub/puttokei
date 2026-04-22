@@ -1,4 +1,4 @@
-"""LLM プロバイダー共通の例外と変換ヘルパー。"""
+"""LLM プロバイダー共通の例外。"""
 
 from src.infrastructure.llm.errors.exceptions import (
     LLMAuthenticationError,
@@ -8,7 +8,6 @@ from src.infrastructure.llm.errors.exceptions import (
     LLMTimeoutError,
     LLMUnknownError,
 )
-from src.infrastructure.llm.errors.http import provider_error_from_status_code
 
 __all__ = [
     "LLMAuthenticationError",
@@ -17,5 +16,4 @@ __all__ = [
     "LLMResponseParseError",
     "LLMTimeoutError",
     "LLMUnknownError",
-    "provider_error_from_status_code",
 ]

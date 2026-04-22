@@ -16,9 +16,9 @@ from src.domain.services.llm_judge_service import (
 )
 from src.infrastructure.llm.errors import (
     LLMAuthenticationError,
+    LLMProviderError,
     LLMTimeoutError,
     LLMUnknownError,
-    provider_error_from_status_code,
 )
 from src.infrastructure.llm.gemini_schema import (
     build_response_json_schema,
@@ -99,7 +99,7 @@ class GeminiProvider(LLMProvider):
         except TimeoutError as exc:
             raise LLMTimeoutError("Gemini request timed out.") from exc
         except errors.ClientError as exc:
-            raise provider_error_from_status_code(exc.code, exc.message) from exc
+            raise LLMProviderError.from_status_code(exc.code, exc.message) from exc
         except errors.APIError as exc:
             raise LLMUnknownError(
                 exc.message or "Gemini API returned an unexpected error."
