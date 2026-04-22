@@ -62,7 +62,8 @@ class LLMSettings(BaseSettings):
         description="利用する LLM プロバイダー",
     )
     gemini_api_key: str = Field(
-        default="",
+        ...,
+        min_length=1,
         description="Gemini API キー",
     )
     gemini_model: str = Field(

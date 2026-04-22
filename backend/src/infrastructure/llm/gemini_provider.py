@@ -7,15 +7,14 @@ import time
 
 from google.genai import Client, errors, types
 
-from src.config import GeminiThinkingLevel, LLMSettings
+from src.config import GeminiThinkingLevel
 from src.domain.services.llm_judge_service import (
     LLMJudgmentInput,
     LLMJudgmentOutput,
     LLMProvider,
     TokenUsage,
 )
-from src.infrastructure.llm.errors import (
-    LLMAuthenticationError,
+from src.infrastructure.llm.errors.exceptions import (
     LLMProviderError,
     LLMTimeoutError,
     LLMUnknownError,
@@ -49,23 +48,6 @@ class GeminiProvider(LLMProvider):
         self._client = client
         self._response_json_schema = build_response_json_schema()
 
-    @classmethod
-    def from_settings(cls, settings: LLMSettings) -> GeminiProvider:
-        """設定から GeminiProvider を組み立てる。"""
-
-        if not settings.gemini_api_key.strip():
-            raise LLMAuthenticationError(
-                "Gemini API key is missing. Set LLM_GEMINI_API_KEY before using GeminiProvider."
-            )
-
-        return cls(
-            client=Client(api_key=settings.gemini_api_key),
-            model=settings.gemini_model,
-            thinking_level=settings.gemini_thinking_level,
-            temperature=settings.gemini_temperature,
-            timeout_seconds=settings.timeout_seconds,
-        )
-
     async def judge(self, input_data: LLMJudgmentInput) -> LLMJudgmentOutput:
         """Gemini に構造化出力を要求し、ドメインモデルへ詰め替えて返す。"""
 
@@ -88,12 +70,13 @@ class GeminiProvider(LLMProvider):
     async def _generate_content(self, *, system_prompt: str, user_prompt: str) -> object:
         """Gemini API を呼び出し、レスポンスを返す。"""
 
+        config = self._build_generation_config(system_prompt)
         try:
             return await asyncio.wait_for(
                 self._client.aio.models.generate_content(
                     model=self.model,
                     contents=user_prompt,
-                    config=self._build_generation_config(system_prompt),
+                    config=config,
                 ),
                 timeout=self.timeout_seconds,
             )

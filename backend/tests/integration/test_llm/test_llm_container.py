@@ -5,13 +5,15 @@ from __future__ import annotations
 import importlib
 import sys
 from collections.abc import Iterator
+from typing import Any, cast
 
 import pytest
+from pydantic import ValidationError
 from pytest_mock import MockerFixture
 
+from src.config import LLMSettings
 from src.container import Container, get_llm_provider
 from src.domain.services.llm_judge_service import LLMProvider
-from src.infrastructure.llm.errors import LLMAuthenticationError
 from src.infrastructure.llm.gemini_provider import GeminiProvider
 
 
@@ -54,16 +56,15 @@ def test_get_llm_provider_is_singleton(
 def test_get_llm_provider_raises_when_gemini_api_key_is_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    class _FakeLLMSettings:
-        gemini_api_key = ""
-        gemini_model = "gemini-3-flash-preview"
-        gemini_thinking_level = "MEDIUM"
-        gemini_temperature = 0.2
-        timeout_seconds = 30
+    settings_type = cast(Any, LLMSettings)
 
-    monkeypatch.setattr("src.config.LLMSettings", _FakeLLMSettings)
+    monkeypatch.delenv("LLM_GEMINI_API_KEY", raising=False)
+    monkeypatch.setattr(
+        "src.config.LLMSettings",
+        lambda: cast(LLMSettings, settings_type(_env_file=None)),
+    )
 
-    with pytest.raises(LLMAuthenticationError, match="LLM_GEMINI_API_KEY"):
+    with pytest.raises(ValidationError, match="gemini_api_key"):
         get_llm_provider()
 
 

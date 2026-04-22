@@ -6,6 +6,9 @@ import asyncio
 import json
 from dataclasses import asdict
 
+from google.genai import Client
+from pydantic import ValidationError
+
 from src.config import LLMSettings
 from src.domain.services.llm_judge_service import LLMJudgmentInput
 from src.infrastructure.llm.errors import (
@@ -17,7 +20,13 @@ from src.infrastructure.llm.gemini_provider import GeminiProvider
 
 async def _main() -> None:
     settings = LLMSettings()
-    provider = GeminiProvider.from_settings(settings)
+    provider = GeminiProvider(
+        client=Client(api_key=settings.gemini_api_key),
+        model=settings.gemini_model,
+        thinking_level=settings.gemini_thinking_level,
+        temperature=settings.gemini_temperature,
+        timeout_seconds=settings.timeout_seconds,
+    )
     result = await provider.judge(
         LLMJudgmentInput(
             subject="英語",
@@ -32,6 +41,8 @@ async def _main() -> None:
 def main() -> None:
     try:
         asyncio.run(_main())
+    except ValidationError as exc:
+        raise SystemExit(str(exc)) from exc
     except LLMAuthenticationError as exc:
         raise SystemExit(str(exc)) from exc
     except LLMRateLimitError as exc:

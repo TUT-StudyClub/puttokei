@@ -13,6 +13,11 @@ def _load_llm_settings() -> LLMSettings:
     return cast(LLMSettings, settings_type(_env_file=None))
 
 
+@pytest.fixture(autouse=True)
+def set_default_gemini_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LLM_GEMINI_API_KEY", "test-api-key")
+
+
 def test_llm_settings_reads_gemini_api_key_from_environment(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("LLM_GEMINI_API_KEY", "test-api-key")
 
@@ -59,3 +64,10 @@ def test_llm_settings_ignores_unknown_environment_variables(monkeypatch: pytest.
     settings = _load_llm_settings()
 
     assert settings.model_dump().get("unknown_setting") is None
+
+
+def test_llm_settings_requires_gemini_api_key(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("LLM_GEMINI_API_KEY", raising=False)
+
+    with pytest.raises(ValidationError, match="gemini_api_key"):
+        _load_llm_settings()

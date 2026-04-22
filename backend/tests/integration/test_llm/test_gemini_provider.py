@@ -11,9 +11,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from google.genai import errors
-from pytest_mock import MockerFixture
 
-from src.config import LLMSettings
+from src.config import GeminiThinkingLevel
 from src.domain.services.llm_judge_service import TokenUsage
 from src.infrastructure.llm.errors import (
     LLMAuthenticationError,
@@ -74,44 +73,33 @@ class MockGeminiClient:
 
 
 @pytest.fixture
-def mock_gemini_client(mocker: MockerFixture) -> MockGeminiClient:
+def mock_gemini_client() -> MockGeminiClient:
     generate_content = AsyncMock()
-    client = mocker.MagicMock()
-    client.aio = mocker.MagicMock()
-    client.aio.models = mocker.MagicMock()
+    client = MagicMock()
+    client.aio = MagicMock()
+    client.aio.models = MagicMock()
     client.aio.models.generate_content = generate_content
-    mocker.patch(
-        "src.infrastructure.llm.gemini_provider.Client",
-        return_value=client,
-    )
     return MockGeminiClient(
         client=client,
         generate_content=generate_content,
     )
 
 
-def _build_llm_settings(**overrides: object) -> LLMSettings:
-    payload = {
-        "provider": "gemini",
-        "gemini_api_key": "test-key",
-        "gemini_model": "gemini-3-flash-preview",
-        "gemini_thinking_level": "MEDIUM",
-        "gemini_temperature": 0.2,
-        "timeout_seconds": 30,
-        **overrides,
-    }
-    return LLMSettings.model_construct(**payload)
-
-
-def _build_provider(**overrides: object) -> GeminiProvider:
-    setting_overrides = {
-        "gemini_model": overrides.pop("model", "gemini-3-flash-preview"),
-        "gemini_thinking_level": overrides.pop("thinking_level", "MEDIUM"),
-        "gemini_temperature": overrides.pop("temperature", 0.2),
-        "timeout_seconds": overrides.pop("timeout_seconds", 30),
-        **overrides,
-    }
-    return GeminiProvider.from_settings(_build_llm_settings(**setting_overrides))
+def _build_provider(
+    mock_gemini_client: MockGeminiClient,
+    *,
+    model: str = "gemini-3-flash-preview",
+    thinking_level: GeminiThinkingLevel = "MEDIUM",
+    temperature: float = 0.2,
+    timeout_seconds: int = 30,
+) -> GeminiProvider:
+    return GeminiProvider(
+        client=mock_gemini_client.client,
+        model=model,
+        thinking_level=thinking_level,
+        temperature=temperature,
+        timeout_seconds=timeout_seconds,
+    )
 
 
 class TestGeminiProviderContract(LLMProviderContract):
@@ -123,7 +111,7 @@ class TestGeminiProviderContract(LLMProviderContract):
         mock_gemini_client.generate_content.return_value = _build_gemini_response(
             SAMPLE_GEMINI_PAYLOAD
         )
-        return _build_provider()
+        return _build_provider(mock_gemini_client)
 
 
 @pytest.mark.asyncio
@@ -135,7 +123,7 @@ async def test_gemini_provider_returns_llm_judgment_output(
         prompt_tokens=21,
         completion_tokens=13,
     )
-    provider = _build_provider()
+    provider = _build_provider(mock_gemini_client)
 
     result = await provider.judge(SAMPLE_LLM_INPUT)
 
@@ -151,7 +139,7 @@ async def test_gemini_provider_includes_input_fields_in_prompt(
     mock_gemini_client: MockGeminiClient,
 ) -> None:
     mock_gemini_client.generate_content.return_value = _build_gemini_response(SAMPLE_GEMINI_PAYLOAD)
-    provider = _build_provider()
+    provider = _build_provider(mock_gemini_client)
 
     await provider.judge(SAMPLE_LLM_INPUT)
 
@@ -172,6 +160,7 @@ async def test_gemini_provider_reflects_generation_settings(
 ) -> None:
     mock_gemini_client.generate_content.return_value = _build_gemini_response(SAMPLE_GEMINI_PAYLOAD)
     provider = _build_provider(
+        mock_gemini_client,
         model="gemini-custom-model",
         thinking_level="HIGH",
         temperature=0.4,
@@ -198,7 +187,7 @@ async def test_gemini_provider_raises_parse_error_on_invalid_json(
         text="{invalid-json",
         usage_metadata=None,
     )
-    provider = _build_provider()
+    provider = _build_provider(mock_gemini_client)
 
     with pytest.raises(LLMResponseParseError):
         await provider.judge(SAMPLE_LLM_INPUT)
@@ -211,7 +200,7 @@ async def test_gemini_provider_raises_parse_error_on_schema_mismatch(
     mock_gemini_client.generate_content.return_value = _build_gemini_response(
         {"verdict": "correct", "score": 80}
     )
-    provider = _build_provider()
+    provider = _build_provider(mock_gemini_client)
 
     with pytest.raises(LLMResponseParseError):
         await provider.judge(SAMPLE_LLM_INPUT)
@@ -222,7 +211,7 @@ async def test_gemini_provider_raises_timeout_error(
     mock_gemini_client: MockGeminiClient,
 ) -> None:
     mock_gemini_client.generate_content.side_effect = TimeoutError
-    provider = _build_provider(timeout_seconds=1)
+    provider = _build_provider(mock_gemini_client, timeout_seconds=1)
 
     with pytest.raises(LLMTimeoutError):
         await provider.judge(SAMPLE_LLM_INPUT)
@@ -237,7 +226,7 @@ async def test_gemini_provider_raises_rate_limit_error(
         {"error": {"status": "RESOURCE_EXHAUSTED", "message": "too many requests"}},
         None,
     )
-    provider = _build_provider()
+    provider = _build_provider(mock_gemini_client)
 
     with pytest.raises(LLMRateLimitError):
         await provider.judge(SAMPLE_LLM_INPUT)
@@ -252,7 +241,7 @@ async def test_gemini_provider_raises_authentication_error_for_401(
         {"error": {"status": "UNAUTHENTICATED", "message": "bad auth"}},
         None,
     )
-    provider = _build_provider()
+    provider = _build_provider(mock_gemini_client)
 
     with pytest.raises(LLMAuthenticationError):
         await provider.judge(SAMPLE_LLM_INPUT)
@@ -267,7 +256,7 @@ async def test_gemini_provider_raises_authentication_error_for_403(
         {"error": {"status": "PERMISSION_DENIED", "message": "forbidden"}},
         None,
     )
-    provider = _build_provider()
+    provider = _build_provider(mock_gemini_client)
 
     with pytest.raises(LLMAuthenticationError):
         await provider.judge(SAMPLE_LLM_INPUT)
@@ -282,15 +271,10 @@ async def test_gemini_provider_raises_unknown_error_for_other_api_errors(
         {"error": {"status": "INTERNAL", "message": "boom"}},
         None,
     )
-    provider = _build_provider()
+    provider = _build_provider(mock_gemini_client)
 
     with pytest.raises(LLMUnknownError):
         await provider.judge(SAMPLE_LLM_INPUT)
-
-
-def test_gemini_provider_requires_api_key_from_settings() -> None:
-    with pytest.raises(LLMAuthenticationError):
-        GeminiProvider.from_settings(_build_llm_settings(gemini_api_key=""))
 
 
 @pytest.mark.asyncio
@@ -301,7 +285,7 @@ async def test_gemini_provider_reports_latency_ms(
         _slow_gemini_response,
         _build_gemini_response(SAMPLE_GEMINI_PAYLOAD),
     )
-    provider = _build_provider()
+    provider = _build_provider(mock_gemini_client)
 
     result = await provider.judge(SAMPLE_LLM_INPUT)
 
