@@ -6,7 +6,7 @@ from typing import Literal
 
 from src.config import LLMSettings
 from src.domain.services.llm_judge_service import BaseLLMProvider
-from src.infrastructure.llm.base import LLMAuthenticationError
+from src.infrastructure.llm.errors import LLMAuthenticationError
 from src.infrastructure.llm.gemini_provider import GeminiProvider
 
 ProviderName = Literal["gemini"]
