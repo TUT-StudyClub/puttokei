@@ -57,7 +57,7 @@ class LLMSettings(BaseSettings):
         extra="ignore",
     )
 
-    provider: Literal["gemini"] = Field(
+    provider: str = Field(
         default="gemini",
         description="利用する LLM プロバイダー",
     )
