@@ -10,15 +10,21 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactElement, ReactNode } from 'react';
-import { Keyboard, type KeyboardEvent, type KeyboardEventListener } from 'react-native';
+import {
+  Keyboard,
+  NativeModules,
+  type KeyboardEvent,
+  type KeyboardEventListener,
+} from 'react-native';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../../tamagui.config';
 import * as sessionApi from '@/features/session/api/sessionApi';
-import { OutputScreen } from '@/features/session/screens/OutputScreen';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
 const mockReplace = jest.fn();
+const mockRequestCameraPermissionsAsync = jest.fn();
+const mockLaunchCameraAsync = jest.fn();
 let mockRouteParams = {
   id: 'ses-123',
   input: '20',
@@ -35,7 +41,16 @@ jest.mock('@react-navigation/native', () => ({
   useIsFocused: () => true,
 }));
 
+jest.mock('expo-image-picker', () => ({
+  __esModule: true,
+  requestCameraPermissionsAsync: mockRequestCameraPermissionsAsync,
+  launchCameraAsync: mockLaunchCameraAsync,
+}));
+
 jest.mock('@/features/session/api/sessionApi');
+
+const { OutputScreen } =
+  require('@/features/session/screens/OutputScreen') as typeof import('@/features/session/screens/OutputScreen');
 
 const keyboardListeners = new Map<string, KeyboardEventListener>();
 
@@ -79,6 +94,13 @@ const submitSuccessResponse = {
 describe('OutputScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (globalThis as any).expo = {
+      ...(globalThis as any).expo,
+      modules: { ExponentImagePicker: {} },
+    };
+    (NativeModules as any).NativeUnimoduleProxy = undefined;
+    mockRequestCameraPermissionsAsync.mockResolvedValue({ granted: true });
+    mockLaunchCameraAsync.mockResolvedValue({ canceled: true, assets: [] });
     resetRouteParams();
     keyboardListeners.clear();
     jest.spyOn(Keyboard, 'addListener').mockImplementation((eventName, listener) => {
@@ -136,6 +158,66 @@ describe('OutputScreen', () => {
     expect(queryByTestId('output-settings-button')).toBeNull();
     expect(queryByTestId('output-hourglass-badge')).toBeNull();
     expect(queryByTestId('output-timer-caption')).toBeNull();
+  });
+
+  it('画像タブ選択時は画像パネルと提出 UI を表示する', () => {
+    const { getByTestId, getByText, queryByTestId } = renderWithProviders(<OutputScreen />);
+
+    fireEvent.press(getByTestId('output-method-tab-image'));
+
+    expect(getByTestId('output-image-panel')).toBeTruthy();
+    expect(getByTestId('output-image-add-button')).toBeTruthy();
+    expect(getByTestId('output-image-submit')).toBeTruthy();
+    expect(getByText('提出後も時間内であれば編集できます')).toBeTruthy();
+    expect(queryByTestId('output-image-thumbnail-0')).toBeNull();
+    expect(queryByTestId('output-editor-textarea')).toBeNull();
+    expect(queryByTestId('output-method-notice')).toBeNull();
+    expect(queryByTestId('output-settings-button')).toBeNull();
+    expect(queryByTestId('output-hourglass-badge')).toBeNull();
+    expect(queryByTestId('output-timer-caption')).toBeNull();
+  });
+
+  it('画像追加ボタン押下でカメラを開き、撮影画像を左から追加する', async () => {
+    mockLaunchCameraAsync
+      .mockResolvedValueOnce({
+        canceled: false,
+        assets: [{ uri: 'file:///output-first.jpg' }],
+      })
+      .mockResolvedValueOnce({
+        canceled: false,
+        assets: [{ uri: 'file:///output-second.jpg' }],
+      });
+
+    const { getByTestId } = renderWithProviders(<OutputScreen />);
+
+    fireEvent.press(getByTestId('output-method-tab-image'));
+
+    await act(async () => {
+      fireEvent.press(getByTestId('output-image-add-button'));
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('output-image-thumbnail-0').props.source).toEqual({
+        uri: 'file:///output-first.jpg',
+      });
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('output-image-add-button'));
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('output-image-thumbnail-1').props.source).toEqual({
+        uri: 'file:///output-second.jpg',
+      });
+    });
+    expect(mockRequestCameraPermissionsAsync).toHaveBeenCalledTimes(2);
+    expect(mockLaunchCameraAsync).toHaveBeenCalledTimes(2);
+    expect(mockLaunchCameraAsync).toHaveBeenCalledWith({
+      allowsEditing: false,
+      mediaTypes: 'images',
+      quality: 0.8,
+    });
   });
 
   it('タイマー完了で本文が空ならエラーメッセージを表示し、送信しない', async () => {

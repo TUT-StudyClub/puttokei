@@ -13,7 +13,8 @@
       "bundleIdentifier": "com.hourglass-nomibress.app",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "アウトプット画像を撮影するためにカメラを使用します。"
       }
     },
     "android": {
@@ -41,6 +42,14 @@
           "ios": {
             "useFrameworks": "static"
           }
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "アウトプット画像を撮影するためにカメラを使用します。",
+          "photosPermission": false,
+          "microphonePermission": false
         }
       ],
       [
