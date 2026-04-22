@@ -8,12 +8,10 @@ from src.domain.services.llm_judge_service import (
 
 
 class FakeLLMProvider(LLMProvider):
-    """固定の判定結果を返し、呼び出し履歴を保持する fake。"""
+    """固定の判定結果を返す fake。"""
 
     def __init__(self, output: LLMJudgmentOutput) -> None:
         self.output = output
-        self.calls: list[LLMJudgmentInput] = []
 
-    async def judge(self, input_data: LLMJudgmentInput) -> LLMJudgmentOutput:
-        self.calls.append(input_data)
+    async def judge(self, _input_data: LLMJudgmentInput) -> LLMJudgmentOutput:
         return self.output

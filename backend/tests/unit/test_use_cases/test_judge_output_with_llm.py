@@ -13,14 +13,27 @@ from src.domain.services.llm_judge_service import (
     LLMJudgmentInput,
     LLMJudgmentItem,
     LLMJudgmentOutput,
+    LLMProvider,
     TokenUsage,
 )
 from tests.fakes.fake_llm_provider import FakeLLMProvider
 
 
+class SpyLLMProvider(LLMProvider):
+    """入力変換を観測するためのテスト用 spy。"""
+
+    def __init__(self, output: LLMJudgmentOutput) -> None:
+        self.output = output
+        self.last_input: LLMJudgmentInput | None = None
+
+    async def judge(self, input_data: LLMJudgmentInput) -> LLMJudgmentOutput:
+        self.last_input = input_data
+        return self.output
+
+
 @pytest.mark.asyncio
 async def test_execute_converts_command_to_domain_and_returns_view():
-    provider = FakeLLMProvider(
+    provider = SpyLLMProvider(
         output=LLMJudgmentOutput(
             verdict="partial",
             score=78,
@@ -43,15 +56,13 @@ async def test_execute_converts_command_to_domain_and_returns_view():
 
     result = await use_case.execute(command)
 
-    assert provider.calls == [
-        LLMJudgmentInput(
-            subject="理科",
-            topic="光合成",
-            content="植物が光を使って栄養を作る働きです。",
-            age_group="10s",
-            prompt_version="v1",
-        )
-    ]
+    assert provider.last_input == LLMJudgmentInput(
+        subject="理科",
+        topic="光合成",
+        content="植物が光を使って栄養を作る働きです。",
+        age_group="10s",
+        prompt_version="v1",
+    )
     assert result == JudgeOutputWithLLMView(
         verdict="partial",
         score=78,
