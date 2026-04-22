@@ -10,7 +10,7 @@ import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
+import { Animated, Easing, Image, Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
 import {
   Circle,
   Defs,
@@ -19,6 +19,7 @@ import {
   Path,
   Stop,
   Svg,
+  SvgXml,
 } from 'react-native-svg';
 import { SizableText, Spinner } from 'tamagui';
 
@@ -38,6 +39,7 @@ import { LOOP_COUNT_MAX, useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
 const SETTINGS_ROUTE = '/(tabs)/settings' as unknown as Href;
+const NEXT_CYCLE_HOURGLASS_ASSET = require('../../../../assets/images/hourglass_gradation.svg');
 
 const CURRENT_PHASE: SessionPhase = 'break';
 const NEXT_PHASE: SessionPhase = 'input';
@@ -70,6 +72,69 @@ const COMPLETED_PHASE_COLORS: Record<SessionPhase, string> = {
   output: '#F8D8E4',
   break: '#C9C9C9',
 };
+
+const SVG_CSS_ATTRIBUTE_NAMES: Record<string, string> = {
+  'clip-path': 'clipPath',
+  'color-interpolation-filters': 'colorInterpolationFilters',
+  'fill-rule': 'fillRule',
+  'stroke-linecap': 'strokeLinecap',
+  'stroke-linejoin': 'strokeLinejoin',
+  'stroke-width': 'strokeWidth',
+};
+
+const SVG_UNSUPPORTED_CSS_PROPERTIES = new Set(['isolation', 'mix-blend-mode']);
+
+function cssPropertyToSvgAttribute(property: string) {
+  return (
+    SVG_CSS_ATTRIBUTE_NAMES[property] ??
+    property.replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase())
+  );
+}
+
+function cssDeclarationsToSvgAttributes(declarations: string) {
+  return declarations
+    .split(';')
+    .map((declaration) => declaration.trim())
+    .filter(Boolean)
+    .map((declaration) => {
+      const separatorIndex = declaration.indexOf(':');
+      if (separatorIndex === -1) return null;
+
+      const property = declaration.slice(0, separatorIndex).trim();
+      const value = declaration.slice(separatorIndex + 1).trim();
+      if (!property || !value || SVG_UNSUPPORTED_CSS_PROPERTIES.has(property)) return null;
+
+      return `${cssPropertyToSvgAttribute(property)}="${value}"`;
+    })
+    .filter((attribute): attribute is string => attribute !== null);
+}
+
+function inlineSvgClassStyles(xml: string) {
+  const styleMatch = xml.match(/<style>\s*([\s\S]*?)\s*<\/style>/);
+  const stylesheet = styleMatch?.[1];
+  if (!stylesheet) return xml;
+
+  const classRules: Record<string, string[]> = {};
+  const classRulePattern = /\.([A-Za-z0-9_-]+)\s*\{([^}]+)\}/g;
+  let match: RegExpExecArray | null;
+  while ((match = classRulePattern.exec(stylesheet)) !== null) {
+    const className = match[1];
+    const declarations = match[2];
+    if (!className || !declarations) continue;
+
+    classRules[className] = cssDeclarationsToSvgAttributes(declarations);
+  }
+
+  return xml
+    .replace(/<style>[\s\S]*?<\/style>/g, '')
+    .replace(/class="([^"]+)"/g, (_classAttribute: string, classNames: string) => {
+      const attributes = classNames
+        .split(/\s+/)
+        .flatMap((className) => classRules[className] ?? []);
+
+      return attributes.join(' ');
+    });
+}
 
 type JudgingProgressCardProps = {
   progressPercent: number;
@@ -165,6 +230,54 @@ function HourglassGraphic({
         <Ellipse cx={100} cy={72} rx={42} ry={21} fill="#EFEFEF" opacity={0.78} />
       </Svg>
     </View>
+  );
+}
+
+function NextCycleHourglassAsset() {
+  const [xml, setXml] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const source = Image.resolveAssetSource(NEXT_CYCLE_HOURGLASS_ASSET);
+    const uri = source?.uri;
+    if (!uri || typeof fetch !== 'function') return;
+
+    fetch(uri)
+      .then((response) => {
+        if (!response.ok && !(response.status === 0 && uri.startsWith('file://'))) {
+          throw new Error(`Failed to load next cycle hourglass SVG: ${response.status}`);
+        }
+        return response.text();
+      })
+      .then((loadedXml) => {
+        if (isMounted) {
+          setXml(inlineSvgClassStyles(loadedXml));
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setXml(null);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const fallback = <HourglassGraphic size={220} strokeColor={INPUT_COLOR} />;
+
+  if (!xml) return fallback;
+
+  return (
+    <SvgXml
+      xml={xml}
+      width="100%"
+      height="100%"
+      preserveAspectRatio="xMidYMid meet"
+      fallback={fallback}
+      onError={() => undefined}
+    />
   );
 }
 
@@ -343,6 +456,43 @@ function NextCycleReadyView({
   onStart,
   onCancel,
 }: NextCycleReadyViewProps) {
+  const sway = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(sway, {
+          toValue: 1,
+          duration: 720,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(sway, {
+          toValue: -1,
+          duration: 1440,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(sway, {
+          toValue: 0,
+          duration: 720,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    animation.start();
+    return () => {
+      animation.stop();
+    };
+  }, [sway]);
+
+  const swayRotation = sway.interpolate({
+    inputRange: [-1, 1],
+    outputRange: ['-5deg', '5deg'],
+  });
+
   return (
     <View style={styles.nextReadyContent} testID="break-next-cycle-view">
       <SizableText style={styles.nextReadyTitle}>砂時計を回して次のサイクルを回そう！</SizableText>
@@ -360,7 +510,11 @@ function NextCycleReadyView({
           ]}
           testID="break-next-cycle-hourglass"
         >
-          <HourglassGraphic size={290} rotation="7deg" />
+          <Animated.View
+            style={[styles.nextCycleHourglassAsset, { transform: [{ rotate: swayRotation }] }]}
+          >
+            <NextCycleHourglassAsset />
+          </Animated.View>
           {isStarting ? (
             <View style={styles.nextStartingOverlay}>
               <Spinner color={INPUT_COLOR} />
@@ -782,6 +936,12 @@ const styles = StyleSheet.create({
   nextHourglassButton: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  nextCycleHourglassAsset: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 210,
+    height: 376,
   },
   nextStartingOverlay: {
     position: 'absolute',
