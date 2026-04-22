@@ -14,6 +14,7 @@ import type { ReactElement, ReactNode } from 'react';
 import {
   Keyboard,
   NativeModules,
+  StyleSheet,
   type KeyboardEvent,
   type KeyboardEventListener,
 } from 'react-native';
@@ -138,6 +139,9 @@ describe('OutputScreen', () => {
     expect(getAllByText('アウトプット').length).toBeGreaterThan(0);
     expect(getByTestId('output-settings-button')).toBeTruthy();
     expect(getByTestId('output-composer-card')).toBeTruthy();
+    expect(
+      StyleSheet.flatten(getByTestId('output-phase-tab-input-dot').props.style).backgroundColor,
+    ).toBe('#B9DFFF');
     expect(useTimerStore.getState().phase).toBe('output');
     expect(useTimerStore.getState().totalSeconds).toBe(60);
   });
@@ -178,7 +182,7 @@ describe('OutputScreen', () => {
     expect(queryByTestId('output-timer-caption')).toBeNull();
   });
 
-  it('画像追加ボタン押下でカメラを開き、撮影画像を左から追加する', async () => {
+  it('画像追加メニューからカメラを開き、撮影画像を左から追加する', async () => {
     mockLaunchCameraAsync
       .mockResolvedValueOnce({
         canceled: false,
@@ -196,6 +200,9 @@ describe('OutputScreen', () => {
     await act(async () => {
       fireEvent.press(getByTestId('output-image-add-button'));
     });
+    await act(async () => {
+      fireEvent.press(getByTestId('output-image-add-menu-camera'));
+    });
 
     await waitFor(() => {
       expect(getByTestId('output-image-thumbnail-0').props.source).toEqual({
@@ -205,6 +212,9 @@ describe('OutputScreen', () => {
 
     await act(async () => {
       fireEvent.press(getByTestId('output-image-add-button'));
+    });
+    await act(async () => {
+      fireEvent.press(getByTestId('output-image-add-menu-camera'));
     });
 
     await waitFor(() => {
@@ -253,6 +263,9 @@ describe('OutputScreen', () => {
 
     await act(async () => {
       fireEvent.press(getByTestId('output-image-add-button'));
+    });
+    await act(async () => {
+      fireEvent.press(getByTestId('output-image-add-menu-camera'));
     });
 
     await waitFor(() => {

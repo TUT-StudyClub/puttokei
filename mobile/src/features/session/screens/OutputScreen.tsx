@@ -242,10 +242,19 @@ function AddImageIcon({ color = METHOD_ACTIVE_COLOR }: { color?: string }) {
 
 type ImageOutputPanelProps = {
   imageUris: string[];
-  onAddImage: () => void;
+  isMenuOpen: boolean;
+  onToggleMenu: () => void;
+  onPickFromLibrary: () => void;
+  onTakePhoto: () => void;
 };
 
-function ImageOutputPanel({ imageUris, onAddImage }: ImageOutputPanelProps) {
+function ImageOutputPanel({
+  imageUris,
+  isMenuOpen,
+  onToggleMenu,
+  onPickFromLibrary,
+  onTakePhoto,
+}: ImageOutputPanelProps) {
   return (
     <View style={styles.imageOutputPanel} testID="output-image-panel">
       <ScrollView
@@ -263,15 +272,50 @@ function ImageOutputPanel({ imageUris, onAddImage }: ImageOutputPanelProps) {
             testID={`output-image-thumbnail-${index}`}
           />
         ))}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="画像を追加"
-          onPress={onAddImage}
-          style={({ pressed }) => [styles.imageAddButton, pressed ? styles.buttonPressed : null]}
-          testID="output-image-add-button"
-        >
-          <AddImageIcon />
-        </Pressable>
+        <View style={styles.imageAddColumn}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="画像を追加"
+            accessibilityState={{ expanded: isMenuOpen }}
+            onPress={onToggleMenu}
+            style={({ pressed }) => [
+              styles.imageAddButton,
+              isMenuOpen ? styles.imageAddButtonActive : null,
+              pressed ? styles.buttonPressed : null,
+            ]}
+            testID="output-image-add-button"
+          >
+            <AddImageIcon />
+          </Pressable>
+          {isMenuOpen ? (
+            <View style={styles.imageAddMenu} testID="output-image-add-menu">
+              <View style={styles.imageAddMenuArrow} />
+              <Pressable
+                accessibilityRole="menuitem"
+                onPress={onPickFromLibrary}
+                style={({ pressed }) => [
+                  styles.imageAddMenuItem,
+                  pressed ? styles.imageAddMenuItemPressed : null,
+                ]}
+                testID="output-image-add-menu-library"
+              >
+                <SizableText style={styles.imageAddMenuItemText}>写真アルバムから選択</SizableText>
+              </Pressable>
+              <View style={styles.imageAddMenuDivider} />
+              <Pressable
+                accessibilityRole="menuitem"
+                onPress={onTakePhoto}
+                style={({ pressed }) => [
+                  styles.imageAddMenuItem,
+                  pressed ? styles.imageAddMenuItemPressed : null,
+                ]}
+                testID="output-image-add-menu-camera"
+              >
+                <SizableText style={styles.imageAddMenuItemText}>写真を撮影</SizableText>
+              </Pressable>
+            </View>
+          ) : null}
+        </View>
       </ScrollView>
     </View>
   );
@@ -349,6 +393,7 @@ export function OutputScreen() {
   const [inputMethod, setInputMethod] = useState<InputMethod>('text');
   const [imageUris, setImageUris] = useState<string[]>([]);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [isImageMenuOpen, setIsImageMenuOpen] = useState(false);
 
   const isImageMethod = inputMethod === 'image';
   const isVoiceMethod = inputMethod === 'voice';
@@ -383,6 +428,7 @@ export function OutputScreen() {
     (method: InputMethod) => {
       setInputMethod(method);
       setLocalErrorMessage(null);
+      setIsImageMenuOpen(false);
       if (isSubmitError) {
         resetSubmit();
       }
@@ -412,7 +458,57 @@ export function OutputScreen() {
     );
   }, [imageUris, isSubmitPending, navigateToBreak, resetSubmit, sessionId, submitOutputMutate]);
 
-  const handleAddImage = useCallback(async () => {
+  const handleToggleImageMenu = useCallback(() => {
+    setLocalErrorMessage(null);
+    if (isSubmitError) {
+      resetSubmit();
+    }
+    setIsImageMenuOpen((current) => !current);
+  }, [isSubmitError, resetSubmit]);
+
+  const handlePickFromLibrary = useCallback(async () => {
+    setIsImageMenuOpen(false);
+    setLocalErrorMessage(null);
+    if (isSubmitError) {
+      resetSubmit();
+    }
+
+    try {
+      if (!hasNativeImagePickerModule()) {
+        setLocalErrorMessage(
+          '画像機能を使うにはアプリの再ビルドが必要です。Metro を止めて task ios を実行してください。',
+        );
+        return;
+      }
+
+      const ImagePicker = require('expo-image-picker') as typeof import('expo-image-picker');
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        setLocalErrorMessage(
+          '写真アルバムへのアクセスが許可されていません。設定から許可してください。',
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsEditing: false,
+        mediaTypes: 'images',
+        quality: 0.8,
+      });
+
+      if (result.canceled) return;
+
+      const uri = result.assets[0]?.uri;
+      if (uri) {
+        setImageUris((current) => [...current, uri]);
+      }
+    } catch {
+      setLocalErrorMessage('写真アルバムを開けませんでした。時間をおいて再度お試しください。');
+    }
+  }, [isSubmitError, resetSubmit]);
+
+  const handleTakePhoto = useCallback(async () => {
+    setIsImageMenuOpen(false);
     setLocalErrorMessage(null);
     if (isSubmitError) {
       resetSubmit();
@@ -471,6 +567,7 @@ export function OutputScreen() {
     setInputMethod('text');
     setImageUris([]);
     setLocalErrorMessage(null);
+    setIsImageMenuOpen(false);
     resetSubmit();
     start('output', outputMinutes * 60);
     return () => {
@@ -599,7 +696,13 @@ export function OutputScreen() {
 
                 <View style={styles.editorArea}>
                   {isImageMethod ? (
-                    <ImageOutputPanel imageUris={imageUris} onAddImage={handleAddImage} />
+                    <ImageOutputPanel
+                      imageUris={imageUris}
+                      isMenuOpen={isImageMenuOpen}
+                      onToggleMenu={handleToggleImageMenu}
+                      onPickFromLibrary={handlePickFromLibrary}
+                      onTakePhoto={handleTakePhoto}
+                    />
                   ) : (
                     <OutputEditor
                       key={sessionId}
@@ -775,10 +878,10 @@ const styles = StyleSheet.create({
   },
   imageGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 28,
-    paddingTop: 24,
-    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingHorizontal: 8,
   },
   imageThumbnail: {
     width: 96,
@@ -786,13 +889,62 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#E5E7EB',
   },
+  imageAddColumn: {
+    alignItems: 'stretch',
+    gap: 10,
+  },
   imageAddButton: {
     width: 76,
     height: 76,
+    marginTop: 10,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 14,
+    borderWidth: 2,
+    borderColor: 'transparent',
     backgroundColor: '#DADADA',
+  },
+  imageAddButtonActive: {
+    borderColor: '#4B8BF5',
+  },
+  imageAddMenu: {
+    position: 'relative',
+    alignSelf: 'stretch',
+    paddingVertical: 4,
+    borderRadius: 14,
+    backgroundColor: '#D9D9D9',
+  },
+  imageAddMenuArrow: {
+    position: 'absolute',
+    top: -6,
+    left: '50%',
+    marginLeft: -6,
+    width: 12,
+    height: 12,
+    borderRadius: 2,
+    backgroundColor: '#D9D9D9',
+    transform: [{ rotate: '45deg' }],
+  },
+  imageAddMenuItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imageAddMenuItemPressed: {
+    opacity: 0.6,
+  },
+  imageAddMenuItemText: {
+    color: '#2F2F2F',
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  imageAddMenuDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 10,
+    backgroundColor: '#9A9A9A',
   },
   imageSubmissionFooter: {
     gap: 14,
