@@ -11,7 +11,7 @@ import pytest
 from google.genai import errors
 
 from src.domain.services.llm_judge_service import LLMJudgmentInput, TokenUsage
-from src.infrastructure.llm.base import (
+from src.infrastructure.llm.errors import (
     LLMAuthenticationError,
     LLMRateLimitError,
     LLMResponseParseError,
