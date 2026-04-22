@@ -175,6 +175,9 @@ const CONFETTI_PIECES = [
   { left: '12%', top: 126, width: 5, height: 10, color: '#DCEBEE', rotate: '-34deg' },
   { left: '6%', top: 158, width: 8, height: 5, color: '#DDE5FF', rotate: '-3deg' },
   { left: '16%', top: 178, width: 6, height: 10, color: '#F7CDD8', rotate: '14deg' },
+  { left: '21%', top: 28, width: 5, height: 11, color: '#F6D7D2', rotate: '-14deg' },
+  { left: '18%', top: 72, width: 11, height: 6, color: '#DDF0F3', rotate: '-9deg' },
+  { left: '24%', top: 148, width: 9, height: 5, color: '#DDE5FF', rotate: '2deg' },
   { left: '36%', top: 0, width: 10, height: 5, color: '#DDF0F3', rotate: '-9deg' },
   { left: '50%', top: 4, width: 6, height: 11, color: '#F7CDD8', rotate: '9deg' },
   { left: '64%', top: 0, width: 9, height: 5, color: '#DDE5FF', rotate: '5deg' },
@@ -187,6 +190,9 @@ const CONFETTI_PIECES = [
   { left: '98%', top: 132, width: 5, height: 9, color: '#DDEBEE', rotate: '76deg' },
   { left: '86%', top: 166, width: 10, height: 5, color: '#DDF0F3', rotate: '7deg' },
   { left: '94%', top: 184, width: 10, height: 5, color: '#F7CDD8', rotate: '9deg' },
+  { left: '78%', top: 36, width: 8, height: 11, color: '#F7CDD8', rotate: '12deg' },
+  { left: '81%', top: 84, width: 9, height: 5, color: '#DDE5FF', rotate: '0deg' },
+  { left: '78%', top: 142, width: 5, height: 10, color: '#DCEBEE', rotate: '15deg' },
 ] as const;
 
 function ConfettiBurst() {
@@ -219,6 +225,17 @@ function ConfettiBurst() {
           strokeLinecap="round"
           fill="none"
         />
+      </Svg>
+      <Svg width={28} height={34} viewBox="0 0 28 34" style={styles.confettiBulb}>
+        <Path
+          d="M14 2 C7.8 2 4 6.2 4 11.2 C4 14.5 5.7 16.7 8.1 19.2 C9.2 20.4 9.8 21.8 9.8 23.2 H18.2 C18.2 21.8 18.8 20.4 19.9 19.2 C22.3 16.7 24 14.5 24 11.2 C24 6.2 20.2 2 14 2 Z"
+          stroke="#FFFFFF"
+          strokeWidth={3}
+          strokeLinejoin="round"
+          fill="none"
+        />
+        <Path d="M10 27 H18" stroke="#FFFFFF" strokeWidth={3} strokeLinecap="round" />
+        <Path d="M11 32 H17" stroke="#FFFFFF" strokeWidth={3} strokeLinecap="round" />
       </Svg>
       <Svg width={28} height={28} viewBox="0 0 38 38" style={styles.confettiStarLeft}>
         <Path
@@ -690,17 +707,22 @@ const styles = StyleSheet.create({
   confettiSmile: {
     position: 'absolute',
     top: 30,
-    left: 0,
+    left: '10%',
+  },
+  confettiBulb: {
+    position: 'absolute',
+    top: 72,
+    right: '7%',
   },
   confettiStarLeft: {
     position: 'absolute',
     top: 120,
-    left: 0,
+    left: '5%',
   },
   confettiStarRight: {
     position: 'absolute',
     top: 132,
-    right: 0,
+    right: '8%',
   },
   nextCycleButton: {
     alignItems: 'center',
