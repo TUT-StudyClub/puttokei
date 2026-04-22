@@ -5,6 +5,7 @@
  * - タイマー完了で本文が空ならエラーメッセージを表示する
  * - タイマー完了で本文があれば送信を促すメッセージを表示し、自動送信しない
  * - OutputEditor で本文を入力 → 送信すると submitOutput → break 画面へ replace する
+ * - 画像を撮影 → 提出すると submitOutput → break 画面へ replace する
  * - submitOutput が失敗するとエラーメッセージが表示され、再度送信できる
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -217,6 +218,68 @@ describe('OutputScreen', () => {
       allowsEditing: false,
       mediaTypes: 'images',
       quality: 0.8,
+    });
+  });
+
+  it('画像未追加で提出するとエラーメッセージを表示し、送信しない', () => {
+    const { getByTestId } = renderWithProviders(<OutputScreen />);
+
+    fireEvent.press(getByTestId('output-method-tab-image'));
+    fireEvent.press(getByTestId('output-image-submit'));
+
+    expect(getByTestId('output-image-submit-error').props.children).toBe(
+      '画像を1枚以上追加してから提出してください。',
+    );
+    expect(sessionApi.submitOutput).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('画像を追加して提出すると submitOutput → break 画面へ replace する', async () => {
+    (sessionApi.submitOutput as jest.Mock).mockResolvedValue({
+      ...submitSuccessResponse,
+      output: {
+        ...submitSuccessResponse.output,
+        content: '画像でアウトプットしました。撮影した学習内容の画像を提出しました。（1枚）',
+      },
+    });
+    mockLaunchCameraAsync.mockResolvedValueOnce({
+      canceled: false,
+      assets: [{ uri: 'file:///output-first.jpg' }],
+    });
+
+    const { getByTestId } = renderWithProviders(<OutputScreen />);
+
+    fireEvent.press(getByTestId('output-method-tab-image'));
+
+    await act(async () => {
+      fireEvent.press(getByTestId('output-image-add-button'));
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('output-image-thumbnail-0')).toBeTruthy();
+    });
+
+    act(() => {
+      fireEvent.press(getByTestId('output-image-submit'));
+    });
+
+    await waitFor(() => {
+      expect(sessionApi.submitOutput).toHaveBeenCalledWith('ses-123', {
+        content: expect.stringContaining(
+          '画像でアウトプットしました。撮影した学習内容の画像を提出しました。（1枚）',
+        ),
+        submitted_at: '2026-04-10T15:25:00.000Z',
+      });
+    });
+    expect(sessionApi.submitOutput).toHaveBeenCalledWith('ses-123', {
+      content: expect.stringContaining('画像1: file:///output-first.jpg'),
+      submitted_at: '2026-04-10T15:25:00.000Z',
+    });
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith({
+        pathname: '/session/[id]/break',
+        params: { id: 'ses-123', input: '20', output: '1', break: '5' },
+      });
     });
   });
 
