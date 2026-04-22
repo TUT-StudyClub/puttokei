@@ -4,13 +4,19 @@ import pytest
 
 from src.config import LLMSettings
 from src.domain.services.llm_judge_service import LLMJudgmentInput
-from src.infrastructure.llm.factory import create_llm_provider
+from src.infrastructure.llm.gemini_provider import GeminiProvider
 
 
 @pytest.mark.asyncio
 async def test_gemini_smoke_returns_structured_output():
     settings = LLMSettings()
-    provider = create_llm_provider(settings)
+    provider = GeminiProvider(
+        api_key=settings.gemini_api_key,
+        model=settings.gemini_model,
+        thinking_level=settings.gemini_thinking_level,
+        temperature=settings.gemini_temperature,
+        timeout_seconds=settings.timeout_seconds,
+    )
 
     result = await provider.judge(
         LLMJudgmentInput(

@@ -10,6 +10,7 @@ import pytest
 
 from src.container import Container, get_llm_provider
 from src.domain.services.llm_judge_service import BaseLLMProvider
+from src.infrastructure.llm.errors import LLMAuthenticationError
 from src.infrastructure.llm.gemini_provider import GeminiProvider
 
 
@@ -37,6 +38,22 @@ def test_get_llm_provider_is_singleton(
     assert first is second
 
 
+def test_get_llm_provider_raises_when_gemini_api_key_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _FakeLLMSettings:
+        gemini_api_key = ""
+        gemini_model = "gemini-3-flash-preview"
+        gemini_thinking_level = "MEDIUM"
+        gemini_temperature = 0.2
+        timeout_seconds = 30
+
+    monkeypatch.setattr("src.config.LLMSettings", _FakeLLMSettings)
+
+    with pytest.raises(LLMAuthenticationError, match="LLM_GEMINI_API_KEY"):
+        get_llm_provider()
+
+
 def test_existing_container_exposes_same_llm_provider_instance(
     monkeypatch: pytest.MonkeyPatch,
     mock_gemini_client: dict[str, Any],
@@ -57,7 +74,6 @@ def test_src_container_import_is_lazy_for_llm_modules() -> None:
         "src.infrastructure.llm.errors",
         "src.infrastructure.llm.errors.exceptions",
         "src.infrastructure.llm.errors.http",
-        "src.infrastructure.llm.factory",
         "src.infrastructure.llm.gemini_provider",
     ]
     original_modules = {module_name: sys.modules.get(module_name) for module_name in module_names}
@@ -68,7 +84,6 @@ def test_src_container_import_is_lazy_for_llm_modules() -> None:
     try:
         importlib.import_module("src.container")
 
-        assert "src.infrastructure.llm.factory" not in sys.modules
         assert "src.infrastructure.llm.gemini_provider" not in sys.modules
     finally:
         for module_name, module in original_modules.items():

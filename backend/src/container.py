@@ -44,10 +44,16 @@ def get_llm_provider() -> "BaseLLMProvider":
     """LLM provider を遅延初期化し、プロセス内で共有する。"""
 
     from src.config import LLMSettings
-    from src.infrastructure.llm.factory import create_llm_provider
+    from src.infrastructure.llm.gemini_provider import GeminiProvider
 
     settings = LLMSettings()
-    return create_llm_provider(settings)
+    return GeminiProvider(
+        api_key=settings.gemini_api_key,
+        model=settings.gemini_model,
+        thinking_level=settings.gemini_thinking_level,
+        temperature=settings.gemini_temperature,
+        timeout_seconds=settings.timeout_seconds,
+    )
 
 
 class Container(BaseModel):
