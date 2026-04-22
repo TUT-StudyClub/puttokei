@@ -25,7 +25,7 @@ from src.infrastructure.llm.gemini_schema import (
     parse_response,
     to_domain_output,
 )
-from src.infrastructure.llm.prompts.builder import build_prompt_pair
+from src.infrastructure.llm.prompts.builder import LLMJudgmentPromptBuilder
 
 _MILLISECONDS_PER_SECOND = 1_000
 
@@ -69,7 +69,8 @@ class GeminiProvider(LLMProvider):
     async def judge(self, input_data: LLMJudgmentInput) -> LLMJudgmentOutput:
         """Gemini に構造化出力を要求し、ドメインモデルへ詰め替えて返す。"""
 
-        system_prompt, user_prompt = build_prompt_pair(input_data)
+        prompt_builder = LLMJudgmentPromptBuilder(input_data)
+        system_prompt, user_prompt = prompt_builder.prompt_pair
         started_at = time.perf_counter()
         response = await self._generate_content(
             system_prompt=system_prompt,

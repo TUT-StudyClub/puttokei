@@ -4,7 +4,45 @@ from __future__ import annotations
 
 from src.domain.services.llm_judge_service import LLMJudgmentInput
 
-SYSTEM_PROMPT = """
+
+class LLMJudgmentPromptBuilder:
+    """LLM 判定で使う prompt を組み立てる。"""
+
+    def __init__(self, judgment_input: LLMJudgmentInput) -> None:
+        self.judgment_input = judgment_input
+
+    @property
+    def prompt_pair(self) -> tuple[str, str]:
+        return self.system_prompt, self.user_prompt
+
+    @property
+    def system_prompt(self) -> str:
+        return "\n\n".join(
+            [
+                self._rules_prompt(),
+                self._example_split_claims(),
+                self._example_insufficient_evidence(),
+                self._example_rejected(),
+            ]
+        )
+
+    @property
+    def user_prompt(self) -> str:
+        age_group_line = (
+            f"年齢区分: {self.judgment_input.age_group}\n" if self.judgment_input.age_group else ""
+        )
+        return (
+            "以下の学習アウトプットを、システム指示のルールと例にならって採点してください。\n"
+            "出力は JSON のみで返してください。\n"
+            f"科目: {self.judgment_input.subject}\n"
+            f"トピック: {self.judgment_input.topic}\n"
+            f"{age_group_line}"
+            "学習アウトプット:\n"
+            f"{self.judgment_input.content}"
+        )
+
+    def _rules_prompt(self) -> str:
+        return """
 あなたは学習内容を採点する採点者です。
 与えられた科目・トピック・学習アウトプットだけを根拠に、JSON schema に厳密に従って返答してください。
 
@@ -16,7 +54,10 @@ SYSTEM_PROMPT = """
   推測で補わないでください。
 - 学習と無関係な入力、雑談、意味の通らない入力は
   `verdict="rejected"`、`score=0`、`items=[]` にしてください。
+""".strip()
 
+    def _example_split_claims(self) -> str:
+        return """
 例1: 主張を分けて採点する
 入力:
 科目: 理科
@@ -47,7 +88,10 @@ SYSTEM_PROMPT = """
   ],
   "advice": "葉緑体や光エネルギーの役割まで触れられるとさらに良いです。"
 }
+""".strip()
 
+    def _example_insufficient_evidence(self) -> str:
+        return """
 例2: 根拠不足は推測しない
 入力:
 科目: 理科
@@ -73,7 +117,10 @@ SYSTEM_PROMPT = """
   ],
   "advice": "材料・生成物・働きを具体的に書くと判定しやすくなります。"
 }
+""".strip()
 
+    def _example_rejected(self) -> str:
+        return """
 例3: 学習と無関係な入力は rejected
 入力:
 科目: 理科
@@ -89,27 +136,3 @@ SYSTEM_PROMPT = """
   "advice": "学習内容に関係する説明を書いてください。"
 }
 """.strip()
-
-
-def build_prompt_pair(input_data: LLMJudgmentInput) -> tuple[str, str]:
-    """Gemini に渡す system / user prompt を組み立てる。"""
-
-    return SYSTEM_PROMPT, _build_user_prompt(input_data)
-
-
-def _build_user_prompt(judgment_input: LLMJudgmentInput) -> str:
-    lines = [
-        "以下の学習アウトプットを、システム指示のルールと例にならって採点してください。",
-        "出力は JSON のみで返してください。",
-        f"科目: {judgment_input.subject}",
-        f"トピック: {judgment_input.topic}",
-    ]
-    if judgment_input.age_group:
-        lines.append(f"年齢区分: {judgment_input.age_group}")
-    lines.extend(
-        [
-            "学習アウトプット:",
-            judgment_input.content,
-        ]
-    )
-    return "\n".join(lines)
