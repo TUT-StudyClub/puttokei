@@ -1,4 +1,10 @@
-"""判定関連ユースケースの入出力 DTO。"""
+"""判定関連ユースケースの入出力 DTO。
+
+CQRS 的な命名で役割を明示する:
+- `JudgmentView`: クライアントに返却する読み出し用ビュー
+- `JudgeOutputWithLLMCommand`: LLM 判定実行の意図を表すコマンド
+- `JudgeOutputWithLLMView`: LLM 判定結果の読み出し用ビュー
+"""
 
 from datetime import datetime
 from typing import Literal
@@ -36,8 +42,8 @@ class JudgmentPendingView(FrozenModel):
     estimated_ready_at: datetime
 
 
-class LLMJudgmentInputDTO(FrozenModel):
-    """LLM 判定入力のアプリケーション DTO。"""
+class JudgeOutputWithLLMCommand(FrozenModel):
+    """LLM を使ったアウトプット判定の入力コマンド。"""
 
     subject: str
     topic: str
@@ -46,29 +52,29 @@ class LLMJudgmentInputDTO(FrozenModel):
     prompt_version: str
 
 
-class LLMJudgmentItemDTO(FrozenModel):
-    """LLM 判定項目のアプリケーション DTO。"""
+class JudgeOutputWithLLMItemView(FrozenModel):
+    """LLM 判定項目のビュー。"""
 
     claim: str
     correct: bool
     feedback: str
 
 
-class TokenUsageDTO(FrozenModel):
-    """トークン使用量のアプリケーション DTO。"""
+class JudgeOutputWithLLMTokenUsageView(FrozenModel):
+    """LLM 判定時のトークン使用量ビュー。"""
 
     prompt_tokens: int
     completion_tokens: int
 
 
-class LLMJudgmentOutputDTO(FrozenModel):
-    """LLM 判定結果のアプリケーション DTO。"""
+class JudgeOutputWithLLMView(FrozenModel):
+    """LLM 判定結果のビュー。"""
 
     verdict: Literal["correct", "partial", "incorrect", "rejected"]
     score: int
-    items: list[LLMJudgmentItemDTO]
+    items: list[JudgeOutputWithLLMItemView]
     advice: str
     provider_name: str
     model_name: str
     latency_ms: int
-    token_usage: TokenUsageDTO | None = None
+    token_usage: JudgeOutputWithLLMTokenUsageView | None = None
