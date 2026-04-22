@@ -8,6 +8,17 @@ from src.domain.services.llm_judge_service import (
     LLMProvider,
 )
 
+SAMPLE_LLM_INPUT = LLMJudgmentInput(
+    subject="理科",
+    topic="光合成",
+    content=(
+        "光合成は植物が光エネルギーを使って二酸化炭素と水から"
+        "デンプンなどの有機物を作り、酸素を放出するはたらきです。"
+    ),
+    age_group="10s",
+    prompt_version="v1",
+)
+
 
 class LLMProviderContract:
     """すべての LLM プロバイダー実装で共通に満たすべき契約。"""
@@ -16,9 +27,8 @@ class LLMProviderContract:
     async def test_judge_returns_valid_output(
         self,
         provider: LLMProvider,
-        sample_llm_input: LLMJudgmentInput,
     ) -> None:
-        output = await provider.judge(sample_llm_input)
+        output = await provider.judge(SAMPLE_LLM_INPUT)
 
         assert isinstance(output, LLMJudgmentOutput)
         assert output.verdict in {"correct", "partial", "incorrect", "rejected"}

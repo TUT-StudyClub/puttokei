@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import importlib
 import sys
-from typing import Any
+from collections.abc import Iterator
 
 import pytest
+from pytest_mock import MockerFixture
 
 from src.container import Container, get_llm_provider
 from src.domain.services.llm_judge_service import LLMProvider
@@ -14,9 +15,21 @@ from src.infrastructure.llm.errors import LLMAuthenticationError
 from src.infrastructure.llm.gemini_provider import GeminiProvider
 
 
+@pytest.fixture(autouse=True)
+def reset_llm_provider_cache() -> Iterator[None]:
+    get_llm_provider.cache_clear()
+    yield
+    get_llm_provider.cache_clear()
+
+
+@pytest.fixture
+def patch_gemini_client(mocker: MockerFixture) -> None:
+    mocker.patch("src.infrastructure.llm.gemini_provider.Client")
+
+
 def test_get_llm_provider_returns_provider(
     monkeypatch: pytest.MonkeyPatch,
-    mock_gemini_client: dict[str, Any],
+    patch_gemini_client: None,
 ) -> None:
     monkeypatch.setenv("LLM_GEMINI_API_KEY", "test-key")
 
@@ -28,7 +41,7 @@ def test_get_llm_provider_returns_provider(
 
 def test_get_llm_provider_is_singleton(
     monkeypatch: pytest.MonkeyPatch,
-    mock_gemini_client: dict[str, Any],
+    patch_gemini_client: None,
 ) -> None:
     monkeypatch.setenv("LLM_GEMINI_API_KEY", "test-key")
 
@@ -80,7 +93,7 @@ def test_src_container_import_is_lazy_for_llm_modules() -> None:
 
 def test_existing_container_other_dependencies_still_work(
     monkeypatch: pytest.MonkeyPatch,
-    mock_gemini_client: dict[str, Any],
+    patch_gemini_client: None,
     container: Container,
 ) -> None:
     monkeypatch.setenv("LLM_GEMINI_API_KEY", "test-key")

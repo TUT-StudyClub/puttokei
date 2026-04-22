@@ -3,15 +3,18 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
+import json
+from dataclasses import dataclass
+from functools import partial
 from types import SimpleNamespace
-from typing import Any
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from google.genai import errors
+from pytest_mock import MockerFixture
 
 from src.config import LLMSettings
-from src.domain.services.llm_judge_service import LLMJudgmentInput, TokenUsage
+from src.domain.services.llm_judge_service import TokenUsage
 from src.infrastructure.llm.errors import (
     LLMAuthenticationError,
     LLMRateLimitError,
@@ -20,7 +23,71 @@ from src.infrastructure.llm.errors import (
     LLMUnknownError,
 )
 from src.infrastructure.llm.gemini_provider import GeminiProvider
-from tests.integration.test_llm.contracts import LLMProviderContract
+from tests.integration.test_llm.contracts import SAMPLE_LLM_INPUT, LLMProviderContract
+
+SAMPLE_GEMINI_PAYLOAD: dict[str, object] = {
+    "verdict": "partial",
+    "score": 78,
+    "items": [
+        {
+            "claim": "光合成は二酸化炭素と水を使う",
+            "correct": True,
+            "feedback": "主な材料を正しく捉えています。",
+        },
+        {
+            "claim": "生成物はデンプンと酸素",
+            "correct": True,
+            "feedback": "生成物の理解も概ね正しいです。",
+        },
+    ],
+    "advice": "葉緑体や光の役割も補足できるとより良いです。",
+}
+
+
+def _build_gemini_response(
+    payload: dict[str, object] | None = None,
+    *,
+    prompt_tokens: int = 11,
+    completion_tokens: int = 7,
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        text=json.dumps(payload or {}),
+        usage_metadata=SimpleNamespace(
+            prompt_token_count=prompt_tokens,
+            candidates_token_count=completion_tokens,
+        ),
+    )
+
+
+async def _slow_gemini_response(
+    response: SimpleNamespace,
+    **_: object,
+) -> SimpleNamespace:
+    await asyncio.sleep(0.02)
+    return response
+
+
+@dataclass(frozen=True)
+class MockGeminiClient:
+    client: MagicMock
+    generate_content: AsyncMock
+
+
+@pytest.fixture
+def mock_gemini_client(mocker: MockerFixture) -> MockGeminiClient:
+    generate_content = AsyncMock()
+    client = mocker.MagicMock()
+    client.aio = mocker.MagicMock()
+    client.aio.models = mocker.MagicMock()
+    client.aio.models.generate_content = generate_content
+    mocker.patch(
+        "src.infrastructure.llm.gemini_provider.Client",
+        return_value=client,
+    )
+    return MockGeminiClient(
+        client=client,
+        generate_content=generate_content,
+    )
 
 
 def _build_llm_settings(**overrides: object) -> LLMSettings:
@@ -51,31 +118,26 @@ class TestGeminiProviderContract(LLMProviderContract):
     @pytest.fixture
     def provider(
         self,
-        mock_gemini_client: dict[str, Any],
-        build_gemini_response: Callable[..., SimpleNamespace],
-        sample_gemini_payload: dict[str, object],
+        mock_gemini_client: MockGeminiClient,
     ) -> GeminiProvider:
-        mock_gemini_client["generate_content"].return_value = build_gemini_response(
-            sample_gemini_payload
+        mock_gemini_client.generate_content.return_value = _build_gemini_response(
+            SAMPLE_GEMINI_PAYLOAD
         )
         return _build_provider()
 
 
 @pytest.mark.asyncio
 async def test_gemini_provider_returns_llm_judgment_output(
-    mock_gemini_client: dict[str, Any],
-    build_gemini_response: Callable[..., SimpleNamespace],
-    sample_gemini_payload: dict[str, object],
-    sample_llm_input: LLMJudgmentInput,
+    mock_gemini_client: MockGeminiClient,
 ) -> None:
-    mock_gemini_client["generate_content"].return_value = build_gemini_response(
-        sample_gemini_payload,
+    mock_gemini_client.generate_content.return_value = _build_gemini_response(
+        SAMPLE_GEMINI_PAYLOAD,
         prompt_tokens=21,
         completion_tokens=13,
     )
     provider = _build_provider()
 
-    result = await provider.judge(sample_llm_input)
+    result = await provider.judge(SAMPLE_LLM_INPUT)
 
     assert result.provider_name == "gemini"
     assert result.model_name == "gemini-3-flash-preview"
@@ -86,48 +148,38 @@ async def test_gemini_provider_returns_llm_judgment_output(
 
 @pytest.mark.asyncio
 async def test_gemini_provider_includes_input_fields_in_prompt(
-    mock_gemini_client: dict[str, Any],
-    build_gemini_response: Callable[..., SimpleNamespace],
-    sample_gemini_payload: dict[str, object],
-    sample_llm_input: LLMJudgmentInput,
+    mock_gemini_client: MockGeminiClient,
 ) -> None:
-    mock_gemini_client["generate_content"].return_value = build_gemini_response(
-        sample_gemini_payload
-    )
+    mock_gemini_client.generate_content.return_value = _build_gemini_response(SAMPLE_GEMINI_PAYLOAD)
     provider = _build_provider()
 
-    await provider.judge(sample_llm_input)
+    await provider.judge(SAMPLE_LLM_INPUT)
 
-    mock_gemini_client["generate_content"].assert_awaited_once()
-    kwargs = mock_gemini_client["generate_content"].await_args.kwargs
+    mock_gemini_client.generate_content.assert_awaited_once()
+    kwargs = mock_gemini_client.generate_content.await_args.kwargs
     contents = kwargs["contents"]
-    assert sample_llm_input.subject in contents
-    assert sample_llm_input.topic in contents
-    assert sample_llm_input.content in contents
-    assert sample_llm_input.age_group in contents
+    assert SAMPLE_LLM_INPUT.subject in contents
+    assert SAMPLE_LLM_INPUT.topic in contents
+    assert SAMPLE_LLM_INPUT.content in contents
+    assert SAMPLE_LLM_INPUT.age_group in contents
 
 
 @pytest.mark.asyncio
 async def test_gemini_provider_uses_prompt_version_branching(
-    mock_gemini_client: dict[str, Any],
-    build_gemini_response: Callable[..., SimpleNamespace],
-    sample_gemini_payload: dict[str, object],
-    sample_llm_input: LLMJudgmentInput,
+    mock_gemini_client: MockGeminiClient,
 ) -> None:
-    mock_gemini_client["generate_content"].return_value = build_gemini_response(
-        sample_gemini_payload
-    )
+    mock_gemini_client.generate_content.return_value = _build_gemini_response(SAMPLE_GEMINI_PAYLOAD)
     provider = _build_provider()
 
-    result = await provider.judge(sample_llm_input)
+    result = await provider.judge(SAMPLE_LLM_INPUT)
 
     assert result.model_name == "gemini-3-flash-preview"
 
-    unsupported = sample_llm_input.__class__(
-        subject=sample_llm_input.subject,
-        topic=sample_llm_input.topic,
-        content=sample_llm_input.content,
-        age_group=sample_llm_input.age_group,
+    unsupported = SAMPLE_LLM_INPUT.__class__(
+        subject=SAMPLE_LLM_INPUT.subject,
+        topic=SAMPLE_LLM_INPUT.topic,
+        content=SAMPLE_LLM_INPUT.content,
+        age_group=SAMPLE_LLM_INPUT.age_group,
         prompt_version="v999",
     )
     with pytest.raises(ValueError, match="Unsupported prompt version"):
@@ -136,23 +188,18 @@ async def test_gemini_provider_uses_prompt_version_branching(
 
 @pytest.mark.asyncio
 async def test_gemini_provider_reflects_generation_settings(
-    mock_gemini_client: dict[str, Any],
-    build_gemini_response: Callable[..., SimpleNamespace],
-    sample_gemini_payload: dict[str, object],
-    sample_llm_input: LLMJudgmentInput,
+    mock_gemini_client: MockGeminiClient,
 ) -> None:
-    mock_gemini_client["generate_content"].return_value = build_gemini_response(
-        sample_gemini_payload
-    )
+    mock_gemini_client.generate_content.return_value = _build_gemini_response(SAMPLE_GEMINI_PAYLOAD)
     provider = _build_provider(
         model="gemini-custom-model",
         thinking_level="HIGH",
         temperature=0.4,
     )
 
-    await provider.judge(sample_llm_input)
+    await provider.judge(SAMPLE_LLM_INPUT)
 
-    kwargs = mock_gemini_client["generate_content"].await_args.kwargs
+    kwargs = mock_gemini_client.generate_content.await_args.kwargs
     config = kwargs["config"]
     assert kwargs["model"] == "gemini-custom-model"
     assert config.temperature == 0.4
@@ -163,52 +210,47 @@ async def test_gemini_provider_reflects_generation_settings(
 
 @pytest.mark.asyncio
 async def test_gemini_provider_raises_parse_error_on_invalid_json(
-    mock_gemini_client: dict[str, Any],
-    sample_llm_input: LLMJudgmentInput,
+    mock_gemini_client: MockGeminiClient,
 ) -> None:
-    mock_gemini_client["generate_content"].return_value = SimpleNamespace(
+    mock_gemini_client.generate_content.return_value = SimpleNamespace(
         text="{invalid-json",
         usage_metadata=None,
     )
     provider = _build_provider()
 
     with pytest.raises(LLMResponseParseError):
-        await provider.judge(sample_llm_input)
+        await provider.judge(SAMPLE_LLM_INPUT)
 
 
 @pytest.mark.asyncio
 async def test_gemini_provider_raises_parse_error_on_schema_mismatch(
-    mock_gemini_client: dict[str, Any],
-    build_gemini_response: Callable[..., SimpleNamespace],
-    sample_llm_input: LLMJudgmentInput,
+    mock_gemini_client: MockGeminiClient,
 ) -> None:
-    mock_gemini_client["generate_content"].return_value = build_gemini_response(
+    mock_gemini_client.generate_content.return_value = _build_gemini_response(
         {"verdict": "correct", "score": 80}
     )
     provider = _build_provider()
 
     with pytest.raises(LLMResponseParseError):
-        await provider.judge(sample_llm_input)
+        await provider.judge(SAMPLE_LLM_INPUT)
 
 
 @pytest.mark.asyncio
 async def test_gemini_provider_raises_timeout_error(
-    mock_gemini_client: dict[str, Any],
-    sample_llm_input: LLMJudgmentInput,
+    mock_gemini_client: MockGeminiClient,
 ) -> None:
-    mock_gemini_client["generate_content"].side_effect = TimeoutError
+    mock_gemini_client.generate_content.side_effect = TimeoutError
     provider = _build_provider(timeout_seconds=1)
 
     with pytest.raises(LLMTimeoutError):
-        await provider.judge(sample_llm_input)
+        await provider.judge(SAMPLE_LLM_INPUT)
 
 
 @pytest.mark.asyncio
 async def test_gemini_provider_raises_rate_limit_error(
-    mock_gemini_client: dict[str, Any],
-    sample_llm_input: LLMJudgmentInput,
+    mock_gemini_client: MockGeminiClient,
 ) -> None:
-    mock_gemini_client["generate_content"].side_effect = errors.ClientError(
+    mock_gemini_client.generate_content.side_effect = errors.ClientError(
         429,
         {"error": {"status": "RESOURCE_EXHAUSTED", "message": "too many requests"}},
         None,
@@ -216,15 +258,14 @@ async def test_gemini_provider_raises_rate_limit_error(
     provider = _build_provider()
 
     with pytest.raises(LLMRateLimitError):
-        await provider.judge(sample_llm_input)
+        await provider.judge(SAMPLE_LLM_INPUT)
 
 
 @pytest.mark.asyncio
 async def test_gemini_provider_raises_authentication_error_for_401(
-    mock_gemini_client: dict[str, Any],
-    sample_llm_input: LLMJudgmentInput,
+    mock_gemini_client: MockGeminiClient,
 ) -> None:
-    mock_gemini_client["generate_content"].side_effect = errors.ClientError(
+    mock_gemini_client.generate_content.side_effect = errors.ClientError(
         401,
         {"error": {"status": "UNAUTHENTICATED", "message": "bad auth"}},
         None,
@@ -232,15 +273,14 @@ async def test_gemini_provider_raises_authentication_error_for_401(
     provider = _build_provider()
 
     with pytest.raises(LLMAuthenticationError):
-        await provider.judge(sample_llm_input)
+        await provider.judge(SAMPLE_LLM_INPUT)
 
 
 @pytest.mark.asyncio
 async def test_gemini_provider_raises_authentication_error_for_403(
-    mock_gemini_client: dict[str, Any],
-    sample_llm_input: LLMJudgmentInput,
+    mock_gemini_client: MockGeminiClient,
 ) -> None:
-    mock_gemini_client["generate_content"].side_effect = errors.ClientError(
+    mock_gemini_client.generate_content.side_effect = errors.ClientError(
         403,
         {"error": {"status": "PERMISSION_DENIED", "message": "forbidden"}},
         None,
@@ -248,15 +288,14 @@ async def test_gemini_provider_raises_authentication_error_for_403(
     provider = _build_provider()
 
     with pytest.raises(LLMAuthenticationError):
-        await provider.judge(sample_llm_input)
+        await provider.judge(SAMPLE_LLM_INPUT)
 
 
 @pytest.mark.asyncio
 async def test_gemini_provider_raises_unknown_error_for_other_api_errors(
-    mock_gemini_client: dict[str, Any],
-    sample_llm_input: LLMJudgmentInput,
+    mock_gemini_client: MockGeminiClient,
 ) -> None:
-    mock_gemini_client["generate_content"].side_effect = errors.ServerError(
+    mock_gemini_client.generate_content.side_effect = errors.ServerError(
         500,
         {"error": {"status": "INTERNAL", "message": "boom"}},
         None,
@@ -264,7 +303,7 @@ async def test_gemini_provider_raises_unknown_error_for_other_api_errors(
     provider = _build_provider()
 
     with pytest.raises(LLMUnknownError):
-        await provider.judge(sample_llm_input)
+        await provider.judge(SAMPLE_LLM_INPUT)
 
 
 def test_gemini_provider_requires_api_key_from_settings() -> None:
@@ -274,18 +313,14 @@ def test_gemini_provider_requires_api_key_from_settings() -> None:
 
 @pytest.mark.asyncio
 async def test_gemini_provider_reports_latency_ms(
-    mock_gemini_client: dict[str, Any],
-    build_gemini_response: Callable[..., SimpleNamespace],
-    sample_gemini_payload: dict[str, object],
-    sample_llm_input: LLMJudgmentInput,
+    mock_gemini_client: MockGeminiClient,
 ) -> None:
-    async def _slow_response(**_: object):
-        await asyncio.sleep(0.02)
-        return build_gemini_response(sample_gemini_payload)
-
-    mock_gemini_client["generate_content"].side_effect = _slow_response
+    mock_gemini_client.generate_content.side_effect = partial(
+        _slow_gemini_response,
+        _build_gemini_response(SAMPLE_GEMINI_PAYLOAD),
+    )
     provider = _build_provider()
 
-    result = await provider.judge(sample_llm_input)
+    result = await provider.judge(SAMPLE_LLM_INPUT)
 
     assert result.latency_ms >= 20
