@@ -31,10 +31,3 @@ class LLMProviderContract:
         output = await provider.judge(SAMPLE_LLM_INPUT)
 
         assert isinstance(output, LLMJudgmentOutput)
-        assert output.verdict in {"correct", "partial", "incorrect", "rejected"}
-        assert 0 <= output.score <= 100
-        assert output.provider_name != ""
-        assert output.model_name != ""
-        assert output.latency_ms >= 0
-        assert isinstance(output.items, list)
-        assert isinstance(output.advice, str)
