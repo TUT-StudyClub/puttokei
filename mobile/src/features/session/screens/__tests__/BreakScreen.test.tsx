@@ -61,9 +61,12 @@ describe('BreakScreen', () => {
     jest.useRealTimers();
   });
 
-  it('マウントで phase=break のタイマーが開始され、タイトルが表示される', () => {
-    const { getByText } = renderWithProviders(<BreakScreen />);
-    expect(getByText('休憩')).toBeTruthy();
+  it('マウントで phase=break のタイマーが開始され、主要 UI が表示される', () => {
+    const { getAllByText, getByTestId } = renderWithProviders(<BreakScreen />);
+    // 画面タイトル / フェーズタブ / タイマー中央ラベルで複数回「休憩」が出現する
+    expect(getAllByText('休憩').length).toBeGreaterThan(0);
+    expect(getByTestId('break-settings-button')).toBeTruthy();
+    expect(getByTestId('break-progress-card')).toBeTruthy();
     expect(useTimerStore.getState().phase).toBe('break');
     expect(useTimerStore.getState().totalSeconds).toBe(60);
   });

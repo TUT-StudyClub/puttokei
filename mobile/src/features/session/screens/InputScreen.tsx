@@ -110,10 +110,12 @@ function CircularTimer({ phaseLabel }: CircularTimerProps) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const displayRemainingSeconds = Math.max(0, Math.ceil(smoothRemainingSeconds));
-  // 経過割合。経過分だけ progress ストロークが伸びる (12 時方向から時計回り)。
-  const progressRatio =
-    totalSeconds > 0 ? Math.min(1, Math.max(0, 1 - smoothRemainingSeconds / totalSeconds)) : 0;
-  const dashOffset = circumference * (1 - progressRatio);
+  // 残り割合。開始時はリング全周が塗られ、残り時間が減るにつれてストロークも短くなる
+  // (砂時計の砂が落ちていくイメージ)。dashOffset を負にすることで、ギャップが 12 時
+  // 位置から時計回り (12→3→6→9) に広がっていく見た目にする。
+  const remainingRatio =
+    totalSeconds > 0 ? Math.min(1, Math.max(0, smoothRemainingSeconds / totalSeconds)) : 0;
+  const dashOffset = -circumference * (1 - remainingRatio);
 
   return (
     <View style={[styles.timerWrap, { width: size, height: size }]} testID="input-circular-timer">
