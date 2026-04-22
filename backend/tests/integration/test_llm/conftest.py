@@ -10,15 +10,15 @@ from unittest.mock import AsyncMock
 import pytest
 from pytest_mock import MockerFixture
 
+from src.container import get_llm_provider
 from src.domain.services.llm_judge_service import LLMJudgmentInput
-from src.infrastructure.llm import container as llm_container_module
 
 
 @pytest.fixture(autouse=True)
-def reset_llm_container_singleton():
-    llm_container_module._container = None
+def reset_llm_provider_cache():
+    get_llm_provider.cache_clear()
     yield
-    llm_container_module._container = None
+    get_llm_provider.cache_clear()
 
 
 @pytest.fixture

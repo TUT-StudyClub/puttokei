@@ -1,4 +1,4 @@
-"""LLMContainer と既存 Container の共存テスト。"""
+"""Container 経由の LLM provider 取得テスト。"""
 
 from __future__ import annotations
 
@@ -8,20 +8,18 @@ from typing import Any
 
 import pytest
 
-from src.container import Container
+from src.container import Container, get_llm_provider
 from src.domain.services.llm_judge_service import BaseLLMProvider
-from src.infrastructure.llm.container import LLMContainer, get_llm_provider
 from src.infrastructure.llm.gemini_provider import GeminiProvider
 
 
-def test_llm_container_returns_provider(
+def test_get_llm_provider_returns_provider(
     monkeypatch: pytest.MonkeyPatch,
     mock_gemini_client: dict[str, Any],
 ) -> None:
     monkeypatch.setenv("LLM_GEMINI_API_KEY", "test-key")
 
-    llm_container = LLMContainer()
-    provider = llm_container.provider()
+    provider = get_llm_provider()
 
     assert isinstance(provider, BaseLLMProvider)
     assert isinstance(provider, GeminiProvider)
@@ -53,23 +51,29 @@ def test_existing_container_exposes_same_llm_provider_instance(
 
 
 def test_src_container_import_is_lazy_for_llm_modules() -> None:
-    for module_name in [
+    module_names = [
         "src.container",
         "src.infrastructure.llm",
-        "src.infrastructure.llm.container",
         "src.infrastructure.llm.errors",
         "src.infrastructure.llm.errors.exceptions",
         "src.infrastructure.llm.errors.http",
         "src.infrastructure.llm.factory",
         "src.infrastructure.llm.gemini_provider",
-    ]:
+    ]
+    original_modules = {module_name: sys.modules.get(module_name) for module_name in module_names}
+
+    for module_name in module_names:
         sys.modules.pop(module_name, None)
 
-    importlib.import_module("src.container")
+    try:
+        importlib.import_module("src.container")
 
-    assert "src.infrastructure.llm.container" not in sys.modules
-    assert "src.infrastructure.llm.factory" not in sys.modules
-    assert "src.infrastructure.llm.gemini_provider" not in sys.modules
+        assert "src.infrastructure.llm.factory" not in sys.modules
+        assert "src.infrastructure.llm.gemini_provider" not in sys.modules
+    finally:
+        for module_name, module in original_modules.items():
+            if module is not None:
+                sys.modules[module_name] = module
 
 
 def test_existing_container_other_dependencies_still_work(

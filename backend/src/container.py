@@ -4,6 +4,7 @@
 presentation からは `request.app.state.container` 経由で参照する。
 """
 
+from functools import cache
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
@@ -38,6 +39,17 @@ if TYPE_CHECKING:
     from src.domain.services.llm_judge_service import BaseLLMProvider
 
 
+@cache
+def get_llm_provider() -> "BaseLLMProvider":
+    """LLM provider を遅延初期化し、プロセス内で共有する。"""
+
+    from src.config import LLMSettings
+    from src.infrastructure.llm.factory import create_llm_provider
+
+    settings = LLMSettings()
+    return create_llm_provider(settings)
+
+
 class Container(BaseModel):
     """アプリ全体で共有する依存物。
 
@@ -66,8 +78,6 @@ class Container(BaseModel):
     @property
     def llm_provider(self) -> "BaseLLMProvider":
         """LLM provider を返す薄いアダプタ。"""
-
-        from src.infrastructure.llm.container import get_llm_provider
 
         return get_llm_provider()
 
