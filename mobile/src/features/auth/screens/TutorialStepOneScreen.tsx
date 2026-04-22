@@ -10,13 +10,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
 import { SizableText } from 'tamagui';
 
-import {
-  TUTORIAL_ACTION_AREA_BOTTOM_OFFSET,
-  TUTORIAL_ACTION_BUTTON_GAP,
-  TUTORIAL_ACTION_BUTTON_HEIGHT,
-  TUTORIAL_ROUTE_TRANSITION_DELAY_MS,
-  TUTORIAL_TWO_BUTTON_ACTION_AREA_RESERVE,
-} from '@/features/auth/screens/tutorialConfig';
+import { TUTORIAL_ROUTE_TRANSITION_DELAY_MS } from '@/features/auth/screens/tutorialConfig';
 import { useTutorialStore } from '@/shared/stores/tutorialStore';
 
 type TutorialPhase = {
@@ -71,7 +65,7 @@ const TutorialPhasePane = memo(function TutorialPhasePane({
 }) {
   return (
     <View style={styles.phasePane} testID={testID}>
-      <SizableText size="$5" style={styles.subtitle} testID="tutorial-step-one-subtitle">
+      <SizableText style={styles.subtitle} testID="tutorial-step-one-subtitle">
         {phase.subtitle}
       </SizableText>
 
@@ -263,7 +257,7 @@ export function TutorialStepOneScreen() {
         </View>
 
         <View style={styles.hero}>
-          <SizableText size="$8" style={styles.title} testID="tutorial-step-one-title">
+          <SizableText style={styles.title} testID="tutorial-step-one-title">
             簡単3ステップ
           </SizableText>
         </View>
@@ -303,9 +297,7 @@ export function TutorialStepOneScreen() {
             onPress={() => scheduleNavigation(NEXT_ROUTE)}
             testID="tutorial-step-one-next"
           >
-            <SizableText size="$5" style={styles.primaryButtonText}>
-              次へ
-            </SizableText>
+            <SizableText style={styles.primaryButtonText}>次へ</SizableText>
           </Pressable>
 
           <Pressable
@@ -318,9 +310,7 @@ export function TutorialStepOneScreen() {
             onPress={() => scheduleNavigation(SKIP_ROUTE)}
             testID="tutorial-step-one-skip"
           >
-            <SizableText size="$5" style={styles.secondaryButtonText}>
-              スキップする
-            </SizableText>
+            <SizableText style={styles.secondaryButtonText}>スキップする</SizableText>
           </Pressable>
         </View>
       </View>
@@ -338,13 +328,15 @@ const styles = StyleSheet.create({
     position: 'relative',
     paddingTop: 20,
     paddingRight: 24,
-    paddingBottom: TUTORIAL_TWO_BUTTON_ACTION_AREA_RESERVE,
     paddingLeft: 24,
   },
   progressRow: {
+    position: 'absolute',
+    top: '3.5%',
+    left: '7.46%',
+    right: '6.97%',
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 56,
+    gap: 22,
   },
   progressSegment: {
     flex: 1,
@@ -353,7 +345,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   progressSegmentCurrent: {
-    backgroundColor: '#D9D9D9',
+    backgroundColor: '#CDCDCD',
   },
   progressSegmentCurrentFill: {
     ...StyleSheet.absoluteFillObject,
@@ -363,24 +355,31 @@ const styles = StyleSheet.create({
     transformOrigin: 'left center',
   },
   progressSegmentInactive: {
-    backgroundColor: '#D9D9D9',
+    backgroundColor: '#CDCDCD',
   },
   hero: {
+    position: 'absolute',
+    top: '8%',
+    left: 0,
+    right: 0,
     alignItems: 'center',
-    marginBottom: 16,
   },
   title: {
-    color: '#2F2F2F',
+    color: '#363636',
+    fontFamily: 'HiraginoSans-W6',
     fontSize: 24,
-    fontWeight: '700',
-    lineHeight: 32,
+    lineHeight: 22,
+    letterSpacing: 0,
   },
   phasePane: {
     flex: 1,
   },
   phaseStack: {
-    flex: 1,
-    position: 'relative',
+    position: 'absolute',
+    top: '14%',
+    left: '13.18%',
+    right: '12.94%',
+    height: '63%',
   },
   phaseLayer: {
     flex: 1,
@@ -390,21 +389,20 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     alignSelf: 'center',
-    marginBottom: 28,
-    color: '#434343',
-    fontSize: 18,
-    fontWeight: '700',
-    lineHeight: 24,
+    marginBottom: 12,
+    color: '#363636',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 15,
+    lineHeight: 22,
+    letterSpacing: 0,
   },
   previewCard: {
     flex: 1,
     flexDirection: 'row',
-    minHeight: 320,
-    maxHeight: 400,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#E6E6E6',
-    borderRadius: 26,
+    borderColor: '#E0E0E0',
+    borderRadius: 20,
     backgroundColor: '#FFFFFF',
     shadowColor: 'rgba(19, 31, 56, 0.08)',
     shadowOffset: { width: 0, height: 10 },
@@ -461,43 +459,43 @@ const styles = StyleSheet.create({
   },
   actionArea: {
     position: 'absolute',
-    right: 24,
-    bottom: TUTORIAL_ACTION_AREA_BOTTOM_OFFSET,
-    left: 24,
-    gap: TUTORIAL_ACTION_BUTTON_GAP,
+    top: '80%',
+    left: '13.18%',
+    right: '12.94%',
+    gap: 10,
   },
   primaryButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    height: TUTORIAL_ACTION_BUTTON_HEIGHT,
-    borderRadius: 18,
-    backgroundColor: '#4B5CFF',
+    height: 54,
+    borderRadius: 20,
+    backgroundColor: '#475FFF',
   },
   primaryButtonPressed: {
     opacity: 0.92,
   },
   primaryButtonText: {
     color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '700',
-    lineHeight: 24,
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 17,
+    lineHeight: 22,
   },
   secondaryButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    height: TUTORIAL_ACTION_BUTTON_HEIGHT,
-    borderWidth: 1.5,
-    borderColor: '#8C8C8C',
-    borderRadius: 18,
-    backgroundColor: '#FFFFFF',
+    height: 54,
+    borderWidth: 2,
+    borderColor: '#676767',
+    borderRadius: 20,
+    backgroundColor: 'transparent',
   },
   secondaryButtonPressed: {
-    backgroundColor: '#F6F6F6',
+    opacity: 0.9,
   },
   secondaryButtonText: {
-    color: '#4B4B4B',
-    fontSize: 20,
-    fontWeight: '700',
-    lineHeight: 24,
+    color: '#676767',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 17,
+    lineHeight: 22,
   },
 });
