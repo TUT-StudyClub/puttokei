@@ -57,8 +57,9 @@ const DOT_INACTIVE = '#D9D9D9';
 const BORDER_COLOR = '#E5E7EB';
 const CAPTION_COLOR = '#777777';
 const ERROR_COLOR = '#D92D20';
+const MAX_OUTPUT_CONTENT_LENGTH = 2000;
 
-// 入力方法。現時点で送信 API はテキストのみ接続済み。
+// 入力方法。音声入力はまだプレースホルダー。
 const INPUT_METHODS = ['text', 'image', 'voice'] as const;
 type InputMethod = (typeof INPUT_METHODS)[number];
 
@@ -85,6 +86,16 @@ function hasNativeImagePickerModule() {
   return Boolean(
     expoModules?.ExponentImagePicker || legacyExpoModules?.exportedMethods?.ExponentImagePicker,
   );
+}
+
+function buildImageOutputContent(imageUris: string[]) {
+  const header = `画像でアウトプットしました。撮影した学習内容の画像を提出しました。（${imageUris.length}枚）`;
+  const lines = imageUris.map((uri, index) => `画像${index + 1}: ${uri}`);
+  const content = [header, ...lines].join('\n');
+
+  return content.length > MAX_OUTPUT_CONTENT_LENGTH
+    ? content.slice(0, MAX_OUTPUT_CONTENT_LENGTH)
+    : content;
 }
 
 // 各方法を示すシンプルなラインアイコン。
@@ -268,10 +279,15 @@ function ImageOutputPanel({ imageUris, onAddImage }: ImageOutputPanelProps) {
 
 type ImageSubmissionFooterProps = {
   errorMessage?: string | null;
+  isSubmitting: boolean;
   onSubmit: () => void;
 };
 
-function ImageSubmissionFooter({ errorMessage, onSubmit }: ImageSubmissionFooterProps) {
+function ImageSubmissionFooter({
+  errorMessage,
+  isSubmitting,
+  onSubmit,
+}: ImageSubmissionFooterProps) {
   return (
     <View style={styles.imageSubmissionFooter}>
       <SizableText style={styles.imageSubmissionNote} testID="output-image-submit-note">
@@ -284,11 +300,19 @@ function ImageSubmissionFooter({ errorMessage, onSubmit }: ImageSubmissionFooter
       ) : null}
       <Pressable
         accessibilityRole="button"
+        accessibilityState={{ disabled: isSubmitting }}
+        disabled={isSubmitting}
         onPress={onSubmit}
-        style={({ pressed }) => [styles.imageSubmitButton, pressed ? styles.buttonPressed : null]}
+        style={({ pressed }) => [
+          styles.imageSubmitButton,
+          pressed ? styles.buttonPressed : null,
+          isSubmitting ? styles.imageSubmitButtonDisabled : null,
+        ]}
         testID="output-image-submit"
       >
-        <SizableText style={styles.imageSubmitButtonText}>提出する</SizableText>
+        <SizableText style={styles.imageSubmitButtonText}>
+          {isSubmitting ? '提出中...' : '提出する'}
+        </SizableText>
       </Pressable>
     </View>
   );
@@ -367,8 +391,33 @@ export function OutputScreen() {
   );
 
   const handleImageSubmit = useCallback(() => {
-    setLocalErrorMessage('画像入力の送信は近日公開予定です。');
-  }, []);
+    if (isSubmitPending) return;
+
+    if (imageUris.length === 0) {
+      setLocalErrorMessage('画像を1枚以上追加してから提出してください。');
+      return;
+    }
+
+    setLocalErrorMessage(null);
+    resetSubmit();
+    submitOutputMutate(
+      {
+        sessionId,
+        content: buildImageOutputContent(imageUris),
+        submitted_at: new Date().toISOString(),
+      },
+      {
+        onSuccess: navigateToBreak,
+      },
+    );
+  }, [
+    imageUris,
+    isSubmitPending,
+    navigateToBreak,
+    resetSubmit,
+    sessionId,
+    submitOutputMutate,
+  ]);
 
   const handleAddImage = useCallback(async () => {
     setLocalErrorMessage(null);
@@ -592,6 +641,7 @@ export function OutputScreen() {
               {isImageMethod ? (
                 <ImageSubmissionFooter
                   errorMessage={submitErrorMessage}
+                  isSubmitting={isSubmitPending}
                   onSubmit={handleImageSubmit}
                 />
               ) : null}
@@ -771,6 +821,9 @@ const styles = StyleSheet.create({
     height: 58,
     borderRadius: 20,
     backgroundColor: ACTION_COLOR,
+  },
+  imageSubmitButtonDisabled: {
+    opacity: 0.62,
   },
   imageSubmitButtonText: {
     color: '#FFFFFF',
