@@ -162,6 +162,7 @@ function InputMethodTabs({ value, onChange }: InputMethodTabsProps) {
 
 type SessionRouteParams = {
   id?: string;
+  input?: string;
   output?: string;
   break?: string;
 };
@@ -169,6 +170,7 @@ type SessionRouteParams = {
 export function OutputScreen() {
   const params = useLocalSearchParams<SessionRouteParams>();
   const sessionId = params.id ?? '';
+  const inputMinutes = Number(params.input) || DEFAULT_TIMER.input_minutes;
   const outputMinutes = Number(params.output) || DEFAULT_TIMER.output_minutes;
   const breakMinutes = Number(params.break) || DEFAULT_TIMER.break_minutes;
 
@@ -186,9 +188,14 @@ export function OutputScreen() {
   const navigateToBreak = useCallback(() => {
     router.replace({
       pathname: '/session/[id]/break',
-      params: { id: sessionId, break: String(breakMinutes) },
+      params: {
+        id: sessionId,
+        input: String(inputMinutes),
+        output: String(outputMinutes),
+        break: String(breakMinutes),
+      },
     });
-  }, [router, sessionId, breakMinutes]);
+  }, [router, sessionId, inputMinutes, outputMinutes, breakMinutes]);
 
   const handleEditorSubmit = useCallback(
     ({ content: nextContent, submitted_at }: OutputEditorSubmitPayload) => {

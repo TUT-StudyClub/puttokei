@@ -98,7 +98,7 @@ describe('InputScreen', () => {
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith({
         pathname: '/session/[id]/output',
-        params: { id: 'ses-123', output: '5', break: '5' },
+        params: { id: 'ses-123', input: '1', output: '5', break: '5' },
       });
     });
   });

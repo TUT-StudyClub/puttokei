@@ -74,6 +74,7 @@ export function InputScreen() {
               pathname: '/session/[id]/output',
               params: {
                 id: sessionId,
+                input: String(inputMinutes),
                 output: String(outputMinutes),
                 break: String(breakMinutes),
               },

@@ -23,6 +23,7 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ replace: mockReplace, push: jest.fn() }),
   useLocalSearchParams: () => ({
     id: 'ses-123',
+    input: '20',
     output: '1',
     break: '5',
   }),
@@ -170,7 +171,7 @@ describe('OutputScreen', () => {
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith({
         pathname: '/session/[id]/break',
-        params: { id: 'ses-123', break: '5' },
+        params: { id: 'ses-123', input: '20', output: '1', break: '5' },
       });
     });
   });
@@ -208,7 +209,7 @@ describe('OutputScreen', () => {
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith({
         pathname: '/session/[id]/break',
-        params: { id: 'ses-123', break: '5' },
+        params: { id: 'ses-123', input: '20', output: '1', break: '5' },
       });
     });
   });
