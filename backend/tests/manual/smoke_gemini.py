@@ -8,7 +8,7 @@ from dataclasses import asdict
 
 from src.config import LLMSettings
 from src.domain.services.llm_judge_service import LLMJudgmentInput
-from src.infrastructure.llm.base import (
+from src.infrastructure.llm.errors import (
     LLMAuthenticationError,
     LLMRateLimitError,
 )
