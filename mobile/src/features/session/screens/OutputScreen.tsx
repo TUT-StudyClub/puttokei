@@ -120,9 +120,11 @@ function CircularTimer({ phaseLabel, compact = false }: CircularTimerProps) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const displayRemainingSeconds = Math.max(0, Math.ceil(smoothRemainingSeconds));
-  const progressRatio =
-    totalSeconds > 0 ? Math.min(1, Math.max(0, 1 - smoothRemainingSeconds / totalSeconds)) : 0;
-  const dashOffset = circumference * (1 - progressRatio);
+  // 残り割合。開始時はリング全周が塗られ、残り時間が減るにつれてストロークも短くなる。
+  // dashOffset を負にすることで、ギャップが 12 時位置から時計回りに広がる。
+  const remainingRatio =
+    totalSeconds > 0 ? Math.min(1, Math.max(0, smoothRemainingSeconds / totalSeconds)) : 0;
+  const dashOffset = -circumference * (1 - remainingRatio);
 
   return (
     <View style={[styles.timerWrap, { width: size, height: size }]} testID="output-circular-timer">
