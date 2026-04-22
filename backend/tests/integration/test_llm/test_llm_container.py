@@ -56,8 +56,10 @@ def test_src_container_import_is_lazy_for_llm_modules() -> None:
     for module_name in [
         "src.container",
         "src.infrastructure.llm",
-        "src.infrastructure.llm.base",
         "src.infrastructure.llm.container",
+        "src.infrastructure.llm.errors",
+        "src.infrastructure.llm.errors.exceptions",
+        "src.infrastructure.llm.errors.http",
         "src.infrastructure.llm.factory",
         "src.infrastructure.llm.gemini_provider",
     ]:
