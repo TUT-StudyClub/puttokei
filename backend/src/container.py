@@ -36,24 +36,18 @@ from src.infrastructure.persistence.repositories.pg_session_repository import (
 from src.infrastructure.persistence.repositories.pg_user_repository import PgUserRepository
 
 if TYPE_CHECKING:
-    from src.domain.services.llm_judge_service import BaseLLMProvider
+    from src.domain.services.llm_judge_service import LLMProvider
 
 
 @cache
-def get_llm_provider() -> "BaseLLMProvider":
+def get_llm_provider() -> "LLMProvider":
     """LLM provider を遅延初期化し、プロセス内で共有する。"""
 
     from src.config import LLMSettings
     from src.infrastructure.llm.gemini_provider import GeminiProvider
 
     settings = LLMSettings()
-    return GeminiProvider(
-        api_key=settings.gemini_api_key,
-        model=settings.gemini_model,
-        thinking_level=settings.gemini_thinking_level,
-        temperature=settings.gemini_temperature,
-        timeout_seconds=settings.timeout_seconds,
-    )
+    return GeminiProvider.from_settings(settings)
 
 
 class Container(BaseModel):
@@ -82,7 +76,7 @@ class Container(BaseModel):
     get_judgment: GetJudgment
 
     @property
-    def llm_provider(self) -> "BaseLLMProvider":
+    def llm_provider(self) -> "LLMProvider":
         """LLM provider を返す薄いアダプタ。"""
 
         return get_llm_provider()

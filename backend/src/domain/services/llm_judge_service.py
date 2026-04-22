@@ -50,9 +50,12 @@ class LLMJudgmentOutput(FrozenModel):
     token_usage: TokenUsage | None
 
 
-class BaseLLMProvider(ABC):
+class LLMProvider(ABC):
     """LLM プロバイダーの共通インターフェース。"""
 
     @abstractmethod
     async def judge(self, input_data: LLMJudgmentInput) -> LLMJudgmentOutput:
         """学習アウトプットを判定し、構造化された結果を返す。"""
+
+
+BaseLLMProvider = LLMProvider

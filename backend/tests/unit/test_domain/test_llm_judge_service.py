@@ -6,17 +6,17 @@ import pytest
 from pydantic import ValidationError
 
 from src.domain.services.llm_judge_service import (
-    BaseLLMProvider,
     LLMJudgmentInput,
     LLMJudgmentItem,
     LLMJudgmentOutput,
+    LLMProvider,
     TokenUsage,
 )
 
 
-def test_base_llm_provider_is_abstract():
+def test_llm_provider_is_abstract():
     with pytest.raises(TypeError):
-        BaseLLMProvider()
+        LLMProvider()
 
 
 def test_llm_judgment_input_is_frozen_model():

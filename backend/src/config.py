@@ -6,6 +6,8 @@ from typing import Literal
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+type GeminiThinkingLevel = Literal["MINIMAL", "LOW", "MEDIUM", "HIGH"]
+
 
 class Settings(BaseSettings):
     """環境変数から構築される設定値。"""
@@ -67,7 +69,7 @@ class LLMSettings(BaseSettings):
         default="gemini-3-flash-preview",
         description="Gemini のモデル ID",
     )
-    gemini_thinking_level: Literal["MINIMAL", "LOW", "MEDIUM", "HIGH"] = Field(
+    gemini_thinking_level: GeminiThinkingLevel = Field(
         default="MEDIUM",
         description="Gemini の thinking level",
     )

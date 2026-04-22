@@ -17,13 +17,7 @@ from src.infrastructure.llm.gemini_provider import GeminiProvider
 
 async def _main() -> None:
     settings = LLMSettings()
-    provider = GeminiProvider(
-        api_key=settings.gemini_api_key,
-        model=settings.gemini_model,
-        thinking_level=settings.gemini_thinking_level,
-        temperature=settings.gemini_temperature,
-        timeout_seconds=settings.timeout_seconds,
-    )
+    provider = GeminiProvider.from_settings(settings)
     result = await provider.judge(
         LLMJudgmentInput(
             subject="英語",

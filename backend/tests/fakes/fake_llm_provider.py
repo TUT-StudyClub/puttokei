@@ -1,13 +1,13 @@
 """テスト用の LLM provider fake。"""
 
 from src.domain.services.llm_judge_service import (
-    BaseLLMProvider,
     LLMJudgmentInput,
     LLMJudgmentOutput,
+    LLMProvider,
 )
 
 
-class FakeLLMProvider(BaseLLMProvider):
+class FakeLLMProvider(LLMProvider):
     """固定の判定結果を返し、呼び出し履歴を保持する fake。"""
 
     def __init__(self, output: LLMJudgmentOutput) -> None:

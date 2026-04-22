@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 
 from src.container import Container, get_llm_provider
-from src.domain.services.llm_judge_service import BaseLLMProvider
+from src.domain.services.llm_judge_service import LLMProvider
 from src.infrastructure.llm.errors import LLMAuthenticationError
 from src.infrastructure.llm.gemini_provider import GeminiProvider
 
@@ -22,7 +22,7 @@ def test_get_llm_provider_returns_provider(
 
     provider = get_llm_provider()
 
-    assert isinstance(provider, BaseLLMProvider)
+    assert isinstance(provider, LLMProvider)
     assert isinstance(provider, GeminiProvider)
 
 

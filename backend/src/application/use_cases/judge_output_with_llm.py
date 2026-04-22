@@ -5,13 +5,13 @@ from src.application.dto.judgment_dto import (
     JudgeOutputWithLLMView,
 )
 from src.application.mappers.judge_output_with_llm_mapper import to_domain_input, to_view
-from src.domain.services.llm_judge_service import BaseLLMProvider
+from src.domain.services.llm_judge_service import LLMProvider
 
 
 class JudgeOutputWithLLM:
     """LLM provider を呼び出し、判定結果を返す。"""
 
-    def __init__(self, llm_provider: BaseLLMProvider) -> None:
+    def __init__(self, llm_provider: LLMProvider) -> None:
         self._llm_provider = llm_provider
 
     async def execute(self, command: JudgeOutputWithLLMCommand) -> JudgeOutputWithLLMView:

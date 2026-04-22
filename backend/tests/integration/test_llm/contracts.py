@@ -1,21 +1,21 @@
-"""BaseLLMProvider 実装が満たすべき契約テスト。"""
+"""LLMProvider 実装が満たすべき契約テスト。"""
 
 import pytest
 
 from src.domain.services.llm_judge_service import (
-    BaseLLMProvider,
     LLMJudgmentInput,
     LLMJudgmentOutput,
+    LLMProvider,
 )
 
 
-class BaseLLMProviderContract:
+class LLMProviderContract:
     """すべての LLM プロバイダー実装で共通に満たすべき契約。"""
 
     @pytest.mark.asyncio
     async def test_judge_returns_valid_output(
         self,
-        provider: BaseLLMProvider,
+        provider: LLMProvider,
         sample_llm_input: LLMJudgmentInput,
     ) -> None:
         output = await provider.judge(sample_llm_input)
