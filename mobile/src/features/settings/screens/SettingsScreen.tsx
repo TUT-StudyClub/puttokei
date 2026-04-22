@@ -20,8 +20,10 @@ import { isApiError } from '@/shared/lib/api';
 import { useAuthStore } from '@/shared/stores/authStore';
 import type { UpdateUserSettingsInput } from '@/shared/types/userSettings';
 
-// タイマーのプリセット値。backend の許容範囲 (1〜180 分) に収めた代表値を並べる。
-const MINUTE_OPTIONS = [1, 5, 10, 15, 20, 25, 30, 45, 60, 90, 120, 180] as const;
+// タイマーのプリセット値。backend の許容範囲 (1〜120 分、セッション作成 / 設定保存で共通)
+// に収めた代表値を並べる。120 分を超える値を選ばせると、設定保存はできてもセッション開始で
+// 422 になりタイマーが動かなくなるため、必ずこの範囲内に閉じる。
+const MINUTE_OPTIONS = [1, 5, 10, 15, 20, 25, 30, 45, 60, 90, 120] as const;
 
 const NOTIFICATION_OPTIONS = [
   { value: true, label: 'あり' },

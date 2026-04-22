@@ -62,7 +62,7 @@ async def test_patch_settings_persists_partial_update(client: AsyncClient):
     ("payload", "field"),
     [
         ({"input_minutes": 0}, "input_minutes"),
-        ({"input_minutes": 181}, "input_minutes"),
+        ({"input_minutes": 121}, "input_minutes"),
         ({"output_minutes": -1}, "output_minutes"),
         ({"break_minutes": 999}, "break_minutes"),
     ],
