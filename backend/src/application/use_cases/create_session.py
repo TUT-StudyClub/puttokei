@@ -14,7 +14,7 @@ class CreateSession:
     """新規 Session を作成し、初期ステータス INPUT で永続化する。"""
 
     def __init__(self, session_repository: SessionRepository) -> None:
-        self._session_repository = session_repository
+        self.session_repository = session_repository
 
     async def execute(self, current_user: User, command: CreateSessionCommand) -> SessionView:
         now = datetime.now(UTC)
@@ -31,7 +31,7 @@ class CreateSession:
             completed_at=None,
             created_at=now,
         )
-        await self._session_repository.add(session)
+        await self.session_repository.add(session)
         return SessionView(
             id=session.id,
             user_id=session.user_id,

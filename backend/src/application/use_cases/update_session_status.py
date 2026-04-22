@@ -42,10 +42,10 @@ class UpdateSessionStatus:
     """Session の status を許可された遷移のみで更新する。"""
 
     def __init__(self, session_repository: SessionRepository) -> None:
-        self._session_repository = session_repository
+        self.session_repository = session_repository
 
     async def execute(self, current_user: User, command: UpdateSessionStatusCommand) -> SessionView:
-        session = await self._session_repository.find_by_id(command.session_id)
+        session = await self.session_repository.find_by_id(command.session_id)
         if session is None or session.user_id != current_user.id:
             raise SessionNotFoundError("session not found")
 
@@ -59,7 +59,7 @@ class UpdateSessionStatus:
             completed_at = datetime.now(UTC)
 
         updated = session.with_status(new_status=command.new_status, completed_at=completed_at)
-        await self._session_repository.update(updated)
+        await self.session_repository.update(updated)
         return _to_view(updated)
 
 

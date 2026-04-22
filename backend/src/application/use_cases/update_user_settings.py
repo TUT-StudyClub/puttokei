@@ -15,12 +15,12 @@ class UpdateUserSettings:
     """user_settings を部分更新する。None のフィールドは現在値を保持する。"""
 
     def __init__(self, user_repository: UserRepository) -> None:
-        self._user_repository = user_repository
+        self.user_repository = user_repository
 
     async def execute(
         self, current_user: User, command: UpdateUserSettingsCommand
     ) -> UserSettingsView:
-        current = await self._user_repository.find_settings_by_user_id(current_user.id)
+        current = await self.user_repository.find_settings_by_user_id(current_user.id)
         if current is None:
             raise UserSettingsNotFoundError(
                 f"user_settings not found for user_id={current_user.id}"
@@ -37,7 +37,7 @@ class UpdateUserSettings:
             update_fields["notification_enabled"] = command.notification_enabled
 
         updated = current.model_copy(update=update_fields)
-        await self._user_repository.update_settings(updated)
+        await self.user_repository.update_settings(updated)
         return UserSettingsView(
             input_minutes=updated.input_minutes,
             output_minutes=updated.output_minutes,

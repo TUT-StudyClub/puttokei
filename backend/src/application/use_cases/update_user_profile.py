@@ -14,7 +14,7 @@ class UpdateUserProfile:
     """
 
     def __init__(self, user_repository: UserRepository) -> None:
-        self._user_repository = user_repository
+        self.user_repository = user_repository
 
     async def execute(
         self, current_user: User, command: UpdateUserProfileCommand
@@ -24,7 +24,7 @@ class UpdateUserProfile:
             age_group=command.age_group,
             updated_at=datetime.now(UTC),
         )
-        await self._user_repository.update(updated)
+        await self.user_repository.update(updated)
         return UserProfileView(
             id=updated.id,
             firebase_uid=updated.firebase_uid,

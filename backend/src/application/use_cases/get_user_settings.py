@@ -17,10 +17,10 @@ class GetUserSettings:
     """認証済みユーザ自身の user_settings をビュー化して返す。"""
 
     def __init__(self, user_repository: UserRepository) -> None:
-        self._user_repository = user_repository
+        self.user_repository = user_repository
 
     async def execute(self, current_user: User) -> UserSettingsView:
-        settings = await self._user_repository.find_settings_by_user_id(current_user.id)
+        settings = await self.user_repository.find_settings_by_user_id(current_user.id)
         if settings is None:
             raise UserSettingsNotFoundError(
                 f"user_settings not found for user_id={current_user.id}"

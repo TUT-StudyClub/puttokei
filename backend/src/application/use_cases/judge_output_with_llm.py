@@ -12,8 +12,8 @@ class JudgeOutputWithLLM:
     """LLM provider を呼び出し、判定結果を返す。"""
 
     def __init__(self, llm_provider: LLMProvider) -> None:
-        self._llm_provider = llm_provider
+        self.llm_provider = llm_provider
 
     async def execute(self, command: JudgeOutputWithLLMCommand) -> JudgeOutputWithLLMView:
-        output = await self._llm_provider.judge(JudgeOutputWithLLMMapper.to_domain_input(command))
+        output = await self.llm_provider.judge(JudgeOutputWithLLMMapper.to_domain_input(command))
         return JudgeOutputWithLLMMapper.to_view(output)

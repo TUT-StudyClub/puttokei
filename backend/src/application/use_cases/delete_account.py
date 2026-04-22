@@ -17,7 +17,7 @@ class DeleteAccount:
     """認証済みユーザ自身のアカウントを論理削除する。"""
 
     def __init__(self, user_repository: UserRepository) -> None:
-        self._user_repository = user_repository
+        self.user_repository = user_repository
 
     async def execute(self, current_user: User) -> None:
         if current_user.deleted_at is not None:
@@ -25,4 +25,4 @@ class DeleteAccount:
             # 既に削除済みなら no-op として扱う。
             return
         soft_deleted = current_user.with_deleted_at(deleted_at=datetime.now(UTC))
-        await self._user_repository.update(soft_deleted)
+        await self.user_repository.update(soft_deleted)

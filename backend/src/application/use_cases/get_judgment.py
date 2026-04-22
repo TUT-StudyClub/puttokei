@@ -46,16 +46,16 @@ class GetJudgment:
         output_repository: OutputRepository,
         judgment_repository: JudgmentRepository,
     ) -> None:
-        self._session_repository = session_repository
-        self._output_repository = output_repository
-        self._judgment_repository = judgment_repository
+        self.session_repository = session_repository
+        self.output_repository = output_repository
+        self.judgment_repository = judgment_repository
 
     async def execute(
         self,
         current_user: User,
         session_id: UUID,
     ) -> JudgmentView | JudgmentPendingView:
-        session = await self._session_repository.find_by_id(session_id)
+        session = await self.session_repository.find_by_id(session_id)
         if session is None or session.user_id != current_user.id:
             raise SessionNotFoundError("session not found")
 
@@ -64,11 +64,11 @@ class GetJudgment:
                 f"cannot fetch judgment while session is {session.status.value}"
             )
 
-        existing = await self._judgment_repository.find_by_session_id(session.id)
+        existing = await self.judgment_repository.find_by_session_id(session.id)
         if existing is not None:
             return _to_view(existing)
 
-        output = await self._output_repository.find_by_session_id(session.id)
+        output = await self.output_repository.find_by_session_id(session.id)
         if output is None:
             raise OutputNotSubmittedError("output not submitted")
 
@@ -85,10 +85,10 @@ class GetJudgment:
             )
 
         judgment = _build_mock_judgment(session, output, now)
-        await self._judgment_repository.add(judgment)
+        await self.judgment_repository.add(judgment)
 
         if session.status is not SessionStatus.JUDGED:
-            await self._session_repository.update(
+            await self.session_repository.update(
                 session.with_status(new_status=SessionStatus.JUDGED, completed_at=now)
             )
 

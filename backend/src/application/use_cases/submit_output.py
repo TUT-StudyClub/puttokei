@@ -29,11 +29,11 @@ class SubmitOutput:
         session_repository: SessionRepository,
         output_repository: OutputRepository,
     ) -> None:
-        self._session_repository = session_repository
-        self._output_repository = output_repository
+        self.session_repository = session_repository
+        self.output_repository = output_repository
 
     async def execute(self, current_user: User, command: SubmitOutputCommand) -> SubmitOutputView:
-        session = await self._session_repository.find_by_id(command.session_id)
+        session = await self.session_repository.find_by_id(command.session_id)
         if session is None or session.user_id != current_user.id:
             raise SessionNotFoundError("session not found")
 
@@ -42,18 +42,18 @@ class SubmitOutput:
                 f"cannot submit output while session is {session.status.value}"
             )
 
-        existing_output = await self._output_repository.find_by_session_id(session.id)
+        existing_output = await self.output_repository.find_by_session_id(session.id)
         output = Output(
             id=existing_output.id if existing_output is not None else uuid4(),
             session_id=session.id,
             content=command.content,
             submitted_at=command.submitted_at,
         )
-        await self._output_repository.upsert(output)
+        await self.output_repository.upsert(output)
 
         if session.status is SessionStatus.OUTPUT:
             updated_session = session.with_status(new_status=SessionStatus.JUDGING)
-            await self._session_repository.update(updated_session)
+            await self.session_repository.update(updated_session)
         else:
             updated_session = session
 

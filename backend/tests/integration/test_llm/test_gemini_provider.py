@@ -156,7 +156,9 @@ async def test_gemini_provider_includes_input_fields_in_prompt(
     await provider.judge(SAMPLE_LLM_INPUT)
 
     mock_gemini_client.generate_content.assert_awaited_once()
-    kwargs = mock_gemini_client.generate_content.await_args.kwargs
+    await_args = mock_gemini_client.generate_content.await_args
+    assert await_args is not None
+    kwargs = await_args.kwargs
     contents = kwargs["contents"]
     assert SAMPLE_LLM_INPUT.subject in contents
     assert SAMPLE_LLM_INPUT.topic in contents
@@ -199,7 +201,9 @@ async def test_gemini_provider_reflects_generation_settings(
 
     await provider.judge(SAMPLE_LLM_INPUT)
 
-    kwargs = mock_gemini_client.generate_content.await_args.kwargs
+    await_args = mock_gemini_client.generate_content.await_args
+    assert await_args is not None
+    kwargs = await_args.kwargs
     config = kwargs["config"]
     assert kwargs["model"] == "gemini-custom-model"
     assert config.temperature == 0.4
