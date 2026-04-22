@@ -11,7 +11,8 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.hourglass-nomibress.app",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "アウトプット画像を撮影するためにカメラを使用します。"
       }
     },
     "android": {
@@ -23,6 +24,14 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "アウトプット画像を撮影するためにカメラを使用します。",
+          "photosPermission": false,
+          "microphonePermission": false
+        }
+      ],
       [
         "expo-splash-screen",
         {
