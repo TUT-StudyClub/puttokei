@@ -436,7 +436,6 @@ async def test_submit_output_allows_resubmission_and_overwrites_existing_output(
     assert second_body["output"]["session_id"] == session_id
     # UNIQUE(session_id) と upsert により output.id は再利用される
     assert second_body["output"]["id"] == first_body["output"]["id"]
-    # content / submitted_at は 2 回目の値で上書きされる
     assert second_body["output"]["content"] == "2 回目の本文です。内容を書き直しました。"
     assert second_body["output"]["submitted_at"].startswith("2026-04-10T15:30:00")
 
