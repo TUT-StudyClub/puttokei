@@ -155,13 +155,16 @@ export function HourglassBadge({
 }
 
 type PhaseTabsProps = {
-  activePhase: SessionPhase;
+  activePhase: SessionPhase | null;
   testIDPrefix: string;
   activeDotColor: string;
   activeDotFilled?: boolean;
+  inactiveDotFilled?: boolean;
   inactiveDotColor?: string;
+  inactiveDotColors?: Partial<Record<SessionPhase, string>>;
   activeTextColor?: string;
   inactiveTextColor?: string;
+  inactiveTextColors?: Partial<Record<SessionPhase, string>>;
   separatorColor?: string;
   marginBottom?: number;
   onChange?: (phase: SessionPhase) => void;
@@ -172,9 +175,12 @@ export function PhaseTabs({
   testIDPrefix,
   activeDotColor,
   activeDotFilled = true,
+  inactiveDotFilled = false,
   inactiveDotColor = DOT_INACTIVE,
+  inactiveDotColors,
   activeTextColor = TEXT_ACTIVE,
   inactiveTextColor = DOT_INACTIVE,
+  inactiveTextColors,
   separatorColor = DOT_INACTIVE,
   marginBottom = 24,
   onChange,
@@ -184,12 +190,17 @@ export function PhaseTabs({
       {SESSION_PHASES.map((phase, index) => {
         const isActive = phase === activePhase;
         const isLast = index === SESSION_PHASES.length - 1;
+        const phaseInactiveDotColor = inactiveDotColors?.[phase] ?? inactiveDotColor;
+        const phaseInactiveTextColor = inactiveTextColors?.[phase] ?? inactiveTextColor;
         const tabContent = (
           <>
             <View
               style={[
                 styles.phaseTabDot,
-                { borderColor: inactiveDotColor },
+                {
+                  borderColor: phaseInactiveDotColor,
+                  backgroundColor: inactiveDotFilled ? phaseInactiveDotColor : 'transparent',
+                },
                 isActive
                   ? {
                       borderColor: activeDotColor,
@@ -202,7 +213,7 @@ export function PhaseTabs({
               size="$3"
               style={[
                 styles.phaseTabLabel,
-                { color: inactiveTextColor },
+                { color: phaseInactiveTextColor },
                 isActive ? { color: activeTextColor, fontWeight: '700' } : null,
               ]}
             >
