@@ -5,7 +5,7 @@ from typing import Any, cast
 import pytest
 
 from src.config import LLMSettings
-from src.infrastructure.llm.base import LLMAuthenticationError
+from src.infrastructure.llm.errors import LLMAuthenticationError
 from src.infrastructure.llm.factory import create_llm_provider
 from src.infrastructure.llm.gemini_provider import GeminiProvider
 
