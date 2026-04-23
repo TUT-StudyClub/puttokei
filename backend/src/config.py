@@ -39,6 +39,10 @@ class Settings(BaseSettings):
             "ローカル開発専用のフラグ"
         ),
     )
+    local_judgment_enabled: bool = Field(
+        default=False,
+        description="Cloud Tasks を使わず、アウトプット送信時にローカル判定を保存する。",
+    )
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(
         default="INFO",
         description="ログレベル",
