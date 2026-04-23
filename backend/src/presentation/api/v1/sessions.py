@@ -14,9 +14,7 @@ from fastapi.responses import JSONResponse
 from src.application.dto.judgment_dto import JudgmentPendingView
 from src.application.dto.session_dto import (
     CreateSessionCommand,
-    SessionView,
     SubmitOutputCommand,
-    SubmitOutputView,
     UpdateSessionStatusCommand,
 )
 from src.application.use_cases.get_judgment import (
@@ -38,16 +36,20 @@ from src.application.use_cases.update_session_status import (
 )
 from src.domain.entities.user import User
 from src.presentation.container_access import get_presentation_container
+from src.presentation.mappers.response_mapper import (
+    to_judgment_pending_response,
+    to_judgment_response,
+    to_session_response,
+    to_submit_output_response,
+)
 from src.presentation.middleware.auth_middleware import get_current_user
 from src.presentation.problem_details import ProblemDetailsError
 from src.presentation.schemas.judgment_schema import (
-    JudgmentItemResponse,
     JudgmentPendingResponse,
     JudgmentResponse,
 )
 from src.presentation.schemas.session_schema import (
     CreateSessionRequest,
-    OutputResponse,
     SessionResponse,
     SubmitOutputRequest,
     SubmitOutputResponse,
@@ -77,7 +79,7 @@ async def create_session(
         break_minutes=body.break_minutes,
     )
     view = await container.create_session.execute(current_user, command)
-    return _to_response(view)
+    return to_session_response(view)
 
 
 @sessions_router.patch("/{session_id}", response_model=SessionResponse)
@@ -109,7 +111,7 @@ async def update_session(
             title="Invalid Session Transition",
             detail=str(exc),
         ) from exc
-    return _to_response(view)
+    return to_session_response(view)
 
 
 @sessions_router.post(
@@ -146,7 +148,7 @@ async def submit_output(
             title="Invalid Session State",
             detail=str(exc),
         ) from exc
-    return _to_submit_output_response(view)
+    return to_submit_output_response(view)
 
 
 @sessions_router.get(
@@ -185,52 +187,11 @@ async def get_judgment(
         ) from exc
 
     if isinstance(view, JudgmentPendingView):
-        pending = JudgmentPendingResponse(
-            status=view.status,
-            detail=view.detail,
-            retry_after_seconds=view.retry_after_seconds,
-            estimated_ready_at=view.estimated_ready_at,
-        )
+        pending = to_judgment_pending_response(view)
         return JSONResponse(
             status_code=status.HTTP_202_ACCEPTED,
             content=pending.model_dump(mode="json"),
             headers={"Retry-After": str(view.retry_after_seconds)},
         )
 
-    return JudgmentResponse(
-        id=view.id,
-        session_id=view.session_id,
-        verdict=view.verdict,
-        score=view.score,
-        advice=view.advice,
-        items=[JudgmentItemResponse(label=item.label, comment=item.comment) for item in view.items],
-        judged_at=view.judged_at,
-    )
-
-
-def _to_response(view: SessionView) -> SessionResponse:
-    return SessionResponse(
-        id=view.id,
-        user_id=view.user_id,
-        status=view.status,
-        subject=view.subject,
-        topic=view.topic,
-        input_minutes=view.input_minutes,
-        output_minutes=view.output_minutes,
-        break_minutes=view.break_minutes,
-        started_at=view.started_at,
-        completed_at=view.completed_at,
-        created_at=view.created_at,
-    )
-
-
-def _to_submit_output_response(view: SubmitOutputView) -> SubmitOutputResponse:
-    return SubmitOutputResponse(
-        output=OutputResponse(
-            id=view.output.id,
-            session_id=view.output.session_id,
-            content=view.output.content,
-            submitted_at=view.output.submitted_at,
-        ),
-        status=view.status,
-    )
+    return to_judgment_response(view)

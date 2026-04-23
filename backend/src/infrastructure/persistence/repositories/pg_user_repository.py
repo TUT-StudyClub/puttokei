@@ -1,13 +1,10 @@
-"""User リポジトリの PostgreSQL 実装。
-
-AsyncSession を外部から渡して扱う。現実装では 1 リクエスト 1 セッションを前提に、
-`Database.session()` で取り出したものを呼び出し側で commit / rollback する。
-"""
+"""User リポジトリの PostgreSQL 実装。"""
 
 from uuid import UUID
 
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.entities.user import User
 from src.domain.entities.user_settings import UserSettings
@@ -17,106 +14,96 @@ from src.domain.repositories.user_repository import (
 )
 from src.domain.value_objects.age_group import AgeGroup
 from src.domain.value_objects.auth_provider import AuthProvider
-from src.infrastructure.persistence.database import Database
 from src.infrastructure.persistence.models.user_model import UserModel
 from src.infrastructure.persistence.models.user_settings_model import UserSettingsModel
 
 
 class PgUserRepository(UserRepository):
-    """PostgreSQL 実装。`Database` から都度セッションを開いて操作する。"""
+    """PostgreSQL 実装。commit / rollback は Unit of Work が担う。"""
 
-    def __init__(self, database: Database) -> None:
-        self._database = database
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
 
     async def find_by_firebase_uid(self, firebase_uid: str) -> User | None:
-        async with self._database.session() as session:
-            stmt = select(UserModel).where(
-                UserModel.firebase_uid == firebase_uid,
-                UserModel.deleted_at.is_(None),
-            )
-            result = await session.execute(stmt)
-            row = result.scalar_one_or_none()
-            return _to_user(row) if row is not None else None
+        stmt = select(UserModel).where(
+            UserModel.firebase_uid == firebase_uid,
+            UserModel.deleted_at.is_(None),
+        )
+        result = await self._session.execute(stmt)
+        row = result.scalar_one_or_none()
+        return _to_user(row) if row is not None else None
 
     async def add(self, user: User, settings: UserSettings) -> None:
         age_group = user.age_group
         age_group_value: str | None = age_group.value if age_group is not None else None
-        async with self._database.session() as session:
-            session.add(
-                UserModel(
-                    id=user.id,
-                    firebase_uid=user.firebase_uid,
-                    display_name=user.display_name,
-                    auth_provider=user.auth_provider.value,
-                    age_group=age_group_value,
-                    onboarding_completed=user.onboarding_completed,
-                    fcm_token=user.fcm_token,
-                    created_at=user.created_at,
-                    updated_at=user.updated_at,
-                    deleted_at=user.deleted_at,
-                )
+        self._session.add(
+            UserModel(
+                id=user.id,
+                firebase_uid=user.firebase_uid,
+                display_name=user.display_name,
+                auth_provider=user.auth_provider.value,
+                age_group=age_group_value,
+                onboarding_completed=user.onboarding_completed,
+                fcm_token=user.fcm_token,
+                created_at=user.created_at,
+                updated_at=user.updated_at,
+                deleted_at=user.deleted_at,
             )
-            session.add(
-                UserSettingsModel(
-                    id=settings.id,
-                    user_id=settings.user_id,
-                    input_minutes=settings.input_minutes,
-                    output_minutes=settings.output_minutes,
-                    break_minutes=settings.break_minutes,
-                    notification_enabled=settings.notification_enabled,
-                    created_at=settings.created_at,
-                    updated_at=settings.updated_at,
-                )
+        )
+        self._session.add(
+            UserSettingsModel(
+                id=settings.id,
+                user_id=settings.user_id,
+                input_minutes=settings.input_minutes,
+                output_minutes=settings.output_minutes,
+                break_minutes=settings.break_minutes,
+                notification_enabled=settings.notification_enabled,
+                created_at=settings.created_at,
+                updated_at=settings.updated_at,
             )
-            try:
-                await session.commit()
-            except IntegrityError as exc:
-                # firebase_uid UNIQUE 制約違反（論理削除済み行との衝突を含む）を
-                # domain 例外に変換して middleware 側で 401 化できるようにする。
-                await session.rollback()
-                raise UserAlreadyExistsError(
-                    f"firebase_uid={user.firebase_uid} already exists"
-                ) from exc
+        )
+        try:
+            await self._session.flush()
+        except IntegrityError as exc:
+            raise UserAlreadyExistsError(
+                f"firebase_uid={user.firebase_uid} already exists"
+            ) from exc
 
     async def update(self, user: User) -> None:
         age_group = user.age_group
         age_group_value: str | None = age_group.value if age_group is not None else None
-        async with self._database.session() as session:
-            stmt = select(UserModel).where(UserModel.id == user.id)
-            result = await session.execute(stmt)
-            model = result.scalar_one()
-            model.display_name = user.display_name
-            model.age_group = age_group_value
-            model.onboarding_completed = user.onboarding_completed
-            model.fcm_token = user.fcm_token
-            model.updated_at = user.updated_at
-            model.deleted_at = user.deleted_at
-            await session.commit()
+        stmt = select(UserModel).where(UserModel.id == user.id)
+        result = await self._session.execute(stmt)
+        model = result.scalar_one()
+        model.display_name = user.display_name
+        model.age_group = age_group_value
+        model.onboarding_completed = user.onboarding_completed
+        model.fcm_token = user.fcm_token
+        model.updated_at = user.updated_at
+        model.deleted_at = user.deleted_at
+        await self._session.flush()
 
     async def find_settings_by_user_id(self, user_id: UUID) -> UserSettings | None:
-        async with self._database.session() as session:
-            stmt = select(UserSettingsModel).where(UserSettingsModel.user_id == user_id)
-            result = await session.execute(stmt)
-            row = result.scalar_one_or_none()
-            return _to_settings(row) if row is not None else None
+        stmt = select(UserSettingsModel).where(UserSettingsModel.user_id == user_id)
+        result = await self._session.execute(stmt)
+        row = result.scalar_one_or_none()
+        return _to_settings(row) if row is not None else None
 
     async def update_settings(self, settings: UserSettings) -> None:
-        async with self._database.session() as session:
-            stmt = select(UserSettingsModel).where(UserSettingsModel.user_id == settings.user_id)
-            result = await session.execute(stmt)
-            model = result.scalar_one()
-            model.input_minutes = settings.input_minutes
-            model.output_minutes = settings.output_minutes
-            model.break_minutes = settings.break_minutes
-            model.notification_enabled = settings.notification_enabled
-            model.updated_at = settings.updated_at
-            await session.commit()
+        stmt = select(UserSettingsModel).where(UserSettingsModel.user_id == settings.user_id)
+        result = await self._session.execute(stmt)
+        model = result.scalar_one()
+        model.input_minutes = settings.input_minutes
+        model.output_minutes = settings.output_minutes
+        model.break_minutes = settings.break_minutes
+        model.notification_enabled = settings.notification_enabled
+        model.updated_at = settings.updated_at
+        await self._session.flush()
 
     async def delete_by_id(self, user_id: UUID) -> None:
-        async with self._database.session() as session:
-            stmt = delete(UserModel).where(UserModel.id == user_id)
-            await session.execute(stmt)
-            await session.commit()
+        stmt = delete(UserModel).where(UserModel.id == user_id)
+        await self._session.execute(stmt)
+        await self._session.flush()
 
 
 def _to_user(model: UserModel) -> User:

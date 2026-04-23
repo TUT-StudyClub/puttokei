@@ -9,20 +9,22 @@ outputs / judgments は FK ondelete=CASCADE を張っているが、本 UseCase 
 
 from datetime import UTC, datetime
 
+from src.application.unit_of_work import UnitOfWorkFactory
 from src.domain.entities.user import User
-from src.domain.repositories.user_repository import UserRepository
 
 
 class DeleteAccount:
     """認証済みユーザ自身のアカウントを論理削除する。"""
 
-    def __init__(self, user_repository: UserRepository) -> None:
-        self._user_repository = user_repository
+    def __init__(self, unit_of_work_factory: UnitOfWorkFactory) -> None:
+        self.unit_of_work_factory = unit_of_work_factory
 
     async def execute(self, current_user: User) -> None:
         if current_user.deleted_at is not None:
-            # auth_middleware が生きているユーザのみ渡す前提だが、冪等性のため
+            # 認証 use case が生きているユーザのみ渡す前提だが、冪等性のため
             # 既に削除済みなら no-op として扱う。
             return
         soft_deleted = current_user.with_deleted_at(deleted_at=datetime.now(UTC))
-        await self._user_repository.update(soft_deleted)
+        async with self.unit_of_work_factory() as uow:
+            await uow.users.update(soft_deleted)
+            await uow.commit()
