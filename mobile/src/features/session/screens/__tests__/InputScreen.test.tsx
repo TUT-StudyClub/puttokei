@@ -5,7 +5,7 @@
  * replace 遷移することを fakeTimers + mock API で確認する。
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, render, waitFor } from '@testing-library/react-native';
+import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactElement, ReactNode } from 'react';
 import { TamaguiProvider } from 'tamagui';
 
@@ -64,6 +64,7 @@ describe('InputScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     resetRouteParams();
+    (sessionApi.listTodayOutputs as jest.Mock).mockResolvedValue({ items: [] });
     useTimerStore.setState({
       phase: 'idle',
       status: 'idle',
@@ -139,5 +140,41 @@ describe('InputScreen', () => {
     expect(useTimerStore.getState().status).toBe('running');
     expect(useTimerStore.getState().totalSeconds).toBe(120);
     expect(useTimerStore.getState().remainingSeconds).toBe(120);
+  });
+
+  it('今日のアウトプットを一覧表示し、選択すると詳細を表示する', async () => {
+    (sessionApi.listTodayOutputs as jest.Mock).mockResolvedValue({
+      items: [
+        {
+          session_id: 'ses-prev',
+          output: {
+            id: 'out-1',
+            session_id: 'ses-prev',
+            content: '明智光秀は本能寺の変で織田信長を討った',
+            submitted_at: '2026-04-10T15:25:00.000Z',
+          },
+          cycle_index: 1,
+          subject: '歴史',
+          topic: '本能寺の変',
+          judgment: {
+            id: 'jdg-1',
+            session_id: 'ses-prev',
+            verdict: 'partial',
+            score: 72,
+            advice: '要点は押さえられています。',
+            items: [{ label: '理解度', comment: '主題に沿って説明できています。' }],
+            judged_at: '2026-04-10T15:30:00.000Z',
+          },
+        },
+      ],
+    });
+
+    const { getByTestId, findByText } = renderWithProviders(<InputScreen />);
+
+    expect(await findByText('今日のアウトプット')).toBeTruthy();
+    fireEvent.press(getByTestId('today-output-row-out-1'));
+
+    expect(getByTestId('output-review-detail')).toBeTruthy();
+    expect(getByTestId('output-review-feedback')).toBeTruthy();
   });
 });

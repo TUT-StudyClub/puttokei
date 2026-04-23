@@ -11,8 +11,9 @@
 import { useIsFocused } from '@react-navigation/native';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
-import { Alert, Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
+import { Path, Svg } from 'react-native-svg';
 import { SizableText } from 'tamagui';
 
 import {
@@ -23,8 +24,14 @@ import {
   SessionSettingsButton,
 } from '@/features/session/components/SessionPhaseChrome';
 import { DEFAULT_TIMER } from '@/features/session/config';
+import { useTodayOutputs } from '@/features/session/hooks/useTodayOutputs';
 import { useTimer } from '@/features/session/hooks/useTimer';
 import { useUpdateSessionStatus } from '@/features/session/hooks/useUpdateSessionStatus';
+import type { OutputReviewItem } from '@/features/session/types';
+import {
+  JUDGMENT_VERDICT_COLORS,
+  JUDGMENT_VERDICT_LABELS,
+} from '@/shared/lib/judgmentPresentation';
 import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
@@ -40,6 +47,8 @@ const DOT_INACTIVE = '#D9D9D9';
 const BORDER_COLOR = '#E5E7EB';
 const CAPTION_COLOR = '#777777';
 const ERROR_COLOR = '#D92D20';
+const PANEL_BORDER_COLOR = '#D0D0D0';
+const REVIEW_TEXT_MUTED = '#6B6B6B';
 
 type SessionRouteParams = {
   id?: string;
@@ -47,6 +56,181 @@ type SessionRouteParams = {
   output?: string;
   break?: string;
 };
+
+function PencilIcon({ color = TEXT_ACTIVE }: { color?: string }) {
+  return (
+    <Svg width={25} height={25} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 16.7 V20 H7.3 L18.6 8.7 L15.3 5.4 L4 16.7 Z"
+        stroke={color}
+        strokeWidth={2.2}
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <Path d="M14.2 6.5 L17.5 9.8" stroke={color} strokeWidth={2.2} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function ImageIcon({ color = TEXT_ACTIVE }: { color?: string }) {
+  return (
+    <Svg width={25} height={25} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M5 5 H19 V19 H5 Z"
+        stroke={color}
+        strokeWidth={2.1}
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <Path
+        d="M6.8 16 L10.2 12.6 L13 15.2 L15 13.2 L18.2 16.4"
+        stroke={color}
+        strokeWidth={2.1}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M8.8 9.1 H8.9" stroke={color} strokeWidth={3} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function MicIcon({ color = TEXT_INACTIVE }: { color?: string }) {
+  return (
+    <Svg width={25} height={25} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 4 C10.8 4 10 4.9 10 6 V12 C10 13.1 10.8 14 12 14 C13.2 14 14 13.1 14 12 V6 C14 4.9 13.2 4 12 4 Z"
+        stroke={color}
+        strokeWidth={2}
+      />
+      <Path d="M7 11 C7 14 9 16 12 16 C15 16 17 14 17 11" stroke={color} strokeWidth={2} />
+      <Path d="M12 16 V20" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function buildOutputPreview(content: string): string {
+  const normalized = content.replace(/\s+/g, ' ').trim();
+  if (normalized.length <= 15) return normalized;
+  return `${normalized.slice(0, 15)}...`;
+}
+
+type TodayOutputListProps = {
+  items: OutputReviewItem[];
+  onSelect: (item: OutputReviewItem) => void;
+};
+
+function TodayOutputList({ items, onSelect }: TodayOutputListProps) {
+  if (items.length === 0) return null;
+
+  return (
+    <View style={styles.todayOutputsSection} testID="today-outputs-section">
+      <SizableText style={styles.todayOutputsTitle}>今日のアウトプット</SizableText>
+      <View style={styles.todayOutputsCard}>
+        {items.map((item, index) => (
+          <Pressable
+            key={item.output.id}
+            accessibilityRole="button"
+            onPress={() => onSelect(item)}
+            style={({ pressed }) => [
+              styles.todayOutputRow,
+              index < items.length - 1 ? styles.todayOutputRowBorder : null,
+              pressed ? styles.buttonPressed : null,
+            ]}
+            testID={`today-output-row-${item.output.id}`}
+          >
+            <View style={styles.todayOutputIcon}>
+              <PencilIcon />
+            </View>
+            <SizableText style={styles.todayOutputText} numberOfLines={1}>
+              {buildOutputPreview(item.output.content)}
+            </SizableText>
+            <SizableText style={styles.todayOutputCycle}>サイクル{item.cycle_index}</SizableText>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+type OutputDetailCardProps = {
+  item: OutputReviewItem;
+  onBack: () => void;
+};
+
+function OutputDetailCard({ item, onBack }: OutputDetailCardProps) {
+  const judgment = item.judgment;
+  const firstItem = judgment?.items[0];
+
+  return (
+    <View style={styles.outputDetailSheet} testID="output-review-detail">
+      <View style={styles.sheetHandle} />
+      <View style={styles.outputDetailHeader}>
+        <SizableText style={styles.outputDetailTitle}>
+          サイクル{item.cycle_index}のアウトプット
+        </SizableText>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onBack}
+          hitSlop={8}
+          style={styles.outputDetailBackButton}
+          testID="output-review-back"
+        >
+          <SizableText style={styles.outputDetailBack}>一覧</SizableText>
+        </Pressable>
+      </View>
+
+      <View style={styles.outputPreviewFrame}>
+        <View style={styles.outputModeTabs}>
+          <View style={styles.outputModeTabActive}>
+            <PencilIcon color={TEXT_ACTIVE} />
+            <SizableText style={styles.outputModeTabTextActive}>テキスト</SizableText>
+          </View>
+          <View style={styles.outputModeTab}>
+            <ImageIcon color={REVIEW_TEXT_MUTED} />
+            <SizableText style={styles.outputModeTabText}>画像</SizableText>
+          </View>
+          <View style={styles.outputModeTab}>
+            <MicIcon color={REVIEW_TEXT_MUTED} />
+            <SizableText style={styles.outputModeTabText}>音声</SizableText>
+          </View>
+        </View>
+
+        <View style={styles.outputContentBox}>
+          <ScrollView nestedScrollEnabled contentContainerStyle={styles.outputContentScroll}>
+            <SizableText style={styles.outputContentText}>{item.output.content}</SizableText>
+          </ScrollView>
+
+          <View style={styles.feedbackPopover} testID="output-review-feedback">
+            {judgment ? (
+              <>
+                <SizableText style={styles.feedbackHeading}>判定</SizableText>
+                <SizableText
+                  style={[
+                    styles.feedbackVerdict,
+                    { color: JUDGMENT_VERDICT_COLORS[judgment.verdict] },
+                  ]}
+                >
+                  {JUDGMENT_VERDICT_LABELS[judgment.verdict]} / {judgment.score}
+                </SizableText>
+                <SizableText style={styles.feedbackHeading}>解説</SizableText>
+                <SizableText style={styles.feedbackBody} numberOfLines={5}>
+                  {firstItem?.comment ?? judgment.advice}
+                </SizableText>
+              </>
+            ) : (
+              <>
+                <SizableText style={styles.feedbackHeading}>判定待ち</SizableText>
+                <SizableText style={styles.feedbackBody}>
+                  採点が完了すると、ここに判定と解説が表示されます。
+                </SizableText>
+              </>
+            )}
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
 
 export function InputScreen() {
   const params = useLocalSearchParams<SessionRouteParams>();
@@ -62,6 +246,15 @@ export function InputScreen() {
   const currentLoop = useLoopStore((s) => s.currentLoop);
   const extendTimer = useTimerStore((s) => s.extend);
   const timerStatus = useTimerStore((s) => s.status);
+  const todayOutputsQuery = useTodayOutputs(isFocused);
+  const todayOutputItems = todayOutputsQuery.data?.items;
+  const todayOutputs = useMemo(() => todayOutputItems ?? [], [todayOutputItems]);
+  const [selectedOutputId, setSelectedOutputId] = useState<string | null>(null);
+  const selectedOutput = useMemo(
+    () => todayOutputs.find((item) => item.output.id === selectedOutputId) ?? null,
+    [selectedOutputId, todayOutputs],
+  );
+  const hasOutputReview = todayOutputs.length > 0;
 
   const { start, reset } = useTimer({
     enabled: isFocused,
@@ -91,6 +284,12 @@ export function InputScreen() {
       reset();
     };
   }, [inputMinutes, reset, sessionId, start]);
+
+  useEffect(() => {
+    if (selectedOutputId !== null && selectedOutput === null) {
+      setSelectedOutputId(null);
+    }
+  }, [selectedOutput, selectedOutputId]);
 
   const handleCancel = () => {
     if (cancelMutation.isPending) return;
@@ -152,11 +351,21 @@ export function InputScreen() {
             primaryColor={PRIMARY_COLOR}
             trackColor={BORDER_COLOR}
             testID="input-circular-timer"
+            compact={hasOutputReview}
           />
           <SizableText style={styles.timerCaption} testID="input-timer-caption">
             終了後{outputMinutes}分間でアウトプットです{'\n'}アウトプットへは自動で切り替わります
           </SizableText>
         </View>
+
+        {selectedOutput ? (
+          <OutputDetailCard item={selectedOutput} onBack={() => setSelectedOutputId(null)} />
+        ) : (
+          <TodayOutputList
+            items={todayOutputs}
+            onSelect={(item) => setSelectedOutputId(item.output.id)}
+          />
+        )}
 
         {hasError ? (
           <SizableText style={styles.errorText} size="$3" testID="input-screen-error">
@@ -220,6 +429,191 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
     textAlign: 'center',
+  },
+  todayOutputsSection: {
+    gap: 14,
+    marginBottom: 18,
+  },
+  todayOutputsTitle: {
+    color: TEXT_ACTIVE,
+    fontSize: 24,
+    fontWeight: '800',
+    lineHeight: 32,
+    textAlign: 'center',
+  },
+  todayOutputsCard: {
+    borderWidth: 2,
+    borderColor: PANEL_BORDER_COLOR,
+    borderRadius: 28,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  todayOutputRow: {
+    minHeight: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  todayOutputRowBorder: {
+    borderBottomWidth: 1.5,
+    borderBottomColor: PANEL_BORDER_COLOR,
+  },
+  todayOutputIcon: {
+    width: 34,
+    alignItems: 'center',
+  },
+  todayOutputText: {
+    flex: 1,
+    color: '#111111',
+    fontSize: 21,
+    fontWeight: '600',
+    lineHeight: 28,
+  },
+  todayOutputCycle: {
+    color: REVIEW_TEXT_MUTED,
+    fontSize: 19,
+    fontWeight: '600',
+    lineHeight: 26,
+  },
+  outputDetailSheet: {
+    borderTopLeftRadius: 34,
+    borderTopRightRadius: 34,
+    paddingTop: 14,
+    paddingRight: 18,
+    paddingBottom: 18,
+    paddingLeft: 18,
+    marginBottom: 18,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOpacity: 0.1,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 4,
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 56,
+    height: 4,
+    borderRadius: 999,
+    marginBottom: 18,
+    backgroundColor: '#CFCFCF',
+  },
+  outputDetailHeader: {
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  outputDetailTitle: {
+    color: TEXT_ACTIVE,
+    fontSize: 20,
+    fontWeight: '800',
+    lineHeight: 28,
+    textAlign: 'center',
+  },
+  outputDetailBack: {
+    color: REVIEW_TEXT_MUTED,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  outputDetailBackButton: {
+    position: 'absolute',
+    right: 0,
+    height: 34,
+    justifyContent: 'center',
+  },
+  outputPreviewFrame: {
+    borderWidth: 1.5,
+    borderColor: TEXT_ACTIVE,
+    borderRadius: 20,
+    padding: 16,
+  },
+  outputModeTabs: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: PANEL_BORDER_COLOR,
+    borderRadius: 10,
+    padding: 3,
+    marginBottom: 14,
+    backgroundColor: '#F3F3F3',
+  },
+  outputModeTabActive: {
+    flex: 1,
+    height: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+  },
+  outputModeTab: {
+    flex: 1,
+    height: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  outputModeTabTextActive: {
+    color: TEXT_ACTIVE,
+    fontSize: 14,
+    fontWeight: '800',
+    lineHeight: 20,
+  },
+  outputModeTabText: {
+    color: REVIEW_TEXT_MUTED,
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
+  outputContentBox: {
+    minHeight: 190,
+    borderWidth: 1,
+    borderColor: PANEL_BORDER_COLOR,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  outputContentScroll: {
+    padding: 18,
+    paddingBottom: 130,
+  },
+  outputContentText: {
+    color: TEXT_ACTIVE,
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  feedbackPopover: {
+    position: 'absolute',
+    left: 30,
+    right: 30,
+    top: 58,
+    borderRadius: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    backgroundColor: '#333333',
+  },
+  feedbackHeading: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+    lineHeight: 22,
+  },
+  feedbackVerdict: {
+    fontSize: 15,
+    fontWeight: '800',
+    lineHeight: 24,
+    marginBottom: 12,
+  },
+  feedbackBody: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 22,
   },
   errorText: {
     color: ERROR_COLOR,
