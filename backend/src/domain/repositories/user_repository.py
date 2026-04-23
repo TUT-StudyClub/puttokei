@@ -26,8 +26,8 @@ class UserRepository(ABC):
         """Firebase UID から「生きている」内部ユーザを取得する。
 
         論理削除済み（deleted_at が設定済み）のユーザは None として扱う。未登録時
-        も None。auth_middleware が未登録判定にそのまま使う前提で、削除済みを返さ
-        ないことでアカウントの再利用を防ぐ。
+        も None。AuthenticateUser が未登録判定にそのまま使う前提で、削除済みを
+        返さないことでアカウントの再利用を防ぐ。
         """
 
     @abstractmethod

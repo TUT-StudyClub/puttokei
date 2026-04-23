@@ -4,17 +4,18 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from src.application.dto.session_dto import CreateSessionCommand, SessionView
+from src.application.mappers.session_mapper import to_session_view
+from src.application.unit_of_work import UnitOfWorkFactory
 from src.domain.entities.session import Session
 from src.domain.entities.user import User
-from src.domain.repositories.session_repository import SessionRepository
 from src.domain.value_objects.session_status import SessionStatus
 
 
 class CreateSession:
     """新規 Session を作成し、初期ステータス INPUT で永続化する。"""
 
-    def __init__(self, session_repository: SessionRepository) -> None:
-        self._session_repository = session_repository
+    def __init__(self, unit_of_work_factory: UnitOfWorkFactory) -> None:
+        self.unit_of_work_factory = unit_of_work_factory
 
     async def execute(self, current_user: User, command: CreateSessionCommand) -> SessionView:
         now = datetime.now(UTC)
@@ -31,17 +32,7 @@ class CreateSession:
             completed_at=None,
             created_at=now,
         )
-        await self._session_repository.add(session)
-        return SessionView(
-            id=session.id,
-            user_id=session.user_id,
-            status=session.status,
-            subject=session.subject,
-            topic=session.topic,
-            input_minutes=session.input_minutes,
-            output_minutes=session.output_minutes,
-            break_minutes=session.break_minutes,
-            started_at=session.started_at,
-            completed_at=session.completed_at,
-            created_at=session.created_at,
-        )
+        async with self.unit_of_work_factory() as uow:
+            await uow.sessions.add(session)
+            await uow.commit()
+        return to_session_view(session)

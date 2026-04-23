@@ -32,7 +32,7 @@ export function JudgmentListItem({ judgment, onPress }: JudgmentListItemProps) {
           <Paragraph>スコア: {judgment.score}</Paragraph>
           <Paragraph numberOfLines={2}>{judgment.advice}</Paragraph>
           <SizableText color="$gray10" size="$2">
-            評価項目 {judgment.items.length} 件
+            指摘 {judgment.corrections.length} 件
           </SizableText>
         </YStack>
       </Card>

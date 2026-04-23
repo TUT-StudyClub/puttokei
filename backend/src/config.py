@@ -39,6 +39,37 @@ class Settings(BaseSettings):
             "ローカル開発専用のフラグ"
         ),
     )
+    local_judgment_enabled: bool = Field(
+        default=False,
+        description="Cloud Tasks を使わず、アウトプット送信時にローカル判定を保存する。",
+    )
+    llm_provider: Literal["local", "gemini"] = Field(
+        default="local",
+        description="ローカル同期判定で使う LLM プロバイダー。",
+    )
+    llm_gemini_api_key: str | None = Field(
+        default=None,
+        description="Gemini Developer API の API キー。",
+    )
+    llm_gemini_model: str = Field(
+        default="gemini-3-flash-preview",
+        description="Gemini のモデル名。",
+    )
+    llm_gemini_thinking_level: str | None = Field(
+        default=None,
+        description="Gemini 3 系で使う thinking level。例: low / medium / high。",
+    )
+    llm_gemini_temperature: float = Field(
+        default=0.2,
+        ge=0,
+        le=2,
+        description="Gemini の temperature。",
+    )
+    llm_timeout_seconds: float = Field(
+        default=30,
+        gt=0,
+        description="LLM API 呼び出しのタイムアウト秒。",
+    )
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(
         default="INFO",
         description="ログレベル",

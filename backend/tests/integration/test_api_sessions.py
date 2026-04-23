@@ -3,10 +3,15 @@
 FakeAuthVerifier + FakeSessionRepository 経由で、実 DB / Firebase 無しで経路を検証する。
 """
 
-from uuid import uuid4
+from datetime import UTC, datetime
+from uuid import UUID, uuid4
 
 import pytest
 from httpx import AsyncClient
+
+from src.domain.entities.judgment import Judgment, JudgmentCorrection
+from src.domain.value_objects.verdict import Verdict
+from tests.fakes.fake_judgment_repository import FakeJudgmentRepository
 
 
 def _valid_body() -> dict[str, object]:
@@ -442,6 +447,53 @@ async def test_submit_output_allows_resubmission_and_overwrites_existing_output(
 
 
 @pytest.mark.asyncio
+async def test_list_today_outputs_returns_current_users_outputs(
+    client: AsyncClient,
+    fake_judgment_repository: FakeJudgmentRepository,
+):
+    auth_uid = "today-output-user"
+    created = await _create_session(client, auth_uid)
+    session_id = created["id"]
+    submitted_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    await _advance_status(client, auth_uid, session_id, "output")
+    await _submit_output(
+        client,
+        auth_uid,
+        session_id,
+        content="今日のアウトプット本文です。",
+        submitted_at=submitted_at,
+    )
+    await fake_judgment_repository.add(
+        Judgment(
+            id=uuid4(),
+            session_id=UUID(session_id),
+            verdict=Verdict.PARTIAL,
+            score=72,
+            advice="保存済みの判定結果です。",
+            corrections=[
+                JudgmentCorrection(
+                    target_text="今日のアウトプット",
+                    correct_text="今日取り組んだ学習内容",
+                    explanation="要点は押さえられています。具体例を足すとさらに分かりやすくなります。",
+                )
+            ],
+            judged_at=datetime.now(UTC),
+        )
+    )
+
+    response = await client.get(
+        "/api/v1/sessions/outputs/today",
+        headers={"Authorization": f"Bearer {auth_uid}"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["items"][0]["cycle_index"] == 1
+    assert body["items"][0]["output"]["content"] == "今日のアウトプット本文です。"
+    assert body["items"][0]["judgment"]["score"] == 72
+
+
+@pytest.mark.asyncio
 async def test_submit_output_rejects_blank_content_with_problem_details(client: AsyncClient):
     auth_uid = "submit-user-004"
     created = await _create_session(client, auth_uid)
@@ -493,7 +545,9 @@ async def test_get_judgment_returns_202_while_pending(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_get_judgment_returns_rejected_verdict_for_short_content(client: AsyncClient):
+async def test_get_judgment_returns_202_for_past_submission_without_saved_judgment(
+    client: AsyncClient,
+):
     auth_uid = "judgment-user-002"
     created = await _create_session(client, auth_uid)
     session_id = created["id"]
@@ -511,15 +565,18 @@ async def test_get_judgment_returns_rejected_verdict_for_short_content(client: A
         headers={"Authorization": f"Bearer {auth_uid}"},
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 202
     body = response.json()
-    assert body["verdict"] == "rejected"
-    assert body["score"] == 0
-    assert "学習内容" in body["advice"]
+    assert body["status"] == "pending"
+    assert body["retry_after_seconds"] >= 1
+    assert response.headers["Retry-After"]
 
 
 @pytest.mark.asyncio
-async def test_get_judgment_returns_ready_judgment_for_past_submission(client: AsyncClient):
+async def test_get_judgment_returns_saved_judgment(
+    client: AsyncClient,
+    fake_judgment_repository: FakeJudgmentRepository,
+):
     auth_uid = "judgment-user-003"
     created = await _create_session(client, auth_uid)
     session_id = created["id"]
@@ -535,6 +592,23 @@ async def test_get_judgment_returns_ready_judgment_for_past_submission(client: A
         ),
         submitted_at="2020-04-10T15:25:00Z",
     )
+    await fake_judgment_repository.add(
+        Judgment(
+            id=uuid4(),
+            session_id=UUID(session_id),
+            verdict=Verdict.PARTIAL,
+            score=72,
+            advice="保存済みの判定結果です。",
+            corrections=[
+                JudgmentCorrection(
+                    target_text="関係代名詞",
+                    correct_text="関係代名詞は先行詞を詳しく説明する節を作る",
+                    explanation="主題に沿った説明が保存されています。",
+                )
+            ],
+            judged_at=datetime(2026, 4, 10, 15, 30, tzinfo=UTC),
+        )
+    )
 
     response = await client.get(
         f"/api/v1/sessions/{session_id}/judgment",
@@ -543,9 +617,40 @@ async def test_get_judgment_returns_ready_judgment_for_past_submission(client: A
 
     assert response.status_code == 200
     body = response.json()
-    assert body["verdict"] in {"correct", "partial"}
-    assert body["items"]
+    assert body["verdict"] == "partial"
+    assert body["score"] == 72
+    assert body["corrections"]
     assert body["judged_at"]
+
+
+@pytest.mark.asyncio
+async def test_get_judgment_returns_409_when_judged_but_judgment_missing(
+    client: AsyncClient,
+):
+    auth_uid = "judgment-user-missing"
+    created = await _create_session(client, auth_uid)
+    session_id = created["id"]
+    await _advance_status(client, auth_uid, session_id, "output")
+    await _submit_output(
+        client,
+        auth_uid,
+        session_id,
+        content="関係代名詞について説明しました。",
+        submitted_at="2020-04-10T15:25:00Z",
+    )
+    await _advance_status(client, auth_uid, session_id, "judged")
+
+    response = await client.get(
+        f"/api/v1/sessions/{session_id}/judgment",
+        headers={"Authorization": f"Bearer {auth_uid}"},
+    )
+
+    assert response.status_code == 409
+    _assert_problem_details(
+        response.json(),
+        expected_status=409,
+        expected_type="judgment_not_available",
+    )
 
 
 @pytest.mark.asyncio

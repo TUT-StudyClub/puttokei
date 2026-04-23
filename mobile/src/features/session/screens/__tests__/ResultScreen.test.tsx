@@ -48,7 +48,13 @@ describe('ResultScreen', () => {
         verdict: 'partial',
         score: 72,
         advice: 'もう少し具体例を増やすと安定します。',
-        items: [{ label: '理解度', comment: '要点は押さえられています。' }],
+        corrections: [
+          {
+            target_text: '明智光秀',
+            correct_text: '織田信長は本能寺の変で死んだ',
+            explanation: '本能寺の変で死亡したのは織田信長です。',
+          },
+        ],
         judged_at: '2026-04-10T15:30:00.000Z',
       },
     });
@@ -108,7 +114,7 @@ describe('ResultScreen', () => {
         verdict: 'rejected',
         score: 0,
         advice: '学習内容をもう少し具体的に書いてください。',
-        items: [{ label: '入力内容の確認', comment: '説明量が不足しています。' }],
+        corrections: [],
         judged_at: '2026-04-10T15:30:00.000Z',
       },
     });
@@ -129,7 +135,13 @@ describe('ResultScreen', () => {
         verdict: 'partial',
         score: 72,
         advice: 'もう少し具体例を増やすと安定します。',
-        items: [{ label: '理解度', comment: '要点は押さえられています。' }],
+        corrections: [
+          {
+            target_text: '明智光秀',
+            correct_text: '織田信長は本能寺の変で死んだ',
+            explanation: '本能寺の変で死亡したのは織田信長です。',
+          },
+        ],
         judged_at: '2026-04-10T15:30:00.000Z',
       },
     });
