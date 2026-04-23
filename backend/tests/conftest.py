@@ -20,6 +20,7 @@ from src.application.use_cases.delete_account import DeleteAccount
 from src.application.use_cases.get_judgment import GetJudgment
 from src.application.use_cases.get_user_profile import GetUserProfile
 from src.application.use_cases.get_user_settings import GetUserSettings
+from src.application.use_cases.list_today_outputs import ListTodayOutputs
 from src.application.use_cases.submit_output import SubmitOutput
 from src.application.use_cases.update_session_status import UpdateSessionStatus
 from src.application.use_cases.update_user_profile import UpdateUserProfile
@@ -109,6 +110,7 @@ def container(
         update_session_status=UpdateSessionStatus(unit_of_work_factory=unit_of_work_factory),
         submit_output=SubmitOutput(unit_of_work_factory=unit_of_work_factory),
         get_judgment=GetJudgment(unit_of_work_factory=unit_of_work_factory),
+        list_today_outputs=ListTodayOutputs(unit_of_work_factory=unit_of_work_factory),
     )
 
 

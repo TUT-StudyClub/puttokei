@@ -8,12 +8,14 @@ from src.application.use_cases.delete_account import DeleteAccount
 from src.application.use_cases.get_judgment import GetJudgment
 from src.application.use_cases.get_user_profile import GetUserProfile
 from src.application.use_cases.get_user_settings import GetUserSettings
+from src.application.use_cases.list_today_outputs import ListTodayOutputs
 from src.application.use_cases.submit_output import SubmitOutput
 from src.application.use_cases.update_session_status import UpdateSessionStatus
 from src.application.use_cases.update_user_profile import UpdateUserProfile
 from src.application.use_cases.update_user_settings import UpdateUserSettings
 from src.config import Settings
 from src.infrastructure.auth.firebase_auth import FirebaseAuthVerifier
+from src.infrastructure.llm.local_judge_service import LocalJudgeService
 from src.infrastructure.persistence.database import Database
 from src.infrastructure.persistence.unit_of_work import SqlAlchemyUnitOfWork
 
@@ -35,6 +37,7 @@ class Container(BaseModel):
     update_session_status: UpdateSessionStatus
     submit_output: SubmitOutput
     get_judgment: GetJudgment
+    list_today_outputs: ListTodayOutputs
 
 
 def build_container(settings: Settings) -> Container:
@@ -43,6 +46,9 @@ def build_container(settings: Settings) -> Container:
 
     def unit_of_work_factory() -> SqlAlchemyUnitOfWork:
         return SqlAlchemyUnitOfWork(database=database)
+
+    local_judgment_enabled = settings.local_judgment_enabled or settings.app_env == "development"
+    judge_service = LocalJudgeService() if local_judgment_enabled else None
 
     return Container(
         settings=settings,
@@ -58,6 +64,11 @@ def build_container(settings: Settings) -> Container:
         delete_account=DeleteAccount(unit_of_work_factory=unit_of_work_factory),
         create_session=CreateSession(unit_of_work_factory=unit_of_work_factory),
         update_session_status=UpdateSessionStatus(unit_of_work_factory=unit_of_work_factory),
-        submit_output=SubmitOutput(unit_of_work_factory=unit_of_work_factory),
+        submit_output=SubmitOutput(
+            unit_of_work_factory=unit_of_work_factory,
+            local_judgment_enabled=local_judgment_enabled,
+            judge_service=judge_service,
+        ),
         get_judgment=GetJudgment(unit_of_work_factory=unit_of_work_factory),
+        list_today_outputs=ListTodayOutputs(unit_of_work_factory=unit_of_work_factory),
     )

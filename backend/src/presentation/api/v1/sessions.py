@@ -41,6 +41,7 @@ from src.presentation.mappers.response_mapper import (
     to_judgment_response,
     to_session_response,
     to_submit_output_response,
+    to_today_outputs_response,
 )
 from src.presentation.middleware.auth_middleware import get_current_user
 from src.presentation.problem_details import ProblemDetailsError
@@ -53,6 +54,7 @@ from src.presentation.schemas.session_schema import (
     SessionResponse,
     SubmitOutputRequest,
     SubmitOutputResponse,
+    TodayOutputsResponse,
     UpdateSessionRequest,
 )
 
@@ -80,6 +82,17 @@ async def create_session(
     )
     view = await container.create_session.execute(current_user, command)
     return to_session_response(view)
+
+
+@sessions_router.get("/outputs/today", response_model=TodayOutputsResponse)
+async def list_today_outputs(
+    request: Request,
+    current_user: User = Depends(get_current_user),  # noqa: B008
+) -> TodayOutputsResponse:
+    """インプット画面で見返すため、今日のアウトプット一覧を返す。"""
+    container = get_presentation_container(request)
+    view = await container.list_today_outputs.execute(current_user)
+    return to_today_outputs_response(view)
 
 
 @sessions_router.patch("/{session_id}", response_model=SessionResponse)

@@ -447,6 +447,47 @@ async def test_submit_output_allows_resubmission_and_overwrites_existing_output(
 
 
 @pytest.mark.asyncio
+async def test_list_today_outputs_returns_current_users_outputs(
+    client: AsyncClient,
+    fake_judgment_repository: FakeJudgmentRepository,
+):
+    auth_uid = "today-output-user"
+    created = await _create_session(client, auth_uid)
+    session_id = created["id"]
+    submitted_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    await _advance_status(client, auth_uid, session_id, "output")
+    await _submit_output(
+        client,
+        auth_uid,
+        session_id,
+        content="今日のアウトプット本文です。",
+        submitted_at=submitted_at,
+    )
+    await fake_judgment_repository.add(
+        Judgment(
+            id=uuid4(),
+            session_id=UUID(session_id),
+            verdict=Verdict.PARTIAL,
+            score=72,
+            advice="保存済みの判定結果です。",
+            items=[JudgmentItem(label="理解度", comment="要点は押さえられています。")],
+            judged_at=datetime.now(UTC),
+        )
+    )
+
+    response = await client.get(
+        "/api/v1/sessions/outputs/today",
+        headers={"Authorization": f"Bearer {auth_uid}"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["items"][0]["cycle_index"] == 1
+    assert body["items"][0]["output"]["content"] == "今日のアウトプット本文です。"
+    assert body["items"][0]["judgment"]["score"] == 72
+
+
+@pytest.mark.asyncio
 async def test_submit_output_rejects_blank_content_with_problem_details(client: AsyncClient):
     auth_uid = "submit-user-004"
     created = await _create_session(client, auth_uid)
