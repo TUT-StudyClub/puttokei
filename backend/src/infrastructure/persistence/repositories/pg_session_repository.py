@@ -1,5 +1,6 @@
 """Session リポジトリの PostgreSQL 実装。"""
 
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -61,7 +62,23 @@ class PgSessionRepository(SessionRepository):
         cursor: str | None,
         limit: int,
     ) -> tuple[list[Session], str | None]:
-        raise NotImplementedError("履歴一覧エンドポイントの Task で実装する")
+        stmt = (
+            select(SessionModel)
+            .where(SessionModel.user_id == user_id)
+            .order_by(SessionModel.created_at.desc(), SessionModel.id.desc())
+            .limit(limit + 1)
+        )
+        if cursor is not None:
+            stmt = stmt.where(SessionModel.created_at < datetime.fromisoformat(cursor))
+
+        result = await self._session.execute(stmt)
+        models = list(result.scalars().all())
+        next_cursor = None
+        if len(models) > limit:
+            next_cursor = models[limit - 1].created_at.isoformat()
+            models = models[:limit]
+
+        return [_to_session(model) for model in models], next_cursor
 
 
 def _to_session(model: SessionModel) -> Session:
