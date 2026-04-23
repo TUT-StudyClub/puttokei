@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
   },
   progressRow: {
     position: 'absolute',
-    top: '3.5%',
+    top: '2.5%',
     left: '7.46%',
     right: '6.97%',
     flexDirection: 'row',
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
   progressSegment: {
     flex: 1,
     height: 4,
-    borderRadius: 999,
+    borderRadius: 2,
     overflow: 'hidden',
   },
   progressSegmentCurrent: {
@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
   progressSegmentCurrentFill: {
     ...StyleSheet.absoluteFillObject,
     height: '100%',
-    borderRadius: 999,
+    borderRadius: 2,
     backgroundColor: '#777777',
     transformOrigin: 'left center',
   },
@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
   },
   hero: {
     position: 'absolute',
-    top: '8%',
+    top: '8.5%',
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -376,10 +376,10 @@ const styles = StyleSheet.create({
   },
   phaseStack: {
     position: 'absolute',
-    top: '14%',
+    top: '14.5%',
     left: '13.18%',
     right: '12.94%',
-    height: '63%',
+    height: '62%',
   },
   phaseLayer: {
     flex: 1,
@@ -462,7 +462,7 @@ const styles = StyleSheet.create({
     top: '80%',
     left: '13.18%',
     right: '12.94%',
-    gap: 10,
+    gap: 20,
   },
   primaryButton: {
     alignItems: 'center',
