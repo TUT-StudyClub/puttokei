@@ -7,20 +7,20 @@
 from typing import Literal
 
 from fastapi import APIRouter, Request
-from pydantic import BaseModel
 
+from src.common.models import FrozenModel
 from src.presentation.container_access import get_presentation_container
 
 health_router = APIRouter(tags=["health"])
 
 
-class HealthResponse(BaseModel):
+class HealthResponse(FrozenModel):
     """`/health` のレスポンス。"""
 
     status: Literal["ok"]
 
 
-class ReadinessResponse(BaseModel):
+class ReadinessResponse(FrozenModel):
     """`/health/ready` のレスポンス。"""
 
     status: Literal["ok", "degraded"]

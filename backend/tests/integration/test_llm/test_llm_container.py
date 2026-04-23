@@ -99,5 +99,5 @@ def test_existing_container_other_dependencies_still_work(
     monkeypatch.setenv("LLM_GEMINI_API_KEY", "test-key")
 
     assert container.database is not None
-    assert container.user_repository is not None
+    assert container.authenticate_user is not None
     assert get_llm_provider().__class__.__name__ == "GeminiProvider"

@@ -15,7 +15,7 @@ class FakeUserRepository(UserRepository):
 
     def __init__(self) -> None:
         self.users: dict[str, User] = {}
-        # user_id (UUID) をキーにする。auth_middleware が add 直後に
+        # user_id (UUID) をキーにする。AuthenticateUser が add 直後に
         # find_settings_by_user_id で参照できるように対応させる。
         self.settings: dict[UUID, UserSettings] = {}
 
