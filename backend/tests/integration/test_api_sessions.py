@@ -401,6 +401,47 @@ async def test_submit_output_rejects_invalid_session_state(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_submit_output_allows_resubmission_and_overwrites_existing_output(
+    client: AsyncClient,
+):
+    """1 セッション 1 アウトプット制約と重複送信時の上書き挙動を固定する。"""
+    auth_uid = "submit-user-005"
+    created = await _create_session(client, auth_uid)
+    session_id = created["id"]
+    await _advance_status(client, auth_uid, session_id, "output")
+
+    first = await _submit_output(
+        client,
+        auth_uid,
+        session_id,
+        content="1 回目の本文です。関係代名詞の復習をここに書きます。",
+        submitted_at="2026-04-10T15:25:00Z",
+    )
+    assert first.status_code == 202
+
+    second = await _submit_output(
+        client,
+        auth_uid,
+        session_id,
+        content="2 回目の本文です。内容を書き直しました。",
+        submitted_at="2026-04-10T15:30:00Z",
+    )
+
+    assert second.status_code == 202
+    first_body = first.json()
+    second_body = second.json()
+    # JUDGING からの再送でも受理され、status は judging のまま
+    # (SubmitOutput の update スキップ分岐)
+    assert second_body["status"] == "judging"
+    assert second_body["output"]["session_id"] == session_id
+    # UNIQUE(session_id) と upsert により output.id は再利用される
+    assert second_body["output"]["id"] == first_body["output"]["id"]
+    # 2 回目の本文が DB に実際に反映されたことの検証（upsert no-op 退行を捕まえる要）
+    assert second_body["output"]["content"] == "2 回目の本文です。内容を書き直しました。"
+    assert second_body["output"]["submitted_at"].startswith("2026-04-10T15:30:00")
+
+
+@pytest.mark.asyncio
 async def test_submit_output_rejects_blank_content_with_problem_details(client: AsyncClient):
     auth_uid = "submit-user-004"
     created = await _create_session(client, auth_uid)
