@@ -1,9 +1,12 @@
-# Hourglass アーキテクチャ参照
+# puttokei アーキテクチャ参照
 
 ## 正とする資料
 
 - 主資料は `docs/requirements/requirements.md`
 - `docs/requirements/technical_book.md` は同内容の複製として扱ってよい
+- 全体構成と infra の規則は `.codex/rules/project-architecture-rule.md`
+- backend の詳細なディレクトリ構成とアーキテクチャ規則は `.codex/rules/backend-architecture-rule.md`
+- mobile の詳細なディレクトリ構成とアーキテクチャ規則は `.codex/rules/mobile-architecture-rule.md`
 - ルート直下の `README` `Taskfile.yaml` `workflow` 群は空のことがあるので、実装前に必ず中身を確認する
 
 ## 全体構成

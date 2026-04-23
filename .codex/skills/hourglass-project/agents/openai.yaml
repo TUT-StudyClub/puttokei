@@ -1,4 +1,0 @@
-interface:
-  display_name: "Hourglass Project"
-  short_description: "設計書に沿ってこのリポジトリの実装や土台を整える"
-  default_prompt: "このリポジトリの変更を設計書に沿って進めるために $hourglass-project を使ってください。"
