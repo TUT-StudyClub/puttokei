@@ -57,9 +57,9 @@ type SessionRouteParams = {
   break?: string;
 };
 
-function PencilIcon({ color = TEXT_ACTIVE }: { color?: string }) {
+function PencilIcon({ color = TEXT_ACTIVE, size = 25 }: { color?: string; size?: number }) {
   return (
-    <Svg width={25} height={25} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
         d="M4 16.7 V20 H7.3 L18.6 8.7 L15.3 5.4 L4 16.7 Z"
         stroke={color}
@@ -72,9 +72,9 @@ function PencilIcon({ color = TEXT_ACTIVE }: { color?: string }) {
   );
 }
 
-function ImageIcon({ color = TEXT_ACTIVE }: { color?: string }) {
+function ImageIcon({ color = TEXT_ACTIVE, size = 25 }: { color?: string; size?: number }) {
   return (
-    <Svg width={25} height={25} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
         d="M5 5 H19 V19 H5 Z"
         stroke={color}
@@ -94,9 +94,9 @@ function ImageIcon({ color = TEXT_ACTIVE }: { color?: string }) {
   );
 }
 
-function MicIcon({ color = TEXT_INACTIVE }: { color?: string }) {
+function MicIcon({ color = TEXT_INACTIVE, size = 25 }: { color?: string; size?: number }) {
   return (
-    <Svg width={25} height={25} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
         d="M12 4 C10.8 4 10 4.9 10 6 V12 C10 13.1 10.8 14 12 14 C13.2 14 14 13.1 14 12 V6 C14 4.9 13.2 4 12 4 Z"
         stroke={color}
@@ -139,7 +139,7 @@ function TodayOutputList({ items, onSelect }: TodayOutputListProps) {
             testID={`today-output-row-${item.output.id}`}
           >
             <View style={styles.todayOutputIcon}>
-              <PencilIcon />
+              <PencilIcon size={16} />
             </View>
             <SizableText style={styles.todayOutputText} numberOfLines={1}>
               {buildOutputPreview(item.output.content)}
@@ -431,50 +431,50 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   todayOutputsSection: {
-    gap: 14,
-    marginBottom: 18,
+    gap: 8,
+    marginBottom: 16,
   },
   todayOutputsTitle: {
     color: TEXT_ACTIVE,
-    fontSize: 24,
-    fontWeight: '800',
-    lineHeight: 32,
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
     textAlign: 'center',
   },
   todayOutputsCard: {
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: PANEL_BORDER_COLOR,
-    borderRadius: 28,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
     backgroundColor: '#FFFFFF',
   },
   todayOutputRow: {
-    minHeight: 58,
+    minHeight: 40,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: 10,
   },
   todayOutputRowBorder: {
-    borderBottomWidth: 1.5,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: PANEL_BORDER_COLOR,
   },
   todayOutputIcon: {
-    width: 34,
+    width: 20,
     alignItems: 'center',
   },
   todayOutputText: {
     flex: 1,
     color: '#111111',
-    fontSize: 21,
-    fontWeight: '600',
-    lineHeight: 28,
+    fontSize: 13,
+    fontWeight: '500',
+    lineHeight: 18,
   },
   todayOutputCycle: {
     color: REVIEW_TEXT_MUTED,
-    fontSize: 19,
-    fontWeight: '600',
-    lineHeight: 26,
+    fontSize: 12,
+    fontWeight: '500',
+    lineHeight: 16,
   },
   outputDetailSheet: {
     borderTopLeftRadius: 34,
