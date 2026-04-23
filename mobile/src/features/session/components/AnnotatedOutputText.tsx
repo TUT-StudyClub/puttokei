@@ -6,10 +6,7 @@
  */
 import { Text, type StyleProp, type TextStyle } from 'react-native';
 
-import {
-  buildOutputSegments,
-  type OutputSegment,
-} from '@/features/session/lib/outputAnnotation';
+import { buildOutputSegments, type OutputSegment } from '@/features/session/lib/outputAnnotation';
 import type { JudgmentCorrection } from '@/features/session/types';
 
 type AnnotatedOutputTextProps = {
@@ -35,7 +32,9 @@ export function AnnotatedOutputText({
 
   return (
     <Text style={textStyle} testID={testID}>
-      {segments.map((segment, index) => renderSegment(segment, index, selectedCorrectionIndex, onSelectCorrection))}
+      {segments.map((segment, index) =>
+        renderSegment(segment, index, selectedCorrectionIndex, onSelectCorrection),
+      )}
     </Text>
   );
 }

@@ -3,9 +3,7 @@ import { buildOutputSegments } from '@/features/session/lib/outputAnnotation';
 describe('buildOutputSegments', () => {
   it('corrections が空のときは本文をひと塊の plain として返す', () => {
     const segments = buildOutputSegments('明智光秀は本能寺の変で死んだ', []);
-    expect(segments).toEqual([
-      { type: 'plain', text: '明智光秀は本能寺の変で死んだ' },
-    ]);
+    expect(segments).toEqual([{ type: 'plain', text: '明智光秀は本能寺の変で死んだ' }]);
   });
 
   it('target_text に一致する部分を correction として切り出し、残りを plain にする', () => {
@@ -65,8 +63,6 @@ describe('buildOutputSegments', () => {
         explanation: '本文に存在しない指摘。',
       },
     ]);
-    expect(segments).toEqual([
-      { type: 'plain', text: '明智光秀は本能寺の変で死んだ' },
-    ]);
+    expect(segments).toEqual([{ type: 'plain', text: '明智光秀は本能寺の変で死んだ' }]);
   });
 });
