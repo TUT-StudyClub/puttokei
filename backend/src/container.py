@@ -15,7 +15,7 @@ from src.application.use_cases.update_user_profile import UpdateUserProfile
 from src.application.use_cases.update_user_settings import UpdateUserSettings
 from src.config import Settings
 from src.infrastructure.auth.firebase_auth import FirebaseAuthVerifier
-from src.infrastructure.llm.local_judge_service import LocalJudgeService
+from src.infrastructure.llm.factory import build_llm_judge_service
 from src.infrastructure.persistence.database import Database
 from src.infrastructure.persistence.unit_of_work import SqlAlchemyUnitOfWork
 
@@ -48,7 +48,7 @@ def build_container(settings: Settings) -> Container:
         return SqlAlchemyUnitOfWork(database=database)
 
     local_judgment_enabled = settings.local_judgment_enabled or settings.app_env == "development"
-    judge_service = LocalJudgeService() if local_judgment_enabled else None
+    judge_service = build_llm_judge_service(settings) if local_judgment_enabled else None
 
     return Container(
         settings=settings,
