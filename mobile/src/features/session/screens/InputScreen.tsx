@@ -255,6 +255,7 @@ export function InputScreen() {
     [selectedOutputId, todayOutputs],
   );
   const hasOutputReview = todayOutputs.length > 0;
+  const isDetailVisible = selectedOutput !== null;
 
   const { start, reset } = useTimer({
     enabled: isFocused,
@@ -324,19 +325,23 @@ export function InputScreen() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
       <View style={styles.container} testID="input-root">
-        <SessionSettingsButton
-          onPress={() => router.push(SETTINGS_ROUTE)}
-          testID="input-settings-button"
-        />
+        {isDetailVisible ? null : (
+          <>
+            <SessionSettingsButton
+              onPress={() => router.push(SETTINGS_ROUTE)}
+              testID="input-settings-button"
+            />
 
-        <HourglassBadge
-          currentLoop={currentLoop}
-          testIDPrefix="input"
-          activeColor={PRIMARY_COLOR}
-          inactiveColor={TEXT_INACTIVE}
-          borderColor={BORDER_COLOR}
-          marginBottom={24}
-        />
+            <HourglassBadge
+              currentLoop={currentLoop}
+              testIDPrefix="input"
+              activeColor={PRIMARY_COLOR}
+              inactiveColor={TEXT_INACTIVE}
+              borderColor={BORDER_COLOR}
+              marginBottom={24}
+            />
+          </>
+        )}
 
         <PhaseTabs
           activePhase={CURRENT_PHASE}
@@ -345,7 +350,7 @@ export function InputScreen() {
           inactiveDotColor={DOT_INACTIVE}
         />
 
-        <View style={styles.timerStage}>
+        <View style={[styles.timerStage, isDetailVisible ? styles.timerStageDetail : null]}>
           <CircularPhaseTimer
             phase={CURRENT_PHASE}
             primaryColor={PRIMARY_COLOR}
@@ -353,9 +358,11 @@ export function InputScreen() {
             testID="input-circular-timer"
             compact={hasOutputReview}
           />
-          <SizableText style={styles.timerCaption} testID="input-timer-caption">
-            終了後{outputMinutes}分間でアウトプットです{'\n'}アウトプットへは自動で切り替わります
-          </SizableText>
+          {isDetailVisible ? null : (
+            <SizableText style={styles.timerCaption} testID="input-timer-caption">
+              終了後{outputMinutes}分間でアウトプットです{'\n'}アウトプットへは自動で切り替わります
+            </SizableText>
+          )}
         </View>
 
         {selectedOutput ? (
@@ -423,6 +430,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 20,
+  },
+  timerStageDetail: {
+    flex: 0,
+    gap: 10,
+    marginBottom: 12,
   },
   timerCaption: {
     color: CAPTION_COLOR,
