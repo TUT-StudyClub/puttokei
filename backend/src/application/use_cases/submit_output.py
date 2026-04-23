@@ -6,7 +6,7 @@ from uuid import uuid4
 from src.application.dto.session_dto import SubmitOutputCommand, SubmitOutputView
 from src.application.mappers.session_mapper import to_output_view
 from src.application.unit_of_work import UnitOfWorkFactory
-from src.domain.entities.judgment import Judgment, JudgmentItem
+from src.domain.entities.judgment import Judgment, JudgmentCorrection
 from src.domain.entities.output import Output
 from src.domain.entities.user import User
 from src.domain.services.llm_judge_service import LLMJudgeService
@@ -77,9 +77,13 @@ class SubmitOutput:
                             verdict=result.verdict,
                             score=result.score,
                             advice=result.advice,
-                            items=[
-                                JudgmentItem(label=item.label, comment=item.comment)
-                                for item in result.items
+                            corrections=[
+                                JudgmentCorrection(
+                                    target_text=correction.target_text,
+                                    correct_text=correction.correct_text,
+                                    explanation=correction.explanation,
+                                )
+                                for correction in result.corrections
                             ],
                             judged_at=judged_at,
                         )

@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.domain.entities.judgment import Judgment, JudgmentItem
+from src.domain.entities.judgment import Judgment, JudgmentCorrection
 from src.domain.repositories.judgment_repository import JudgmentRepository
 from src.domain.value_objects.verdict import Verdict
 from src.infrastructure.persistence.models.judgment_model import JudgmentModel
@@ -25,7 +25,14 @@ class PgJudgmentRepository(JudgmentRepository):
                 verdict=judgment.verdict.value,
                 score=judgment.score,
                 advice=judgment.advice,
-                items=[{"label": item.label, "comment": item.comment} for item in judgment.items],
+                corrections=[
+                    {
+                        "target_text": correction.target_text,
+                        "correct_text": correction.correct_text,
+                        "explanation": correction.explanation,
+                    }
+                    for correction in judgment.corrections
+                ],
                 judged_at=judgment.judged_at,
             )
         )
@@ -60,6 +67,13 @@ def _to_judgment(model: JudgmentModel) -> Judgment:
         verdict=Verdict(model.verdict),
         score=model.score,
         advice=model.advice,
-        items=[JudgmentItem(label=item["label"], comment=item["comment"]) for item in model.items],
+        corrections=[
+            JudgmentCorrection(
+                target_text=correction["target_text"],
+                correct_text=correction["correct_text"],
+                explanation=correction["explanation"],
+            )
+            for correction in model.corrections
+        ],
         judged_at=model.judged_at,
     )

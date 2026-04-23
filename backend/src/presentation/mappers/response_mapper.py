@@ -10,7 +10,7 @@ from src.application.dto.session_dto import (
 from src.application.dto.user_dto import UserProfileView
 from src.application.dto.user_settings_dto import UserSettingsView
 from src.presentation.schemas.judgment_schema import (
-    JudgmentItemResponse,
+    JudgmentCorrectionResponse,
     JudgmentPendingResponse,
     JudgmentResponse,
 )
@@ -123,6 +123,13 @@ def to_judgment_response(view: JudgmentView) -> JudgmentResponse:
         verdict=view.verdict,
         score=view.score,
         advice=view.advice,
-        items=[JudgmentItemResponse(label=item.label, comment=item.comment) for item in view.items],
+        corrections=[
+            JudgmentCorrectionResponse(
+                target_text=correction.target_text,
+                correct_text=correction.correct_text,
+                explanation=correction.explanation,
+            )
+            for correction in view.corrections
+        ],
         judged_at=view.judged_at,
     )

@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 import pytest
 from httpx import AsyncClient
 
-from src.domain.entities.judgment import Judgment, JudgmentItem
+from src.domain.entities.judgment import Judgment, JudgmentCorrection
 from src.domain.value_objects.verdict import Verdict
 from tests.fakes.fake_judgment_repository import FakeJudgmentRepository
 
@@ -470,7 +470,13 @@ async def test_list_today_outputs_returns_current_users_outputs(
             verdict=Verdict.PARTIAL,
             score=72,
             advice="保存済みの判定結果です。",
-            items=[JudgmentItem(label="理解度", comment="要点は押さえられています。")],
+            corrections=[
+                JudgmentCorrection(
+                    target_text="今日のアウトプット",
+                    correct_text="今日取り組んだ学習内容",
+                    explanation="要点は押さえられています。具体例を足すとさらに分かりやすくなります。",
+                )
+            ],
             judged_at=datetime.now(UTC),
         )
     )
@@ -593,10 +599,11 @@ async def test_get_judgment_returns_saved_judgment(
             verdict=Verdict.PARTIAL,
             score=72,
             advice="保存済みの判定結果です。",
-            items=[
-                JudgmentItem(
-                    label="関係代名詞の理解",
-                    comment="主題に沿った説明が保存されています。",
+            corrections=[
+                JudgmentCorrection(
+                    target_text="関係代名詞",
+                    correct_text="関係代名詞は先行詞を詳しく説明する節を作る",
+                    explanation="主題に沿った説明が保存されています。",
                 )
             ],
             judged_at=datetime(2026, 4, 10, 15, 30, tzinfo=UTC),
@@ -612,7 +619,7 @@ async def test_get_judgment_returns_saved_judgment(
     body = response.json()
     assert body["verdict"] == "partial"
     assert body["score"] == 72
-    assert body["items"]
+    assert body["corrections"]
     assert body["judged_at"]
 
 

@@ -8,11 +8,12 @@ from src.common.models import FrozenModel
 from src.domain.value_objects.verdict import Verdict
 
 
-class JudgmentItemView(FrozenModel):
-    """判定結果の補足コメント。"""
+class JudgmentCorrectionView(FrozenModel):
+    """アウトプット中の誤りに対する指摘。"""
 
-    label: str
-    comment: str
+    target_text: str
+    correct_text: str
+    explanation: str
 
 
 class JudgmentView(FrozenModel):
@@ -23,7 +24,7 @@ class JudgmentView(FrozenModel):
     verdict: Verdict
     score: int
     advice: str
-    items: list[JudgmentItemView]
+    corrections: list[JudgmentCorrectionView]
     judged_at: datetime
 
 
