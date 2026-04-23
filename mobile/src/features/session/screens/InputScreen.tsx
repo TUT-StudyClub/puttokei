@@ -16,6 +16,7 @@ import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 're
 import { Path, Svg } from 'react-native-svg';
 import { SizableText } from 'tamagui';
 
+import { AnnotatedOutputText } from '@/features/session/components/AnnotatedOutputText';
 import {
   CircularPhaseTimer,
   HourglassBadge,
@@ -28,10 +29,6 @@ import { useTodayOutputs } from '@/features/session/hooks/useTodayOutputs';
 import { useTimer } from '@/features/session/hooks/useTimer';
 import { useUpdateSessionStatus } from '@/features/session/hooks/useUpdateSessionStatus';
 import type { OutputReviewItem } from '@/features/session/types';
-import {
-  JUDGMENT_VERDICT_COLORS,
-  JUDGMENT_VERDICT_LABELS,
-} from '@/shared/lib/judgmentPresentation';
 import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
@@ -159,7 +156,20 @@ type OutputDetailCardProps = {
 
 function OutputDetailCard({ item, onBack }: OutputDetailCardProps) {
   const judgment = item.judgment;
-  const firstItem = judgment?.items[0];
+  const corrections = useMemo(() => judgment?.corrections ?? [], [judgment?.corrections]);
+  const hasCorrections = corrections.length > 0;
+  const [selectedCorrectionIndex, setSelectedCorrectionIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    setSelectedCorrectionIndex(null);
+  }, [item.output.id]);
+
+  const selectedCorrection =
+    selectedCorrectionIndex !== null ? (corrections[selectedCorrectionIndex] ?? null) : null;
+
+  const handleSelectCorrection = (index: number) => {
+    setSelectedCorrectionIndex((current) => (current === index ? null : index));
+  };
 
   return (
     <View style={styles.outputDetailSheet} testID="output-review-detail">
@@ -197,35 +207,49 @@ function OutputDetailCard({ item, onBack }: OutputDetailCardProps) {
 
         <View style={styles.outputContentBox}>
           <ScrollView nestedScrollEnabled contentContainerStyle={styles.outputContentScroll}>
-            <SizableText style={styles.outputContentText}>{item.output.content}</SizableText>
+            <AnnotatedOutputText
+              content={item.output.content}
+              corrections={corrections}
+              selectedCorrectionIndex={selectedCorrectionIndex}
+              onSelectCorrection={handleSelectCorrection}
+              textStyle={styles.outputContentText}
+              testID="output-review-annotated-text"
+            />
           </ScrollView>
 
-          <View style={styles.feedbackPopover} testID="output-review-feedback">
-            {judgment ? (
-              <>
-                <SizableText style={styles.feedbackHeading}>判定</SizableText>
-                <SizableText
-                  style={[
-                    styles.feedbackVerdict,
-                    { color: JUDGMENT_VERDICT_COLORS[judgment.verdict] },
-                  ]}
-                >
-                  {JUDGMENT_VERDICT_LABELS[judgment.verdict]} / {judgment.score}
-                </SizableText>
-                <SizableText style={styles.feedbackHeading}>解説</SizableText>
-                <SizableText style={styles.feedbackBody} numberOfLines={5}>
-                  {firstItem?.comment ?? judgment.advice}
-                </SizableText>
-              </>
-            ) : (
-              <>
-                <SizableText style={styles.feedbackHeading}>判定待ち</SizableText>
-                <SizableText style={styles.feedbackBody}>
-                  採点が完了すると、ここに判定と解説が表示されます。
-                </SizableText>
-              </>
-            )}
-          </View>
+          {selectedCorrection ? (
+            <Pressable
+              onPress={() => setSelectedCorrectionIndex(null)}
+              style={styles.feedbackPopover}
+              testID="output-review-correction-popover"
+            >
+              <SizableText style={styles.feedbackHeading}>正解</SizableText>
+              <SizableText style={styles.feedbackCorrect}>
+                {selectedCorrection.correct_text}
+              </SizableText>
+              <SizableText style={styles.feedbackHeading}>解説</SizableText>
+              <SizableText style={styles.feedbackBody}>
+                {selectedCorrection.explanation}
+              </SizableText>
+            </Pressable>
+          ) : judgment ? (
+            <View style={styles.feedbackPopover} testID="output-review-feedback">
+              <SizableText style={styles.feedbackHeading}>フィードバック</SizableText>
+              <SizableText style={styles.feedbackBody}>{judgment.advice}</SizableText>
+              <SizableText style={styles.feedbackBody}>
+                {hasCorrections
+                  ? '赤い箇所をタップすると、正解と解説を確認できます。'
+                  : '今回の判定では、個別に直す箇所はありませんでした。'}
+              </SizableText>
+            </View>
+          ) : (
+            <View style={styles.feedbackPopover} testID="output-review-feedback">
+              <SizableText style={styles.feedbackHeading}>判定待ち</SizableText>
+              <SizableText style={styles.feedbackBody}>
+                採点が完了すると、ここに判定と解説が表示されます。
+              </SizableText>
+            </View>
+          )}
         </View>
       </View>
     </View>
@@ -615,9 +639,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: 22,
   },
-  feedbackVerdict: {
+  feedbackCorrect: {
+    color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '700',
     lineHeight: 24,
     marginBottom: 12,
   },
@@ -626,6 +651,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     lineHeight: 22,
+    marginBottom: 4,
   },
   errorText: {
     color: ERROR_COLOR,

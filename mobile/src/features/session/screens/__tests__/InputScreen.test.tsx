@@ -150,7 +150,7 @@ describe('InputScreen', () => {
           output: {
             id: 'out-1',
             session_id: 'ses-prev',
-            content: '明智光秀は本能寺の変で織田信長を討った',
+            content: '明智光秀は本能寺の変で死んだ',
             submitted_at: '2026-04-10T15:25:00.000Z',
           },
           cycle_index: 1,
@@ -162,8 +162,56 @@ describe('InputScreen', () => {
             verdict: 'partial',
             score: 72,
             advice: '要点は押さえられています。',
-            items: [{ label: '理解度', comment: '主題に沿って説明できています。' }],
+            corrections: [
+              {
+                target_text: '明智光秀',
+                correct_text: '織田信長は本能寺の変で死んだ',
+                explanation: '本能寺の変で死亡したのは織田信長です。',
+              },
+            ],
             judged_at: '2026-04-10T15:30:00.000Z',
+          },
+        },
+      ],
+    });
+
+    const { getByTestId, findByText, queryByTestId } = renderWithProviders(<InputScreen />);
+
+    expect(await findByText('今日のアウトプット')).toBeTruthy();
+    fireEvent.press(getByTestId('today-output-row-out-1'));
+
+    expect(getByTestId('output-review-detail')).toBeTruthy();
+    expect(getByTestId('output-review-annotated-text')).toBeTruthy();
+    expect(getByTestId('output-review-feedback')).toBeTruthy();
+    expect(queryByTestId('output-review-correction-popover')).toBeNull();
+
+    // 赤ハイライトをタップすると正解 / 解説のポップオーバーが現れる
+    fireEvent.press(getByTestId('correction-highlight-0'));
+    expect(getByTestId('output-review-correction-popover')).toBeTruthy();
+  });
+
+  it('個別指摘がない判定でも advice を表示する', async () => {
+    (sessionApi.listTodayOutputs as jest.Mock).mockResolvedValue({
+      items: [
+        {
+          session_id: 'ses-prev',
+          output: {
+            id: 'out-2',
+            session_id: 'ses-prev',
+            content: '1+1=3',
+            submitted_at: '2026-04-10T16:25:00.000Z',
+          },
+          cycle_index: 2,
+          subject: '算数',
+          topic: '足し算',
+          judgment: {
+            id: 'jdg-2',
+            session_id: 'ses-prev',
+            verdict: 'rejected',
+            score: 0,
+            advice: '学習内容をもう少し具体的に書いてください。',
+            corrections: [],
+            judged_at: '2026-04-10T16:30:00.000Z',
           },
         },
       ],
@@ -172,9 +220,11 @@ describe('InputScreen', () => {
     const { getByTestId, findByText } = renderWithProviders(<InputScreen />);
 
     expect(await findByText('今日のアウトプット')).toBeTruthy();
-    fireEvent.press(getByTestId('today-output-row-out-1'));
+    fireEvent.press(getByTestId('today-output-row-out-2'));
 
-    expect(getByTestId('output-review-detail')).toBeTruthy();
     expect(getByTestId('output-review-feedback')).toBeTruthy();
+    expect(getByTestId('output-review-annotated-text')).toBeTruthy();
+    expect(await findByText('学習内容をもう少し具体的に書いてください。')).toBeTruthy();
+    expect(await findByText('今回の判定では、個別に直す箇所はありませんでした。')).toBeTruthy();
   });
 });
