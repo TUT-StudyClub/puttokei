@@ -78,3 +78,16 @@ export type JudgmentPending = {
 export type JudgmentFetchResult =
   | { kind: 'ready'; judgment: Judgment }
   | { kind: 'pending'; pending: JudgmentPending };
+
+export type OutputReviewItem = {
+  session_id: string;
+  output: Output;
+  cycle_index: number;
+  subject: string;
+  topic: string;
+  judgment: Judgment | null;
+};
+
+export type TodayOutputsResponse = {
+  items: OutputReviewItem[];
+};
