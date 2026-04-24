@@ -15,7 +15,6 @@ import { TamaguiProvider } from 'tamagui';
 import config from '../tamagui.config';
 import { configureGoogleSignIn } from '@/features/auth/lib/signInWithGoogle';
 import { AuthGate } from '@/shared/components/AuthGate';
-import { installDevMockAuth } from '@/shared/lib/devMockAuth';
 import { refreshIdToken, subscribeIdTokenChanged } from '@/shared/lib/firebase';
 import { initializeFirebaseAuth } from '@/shared/lib/firebaseAuth';
 import { setTokenProvider, setTokenRefresher } from '@/shared/lib/api';
@@ -26,11 +25,6 @@ export default function RootLayout() {
   useEffect(() => {
     initializeFirebaseAuth();
     configureGoogleSignIn();
-    // DEV ビルド時のみ dev-mock 認証を差し込む (バックエンドは DEV_MOCK_AUTH_ENABLED=true が前提)。
-    // Firebase Anonymous Auth を実装したら本行を撤去する。
-    if (__DEV__) {
-      installDevMockAuth();
-    }
     setTokenProvider(() => getAuthIdToken());
     setTokenRefresher(() => refreshIdToken());
 
