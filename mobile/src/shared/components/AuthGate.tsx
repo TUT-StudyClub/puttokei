@@ -68,6 +68,13 @@ export function AuthGate({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // サインアウト / 再サインイン時に前回の一時エラー文言が居残らないようクリアする。
+  useEffect(() => {
+    if (uid === null) {
+      setProfileActionError(null);
+    }
+  }, [uid]);
+
   useEffect(() => {
     const topSegment = segments[0];
 
