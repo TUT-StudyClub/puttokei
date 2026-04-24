@@ -53,9 +53,15 @@ export type SubmitOutputInput = {
   submitted_at: string;
 };
 
-export type JudgmentItem = {
-  label: string;
-  comment: string;
+/**
+ * アウトプット中の誤りに対する指摘。
+ * backend の `JudgmentCorrection` と対応する。
+ * UI 側ではユーザー文中の `target_text` を赤ハイライトし、タップで正解と解説を出す。
+ */
+export type JudgmentCorrection = {
+  target_text: string;
+  correct_text: string;
+  explanation: string;
 };
 
 export type Judgment = {
@@ -64,7 +70,7 @@ export type Judgment = {
   verdict: JudgmentVerdict;
   score: number;
   advice: string;
-  items: JudgmentItem[];
+  corrections: JudgmentCorrection[];
   judged_at: string;
 };
 
@@ -78,3 +84,16 @@ export type JudgmentPending = {
 export type JudgmentFetchResult =
   | { kind: 'ready'; judgment: Judgment }
   | { kind: 'pending'; pending: JudgmentPending };
+
+export type OutputReviewItem = {
+  session_id: string;
+  output: Output;
+  cycle_index: number;
+  subject: string;
+  topic: string;
+  judgment: Judgment | null;
+};
+
+export type TodayOutputsResponse = {
+  items: OutputReviewItem[];
+};

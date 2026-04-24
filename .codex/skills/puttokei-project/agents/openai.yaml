@@ -1,0 +1,4 @@
+interface:
+  display_name: "Puttokei Project"
+  short_description: "設計書に沿ってこのリポジトリの実装や土台を整える"
+  default_prompt: "このリポジトリの変更を設計書に沿って進めるために $puttokei-project を使ってください。"

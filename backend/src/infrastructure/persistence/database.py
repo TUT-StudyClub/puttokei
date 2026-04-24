@@ -1,7 +1,4 @@
-"""非同期 SQLAlchemy のエンジンとセッションファクトリ。
-
-Composition Root から `Database` を組み立て、リポジトリ実装に session を渡す。
-"""
+"""非同期 SQLAlchemy のエンジンとセッションファクトリ。"""
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -30,7 +27,7 @@ class Database:
 
     @asynccontextmanager
     async def session(self) -> AsyncIterator[AsyncSession]:
-        """1 リクエストにつき 1 セッション。コミットは利用側で行う。"""
+        """Unit of Work へ渡す AsyncSession を開く。"""
         async with self._session_factory() as session:
             yield session
 

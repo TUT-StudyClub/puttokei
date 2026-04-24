@@ -1,0 +1,154 @@
+{
+  "folders": [
+    {
+      "name": "root",
+      "path": "."
+    },
+    {
+      "name": "backend",
+      "path": "backend"
+    },
+    {
+      "name": "mobile",
+      "path": "mobile"
+    }
+  ],
+  "settings": {
+    "python.defaultInterpreterPath": "${workspaceFolder:root}/backend/.venv/bin/python",
+    "python.analysis.extraPaths": ["${workspaceFolder:root}/backend"],
+    "python.testing.pytestEnabled": true,
+    "python.testing.pytestArgs": ["backend/tests"],
+    "js/ts.tsdk.path": "${workspaceFolder:root}/mobile/node_modules/typescript/lib",
+    "eslint.workingDirectories": [
+      {
+        "directory": "mobile",
+        "changeProcessCWD": true
+      }
+    ],
+    "prettier.configPath": "${workspaceFolder:root}/mobile/.prettierrc"
+  },
+  "extensions": {
+    "recommendations": [
+      "ms-python.python",
+      "ms-python.vscode-pylance",
+      "charliermarsh.ruff",
+      "dbaeumer.vscode-eslint",
+      "esbenp.prettier-vscode",
+      "expo.vscode-expo-tools",
+      "ms-azuretools.vscode-docker",
+      "task.vscode-task"
+    ]
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "task: install",
+        "type": "shell",
+        "command": "task install",
+        "options": {
+          "cwd": "${workspaceFolder:root}"
+        },
+        "group": "build",
+        "problemMatcher": []
+      },
+      {
+        "label": "task: ci",
+        "type": "shell",
+        "command": "task ci",
+        "options": {
+          "cwd": "${workspaceFolder:root}"
+        },
+        "group": {
+          "kind": "test",
+          "isDefault": true
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "task: lint",
+        "type": "shell",
+        "command": "task lint",
+        "options": {
+          "cwd": "${workspaceFolder:root}"
+        },
+        "group": "test",
+        "problemMatcher": []
+      },
+      {
+        "label": "task: typecheck",
+        "type": "shell",
+        "command": "task typecheck",
+        "options": {
+          "cwd": "${workspaceFolder:root}"
+        },
+        "group": "test",
+        "problemMatcher": []
+      },
+      {
+        "label": "task: test",
+        "type": "shell",
+        "command": "task test",
+        "options": {
+          "cwd": "${workspaceFolder:root}"
+        },
+        "group": "test",
+        "problemMatcher": []
+      },
+      {
+        "label": "task: backend:dev",
+        "type": "shell",
+        "command": "task backend:dev",
+        "options": {
+          "cwd": "${workspaceFolder:root}"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "task: mobile:start",
+        "type": "shell",
+        "command": "task mobile:start",
+        "options": {
+          "cwd": "${workspaceFolder:root}"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "task: mobile:web",
+        "type": "shell",
+        "command": "task mobile:web",
+        "options": {
+          "cwd": "${workspaceFolder:root}"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "task: backend:db:up",
+        "type": "shell",
+        "command": "task backend:db:up",
+        "options": {
+          "cwd": "${workspaceFolder:root}"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "task: backend:db:down",
+        "type": "shell",
+        "command": "task backend:db:down",
+        "options": {
+          "cwd": "${workspaceFolder:root}"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "task: backend:db:upgrade",
+        "type": "shell",
+        "command": "task backend:db:upgrade",
+        "options": {
+          "cwd": "${workspaceFolder:root}"
+        },
+        "problemMatcher": []
+      }
+    ]
+  }
+}

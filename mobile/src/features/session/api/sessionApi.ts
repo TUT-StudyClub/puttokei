@@ -11,6 +11,7 @@ import type {
   SessionStatus,
   SubmitOutputInput,
   SubmitOutputResponse,
+  TodayOutputsResponse,
 } from '@/features/session/types';
 
 export async function createSession(input: CreateSessionInput): Promise<Session> {
@@ -52,4 +53,9 @@ export async function getJudgment(sessionId: string): Promise<JudgmentFetchResul
   }
 
   return { kind: 'ready', judgment: response.data as Judgment };
+}
+
+export async function listTodayOutputs(): Promise<TodayOutputsResponse> {
+  const { data } = await api.get<TodayOutputsResponse>('/sessions/outputs/today');
+  return data;
 }

@@ -9,6 +9,7 @@ CQRS 的な命名で役割を明示する。
 from datetime import datetime
 from uuid import UUID
 
+from src.application.dto.judgment_dto import JudgmentView
 from src.common.models import FrozenModel
 from src.domain.value_objects.session_status import SessionStatus
 
@@ -68,3 +69,20 @@ class SubmitOutputView(FrozenModel):
 
     output: OutputView
     status: SessionStatus
+
+
+class OutputReviewItemView(FrozenModel):
+    """インプット画面で見返すためのアウトプットと判定情報。"""
+
+    session_id: UUID
+    output: OutputView
+    cycle_index: int
+    subject: str
+    topic: str
+    judgment: JudgmentView | None
+
+
+class TodayOutputsView(FrozenModel):
+    """今日送信したアウトプット一覧。"""
+
+    items: list[OutputReviewItemView]

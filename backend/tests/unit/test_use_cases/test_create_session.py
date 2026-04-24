@@ -11,6 +11,7 @@ from src.domain.entities.user import User
 from src.domain.value_objects.auth_provider import AuthProvider
 from src.domain.value_objects.session_status import SessionStatus
 from tests.fakes.fake_session_repository import FakeSessionRepository
+from tests.fakes.fake_unit_of_work import FakeUnitOfWork
 
 
 def _make_user() -> User:
@@ -31,7 +32,7 @@ def _make_user() -> User:
 async def test_create_session_persists_input_status_session():
     repo = FakeSessionRepository()
     user = _make_user()
-    use_case = CreateSession(session_repository=repo)
+    use_case = CreateSession(unit_of_work_factory=lambda: FakeUnitOfWork(sessions=repo))
 
     view = await use_case.execute(
         user,
@@ -62,7 +63,7 @@ async def test_create_session_persists_input_status_session():
 @pytest.mark.asyncio
 async def test_create_session_uses_custom_timer_values():
     repo = FakeSessionRepository()
-    use_case = CreateSession(session_repository=repo)
+    use_case = CreateSession(unit_of_work_factory=lambda: FakeUnitOfWork(sessions=repo))
 
     view = await use_case.execute(
         _make_user(),

@@ -9,6 +9,7 @@ from src.application.use_cases.delete_account import DeleteAccount
 from src.domain.entities.user import User
 from src.domain.entities.user_settings import UserSettings
 from src.domain.value_objects.auth_provider import AuthProvider
+from tests.fakes.fake_unit_of_work import FakeUnitOfWork
 from tests.fakes.fake_user_repository import FakeUserRepository
 
 
@@ -36,7 +37,7 @@ async def test_delete_account_soft_deletes_user_and_preserves_settings():
     user, settings = _make_user_with_settings()
     await repo.add(user, settings)
 
-    use_case = DeleteAccount(user_repository=repo)
+    use_case = DeleteAccount(unit_of_work_factory=lambda: FakeUnitOfWork(users=repo))
     await use_case.execute(user)
 
     # 行は残り、deleted_at がセットされ、fcm_token がクリアされる
@@ -56,7 +57,7 @@ async def test_delete_account_is_idempotent():
     user, settings = _make_user_with_settings()
     await repo.add(user, settings)
 
-    use_case = DeleteAccount(user_repository=repo)
+    use_case = DeleteAccount(unit_of_work_factory=lambda: FakeUnitOfWork(users=repo))
     await use_case.execute(user)
     first_deleted_at = repo.users[user.firebase_uid].deleted_at
     assert first_deleted_at is not None

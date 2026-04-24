@@ -37,16 +37,19 @@ describe('HistoryDetailScreen', () => {
     jest.clearAllMocks();
   });
 
-  it('詳細取得成功時は score / advice / items を表示する', async () => {
+  it('詳細取得成功時は score / advice / corrections を表示する', async () => {
     (judgmentApi.getJudgmentDetail as jest.Mock).mockResolvedValue({
       id: 'jdg-1',
       session_id: 'ses-1',
       verdict: 'partial',
       score: 72,
       advice: 'もう少し具体例を増やすと安定します。',
-      items: [
-        { label: '理解度', comment: '要点は押さえられています。' },
-        { label: '具体例', comment: '例があるとさらに伝わります。' },
+      corrections: [
+        {
+          target_text: '明智光秀',
+          correct_text: '織田信長は本能寺の変で死んだ',
+          explanation: '本能寺の変で死亡したのは織田信長です。',
+        },
       ],
       judged_at: '2026-04-10T15:30:00.000Z',
     });
@@ -58,7 +61,7 @@ describe('HistoryDetailScreen', () => {
     });
     expect(getByTestId('judgment-card')).toBeTruthy();
     expect(getByText('スコア: 72')).toBeTruthy();
-    expect(getByText('具体例')).toBeTruthy();
+    expect(getByTestId('judgment-corrections')).toBeTruthy();
   });
 
   it('取得失敗時はエラーメッセージと再取得ボタンを表示する', async () => {
@@ -86,7 +89,7 @@ describe('HistoryDetailScreen', () => {
       verdict: 'correct',
       score: 91,
       advice: '十分に整理されています。',
-      items: [{ label: '再現性', comment: '説明が具体的です。' }],
+      corrections: [],
       judged_at: '2026-04-10T15:30:00.000Z',
     });
 

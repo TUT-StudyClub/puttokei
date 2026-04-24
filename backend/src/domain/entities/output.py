@@ -3,13 +3,11 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from src.common.models import FrozenModel
 
 
-class Output(BaseModel):
+class Output(FrozenModel):
     """送信されたアウトプット本文を表現するエンティティ。"""
-
-    model_config = ConfigDict(frozen=True)
 
     id: UUID
     session_id: UUID
