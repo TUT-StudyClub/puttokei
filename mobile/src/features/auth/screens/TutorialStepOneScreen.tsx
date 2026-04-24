@@ -326,13 +326,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     position: 'relative',
-    paddingTop: 20,
-    paddingRight: 24,
-    paddingLeft: 24,
   },
   progressRow: {
     position: 'absolute',
-    top: '2.5%',
+    top: '3.1%',
     left: '7.46%',
     right: '6.97%',
     flexDirection: 'row',
@@ -359,7 +356,7 @@ const styles = StyleSheet.create({
   },
   hero: {
     position: 'absolute',
-    top: '8.5%',
+    top: '8.12%',
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -379,7 +376,7 @@ const styles = StyleSheet.create({
     top: '14.5%',
     left: '13.18%',
     right: '12.94%',
-    height: '62%',
+    height: '60.4%',
   },
   phaseLayer: {
     flex: 1,
@@ -459,7 +456,7 @@ const styles = StyleSheet.create({
   },
   actionArea: {
     position: 'absolute',
-    top: '80%',
+    top: '78%',
     left: '13.18%',
     right: '12.94%',
     gap: 20,
