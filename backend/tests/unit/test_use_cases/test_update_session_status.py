@@ -21,6 +21,7 @@ from src.domain.entities.user import User
 from src.domain.value_objects.auth_provider import AuthProvider
 from src.domain.value_objects.session_status import SessionStatus
 from tests.fakes.fake_session_repository import FakeSessionRepository
+from tests.fakes.fake_unit_of_work import FakeUnitOfWork
 
 
 def _make_user(user_id: UUID | None = None) -> User:
@@ -65,7 +66,7 @@ async def test_updates_status_from_input_to_output():
     session = _make_session(user.id, session_status=SessionStatus.INPUT)
     await repo.add(session)
 
-    use_case = UpdateSessionStatus(session_repository=repo)
+    use_case = UpdateSessionStatus(unit_of_work_factory=lambda: FakeUnitOfWork(sessions=repo))
     view = await use_case.execute(
         user,
         UpdateSessionStatusCommand(session_id=session.id, new_status=SessionStatus.OUTPUT),
@@ -84,7 +85,7 @@ async def test_updates_status_from_output_to_judging():
     session = _make_session(user.id, session_status=SessionStatus.OUTPUT)
     await repo.add(session)
 
-    use_case = UpdateSessionStatus(session_repository=repo)
+    use_case = UpdateSessionStatus(unit_of_work_factory=lambda: FakeUnitOfWork(sessions=repo))
     view = await use_case.execute(
         user,
         UpdateSessionStatusCommand(session_id=session.id, new_status=SessionStatus.JUDGING),
@@ -101,7 +102,7 @@ async def test_judged_transition_sets_completed_at():
     session = _make_session(user.id, session_status=SessionStatus.JUDGING)
     await repo.add(session)
 
-    use_case = UpdateSessionStatus(session_repository=repo)
+    use_case = UpdateSessionStatus(unit_of_work_factory=lambda: FakeUnitOfWork(sessions=repo))
     view = await use_case.execute(
         user,
         UpdateSessionStatusCommand(session_id=session.id, new_status=SessionStatus.JUDGED),
@@ -118,7 +119,7 @@ async def test_cancelled_transition_sets_completed_at():
     session = _make_session(user.id, session_status=SessionStatus.INPUT)
     await repo.add(session)
 
-    use_case = UpdateSessionStatus(session_repository=repo)
+    use_case = UpdateSessionStatus(unit_of_work_factory=lambda: FakeUnitOfWork(sessions=repo))
     view = await use_case.execute(
         user,
         UpdateSessionStatusCommand(session_id=session.id, new_status=SessionStatus.CANCELLED),
@@ -136,7 +137,7 @@ async def test_skip_transition_is_rejected():
     session = _make_session(user.id, session_status=SessionStatus.INPUT)
     await repo.add(session)
 
-    use_case = UpdateSessionStatus(session_repository=repo)
+    use_case = UpdateSessionStatus(unit_of_work_factory=lambda: FakeUnitOfWork(sessions=repo))
     with pytest.raises(InvalidSessionStatusTransitionError):
         await use_case.execute(
             user,
@@ -152,7 +153,7 @@ async def test_backward_transition_is_rejected():
     session = _make_session(user.id, session_status=SessionStatus.OUTPUT)
     await repo.add(session)
 
-    use_case = UpdateSessionStatus(session_repository=repo)
+    use_case = UpdateSessionStatus(unit_of_work_factory=lambda: FakeUnitOfWork(sessions=repo))
     with pytest.raises(InvalidSessionStatusTransitionError):
         await use_case.execute(
             user,
@@ -168,7 +169,7 @@ async def test_no_op_transition_is_rejected():
     session = _make_session(user.id, session_status=SessionStatus.INPUT)
     await repo.add(session)
 
-    use_case = UpdateSessionStatus(session_repository=repo)
+    use_case = UpdateSessionStatus(unit_of_work_factory=lambda: FakeUnitOfWork(sessions=repo))
     with pytest.raises(InvalidSessionStatusTransitionError):
         await use_case.execute(
             user,
@@ -184,7 +185,7 @@ async def test_transition_from_judged_is_rejected():
     session = _make_session(user.id, session_status=SessionStatus.JUDGED)
     await repo.add(session)
 
-    use_case = UpdateSessionStatus(session_repository=repo)
+    use_case = UpdateSessionStatus(unit_of_work_factory=lambda: FakeUnitOfWork(sessions=repo))
     with pytest.raises(InvalidSessionStatusTransitionError):
         await use_case.execute(
             user,
@@ -200,7 +201,7 @@ async def test_transition_from_cancelled_is_rejected():
     session = _make_session(user.id, session_status=SessionStatus.CANCELLED)
     await repo.add(session)
 
-    use_case = UpdateSessionStatus(session_repository=repo)
+    use_case = UpdateSessionStatus(unit_of_work_factory=lambda: FakeUnitOfWork(sessions=repo))
     with pytest.raises(InvalidSessionStatusTransitionError):
         await use_case.execute(
             user,
@@ -213,7 +214,7 @@ async def test_missing_session_raises_not_found():
     repo = FakeSessionRepository()
     user = _make_user()
 
-    use_case = UpdateSessionStatus(session_repository=repo)
+    use_case = UpdateSessionStatus(unit_of_work_factory=lambda: FakeUnitOfWork(sessions=repo))
     with pytest.raises(SessionNotFoundError):
         await use_case.execute(
             user,
@@ -230,7 +231,7 @@ async def test_other_users_session_raises_not_found():
     session = _make_session(owner.id, session_status=SessionStatus.INPUT)
     await repo.add(session)
 
-    use_case = UpdateSessionStatus(session_repository=repo)
+    use_case = UpdateSessionStatus(unit_of_work_factory=lambda: FakeUnitOfWork(sessions=repo))
     with pytest.raises(SessionNotFoundError):
         await use_case.execute(
             other,

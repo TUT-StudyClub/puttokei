@@ -34,7 +34,7 @@ async def test_get_settings_auto_creates_user_and_returns_defaults(client: Async
 @pytest.mark.asyncio
 async def test_patch_settings_persists_partial_update(client: AsyncClient):
     headers = {"Authorization": "Bearer settings-user-002"}
-    # 初回 GET で auth_middleware が user_settings を自動作成
+    # 初回 GET で AuthenticateUser が user_settings を自動作成
     await client.get("/api/v1/users/me/settings", headers=headers)
 
     patch_response = await client.patch(
@@ -62,7 +62,7 @@ async def test_patch_settings_persists_partial_update(client: AsyncClient):
     ("payload", "field"),
     [
         ({"input_minutes": 0}, "input_minutes"),
-        ({"input_minutes": 181}, "input_minutes"),
+        ({"input_minutes": 121}, "input_minutes"),
         ({"output_minutes": -1}, "output_minutes"),
         ({"break_minutes": 999}, "break_minutes"),
     ],
@@ -132,7 +132,7 @@ async def test_delete_account_soft_deletes_user_and_returns_204(
     client: AsyncClient, fake_user_repository: FakeUserRepository
 ):
     headers = {"Authorization": "Bearer settings-user-delete"}
-    # 初回 GET で users + user_settings を auth_middleware に作らせる
+    # 初回 GET で users + user_settings を AuthenticateUser に作らせる
     get_response = await client.get("/api/v1/users/me/settings", headers=headers)
     assert get_response.status_code == 200
     assert "settings-user-delete" in fake_user_repository.users
@@ -168,7 +168,7 @@ async def test_protected_api_returns_401_after_account_deleted(
 async def test_delete_account_second_call_returns_401_for_already_deleted_user(
     client: AsyncClient,
 ):
-    """2 度目の DELETE は auth_middleware 段階で 401 になる。"""
+    """2 度目の DELETE は認証 use case 段階で 401 になる。"""
     headers = {"Authorization": "Bearer settings-user-twicedel"}
     await client.get("/api/v1/users/me/settings", headers=headers)
     first = await client.delete("/api/v1/users/me", headers=headers)

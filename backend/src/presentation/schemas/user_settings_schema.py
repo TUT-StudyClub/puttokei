@@ -6,10 +6,11 @@ from pydantic import Field
 
 from src.common.models import FrozenModel, StrictRequestModel
 
-# タイマー値の許容範囲。要件書 3.2.6 / 4.3.2 に明記された絶対値はないため、
-# 1 分以上 180 分以下を「実用範囲」として採用する。境界値テストもこの値で行う。
+# タイマー値の許容範囲。セッション作成 (CreateSessionRequest) が 1〜120 分を要求するため、
+# 設定値が 120 分を超えるとセッション作成が 422 で失敗してしまう。ここを session 側に
+# 揃えて 1〜120 分にすることで、設定で保存した値がそのままセッション開始に使える。
 _MINUTES_MIN = 1
-_MINUTES_MAX = 180
+_MINUTES_MAX = 120
 
 
 class UserSettingsResponse(FrozenModel):
@@ -25,7 +26,7 @@ class UserSettingsResponse(FrozenModel):
 class UpdateUserSettingsRequest(StrictRequestModel):
     """PATCH /users/me/settings の body。
 
-    すべてのフィールドが省略可能。minutes 系は 1 ～ 180 の範囲を要求し、未知フィールドは
+    すべてのフィールドが省略可能。minutes 系は 1 ～ 120 の範囲を要求し、未知フィールドは
     StrictRequestModel により拒否する。「全フィールド未指定（空 body）」のチェックは、
     Pydantic の model_validator で投げると ValidationError の ctx に ValueError が入って
     Problem Details のシリアライズが失敗するため、ルーター層で明示的にハンドリングする。

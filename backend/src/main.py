@@ -1,7 +1,6 @@
 """FastAPI エントリポイント。
 
 Composition Root でコンテナを組み立て、ルーターを束ねる。
-詳細なエンドポイント実装は後続 Epic で追加する。
 """
 
 from collections.abc import AsyncIterator

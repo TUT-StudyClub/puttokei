@@ -1,7 +1,7 @@
 /**
  * インプットフェーズ画面。
  *
- * マウント時に `useTimer.start('input', input_minutes * 60)` でカウントダウンを開始し、
+ * session id ごとに `useTimer.start('input', input_minutes * 60)` でカウントダウンを開始し、
  * タイマー完了時に `PATCH status=output` を送る。成功後に `/session/{id}/output` へ
  * `router.replace` で遷移する（history に残さない方針）。
  *
@@ -11,29 +11,30 @@
 import { useIsFocused } from '@react-navigation/native';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef } from 'react';
-import { Alert, Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
-import { Circle, Path, Svg } from 'react-native-svg';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
+import { Path, Svg } from 'react-native-svg';
 import { SizableText } from 'tamagui';
 
+import { AnnotatedOutputText } from '@/features/session/components/AnnotatedOutputText';
+import {
+  CircularPhaseTimer,
+  HourglassBadge,
+  PhaseTabs,
+  type SessionPhase,
+  SessionSettingsButton,
+} from '@/features/session/components/SessionPhaseChrome';
 import { DEFAULT_TIMER } from '@/features/session/config';
-import { formatMmSs, useSmoothRemainingSeconds, useTimer } from '@/features/session/hooks/useTimer';
+import { useTodayOutputs } from '@/features/session/hooks/useTodayOutputs';
+import { useTimer } from '@/features/session/hooks/useTimer';
 import { useUpdateSessionStatus } from '@/features/session/hooks/useUpdateSessionStatus';
-import { LOOP_COUNT_MAX, useLoopStore } from '@/shared/stores/loopStore';
+import type { OutputReviewItem } from '@/features/session/types';
+import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
 const SETTINGS_ROUTE = '/(tabs)/settings' as unknown as Href;
 
-const PHASES = ['input', 'output', 'break'] as const;
-type Phase = (typeof PHASES)[number];
-
-const PHASE_LABELS: Record<Phase, string> = {
-  input: 'インプット',
-  output: 'アウトプット',
-  break: '休憩',
-};
-
-const CURRENT_PHASE: Phase = 'input';
+const CURRENT_PHASE: SessionPhase = 'input';
 const EXTEND_MINUTES = 5;
 
 const PRIMARY_COLOR = '#4B5CFF';
@@ -43,111 +44,8 @@ const DOT_INACTIVE = '#D9D9D9';
 const BORDER_COLOR = '#E5E7EB';
 const CAPTION_COLOR = '#777777';
 const ERROR_COLOR = '#D92D20';
-
-// 砂時計バッジ (HomeScreen と同じアイコンパスを使用)
-const HOURGLASS_BADGE_COUNT = LOOP_COUNT_MAX;
-const HOURGLASS_BADGE_BASE_WIDTH = 18;
-const HOURGLASS_BADGE_BASE_HEIGHT = 24;
-const HOURGLASS_BADGE_ACTIVE_SCALE = 1.45;
-const HOURGLASS_BADGE_INACTIVE_COLOR = TEXT_INACTIVE;
-const HOURGLASS_BADGE_ACTIVE_COLOR = PRIMARY_COLOR;
-const HOURGLASS_ICON_PATH =
-  'M2 2 H14 V4 C14 6.5 11 7.5 11 10 C11 12.5 14 13.5 14 16 V18 H2 V16 C2 13.5 5 12.5 5 10 C5 7.5 2 6.5 2 4 Z';
-
-type HourglassBadgeIconProps = {
-  active: boolean;
-  testID?: string;
-};
-
-function HourglassBadgeIcon({ active, testID }: HourglassBadgeIconProps) {
-  const width = active
-    ? HOURGLASS_BADGE_BASE_WIDTH * HOURGLASS_BADGE_ACTIVE_SCALE
-    : HOURGLASS_BADGE_BASE_WIDTH;
-  const height = active
-    ? HOURGLASS_BADGE_BASE_HEIGHT * HOURGLASS_BADGE_ACTIVE_SCALE
-    : HOURGLASS_BADGE_BASE_HEIGHT;
-  const color = active ? HOURGLASS_BADGE_ACTIVE_COLOR : HOURGLASS_BADGE_INACTIVE_COLOR;
-  return (
-    <Svg width={width} height={height} viewBox="0 0 16 20" testID={testID}>
-      <Path
-        d={HOURGLASS_ICON_PATH}
-        stroke={color}
-        strokeWidth={active ? 1.5 : 1.3}
-        strokeLinejoin="round"
-        fill="none"
-      />
-    </Svg>
-  );
-}
-
-const SETTINGS_ICON_HEX_PATH = 'M12 3 L20 7.5 V16.5 L12 21 L4 16.5 V7.5 Z';
-
-function SettingsIcon({ size = 26, color = TEXT_ACTIVE }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d={SETTINGS_ICON_HEX_PATH}
-        stroke={color}
-        strokeWidth={1.8}
-        strokeLinejoin="round"
-        fill="none"
-      />
-      <Circle cx={12} cy={12} r={2.4} stroke={color} strokeWidth={1.8} fill="none" />
-    </Svg>
-  );
-}
-
-type CircularTimerProps = {
-  phaseLabel: string;
-};
-
-function CircularTimer({ phaseLabel }: CircularTimerProps) {
-  const smoothRemainingSeconds = useSmoothRemainingSeconds();
-  const totalSeconds = useTimerStore((s) => s.totalSeconds);
-
-  const size = 260;
-  const strokeWidth = 14;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const displayRemainingSeconds = Math.max(0, Math.ceil(smoothRemainingSeconds));
-  // 経過割合。経過分だけ progress ストロークが伸びる (12 時方向から時計回り)。
-  const progressRatio =
-    totalSeconds > 0 ? Math.min(1, Math.max(0, 1 - smoothRemainingSeconds / totalSeconds)) : 0;
-  const dashOffset = circumference * (1 - progressRatio);
-
-  return (
-    <View style={[styles.timerWrap, { width: size, height: size }]} testID="input-circular-timer">
-      <Svg width={size} height={size}>
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke={BORDER_COLOR}
-          strokeWidth={strokeWidth}
-          fill="none"
-        />
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke={PRIMARY_COLOR}
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          fill="none"
-          strokeDasharray={`${circumference} ${circumference}`}
-          strokeDashoffset={dashOffset}
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        />
-      </Svg>
-      <View style={styles.timerCenter} pointerEvents="none">
-        <SizableText style={styles.timerPhaseLabel}>{phaseLabel}</SizableText>
-        <SizableText style={styles.timerText} testID="timer-display">
-          {formatMmSs(displayRemainingSeconds)}
-        </SizableText>
-      </View>
-    </View>
-  );
-}
+const PANEL_BORDER_COLOR = '#D0D0D0';
+const REVIEW_TEXT_MUTED = '#6B6B6B';
 
 type SessionRouteParams = {
   id?: string;
@@ -155,6 +53,208 @@ type SessionRouteParams = {
   output?: string;
   break?: string;
 };
+
+function PencilIcon({ color = TEXT_ACTIVE, size = 25 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 16.7 V20 H7.3 L18.6 8.7 L15.3 5.4 L4 16.7 Z"
+        stroke={color}
+        strokeWidth={2.2}
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <Path d="M14.2 6.5 L17.5 9.8" stroke={color} strokeWidth={2.2} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function ImageIcon({ color = TEXT_ACTIVE, size = 25 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M5 5 H19 V19 H5 Z"
+        stroke={color}
+        strokeWidth={2.1}
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <Path
+        d="M6.8 16 L10.2 12.6 L13 15.2 L15 13.2 L18.2 16.4"
+        stroke={color}
+        strokeWidth={2.1}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M8.8 9.1 H8.9" stroke={color} strokeWidth={3} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function MicIcon({ color = TEXT_INACTIVE, size = 25 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 4 C10.8 4 10 4.9 10 6 V12 C10 13.1 10.8 14 12 14 C13.2 14 14 13.1 14 12 V6 C14 4.9 13.2 4 12 4 Z"
+        stroke={color}
+        strokeWidth={2}
+      />
+      <Path d="M7 11 C7 14 9 16 12 16 C15 16 17 14 17 11" stroke={color} strokeWidth={2} />
+      <Path d="M12 16 V20" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function buildOutputPreview(content: string): string {
+  const normalized = content.replace(/\s+/g, ' ').trim();
+  if (normalized.length <= 15) return normalized;
+  return `${normalized.slice(0, 15)}...`;
+}
+
+type TodayOutputListProps = {
+  items: OutputReviewItem[];
+  onSelect: (item: OutputReviewItem) => void;
+};
+
+function TodayOutputList({ items, onSelect }: TodayOutputListProps) {
+  if (items.length === 0) return null;
+
+  return (
+    <View style={styles.todayOutputsSection} testID="today-outputs-section">
+      <SizableText style={styles.todayOutputsTitle}>今日のアウトプット</SizableText>
+      <View style={styles.todayOutputsCard}>
+        {items.map((item, index) => (
+          <Pressable
+            key={item.output.id}
+            accessibilityRole="button"
+            onPress={() => onSelect(item)}
+            style={({ pressed }) => [
+              styles.todayOutputRow,
+              index < items.length - 1 ? styles.todayOutputRowBorder : null,
+              pressed ? styles.buttonPressed : null,
+            ]}
+            testID={`today-output-row-${item.output.id}`}
+          >
+            <View style={styles.todayOutputIcon}>
+              <PencilIcon size={16} />
+            </View>
+            <SizableText style={styles.todayOutputText} numberOfLines={1}>
+              {buildOutputPreview(item.output.content)}
+            </SizableText>
+            <SizableText style={styles.todayOutputCycle}>サイクル{item.cycle_index}</SizableText>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+type OutputDetailCardProps = {
+  item: OutputReviewItem;
+  onBack: () => void;
+};
+
+function OutputDetailCard({ item, onBack }: OutputDetailCardProps) {
+  const judgment = item.judgment;
+  const corrections = useMemo(() => judgment?.corrections ?? [], [judgment?.corrections]);
+  const hasCorrections = corrections.length > 0;
+  const [selectedCorrectionIndex, setSelectedCorrectionIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    setSelectedCorrectionIndex(null);
+  }, [item.output.id]);
+
+  const selectedCorrection =
+    selectedCorrectionIndex !== null ? (corrections[selectedCorrectionIndex] ?? null) : null;
+
+  const handleSelectCorrection = (index: number) => {
+    setSelectedCorrectionIndex((current) => (current === index ? null : index));
+  };
+
+  return (
+    <View style={styles.outputDetailSheet} testID="output-review-detail">
+      <View style={styles.sheetHandle} />
+      <View style={styles.outputDetailHeader}>
+        <SizableText style={styles.outputDetailTitle}>
+          サイクル{item.cycle_index}のアウトプット
+        </SizableText>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onBack}
+          hitSlop={8}
+          style={styles.outputDetailBackButton}
+          testID="output-review-back"
+        >
+          <SizableText style={styles.outputDetailBack}>一覧</SizableText>
+        </Pressable>
+      </View>
+
+      <View style={styles.outputPreviewFrame}>
+        <View style={styles.outputModeTabs}>
+          <View style={styles.outputModeTabActive}>
+            <PencilIcon color={TEXT_ACTIVE} />
+            <SizableText style={styles.outputModeTabTextActive}>テキスト</SizableText>
+          </View>
+          <View style={styles.outputModeTab}>
+            <ImageIcon color={REVIEW_TEXT_MUTED} />
+            <SizableText style={styles.outputModeTabText}>画像</SizableText>
+          </View>
+          <View style={styles.outputModeTab}>
+            <MicIcon color={REVIEW_TEXT_MUTED} />
+            <SizableText style={styles.outputModeTabText}>音声</SizableText>
+          </View>
+        </View>
+
+        <View style={styles.outputContentBox}>
+          <ScrollView nestedScrollEnabled contentContainerStyle={styles.outputContentScroll}>
+            <AnnotatedOutputText
+              content={item.output.content}
+              corrections={corrections}
+              selectedCorrectionIndex={selectedCorrectionIndex}
+              onSelectCorrection={handleSelectCorrection}
+              textStyle={styles.outputContentText}
+              testID="output-review-annotated-text"
+            />
+          </ScrollView>
+
+          {selectedCorrection ? (
+            <Pressable
+              onPress={() => setSelectedCorrectionIndex(null)}
+              style={styles.feedbackPopover}
+              testID="output-review-correction-popover"
+            >
+              <SizableText style={styles.feedbackHeading}>正解</SizableText>
+              <SizableText style={styles.feedbackCorrect}>
+                {selectedCorrection.correct_text}
+              </SizableText>
+              <SizableText style={styles.feedbackHeading}>解説</SizableText>
+              <SizableText style={styles.feedbackBody}>
+                {selectedCorrection.explanation}
+              </SizableText>
+            </Pressable>
+          ) : judgment ? (
+            <View style={styles.feedbackPopover} testID="output-review-feedback">
+              <SizableText style={styles.feedbackHeading}>フィードバック</SizableText>
+              <SizableText style={styles.feedbackBody}>{judgment.advice}</SizableText>
+              <SizableText style={styles.feedbackBody}>
+                {hasCorrections
+                  ? '赤い箇所をタップすると、正解と解説を確認できます。'
+                  : '今回の判定では、個別に直す箇所はありませんでした。'}
+              </SizableText>
+            </View>
+          ) : (
+            <View style={styles.feedbackPopover} testID="output-review-feedback">
+              <SizableText style={styles.feedbackHeading}>判定待ち</SizableText>
+              <SizableText style={styles.feedbackBody}>
+                採点が完了すると、ここに判定と解説が表示されます。
+              </SizableText>
+            </View>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+}
 
 export function InputScreen() {
   const params = useLocalSearchParams<SessionRouteParams>();
@@ -170,6 +270,16 @@ export function InputScreen() {
   const currentLoop = useLoopStore((s) => s.currentLoop);
   const extendTimer = useTimerStore((s) => s.extend);
   const timerStatus = useTimerStore((s) => s.status);
+  const todayOutputsQuery = useTodayOutputs(isFocused);
+  const todayOutputItems = todayOutputsQuery.data?.items;
+  const todayOutputs = useMemo(() => todayOutputItems ?? [], [todayOutputItems]);
+  const [selectedOutputId, setSelectedOutputId] = useState<string | null>(null);
+  const selectedOutput = useMemo(
+    () => todayOutputs.find((item) => item.output.id === selectedOutputId) ?? null,
+    [selectedOutputId, todayOutputs],
+  );
+  const hasOutputReview = todayOutputs.length > 0;
+  const isDetailVisible = selectedOutput !== null;
 
   const { start, reset } = useTimer({
     enabled: isFocused,
@@ -182,6 +292,7 @@ export function InputScreen() {
               pathname: '/session/[id]/output',
               params: {
                 id: sessionId,
+                input: String(inputMinutes),
                 output: String(outputMinutes),
                 break: String(breakMinutes),
               },
@@ -192,18 +303,18 @@ export function InputScreen() {
     },
   });
 
-  const startedRef = useRef(false);
   useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
     start('input', inputMinutes * 60);
     return () => {
       reset();
     };
-    // 依存を意図的に空にしている: start/reset が参照として安定しているうえ、
-    // startedRef で二重 start を防いでいるため再実行は不要。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [inputMinutes, reset, sessionId, start]);
+
+  useEffect(() => {
+    if (selectedOutputId !== null && selectedOutput === null) {
+      setSelectedOutputId(null);
+    }
+  }, [selectedOutput, selectedOutputId]);
 
   const handleCancel = () => {
     if (cancelMutation.isPending) return;
@@ -238,64 +349,54 @@ export function InputScreen() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
       <View style={styles.container} testID="input-root">
-        <View style={styles.settingsRow}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="設定"
-            onPress={() => router.push(SETTINGS_ROUTE)}
-            style={({ pressed }) => [
-              styles.settingsButton,
-              pressed ? styles.settingsButtonPressed : null,
-            ]}
-            hitSlop={8}
-            testID="input-settings-button"
-          >
-            <SettingsIcon />
-          </Pressable>
+        {isDetailVisible ? null : (
+          <>
+            <SessionSettingsButton
+              onPress={() => router.push(SETTINGS_ROUTE)}
+              testID="input-settings-button"
+            />
+
+            <HourglassBadge
+              currentLoop={currentLoop}
+              testIDPrefix="input"
+              activeColor={PRIMARY_COLOR}
+              inactiveColor={TEXT_INACTIVE}
+              borderColor={BORDER_COLOR}
+              marginBottom={24}
+            />
+          </>
+        )}
+
+        <PhaseTabs
+          activePhase={CURRENT_PHASE}
+          testIDPrefix="input"
+          activeDotColor={PRIMARY_COLOR}
+          inactiveDotColor={DOT_INACTIVE}
+        />
+
+        <View style={[styles.timerStage, isDetailVisible ? styles.timerStageDetail : null]}>
+          <CircularPhaseTimer
+            phase={CURRENT_PHASE}
+            primaryColor={PRIMARY_COLOR}
+            trackColor={BORDER_COLOR}
+            testID="input-circular-timer"
+            compact={hasOutputReview}
+          />
+          {isDetailVisible ? null : (
+            <SizableText style={styles.timerCaption} testID="input-timer-caption">
+              終了後{outputMinutes}分間でアウトプットです{'\n'}アウトプットへは自動で切り替わります
+            </SizableText>
+          )}
         </View>
 
-        <View style={styles.badgeRow}>
-          <View style={styles.badge} testID="input-hourglass-badge">
-            {Array.from({ length: HOURGLASS_BADGE_COUNT }).map((_, index) => {
-              const isActive = index + 1 === currentLoop;
-              return (
-                <HourglassBadgeIcon
-                  key={index}
-                  active={isActive}
-                  testID={`input-hourglass-badge-icon-${index + 1}`}
-                />
-              );
-            })}
-          </View>
-        </View>
-
-        <View style={styles.phaseTabs} testID="input-phase-tabs">
-          {PHASES.map((p, index) => {
-            const isActive = p === CURRENT_PHASE;
-            const isLast = index === PHASES.length - 1;
-            return (
-              <View key={p} style={styles.phaseTabItemRow}>
-                <View style={styles.phaseTab} testID={`input-phase-tab-${p}`}>
-                  <View style={[styles.phaseTabDot, isActive ? styles.phaseTabDotActive : null]} />
-                  <SizableText
-                    size="$3"
-                    style={[styles.phaseTabLabel, isActive ? styles.phaseTabLabelActive : null]}
-                  >
-                    {PHASE_LABELS[p]}
-                  </SizableText>
-                </View>
-                {isLast ? null : <View style={styles.phaseTabSeparator} />}
-              </View>
-            );
-          })}
-        </View>
-
-        <View style={styles.timerStage}>
-          <CircularTimer phaseLabel={PHASE_LABELS[CURRENT_PHASE]} />
-          <SizableText style={styles.timerCaption} testID="input-timer-caption">
-            終了後{outputMinutes}分間でアウトプットです{'\n'}アウトプットへは自動で切り替わります
-          </SizableText>
-        </View>
+        {selectedOutput ? (
+          <OutputDetailCard item={selectedOutput} onBack={() => setSelectedOutputId(null)} />
+        ) : (
+          <TodayOutputList
+            items={todayOutputs}
+            onSelect={(item) => setSelectedOutputId(item.output.id)}
+          />
+        )}
 
         {hasError ? (
           <SizableText style={styles.errorText} size="$3" testID="input-screen-error">
@@ -348,119 +449,209 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
     paddingLeft: 24,
   },
-  settingsRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 4,
-    marginBottom: 12,
-  },
-  settingsButton: {
-    width: 26,
-    height: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  settingsButtonPressed: {
-    opacity: 0.6,
-  },
-  badgeRow: {
-    alignItems: 'center',
-    marginTop: 4,
-    marginBottom: 24,
-  },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 999,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: BORDER_COLOR,
-    shadowColor: '#000000',
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  phaseTabs: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-  },
-  phaseTabItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  phaseTab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-  },
-  phaseTabDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 1.5,
-    borderColor: DOT_INACTIVE,
-    backgroundColor: 'transparent',
-  },
-  phaseTabDotActive: {
-    borderColor: PRIMARY_COLOR,
-    backgroundColor: PRIMARY_COLOR,
-  },
-  phaseTabLabel: {
-    color: DOT_INACTIVE,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  phaseTabLabelActive: {
-    color: TEXT_ACTIVE,
-    fontWeight: '700',
-  },
-  phaseTabSeparator: {
-    width: 16,
-    height: 1.5,
-    marginHorizontal: 6,
-    backgroundColor: DOT_INACTIVE,
-  },
   timerStage: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 20,
   },
-  timerWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  timerCenter: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-  },
-  timerPhaseLabel: {
-    color: PRIMARY_COLOR,
-    fontSize: 18,
-    fontWeight: '700',
-    lineHeight: 22,
-  },
-  timerText: {
-    color: PRIMARY_COLOR,
-    fontSize: 56,
-    fontWeight: '700',
-    lineHeight: 64,
+  timerStageDetail: {
+    flex: 0,
+    gap: 10,
+    marginBottom: 12,
   },
   timerCaption: {
     color: CAPTION_COLOR,
     fontSize: 13,
     lineHeight: 20,
     textAlign: 'center',
+  },
+  todayOutputsSection: {
+    gap: 8,
+    marginBottom: 16,
+  },
+  todayOutputsTitle: {
+    color: TEXT_ACTIVE,
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  todayOutputsCard: {
+    borderWidth: 1,
+    borderColor: PANEL_BORDER_COLOR,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    backgroundColor: '#FFFFFF',
+  },
+  todayOutputRow: {
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  todayOutputRowBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: PANEL_BORDER_COLOR,
+  },
+  todayOutputIcon: {
+    width: 20,
+    alignItems: 'center',
+  },
+  todayOutputText: {
+    flex: 1,
+    color: '#111111',
+    fontSize: 13,
+    fontWeight: '500',
+    lineHeight: 18,
+  },
+  todayOutputCycle: {
+    color: REVIEW_TEXT_MUTED,
+    fontSize: 12,
+    fontWeight: '500',
+    lineHeight: 16,
+  },
+  outputDetailSheet: {
+    borderTopLeftRadius: 34,
+    borderTopRightRadius: 34,
+    paddingTop: 14,
+    paddingRight: 18,
+    paddingBottom: 18,
+    paddingLeft: 18,
+    marginBottom: 18,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOpacity: 0.1,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 4,
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 56,
+    height: 4,
+    borderRadius: 999,
+    marginBottom: 18,
+    backgroundColor: '#CFCFCF',
+  },
+  outputDetailHeader: {
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  outputDetailTitle: {
+    color: TEXT_ACTIVE,
+    fontSize: 20,
+    fontWeight: '800',
+    lineHeight: 28,
+    textAlign: 'center',
+  },
+  outputDetailBack: {
+    color: REVIEW_TEXT_MUTED,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  outputDetailBackButton: {
+    position: 'absolute',
+    right: 0,
+    height: 34,
+    justifyContent: 'center',
+  },
+  outputPreviewFrame: {
+    borderWidth: 1.5,
+    borderColor: TEXT_ACTIVE,
+    borderRadius: 20,
+    padding: 16,
+  },
+  outputModeTabs: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: PANEL_BORDER_COLOR,
+    borderRadius: 10,
+    padding: 3,
+    marginBottom: 14,
+    backgroundColor: '#F3F3F3',
+  },
+  outputModeTabActive: {
+    flex: 1,
+    height: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+  },
+  outputModeTab: {
+    flex: 1,
+    height: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  outputModeTabTextActive: {
+    color: TEXT_ACTIVE,
+    fontSize: 14,
+    fontWeight: '800',
+    lineHeight: 20,
+  },
+  outputModeTabText: {
+    color: REVIEW_TEXT_MUTED,
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
+  outputContentBox: {
+    minHeight: 190,
+    borderWidth: 1,
+    borderColor: PANEL_BORDER_COLOR,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  outputContentScroll: {
+    padding: 18,
+    paddingBottom: 130,
+  },
+  outputContentText: {
+    color: TEXT_ACTIVE,
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  feedbackPopover: {
+    position: 'absolute',
+    left: 30,
+    right: 30,
+    top: 58,
+    borderRadius: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    backgroundColor: '#333333',
+  },
+  feedbackHeading: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+    lineHeight: 22,
+  },
+  feedbackCorrect: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 24,
+    marginBottom: 12,
+  },
+  feedbackBody: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 22,
+    marginBottom: 4,
   },
   errorText: {
     color: ERROR_COLOR,

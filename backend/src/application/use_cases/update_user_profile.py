@@ -3,8 +3,9 @@
 from datetime import UTC, datetime
 
 from src.application.dto.user_dto import UpdateUserProfileCommand, UserProfileView
+from src.application.mappers.user_mapper import to_user_profile_view
+from src.application.unit_of_work import UnitOfWorkFactory
 from src.domain.entities.user import User
-from src.domain.repositories.user_repository import UserRepository
 
 
 class UpdateUserProfile:
@@ -13,8 +14,8 @@ class UpdateUserProfile:
     age_group が None 以外で渡された場合は onboarding_completed を True にする。
     """
 
-    def __init__(self, user_repository: UserRepository) -> None:
-        self._user_repository = user_repository
+    def __init__(self, unit_of_work_factory: UnitOfWorkFactory) -> None:
+        self.unit_of_work_factory = unit_of_work_factory
 
     async def execute(
         self, current_user: User, command: UpdateUserProfileCommand
@@ -24,14 +25,7 @@ class UpdateUserProfile:
             age_group=command.age_group,
             updated_at=datetime.now(UTC),
         )
-        await self._user_repository.update(updated)
-        return UserProfileView(
-            id=updated.id,
-            firebase_uid=updated.firebase_uid,
-            auth_provider=updated.auth_provider,
-            display_name=updated.display_name,
-            age_group=updated.age_group,
-            onboarding_completed=updated.onboarding_completed,
-            created_at=updated.created_at,
-            updated_at=updated.updated_at,
-        )
+        async with self.unit_of_work_factory() as uow:
+            await uow.users.update(updated)
+            await uow.commit()
+        return to_user_profile_view(updated)

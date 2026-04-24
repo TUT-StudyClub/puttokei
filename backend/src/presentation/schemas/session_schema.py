@@ -8,6 +8,7 @@ from pydantic import Field, StringConstraints
 
 from src.common.models import FrozenModel, StrictRequestModel
 from src.domain.value_objects.session_status import SessionStatus
+from src.presentation.schemas.judgment_schema import JudgmentResponse
 
 NonEmptyOutputContent = Annotated[
     str,
@@ -76,3 +77,20 @@ class SubmitOutputResponse(FrozenModel):
 
     output: OutputResponse
     status: SessionStatus
+
+
+class OutputReviewItemResponse(FrozenModel):
+    """インプット画面で見返すためのアウトプット。"""
+
+    session_id: UUID
+    output: OutputResponse
+    cycle_index: int
+    subject: str
+    topic: str
+    judgment: JudgmentResponse | None
+
+
+class TodayOutputsResponse(FrozenModel):
+    """今日のアウトプット一覧レスポンス。"""
+
+    items: list[OutputReviewItemResponse]

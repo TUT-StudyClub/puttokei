@@ -10,9 +10,7 @@ import { Image, ImageBackground, Pressable, SafeAreaView, StyleSheet, View } fro
 import { SizableText } from 'tamagui';
 
 import {
-  TUTORIAL_ACTION_AREA_BOTTOM_OFFSET,
-  TUTORIAL_ACTION_BUTTON_HEIGHT,
-  TUTORIAL_ONE_BUTTON_ACTION_AREA_RESERVE,
+  OVERVIEW_ACTION_BUTTON_HEIGHT,
   TUTORIAL_ROUTE_TRANSITION_DELAY_MS,
 } from '@/features/auth/screens/tutorialConfig';
 
@@ -58,23 +56,23 @@ export function OverviewScreen() {
 
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.content}>
-          <View style={styles.heroContainer}>
-            <View style={styles.heroBlock}>
-              <View style={styles.logoRow} testID="overview-heading">
+          <View style={styles.heroBlock} testID="overview-heading">
+            <View style={styles.logoRow}>
+              <View style={styles.logoShadow}>
                 <Image
                   source={TYPOGRAPHY_WHITE}
                   style={styles.logo}
                   resizeMode="contain"
                   testID="overview-logo"
                 />
-                <SizableText size="$8" style={styles.welcomeText} testID="overview-welcome">
-                  へようこそ
-                </SizableText>
               </View>
-              <SizableText size="$7" style={styles.description} testID="overview-description">
-                {DESCRIPTION}
+              <SizableText style={styles.welcomeText} testID="overview-welcome">
+                へようこそ
               </SizableText>
             </View>
+            <SizableText style={styles.description} testID="overview-description">
+              {DESCRIPTION}
+            </SizableText>
           </View>
 
           <View style={styles.actionArea}>
@@ -88,9 +86,7 @@ export function OverviewScreen() {
               onPress={scheduleNavigation}
               testID="overview-next"
             >
-              <SizableText size="$5" style={styles.primaryButtonText}>
-                はじめる
-              </SizableText>
+              <SizableText style={styles.primaryButtonText}>はじめる</SizableText>
             </Pressable>
           </View>
         </View>
@@ -115,47 +111,47 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    position: 'relative',
-    paddingRight: 40,
-    paddingBottom: TUTORIAL_ONE_BUTTON_ACTION_AREA_RESERVE,
-    paddingLeft: 40,
-  },
-  heroContainer: {
-    flex: 1,
-    justifyContent: 'center',
   },
   heroBlock: {
-    width: '100%',
-    maxWidth: 312,
-    alignSelf: 'center',
+    position: 'absolute',
+    top: '37.53%',
+    left: '11.4%',
+    right: '5%',
+    overflow: 'visible',
   },
   logoRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     marginBottom: 40,
   },
+  logoShadow: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+  },
   logo: {
-    width: 224,
-    height: 53,
+    width: 188,
+    height: 44,
   },
   welcomeText: {
-    marginBottom: 3,
-    marginLeft: 10,
+    marginBottom: 0,
+    marginLeft: 9,
     color: '#FFFFFF',
-    fontSize: 25,
-    fontWeight: '700',
-    lineHeight: 31,
-    letterSpacing: 0.24,
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 24,
+    lineHeight: 22,
+    letterSpacing: 0,
     textShadowColor: 'rgba(73, 81, 93, 0.22)',
     textShadowOffset: { width: 0, height: 4 },
     textShadowRadius: 18,
   },
   description: {
     color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
-    lineHeight: 31,
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 15,
+    lineHeight: 30,
     letterSpacing: 0.24,
     textShadowColor: 'rgba(73, 81, 93, 0.22)',
     textShadowOffset: { width: 0, height: 4 },
@@ -163,24 +159,24 @@ const styles = StyleSheet.create({
   },
   actionArea: {
     position: 'absolute',
-    right: 40,
-    bottom: TUTORIAL_ACTION_AREA_BOTTOM_OFFSET,
-    left: 40,
+    top: '78%',
+    left: '13.2%',
+    right: '12.9%',
   },
   primaryButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    height: TUTORIAL_ACTION_BUTTON_HEIGHT,
-    borderRadius: 18,
-    backgroundColor: '#4B5CFF',
+    height: OVERVIEW_ACTION_BUTTON_HEIGHT,
+    borderRadius: 20,
+    backgroundColor: '#475FFF',
   },
   primaryButtonPressed: {
     opacity: 0.92,
   },
   primaryButtonText: {
     color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '700',
-    lineHeight: 24,
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 16,
+    lineHeight: 20,
   },
 });

@@ -11,4 +11,6 @@ __pycache__/
 htmlcov/
 .coverage
 *.sqlite3
+
+# シークレット類
 firebase-service-account.json
