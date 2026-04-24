@@ -482,14 +482,6 @@ export function OutputScreen() {
       }
 
       const ImagePicker = require('expo-image-picker') as typeof import('expo-image-picker');
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) {
-        setLocalErrorMessage(
-          '写真アルバムへのアクセスが許可されていません。設定から許可してください。',
-        );
-        return;
-      }
-
       const result = await ImagePicker.launchImageLibraryAsync({
         allowsEditing: false,
         mediaTypes: 'images',

@@ -27,6 +27,8 @@ import { useTimerStore } from '@/shared/stores/timerStore';
 const mockReplace = jest.fn();
 const mockRequestCameraPermissionsAsync = jest.fn();
 const mockLaunchCameraAsync = jest.fn();
+const mockRequestMediaLibraryPermissionsAsync = jest.fn();
+const mockLaunchImageLibraryAsync = jest.fn();
 let mockRouteParams = {
   id: 'ses-123',
   input: '20',
@@ -47,6 +49,8 @@ jest.mock('expo-image-picker', () => ({
   __esModule: true,
   requestCameraPermissionsAsync: mockRequestCameraPermissionsAsync,
   launchCameraAsync: mockLaunchCameraAsync,
+  requestMediaLibraryPermissionsAsync: mockRequestMediaLibraryPermissionsAsync,
+  launchImageLibraryAsync: mockLaunchImageLibraryAsync,
 }));
 
 jest.mock('@/features/session/api/sessionApi');
@@ -103,6 +107,8 @@ describe('OutputScreen', () => {
     (NativeModules as any).NativeUnimoduleProxy = undefined;
     mockRequestCameraPermissionsAsync.mockResolvedValue({ granted: true });
     mockLaunchCameraAsync.mockResolvedValue({ canceled: true, assets: [] });
+    mockRequestMediaLibraryPermissionsAsync.mockResolvedValue({ granted: true });
+    mockLaunchImageLibraryAsync.mockResolvedValue({ canceled: true, assets: [] });
     resetRouteParams();
     keyboardListeners.clear();
     jest.spyOn(Keyboard, 'addListener').mockImplementation((eventName, listener) => {
@@ -229,6 +235,59 @@ describe('OutputScreen', () => {
       mediaTypes: 'images',
       quality: 0.8,
     });
+  });
+
+  it('画像追加メニューから写真アルバムを開き、選択画像を追加する', async () => {
+    mockLaunchImageLibraryAsync.mockResolvedValueOnce({
+      canceled: false,
+      assets: [{ uri: 'file:///library-output.jpg' }],
+    });
+
+    const { getByTestId } = renderWithProviders(<OutputScreen />);
+
+    fireEvent.press(getByTestId('output-method-tab-image'));
+
+    await act(async () => {
+      fireEvent.press(getByTestId('output-image-add-button'));
+    });
+    await act(async () => {
+      fireEvent.press(getByTestId('output-image-add-menu-library'));
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('output-image-thumbnail-0').props.source).toEqual({
+        uri: 'file:///library-output.jpg',
+      });
+    });
+    expect(mockRequestMediaLibraryPermissionsAsync).not.toHaveBeenCalled();
+    expect(mockLaunchImageLibraryAsync).toHaveBeenCalledWith({
+      allowsEditing: false,
+      mediaTypes: 'images',
+      quality: 0.8,
+    });
+  });
+
+  it('写真アルバムを開けない場合はエラーメッセージを表示する', async () => {
+    mockLaunchImageLibraryAsync.mockRejectedValueOnce(new Error('Image library unavailable'));
+
+    const { getByTestId } = renderWithProviders(<OutputScreen />);
+
+    fireEvent.press(getByTestId('output-method-tab-image'));
+
+    await act(async () => {
+      fireEvent.press(getByTestId('output-image-add-button'));
+    });
+    await act(async () => {
+      fireEvent.press(getByTestId('output-image-add-menu-library'));
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('output-image-submit-error').props.children).toBe(
+        '写真アルバムを開けませんでした。時間をおいて再度お試しください。',
+      );
+    });
+    expect(mockRequestMediaLibraryPermissionsAsync).not.toHaveBeenCalled();
+    expect(mockLaunchImageLibraryAsync).toHaveBeenCalledTimes(1);
   });
 
   it('画像未追加で提出するとエラーメッセージを表示し、送信しない', () => {
