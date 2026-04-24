@@ -59,6 +59,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
     }
 
     // 3. 認証済 & チュートリアル完了 → (auth) から (tabs) または returnTo へ抜けさせる。
+    //    returnTo は sign-in 画面へ誘導した画面（例: stats）が URL パラメータで渡す前提で、
+    //    指定がなければ (tabs) にフォールバックする。
     if (topSegment === AUTH_SEGMENT) {
       const destination = (returnTo as Href | undefined) ?? TABS_ROUTE;
       router.replace(destination);

@@ -11,10 +11,12 @@ import { useTutorialStore } from '@/shared/stores/tutorialStore';
 
 const mockReplace = jest.fn();
 let mockSegments: string[] = [];
+let mockParams: Record<string, string | undefined> = {};
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ replace: mockReplace }),
   useSegments: () => mockSegments,
+  useGlobalSearchParams: () => mockParams,
 }));
 
 jest.mock('@/shared/lib/splash', () => ({
@@ -40,6 +42,7 @@ describe('AuthGate', () => {
     jest.clearAllMocks();
     jest.useFakeTimers();
     mockSegments = [];
+    mockParams = {};
     act(() => {
       useAuthStore.setState({ uid: null, idToken: null });
       useTutorialStore.getState().reset();
@@ -130,18 +133,18 @@ describe('AuthGate', () => {
     });
   });
 
-  it('ローカル確認用の sign-in 画面は、認証済みでもそのまま表示できる', async () => {
+  it('チュートリアル完了 & 認証済 & (auth) 配下 & returnTo 指定あり → returnTo へ抜ける', async () => {
     act(() => {
-      useAuthStore.setState({ uid: 'dev-local-user', idToken: 'dev-mock-dev-local-user' });
+      useAuthStore.setState({ uid: 'apple-user', idToken: 'apple-token' });
       useTutorialStore.getState().markCompleted();
     });
-    mockSegments = ['(auth)', 'sign-in'];
+    mockSegments = ['(auth)'];
+    mockParams = { returnTo: '/(tabs)/stats' };
 
     renderAuthGate();
 
     await waitFor(() => {
-      expect(mockHideSplashWhenReady).toHaveBeenCalledTimes(1);
+      expect(mockReplace).toHaveBeenCalledWith('/(tabs)/stats');
     });
-    expect(mockReplace).not.toHaveBeenCalled();
   });
 });
