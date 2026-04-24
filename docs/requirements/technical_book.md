@@ -110,34 +110,35 @@
 
 **3.2.1. 認証**
 
-| **Method** | **Path** | **概要** | **認証** | **レスポンス概要** |
-| --- | --- | --- | --- | --- |
-| POST | /api/v1/auth/verify | Firebase ID Tokenを検証し、ユーザが未登録なら作成 | 不要 | { user, is_new } |
+現行実装では専用の `/api/v1/auth/verify` は公開していない。認証が必要な endpoint では `auth_middleware` が `Authorization: Bearer <Firebase ID Token>` を検証し、未登録ユーザーなら backend 側で初期作成する。
 
 **3.2.2. セッション管理**
 
 | **Method** | **Path** | **概要** | **認証** | **レスポンス概要** |
 | --- | --- | --- | --- | --- |
 | POST | /api/v1/sessions | 新規セッション作成 | 必須 | { session } |
-| GET | /api/v1/sessions/{id} | セッション詳細取得 | 必須 | { session } |
 | PATCH | /api/v1/sessions/{id} | セッションステータス更新 | 必須 | { session } |
-| GET | /api/v1/sessions | セッション履歴一覧 | 必須 | { sessions[], next_cursor } |
+| GET | /api/v1/sessions/outputs/today | 今日のアウトプット一覧取得 | 必須 | { items[] } |
 
 **3.2.3. アウトプット・判定**
 
 | **Method** | **Path** | **概要** | **認証** | **レスポンス概要** |
 | --- | --- | --- | --- | --- |
-| POST | /api/v1/sessions/{id}/output | アウトプットテキスト送信。LLM判定ジョブをキューイング | 必須 | { output, status: judging } |
+| POST | /api/v1/sessions/{id}/output | アウトプットテキスト送信。セッションを judging に進め、開発環境ではローカル判定も可能 | 必須 | { output, status } |
 | GET | /api/v1/sessions/{id}/judgment | 判定結果取得。未完了なら202を返却 | 必須 | { judgment } or 202 |
 
-**3.2.4. 判定履歴**
+**3.2.4. 判定履歴（予定）**
+
+以下は mobile 側 API client が先行している。backend の router は現時点では未登録。
 
 | **Method** | **Path** | **概要** | **認証** | **レスポンス概要** |
 | --- | --- | --- | --- | --- |
 | GET | /api/v1/judgments | 判定履歴一覧（フィルタ・ソート・ページネーション） | 必須 | { judgments[], next_cursor } |
 | GET | /api/v1/judgments/{id} | 判定詳細取得 | 必須 | { judgment } |
 
-**3.2.5. 統計**
+**3.2.5. 統計（予定）**
+
+以下は mobile 側 API client が先行している。backend の router は現時点では未登録。
 
 | **Method** | **Path** | **概要** | **認証** | **レスポンス概要** |
 | --- | --- | --- | --- | --- |
@@ -150,7 +151,9 @@
 
 | **Method** | **Path** | **概要** | **認証** | **レスポンス概要** |
 | --- | --- | --- | --- | --- |
-| GET | /api/v1/users/me | 自分のプロフィール取得 | 必須 | { user } |
+| GET | /api/v1/users/me/profile | 自分のプロフィール取得 | 必須 | { user } |
+| PATCH | /api/v1/users/me/profile | 自分のプロフィール更新 | 必須 | { user } |
+| GET | /api/v1/users/me/settings | タイマー / 通知設定取得 | 必須 | { settings } |
 | PATCH | /api/v1/users/me/settings | タイマー設定変更（時間カスタマイズ） | 必須 | { settings } |
 | DELETE | /api/v1/users/me | アカウント削除（GDPR/個人情報保護法対応） | 必須 | 204 No Content |
 
@@ -194,24 +197,19 @@ GET `/api/v1/sessions/{id}/judgment`
 
 ```basic
 {
-  "id": "jdg_xxxx",
-  "session_id": "ses_xxxx",
+  "id": "2b90f7d2-0e7f-4a5f-a5be-7f92c2a4b865",
+  "session_id": "0f7c5c61-8b2d-4a8c-a1df-6d79b9b6e8a8",
   "verdict": "partial",
   "score": 70,
-  "items": [
+  "advice": "全体的に良く理解できています。...",
+  "corrections": [
     {
-      "claim": "関係代名詞は先行詞を修飾する",
-      "correct": true,
-      "feedback": "正解です"
-    },
-    {
-      "claim": "whoは人以外にも使える",
-      "correct": false,
-      "feedback": "whoは人に対して使います。人以外にwhichを..."
+      "target_text": "whoは人以外にも使える",
+      "correct_text": "whoは人に対して使い、人以外には which を使う",
+      "explanation": "who は人を表す先行詞に使います。"
     }
   ],
-  "advice": "全体的に良く理解できています。...",
-  "created_at": "2026-04-10T15:30:15+09:00"
+  "judged_at": "2026-04-10T15:30:15+09:00"
 }
 ```
 
@@ -326,16 +324,11 @@ LLM による正誤判定結果
 | --- | --- | --- | --- |
 | id | UUID PK | NO | 判定ID |
 | session_id | UUID FK -> sessions UNIQUE | NO | セッションID |
-| output_id | UUID FK -> outputs | NO | アウトプットID |
-| verdict | VARCHAR(20) | NO | correct / partial / incorrect |
-| score | INTEGER | YES | スコア（0-100） |
-| items | JSONB | NO | 各項目の判定結果配列 |
-| advice | TEXT | YES | 総合アドバイス |
-| llm_provider | VARCHAR(30) | NO | 使用したLLMプロバイダー |
-| llm_model | VARCHAR(50) | NO | 使用したモデル名 |
-| llm_latency_ms | INTEGER | YES | LLM API レスポンス時間 |
-| token_usage | JSONB | YES | { prompt_tokens, completion_tokens } |
-| created_at | TIMESTAMPTZ | NO | 判定実行日時 |
+| verdict | VARCHAR(16) | NO | correct / partial / incorrect / rejected |
+| score | INTEGER | NO | スコア（0-100） |
+| advice | TEXT | NO | 総合アドバイス |
+| corrections | JSONB | NO | 誤り指摘配列（target_text / correct_text / explanation） |
+| judged_at | TIMESTAMPTZ | NO | 判定実行日時 |
 
 **4.3.6. rate_limit_logs**
 
@@ -383,24 +376,30 @@ LLM による正誤判定結果
 {
   "verdict": "correct" | "partial" | "incorrect" | "rejected",
   "score": 0-100,
-  "items": [{ "claim": "...", "correct": bool, "feedback": "..." }],
-  "advice": "総合アドバイス"
+  "advice": "総合アドバイス",
+  "corrections": [
+    {
+      "target_text": "誤りを含む本文中の抜粋",
+      "correct_text": "正しい内容",
+      "explanation": "誤りの理由"
+    }
+  ]
 }
 ```
 
 #### 5.3. Pydantic バリデーション
 
 ```python
-class JudgmentItem(BaseModel):
-    claim: str
-    correct: bool
-    feedback: str = Field(max_length=500)
+class JudgmentCorrection(BaseModel):
+    target_text: str
+    correct_text: str
+    explanation: str
 
 class LLMJudgmentResponse(BaseModel):
     verdict: Literal["correct","partial","incorrect","rejected"]
     score: int = Field(ge=0, le=100)
-    items: list[JudgmentItem]
     advice: str = Field(max_length=1000)
+    corrections: list[JudgmentCorrection]
 ```
 
 #### 5.4. LLM プロバイダー抽象化
@@ -538,15 +537,20 @@ App Storeガイドラインおよび個人情報保護法に準拠し、アカ�
 ```docker
 FROM python:3.12-slim AS builder
 WORKDIR /app
-RUN pip install uv
+RUN pip install --no-cache-dir uv==0.10.2
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev --no-install-project
 
 FROM python:3.12-slim AS runner
 WORKDIR /app
-COPY --from=builder /app/.venv .venv
+COPY --from=builder /app/.venv /app/.venv
 COPY src/ src/
-ENV PATH="/app/.venv/bin:$PATH"
+COPY db/ db/
+COPY alembic.ini ./
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+EXPOSE 8080
 CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080"]
 ```
 
@@ -555,22 +559,29 @@ CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080"]
 #### 8.1. リポジトリ構成
 
 ```markdown
-pomollm/
+puttokei/
 ├── .github/
 │   └── workflows/
-│       ├── backend-ci.yml
-│       ├── backend-cd.yml
-│       ├── frontend-ci.yml
-│       └── mobile-cd.yml
+│       ├── backend-ci.yaml
+│       ├── backend-cd.yaml
+│       ├── mobile-ci.yaml
+│       └── mobile-cd.yaml
 ├── backend/
 ├── mobile/
-├── infra/
-└── docs/
+├── docs/
+├── AGENTS.md
+├── CLAUDE.md
+├── README
+├── Taskfile.yaml
+└── puttokei.code-workspace
 ```
+
+`infra/` は現時点では未作成。Terraform を追加する場合は 8.4 の構成に沿って作成する。
 
 #### 8.2. バックエンド
 
-クリーンアーキテクチャの4層構造を採用する。依存方向は domain ← application ← infrastructure / presentation
+クリーンアーキテクチャの4層構造を採用する。依存方向は domain ← application ← infrastructure / presentation。
+Use Case は Unit of Work をトランザクション境界とし、`application` に抽象 IF、`infrastructure/persistence` に SQLAlchemy 実装を置く。
 
 ```markdown
 backend/
@@ -578,39 +589,57 @@ backend/
 │   ├── main.py                        # FastAPIエントリポイント + Composition Root
 │   ├── config.py                      # 環境変数・設定 (pydantic-settings)
 │   ├── container.py                   # DI組み立て（Composition Root）
+│   ├── common/                        # layer をまたいで使う最小限の共通基底
 │   │
 │   ├── domain/                        # ドメイン層 (外部依存なし・純粋Python)
 │   │   ├── entities/
 │   │   │   ├── user.py                # User エンティティ (dataclass)
 │   │   │   ├── session.py             # Session エンティティ
 │   │   │   ├── output.py              # Output エンティティ
-│   │   │   └── judgment.py            # Judgment エンティティ
+│   │   │   ├── judgment.py            # Judgment エンティティ
+│   │   │   └── user_settings.py       # UserSettings エンティティ
 │   │   ├── value_objects/
+│   │   │   ├── age_group.py           # AgeGroup 列挙型
+│   │   │   ├── auth_provider.py       # AuthProvider 列挙型
+│   │   │   ├── judgment_result.py     # LLM 判定の中間表現
 │   │   │   ├── verdict.py             # Verdict 列挙型 (correct/partial/incorrect/rejected)
 │   │   │   └── session_status.py      # SessionStatus 列挙型
 │   │   ├── repositories/              # リポジトリインターフェース (ABC)
 │   │   │   ├── user_repository.py
 │   │   │   ├── session_repository.py
+│   │   │   ├── output_repository.py
 │   │   │   └── judgment_repository.py
 │   │   └── services/                  # ドメインサービスインターフェース (ABC)
+│   │       ├── auth_verifier.py       # 認証検証インターフェース
 │   │       └── llm_judge_service.py   # LLM判定インターフェース
 │   │
 │   ├── application/                   # アプリケーション層 (Use Cases)
+│   │   ├── unit_of_work.py            # Unit of Work IF / transaction boundary
 │   │   ├── use_cases/
+│   │   │   ├── authenticate_user.py   # Bearer token 検証 + ユーザー初期作成
 │   │   │   ├── create_session.py      # セッション作成
+│   │   │   ├── update_session_status.py # セッション状態更新
 │   │   │   ├── submit_output.py       # アウトプット送信 + 判定キューイング
 │   │   │   ├── get_judgment.py        # 判定結果取得
+│   │   │   ├── list_today_outputs.py  # 今日のアウトプット一覧
 │   │   │   ├── list_judgments.py      # 判定履歴一覧
 │   │   │   ├── get_stats.py           # 統計取得
+│   │   │   ├── get_user_profile.py    # プロフィール取得
+│   │   │   ├── update_user_profile.py # プロフィール更新
+│   │   │   ├── get_user_settings.py   # 設定取得
+│   │   │   ├── update_user_settings.py # 設定更新
 │   │   │   └── delete_account.py      # アカウント削除
 │   │   └── dto/                       # Use Case 入出力 (dataclass or BaseModel)
 │   │       ├── session_dto.py         # CreateSessionInput / SessionOutput
 │   │       ├── judgment_dto.py        # JudgmentOutput / JudgmentListOutput
-│   │       └── stats_dto.py           # StatsOutput / DailyStatsOutput
+│   │       ├── stats_dto.py           # StatsOutput / DailyStatsOutput
+│   │       ├── user_dto.py            # UserProfileOutput など
+│   │       └── user_settings_dto.py   # UserSettingsOutput など
 │   │
 │   ├── infrastructure/                # インフラ層 (外部依存の実装)
 │   │   ├── persistence/
 │   │   │   ├── database.py            # DB接続管理 (async sessionmaker)
+│   │   │   ├── unit_of_work.py        # SQLAlchemy Unit of Work 実装
 │   │   │   ├── models/                # SQLAlchemy ORMモデル
 │   │   │   │   ├── user_model.py
 │   │   │   │   ├── session_model.py
@@ -620,6 +649,7 @@ backend/
 │   │   │   └── repositories/          # リポジトリ実装 (PostgreSQL)
 │   │   │       ├── pg_user_repository.py
 │   │   │       ├── pg_session_repository.py
+│   │   │       ├── pg_output_repository.py
 │   │   │       └── pg_judgment_repository.py
 │   │   ├── llm/                       # LLMプロバイダー実装
 │   │   │   ├── gemini_provider.py
@@ -650,7 +680,10 @@ backend/
 │       ├── schemas/                   # Pydantic リクエスト/レスポンス (HTTP境界)
 │       │   ├── session_schema.py
 │       │   ├── judgment_schema.py
-│       │   └── user_schema.py
+│       │   ├── user_schema.py
+│       │   ├── user_settings_schema.py
+│       │   └── problem_schema.py
+│       ├── mappers/                   # HTTP response mapper
 │       └── middleware/
 │           ├── auth_middleware.py      # 認証ミドルウェア
 │           └── rate_limit.py          # レートリミット
@@ -659,17 +692,19 @@ backend/
 │   ├── unit/                          # domain・use case の単体テスト
 │   │   ├── test_entities/
 │   │   └── test_use_cases/
-│   ├── integration/                   # リポジトリ・LLMの結合テスト
+│   ├── integration/                   # リポジトリ・API・LLMの結合テスト
 │   │   ├── test_repositories/
 │   │   └── test_llm/
-│   └── e2e/                           # APIエンドツーエンドテスト
-│       └── test_api/
+│   ├── e2e/                           # APIエンドツーエンドテスト
+│   │   └── test_api/
+│   └── fakes/                         # Unit test 用 test double
 ├── db/
 │   └── migrations/                    # Alembicマイグレーション
 ├── Dockerfile
 ├── pyproject.toml
 ├── uv.lock
-└── alembic.ini
+├── alembic.ini
+└── docker-compose.yml
 ```
 
 #### 8.3. フロントエンド
@@ -677,31 +712,44 @@ backend/
 ```markdown
 mobile/
 ├── app/                               # Expo Router (ルーティング定義のみ)
+│   ├── _layout.tsx                    # ルートレイアウト
 │   ├── (auth)/
-│   │   ├── sign-in.tsx                # -> features/auth/screens
-│   │   └── _layout.tsx
+│   │   ├── _layout.tsx
+│   │   ├── overview.tsx               # -> features/auth/screens
+│   │   ├── tutorial-step-one.tsx      # -> features/auth/screens
+│   │   ├── tutorial-step-two.tsx      # -> features/auth/screens
+│   │   ├── tutorial-step-three.tsx    # -> features/auth/screens
+│   │   └── sign-in.tsx                # -> features/auth/screens
 │   ├── (tabs)/
+│   │   ├── _layout.tsx
 │   │   ├── index.tsx                  # -> features/session/screens
 │   │   ├── history.tsx                # -> features/history/screens
 │   │   ├── stats.tsx                  # -> features/stats/screens
-│   │   └── settings.tsx               # -> features/settings/screens
-│   ├── session/
-│   │   └── [id]/
+│   │   ├── settings.tsx               # -> features/settings/screens
+│   │   └── session/[id]/
 │   │       ├── input.tsx              # -> features/session/screens
-│   │       ├── output.tsx
-│   │       ├── break.tsx
-│   │       └── result.tsx
-│   └── _layout.tsx                    # ルートレイアウト
+│   │       ├── output.tsx             # -> features/session/screens
+│   │       ├── break.tsx              # -> features/session/screens
+│   │       └── result.tsx             # -> features/session/screens
+│   ├── history/
+│   │   └── [id].tsx                   # -> features/history/screens
+│   └── profile/
+│       ├── _layout.tsx
+│       └── edit.tsx                   # -> features/profile/screens
 │
 ├── src/
 │   ├── features/                      # 機能単位モジュール
 │   │   ├── auth/
 │   │   │   ├── screens/
-│   │   │   │   └── SignInScreen.tsx    # サインイン画面の実装
+│   │   │   │   ├── OverviewScreen.tsx
+│   │   │   │   ├── TutorialStepOneScreen.tsx
+│   │   │   │   ├── TutorialStepTwoScreen.tsx
+│   │   │   │   ├── TutorialStepThreeScreen.tsx
+│   │   │   │   └── SignInScreen.tsx
 │   │   │   ├── hooks/
 │   │   │   │   └── useAuth.ts         # 認証ロジック
 │   │   │   └── api/
-│   │   │       └── authApi.ts         # POST /auth/verify
+│   │   │       └── authApi.ts         # 認証 API client（現状は placeholder）
 │   │   │
 │   │   ├── session/
 │   │   │   ├── screens/
@@ -711,9 +759,10 @@ mobile/
 │   │   │   │   ├── BreakScreen.tsx    # 休憩フェーズ
 │   │   │   │   └── ResultScreen.tsx   # 判定結果表示
 │   │   │   ├── components/
-│   │   │   │   ├── Timer.tsx          # ポモドーロタイマー
 │   │   │   │   ├── OutputEditor.tsx   # アウトプット入力エディター
-│   │   │   │   └── JudgmentCard.tsx   # 判定結果カード
+│   │   │   │   ├── JudgmentCard.tsx   # 判定結果カード
+│   │   │   │   ├── AnnotatedOutputText.tsx
+│   │   │   │   └── SessionPhaseChrome.tsx
 │   │   │   ├── hooks/
 │   │   │   │   ├── useTimer.ts        # タイマーロジック
 │   │   │   │   └── useSession.ts      # セッション管理
@@ -726,7 +775,8 @@ mobile/
 │   │   │   ├── components/
 │   │   │   │   └── JudgmentListItem.tsx
 │   │   │   ├── hooks/
-│   │   │   │   └── useJudgments.ts    # 履歴データ取得
+│   │   │   │   ├── useJudgments.ts    # 履歴データ取得
+│   │   │   │   └── useJudgmentDetail.ts
 │   │   │   └── api/
 │   │   │       └── judgmentApi.ts
 │   │   │
@@ -734,44 +784,68 @@ mobile/
 │   │   │   ├── screens/
 │   │   │   │   └── StatsScreen.tsx    # 統計ダッシュボード
 │   │   │   ├── components/
-│   │   │   │   └── StatsChart.tsx     # 統計グラフ
+│   │   │   │   ├── PeriodSelector.tsx
+│   │   │   │   ├── StatsChart.tsx
+│   │   │   │   └── StatsSummaryCards.tsx
 │   │   │   ├── hooks/
 │   │   │   │   └── useStats.ts
 │   │   │   └── api/
 │   │   │       └── statsApi.ts
 │   │   │
-│   │   └── settings/
+│   │   ├── settings/
+│   │   │   ├── screens/
+│   │   │   │   └── SettingsScreen.tsx  # 設定画面
+│   │   │   ├── hooks/
+│   │   │   │   ├── useSettings.ts
+│   │   │   │   ├── useUpdateSettings.ts
+│   │   │   │   └── useDeleteAccount.ts
+│   │   │   └── api/
+│   │   │       └── settingsApi.ts
+│   │   │
+│   │   └── profile/
 │   │       ├── screens/
-│   │       │   └── SettingsScreen.tsx  # 設定画面
+│   │       │   └── ProfileEditScreen.tsx
 │   │       ├── hooks/
-│   │       │   └── useSettings.ts
+│   │       │   ├── useProfile.ts
+│   │       │   └── useUpdateProfile.ts
 │   │       └── api/
-│   │           └── settingsApi.ts
+│   │           └── profileApi.ts
 │   │
 │   └── shared/                        # 機能横断の共有リソース
 │       ├── components/
-│       │   ├── Button.tsx             # 共通ボタン
+│       │   ├── AuthGate.tsx
+│       │   ├── BootScreen.tsx
 │       │   ├── Card.tsx               # 共通カード
 │       │   └── LoadingIndicator.tsx
 │       ├── hooks/
 │       │   └── useNotification.ts     # プッシュ通知
 │       ├── lib/
-│       │   ├── api.ts                 # kyインスタンス + 認証フック
+│       │   ├── api.ts                 # fetch wrapper + 認証フック
 │       │   ├── firebase.ts            # Firebase初期化
-│       │   └── notifications.ts       # プッシュ通知セットアップ
+│       │   ├── notifications.ts       # プッシュ通知セットアップ
+│       │   ├── queryClient.ts         # TanStack Query client
+│       │   ├── splash.ts
+│       │   ├── devMockAuth.ts
+│       │   └── judgmentPresentation.ts
 │       ├── stores/
 │       │   ├── authStore.ts           # Zustand 認証ストア
-│       │   └── timerStore.ts          # Zustand タイマーストア
+│       │   ├── timerStore.ts          # Zustand タイマーストア
+│       │   ├── loopStore.ts
+│       │   └── tutorialStore.ts
 │       └── types/
-│           └── api.ts                 # APIレスポンス型定義
+│           ├── api.ts                 # APIレスポンス型定義
+│           ├── user.ts
+│           └── userSettings.ts
 │
-├── app.json
+├── app.json.example
 ├── eas.json
 ├── tsconfig.json
 └── package.json
 ```
 
 #### 8.4. インフラ
+
+現時点では `infra/` は未作成。作成時は以下の module / environment 構成を基準にする。
 
 ```markdown
 infra/

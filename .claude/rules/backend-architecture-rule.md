@@ -8,8 +8,8 @@ Puttokei backend は FastAPI / Python 3.12 / SQLAlchemy / Alembic / Pydantic / F
 - 依存方向は `domain <- application <- infrastructure / presentation`
 - `src.main` と `src.container` を Composition Root とし、依存の組み立てはここに集約する
 - `domain` は外部依存を持たない。entity、value object、repository IF、service IF を置く
-- `application` は use case と DTO を置く。adapter や Composition Root を import しない
-- `infrastructure` は DB、Firebase、Cloud Tasks、LLM、FCM など外部依存の実装を置く
+- `application` は use case、DTO、mapper、Unit of Work IF を置く。adapter や Composition Root を import しない
+- `infrastructure` は DB、SQLAlchemy Unit of Work、Firebase、Cloud Tasks、LLM、FCM など外部依存の実装を置く
 - `presentation` は FastAPI の HTTP 境界、schema、middleware、worker entrypoint を置く
 - `infrastructure` と `presentation` は水平依存させない
 - import 方向は `backend/pyproject.toml` の import-linter contract と整合させる
@@ -24,8 +24,8 @@ backend/
 │   ├── config.py            # pydantic-settings による環境変数管理
 │   ├── common/              # layer をまたいで使う最小限の共通基底
 │   ├── domain/              # entity / value object / repository IF / service IF
-│   ├── application/         # use case / DTO
-│   ├── infrastructure/      # persistence / auth / queue / llm / notification
+│   ├── application/         # use case / DTO / mapper / Unit of Work IF
+│   ├── infrastructure/      # persistence / Unit of Work 実装 / auth / queue / llm / notification
 │   └── presentation/        # FastAPI router / schema / middleware / health / workers
 ├── db/
 │   └── migrations/          # Alembic migration
@@ -48,7 +48,9 @@ backend/
 - `domain/services`: 認証検証や LLM 判定などの service interface
 - `application/use_cases`: API や worker から呼ばれる application service
 - `application/dto`: use case の入出力型
+- `application/unit_of_work.py`: use case 単位のトランザクション境界を表す Unit of Work IF
 - `infrastructure/persistence`: DB 接続、SQLAlchemy model、PostgreSQL repository 実装
+- `infrastructure/persistence/unit_of_work.py`: SQLAlchemy `AsyncSession` と repository 実装を束ねる Unit of Work 実装
 - `infrastructure/auth`: Firebase Admin SDK など認証実装
 - `infrastructure/queue`: Cloud Tasks など queue 実装
 - `infrastructure/llm`: LLM provider、prompt、provider factory
@@ -62,6 +64,8 @@ backend/
 
 - 新しいビジネスルールはまず `domain` に置けるか検討する
 - API endpoint から DB や外部 API を直接呼ばず、use case を経由する
+- Use Case は repository を個別に受け取らず、`UnitOfWorkFactory` を受け取って `async with` の単位で repository と transaction を扱う
+- 成功時だけ `uow.commit()` し、未 commit または例外発生時は Unit of Work の `__aexit__` で rollback させる
 - SQLAlchemy model と domain entity を混同しない
 - HTTP request / response の型は `presentation/schemas`、use case の入出力は `application/dto` に置く
 - repository IF を増やす場合は `domain/repositories`、実装は `infrastructure/persistence/repositories` に分ける
