@@ -8,21 +8,22 @@ from pydantic import BaseModel, ConfigDict, Field
 from src.domain.value_objects.verdict import Verdict
 
 
-class JudgmentItem(BaseModel):
-    """項目別フィードバックの 1 件。"""
+class JudgmentCorrection(BaseModel):
+    """アウトプット中の誤りに対する指摘の 1 件。"""
 
     model_config = ConfigDict(frozen=True)
 
-    label: str
-    comment: str
+    target_text: str
+    correct_text: str
+    explanation: str
 
 
 class JudgmentResult(BaseModel):
-    """LLM 判定の生の結果。verdict / score / advice / 項目別フィードバックを保持する。"""
+    """LLM 判定の生の結果。verdict / score / advice / 誤り指摘を保持する。"""
 
     model_config = ConfigDict(frozen=True)
 
     verdict: Verdict
     score: int = Field(ge=0, le=100)
     advice: str
-    items: list[JudgmentItem]
+    corrections: list[JudgmentCorrection]

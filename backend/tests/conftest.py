@@ -4,7 +4,7 @@
 - `fake_user_repository` ... in-memory UserRepository
 - `fake_session_repository` ... in-memory SessionRepository
 - `fake_auth_verifier` ... 固定挙動の AuthVerifier
-- `container` ... 上記 fake を差し込んだ Container
+- `container` ... fake Unit of Work と fake AuthVerifier を差し込んだ Container
 - `client` ... 上記 container を注入した FastAPI アプリへ httpx の AsyncClient
 """
 
@@ -14,11 +14,13 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
+from src.application.use_cases.authenticate_user import AuthenticateUser
 from src.application.use_cases.create_session import CreateSession
 from src.application.use_cases.delete_account import DeleteAccount
 from src.application.use_cases.get_judgment import GetJudgment
 from src.application.use_cases.get_user_profile import GetUserProfile
 from src.application.use_cases.get_user_settings import GetUserSettings
+from src.application.use_cases.list_today_outputs import ListTodayOutputs
 from src.application.use_cases.submit_output import SubmitOutput
 from src.application.use_cases.update_session_status import UpdateSessionStatus
 from src.application.use_cases.update_user_profile import UpdateUserProfile
@@ -31,6 +33,7 @@ from tests.fakes.fake_auth_verifier import FakeAuthVerifier
 from tests.fakes.fake_judgment_repository import FakeJudgmentRepository
 from tests.fakes.fake_output_repository import FakeOutputRepository
 from tests.fakes.fake_session_repository import FakeSessionRepository
+from tests.fakes.fake_unit_of_work import FakeUnitOfWork
 from tests.fakes.fake_user_repository import FakeUserRepository
 
 
@@ -82,30 +85,32 @@ def container(
 ) -> Container:
     """fake 実装を差し込んだ Container。"""
     database = Database(database_url=settings.database_url)
+
+    def unit_of_work_factory() -> FakeUnitOfWork:
+        return FakeUnitOfWork(
+            users=fake_user_repository,
+            sessions=fake_session_repository,
+            outputs=fake_output_repository,
+            judgments=fake_judgment_repository,
+        )
+
     return Container(
         settings=settings,
         database=database,
-        auth_verifier=fake_auth_verifier,
-        user_repository=fake_user_repository,
-        session_repository=fake_session_repository,
-        output_repository=fake_output_repository,
-        judgment_repository=fake_judgment_repository,
+        authenticate_user=AuthenticateUser(
+            auth_verifier=fake_auth_verifier,
+            unit_of_work_factory=unit_of_work_factory,
+        ),
         get_user_profile=GetUserProfile(),
-        update_user_profile=UpdateUserProfile(user_repository=fake_user_repository),
-        get_user_settings=GetUserSettings(user_repository=fake_user_repository),
-        update_user_settings=UpdateUserSettings(user_repository=fake_user_repository),
-        delete_account=DeleteAccount(user_repository=fake_user_repository),
-        create_session=CreateSession(session_repository=fake_session_repository),
-        update_session_status=UpdateSessionStatus(session_repository=fake_session_repository),
-        submit_output=SubmitOutput(
-            session_repository=fake_session_repository,
-            output_repository=fake_output_repository,
-        ),
-        get_judgment=GetJudgment(
-            session_repository=fake_session_repository,
-            output_repository=fake_output_repository,
-            judgment_repository=fake_judgment_repository,
-        ),
+        update_user_profile=UpdateUserProfile(unit_of_work_factory=unit_of_work_factory),
+        get_user_settings=GetUserSettings(unit_of_work_factory=unit_of_work_factory),
+        update_user_settings=UpdateUserSettings(unit_of_work_factory=unit_of_work_factory),
+        delete_account=DeleteAccount(unit_of_work_factory=unit_of_work_factory),
+        create_session=CreateSession(unit_of_work_factory=unit_of_work_factory),
+        update_session_status=UpdateSessionStatus(unit_of_work_factory=unit_of_work_factory),
+        submit_output=SubmitOutput(unit_of_work_factory=unit_of_work_factory),
+        get_judgment=GetJudgment(unit_of_work_factory=unit_of_work_factory),
+        list_today_outputs=ListTodayOutputs(unit_of_work_factory=unit_of_work_factory),
     )
 
 

@@ -26,5 +26,5 @@ class JudgmentModel(Base):
     verdict: Mapped[str] = mapped_column(String(16), nullable=False)
     score: Mapped[int] = mapped_column(Integer(), nullable=False)
     advice: Mapped[str] = mapped_column(Text(), nullable=False)
-    items: Mapped[list[dict[str, str]]] = mapped_column(JSONB(), nullable=False)
+    corrections: Mapped[list[dict[str, str]]] = mapped_column(JSONB(), nullable=False)
     judged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

@@ -34,22 +34,22 @@ tasks:
   lint:imports:
     desc: import-linter で層境界（クリーンアーキテクチャの依存方向）を検査する
     cmds:
-      - uv run lint-imports
+      - uv run python -c 'from importlinter.cli import lint_imports_command; lint_imports_command()'
 
   test:
     desc: pytest を実行する
     cmds:
-      - uv run pytest
+      - uv run python -m pytest
 
   dev:
     desc: 開発用 FastAPI サーバを起動する（http://localhost:8000）
     cmds:
-      - uv run uvicorn src.main:app --reload
+      - uv run python -m uvicorn src.main:app --reload
 
   dev:device:
     desc: 実機確認用に LAN 向け FastAPI サーバを起動する（http://0.0.0.0:8080）
     cmds:
-      - uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 8080
+      - uv run python -m uvicorn src.main:app --reload --host 0.0.0.0 --port 8080
 
   db:up:
     desc: Docker Compose でローカル PostgreSQL を起動する
@@ -69,27 +69,27 @@ tasks:
   db:current:
     desc: 適用中の Alembic リビジョンを表示する（DB 接続が必要）
     cmds:
-      - uv run alembic current
+      - uv run python -m alembic current
 
   db:heads:
     desc: ローカルにある Alembic の HEAD リビジョンを表示する
     cmds:
-      - uv run alembic heads
+      - uv run python -m alembic heads
 
   db:revision:
     desc: 'Alembic マイグレーションを生成する。例: task backend:db:revision -- "add users"'
     cmds:
-      - uv run alembic revision -m "{{.CLI_ARGS}}"
+      - uv run python -m alembic revision -m "{{.CLI_ARGS}}"
 
   db:upgrade:
     desc: マイグレーションを HEAD まで適用する
     cmds:
-      - uv run alembic upgrade head
+      - uv run python -m alembic upgrade head
 
   db:downgrade:
     desc: 1 つ前のリビジョンへロールバックする
     cmds:
-      - uv run alembic downgrade -1
+      - uv run python -m alembic downgrade -1
 
   docker:build:
     desc: Cloud Run 向け Docker イメージをビルドする

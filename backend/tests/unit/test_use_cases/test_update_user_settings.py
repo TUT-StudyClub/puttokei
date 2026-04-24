@@ -11,6 +11,7 @@ from src.application.use_cases.update_user_settings import UpdateUserSettings
 from src.domain.entities.user import User
 from src.domain.entities.user_settings import UserSettings
 from src.domain.value_objects.auth_provider import AuthProvider
+from tests.fakes.fake_unit_of_work import FakeUnitOfWork
 from tests.fakes.fake_user_repository import FakeUserRepository
 
 
@@ -39,7 +40,7 @@ async def test_update_user_settings_updates_single_field_and_preserves_others():
     user, settings = _make_user_with_settings()
     await repo.add(user, settings)
 
-    use_case = UpdateUserSettings(user_repository=repo)
+    use_case = UpdateUserSettings(unit_of_work_factory=lambda: FakeUnitOfWork(users=repo))
     view = await use_case.execute(user, UpdateUserSettingsCommand(input_minutes=45))
 
     assert view.input_minutes == 45
@@ -60,7 +61,7 @@ async def test_update_user_settings_updates_multiple_fields_and_advances_updated
     await repo.add(user, settings)
     original_updated_at = settings.updated_at
 
-    use_case = UpdateUserSettings(user_repository=repo)
+    use_case = UpdateUserSettings(unit_of_work_factory=lambda: FakeUnitOfWork(users=repo))
     view = await use_case.execute(
         user,
         UpdateUserSettingsCommand(
@@ -88,7 +89,7 @@ async def test_update_user_settings_can_disable_notification_only():
     user, settings = _make_user_with_settings()
     await repo.add(user, settings)
 
-    use_case = UpdateUserSettings(user_repository=repo)
+    use_case = UpdateUserSettings(unit_of_work_factory=lambda: FakeUnitOfWork(users=repo))
     view = await use_case.execute(user, UpdateUserSettingsCommand(notification_enabled=False))
 
     assert view.notification_enabled is False
@@ -101,6 +102,6 @@ async def test_update_user_settings_raises_when_settings_missing():
     user, _ = _make_user_with_settings()
     repo.users[user.firebase_uid] = user
 
-    use_case = UpdateUserSettings(user_repository=repo)
+    use_case = UpdateUserSettings(unit_of_work_factory=lambda: FakeUnitOfWork(users=repo))
     with pytest.raises(UserSettingsNotFoundError):
         await use_case.execute(user, UpdateUserSettingsCommand(input_minutes=30))

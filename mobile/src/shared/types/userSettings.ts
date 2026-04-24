@@ -25,4 +25,4 @@ export type UpdateUserSettingsInput = {
 
 /** タイマー値の許容範囲（backend のバリデーションと一致）。 */
 export const TIMER_MINUTES_MIN = 1;
-export const TIMER_MINUTES_MAX = 180;
+export const TIMER_MINUTES_MAX = 120;

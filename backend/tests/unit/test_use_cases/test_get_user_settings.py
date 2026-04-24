@@ -12,6 +12,7 @@ from src.application.use_cases.get_user_settings import (
 from src.domain.entities.user import User
 from src.domain.entities.user_settings import UserSettings
 from src.domain.value_objects.auth_provider import AuthProvider
+from tests.fakes.fake_unit_of_work import FakeUnitOfWork
 from tests.fakes.fake_user_repository import FakeUserRepository
 
 
@@ -39,7 +40,7 @@ async def test_get_user_settings_returns_defaults_when_freshly_created():
     user, settings = _make_user_with_settings()
     await repo.add(user, settings)
 
-    use_case = GetUserSettings(user_repository=repo)
+    use_case = GetUserSettings(unit_of_work_factory=lambda: FakeUnitOfWork(users=repo))
     view = await use_case.execute(user)
 
     assert view.input_minutes == 20
@@ -56,6 +57,6 @@ async def test_get_user_settings_raises_when_settings_missing():
     # users だけ登録し、settings は意図的に未登録にしておく。
     repo.users[user.firebase_uid] = user
 
-    use_case = GetUserSettings(user_repository=repo)
+    use_case = GetUserSettings(unit_of_work_factory=lambda: FakeUnitOfWork(users=repo))
     with pytest.raises(UserSettingsNotFoundError):
         await use_case.execute(user)

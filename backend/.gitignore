@@ -12,3 +12,6 @@ firebase-service-account.json
 htmlcov/
 .coverage
 *.sqlite3
+
+# シークレット類
+firebase-service-account.json
