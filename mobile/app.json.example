@@ -14,7 +14,8 @@
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSCameraUsageDescription": "アウトプット画像を撮影するためにカメラを使用します。"
+        "NSCameraUsageDescription": "アウトプット画像を撮影するためにカメラを使用します。",
+        "NSPhotoLibraryUsageDescription": "アウトプット画像を写真フォルダから選択するために写真ライブラリを使用します。"
       }
     },
     "android": {
@@ -48,7 +49,7 @@
         "expo-image-picker",
         {
           "cameraPermission": "アウトプット画像を撮影するためにカメラを使用します。",
-          "photosPermission": false,
+          "photosPermission": "アウトプット画像を写真フォルダから選択するために写真ライブラリを使用します。",
           "microphonePermission": false
         }
       ],
