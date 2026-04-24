@@ -6,7 +6,7 @@ Puttokei で `backend/` `mobile/` `infra/` を触るときは、この構成と�
 
 - `backend/`: FastAPI / Python 3.12 の API。Cloud Run で動かす前提
 - `mobile/`: Expo / React Native / TypeScript のモバイルアプリ
-- `infra/`: Terraform + Google Cloud のインフラ定義
+- `infra/`: Terraform + Google Cloud のインフラ定義。現時点では未作成
 - `docs/requirements/`: 要件、API、DB、認証、CI/CD、構成の主資料
 - `AGENTS.md` / `CLAUDE.md`: エージェント向け運用ルール
 - `.codex/skills` / `.claude/skills`: 作業用 skill
@@ -19,8 +19,9 @@ Puttokei で `backend/` `mobile/` `infra/` を触るときは、この構成と�
 
 ## infra
 
-- Terraform + Google Cloud を前提にする
+- 現時点では `infra/` ディレクトリは存在しない
+- 新規作成する場合は Terraform + Google Cloud を前提にする
 - 再利用単位は `infra/modules`
 - 環境差分は `infra/environments/{staging,production}`
 - Cloud Run、Cloud SQL、Cloud Tasks、Secret Manager、Firebase / FCM 連携を想定する
-- `infra/` が空または未整備の場合は、`docs/requirements/requirements.md` に沿って module / environment の骨組みから作る
+- `infra/` を作る場合は、`docs/requirements/requirements.md` に沿って module / environment の骨組みから作る

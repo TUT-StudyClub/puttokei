@@ -6,26 +6,23 @@
 - `judgments.verdict`: `correct`, `partial`, `incorrect`, `rejected`
 - 1 セッションに対して output と judgment はそれぞれ 1 件を想定する
 
-## API 一覧
+## API 一覧（現状）
 
-- `POST /api/v1/auth/verify`
 - `POST /api/v1/sessions`
-- `GET /api/v1/sessions/{id}`
 - `PATCH /api/v1/sessions/{id}`
-- `GET /api/v1/sessions`
+- `GET /api/v1/sessions/outputs/today`
 - `POST /api/v1/sessions/{id}/output`
 - `GET /api/v1/sessions/{id}/judgment`
-- `GET /api/v1/judgments`
-- `GET /api/v1/judgments/{id}`
-- `GET /api/v1/stats/summary`
-- `GET /api/v1/stats/daily`
-- `GET /api/v1/stats/weekly`
-- `GET /api/v1/stats/monthly`
-- `GET /api/v1/users/me`
+- `GET /api/v1/users/me/profile`
+- `PATCH /api/v1/users/me/profile`
+- `GET /api/v1/users/me/settings`
 - `PATCH /api/v1/users/me/settings`
 - `DELETE /api/v1/users/me`
 - `GET /health`
 - `GET /health/ready`
+
+`auth` / `judgments` / `stats` の router ファイルはあるが、現時点では `api_v1_router` に未登録。
+mobile 側には `/judgments` と `/stats` の API client があるため、結合時は backend の公開状況を確認する。
 
 ## DB の期待値
 
@@ -40,7 +37,7 @@
 
 ## LLM の契約
 
-- LLM 応答は `verdict` `score` `items` `advice` を持つ JSON
+- LLM 応答は `verdict` `score` `advice` `corrections` を持つ JSON
 - 不明な内容は推測で断定しない
 - フィードバックは高校生でも読める平易な日本語
 - 学習と無関係な入力は拒否できるようにする

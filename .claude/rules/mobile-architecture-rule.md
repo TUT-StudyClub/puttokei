@@ -38,7 +38,7 @@ mobile/
 │       └── types/           # API と共有 domain type
 ├── assets/
 ├── plugins/
-├── app.json
+├── app.json.example
 ├── eas.json
 ├── package.json
 └── tamagui.config.ts
