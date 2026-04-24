@@ -346,7 +346,7 @@ Expo / Xcode 側でも `usesAppleSignIn: true` を有効化し、iOS Capability 
 
 プッシュ通知は Firebase Cloud Messaging を使う。
 
-Apple 側では Push Notifications Capability と APNs Key を用意済み。  
+Apple 側では Push Notifications Capability と APNs Key を用意済み。
 Firebase 側では APNs Key を各 iOS アプリの開発用・本番用に登録する。
 
 アプリ側では FCM token を取得し、バックエンドへ保存する必要がある。
@@ -741,7 +741,7 @@ open ios/Hourglass.xcworkspace
 
 ### 5.2 staging TestFlight 確認
 
-可能なら staging 用の TestFlight アプリを作る。  
+可能なら staging 用の TestFlight アプリを作る。
 ただし App Store Connect のアプリ登録は通常1つの Bundle ID に紐づくため、staging を別アプリとして TestFlight 配布するか、prod アプリの TestFlight だけで運用するかは別途判断する。
 
 確認:
@@ -811,7 +811,7 @@ mobile/firebase/GoogleService-Info.*.plist
 
 #### 方針B: Git 管理する
 
-小規模チームでは運用が楽。  
+小規模チームでは運用が楽。
 ただし Firebase Security Rules / API Key 制限 / App Check などの対策を別途検討する。
 
 ---
@@ -828,7 +828,7 @@ mobile/firebase/GoogleService-Info.*.plist
 
 ### 6.4 Individual プランでも TestFlight 内部テスターは使える
 
-Individual プランでも App Store Connect ユーザーは追加可能。  
+Individual プランでも App Store Connect ユーザーは追加可能。
 ただし、追加ユーザーは Apple Developer Program のチームメンバーではない。
 
 そのため:
