@@ -1,6 +1,6 @@
-# hourglass-backend
+# Puttokei backend
 
-Hourglass の backend API。FastAPI / SQLAlchemy / Alembic / Firebase Admin SDK を採用したクリーンアーキテクチャ実装。
+Puttokei の backend API。FastAPI / SQLAlchemy / Alembic / Firebase Admin SDK を採用したクリーンアーキテクチャ実装。
 
 ## 必要なツール
 
@@ -46,28 +46,44 @@ task backend:db:upgrade  # マイグレーション適用
 
 ルートから `task ci` を叩くと backend と mobile の両方を回せる。`task --list` で全コマンド一覧が見られる。
 
-## ディレクトリ構成
+## アーキテクチャ
 
 要件書 §8.2 に沿った 4 層クリーンアーキテクチャ。依存方向は常に `domain ← application ← infrastructure / presentation`。
+`src.main` と `src.container` を Composition Root とし、presentation 層は `app.state` 経由で依存物を受け取る。
+
+## ディレクトリ構成
 
 ```
 src/
 ├── main.py            FastAPI エントリポイント
 ├── config.py          pydantic-settings の Settings
 ├── container.py       DI 組み立て (Composition Root)
+├── common/            layer をまたいで使う最小限の共通基底
 ├── domain/            純粋 Python（外部依存なし）
-├── application/       Use Case と DTO
-├── infrastructure/    DB / LLM / 認証 / キュー / 通知 の実装
-└── presentation/      FastAPI ルーター / health / workers / schemas / middleware
+├── application/       Use Case / DTO / mapper / Unit of Work IF
+├── infrastructure/    DB / Unit of Work 実装 / LLM / 認証 / キュー / 通知 の実装
+└── presentation/      FastAPI ルーター / health / workers / schemas / middleware / mapper
 
 tests/
 ├── unit/              domain / use case の単体テスト
-├── integration/       repository / LLM の結合テスト
-└── e2e/               API の E2E テスト
+├── integration/       repository / API / LLM の結合テスト
+├── e2e/               API の E2E テスト
+└── fakes/             unit test 用 test double
 
 db/migrations/         Alembic マイグレーション
 ```
 
-## 後続 Epic で実装するもの
+## 実装状況
 
-各レイヤーのファイルは骨組みのみ。各 Epic の Story で具体実装を追加する。
+現在 `api_v1_router` に登録済みの API は `users` と `sessions`。`auth` / `judgments` / `stats` の router ファイルは存在するが、現時点ではプレースホルダーで router 登録されていない。
+
+- 公開済み: `GET /health`, `GET /health/ready`
+- 公開済み: `GET/PATCH /api/v1/users/me/profile`, `GET/PATCH /api/v1/users/me/settings`, `DELETE /api/v1/users/me`
+- 公開済み: `POST /api/v1/sessions`, `GET /api/v1/sessions/outputs/today`, `PATCH /api/v1/sessions/{session_id}`, `POST /api/v1/sessions/{session_id}/output`, `GET /api/v1/sessions/{session_id}/judgment`
+- 未実装: Cloud Tasks へのキューイングと worker 本体。開発環境では `local_judgment_enabled` により `submit_output` 内でローカル判定を実行できる。
+
+## トランザクション境界
+
+Use Case は `application.unit_of_work.ApplicationUnitOfWork` を通じて repository を利用する。`infrastructure.persistence.unit_of_work.SqlAlchemyUnitOfWork` が SQLAlchemy の `AsyncSession` と DB トランザクションを管理し、`container` が `UnitOfWorkFactory` として各 Use Case に注入する。
+
+Use Case 内では `async with self.unit_of_work_factory() as uow:` を単位に処理し、成功時だけ `uow.commit()` する。未 commit または例外発生時は `__aexit__` で rollback される。

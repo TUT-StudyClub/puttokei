@@ -1,6 +1,6 @@
-# hourglass-mobile
+# Puttokei mobile
 
-Hourglass の React Native / Expo アプリ。Expo Router / TypeScript / Tamagui / Zustand / TanStack Query / Fetch API を採用。
+Puttokei の React Native / Expo アプリ。Expo Router / TypeScript / Tamagui / Zustand / TanStack Query / Fetch API を採用。
 
 ## 必要なツール
 
@@ -38,24 +38,28 @@ task mobile:install   # npm ci
 
 ルートから `task ci` を叩くと backend と mobile の両方を回せる。`task --list` で全コマンド一覧が見られる。
 
-## ディレクトリ構成
+## アーキテクチャ
 
 要件書 §8.3 に沿う構成。`app/` は Expo Router の経路定義のみとし、画面実装は `src/features` に寄せる。
+共通初期化、HTTP client、Firebase、通知、Zustand store は `src/shared` に置く。
+
+## ディレクトリ構成
 
 ```
 app/                Expo Router 経路定義のみ
 ├── _layout.tsx     ルートレイアウト（Tamagui / TanStack Query Provider）
-├── (auth)/         認証スタック
-├── (tabs)/         タブナビゲーション
-└── session/[id]/   学習セッション内の各フェーズ
+├── (auth)/         概要、チュートリアル、サインイン
+├── (tabs)/         ホーム、統計、非表示 tab route、セッション内フェーズ
+├── history/[id].tsx
+└── profile/        プロフィール編集
 
 src/
-├── features/       機能単位モジュール（auth / session / history / stats / settings）
+├── features/       機能単位モジュール（auth / session / history / stats / settings / profile）
 │   └── <feature>/{screens,components,hooks,api}/
 └── shared/         機能横断の共有リソース
-    ├── components/  Button / Card / LoadingIndicator
+    ├── components/  AuthGate / BootScreen / Card / LoadingIndicator
     ├── lib/         api (fetch wrapper) / queryClient (TanStack Query) / firebase / notifications
-    ├── stores/      authStore / timerStore (Zustand)
+    ├── stores/      authStore / timerStore / loopStore / tutorialStore (Zustand)
     ├── hooks/
     └── types/
 ```
@@ -64,6 +68,6 @@ src/
 
 `src/shared/lib/api.ts` で **fetch ベースの共通クライアント** を提供し、認証トークンは `setTokenProvider` で差し込む。Bearer トークン付与と JSON 送受信はこのラッパーに集約する。
 
-## 後続 Epic で実装するもの
+## 実装状況
 
-各 feature の screens / hooks / api は placeholder。各 Epic の Story で具体実装を追加する。
+現在は auth / session / history / stats / settings / profile の screen・hook・API client が実装済み。`history` と `stats` の mobile 側 API client は存在するが、backend 側の `/judgments` と `/stats` router はまだ公開されていないため、結合時は backend の実装状況を確認する。

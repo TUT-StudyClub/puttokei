@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 ## 概要
 
-このリポジトリは実装より設計書が先行している。トップレベルの `README` や `Taskfile.yaml`、各ディレクトリ内の実装が空のことがあるため、足りないものを作るときは `docs/requirements/requirements.md` を正として扱う。
+このリポジトリは backend と mobile の土台実装が進んでいる一方、infra は未作成。既存実装がある領域ではローカルの構成とテストを優先して確認し、未実装領域を作るときは `docs/requirements/requirements.md` を正として扱う。
 
 ## 使う場面
 
@@ -21,7 +21,7 @@ disable-model-invocation: true
 
 1. まず変更対象ディレクトリの現状を確認する
 2. 既存コードがある場合は、その周辺の流儀を崩さずに合わせる
-3. 空ディレクトリやプレースホルダーしかない場合は、設計書に沿って素直に土台を作る
+3. 未作成ディレクトリやプレースホルダーしかない領域は、設計書に沿って素直に土台を作る
 4. 実装と設計書が食い違う場合は、変更箇所の一貫性を優先しつつ、最終報告で差分を明示する
 5. 詳細が必要なときだけ `references/` と `.claude/rules/` を読む
 
@@ -34,6 +34,7 @@ disable-model-invocation: true
 - 依存方向は `domain <- application <- infrastructure / presentation`
 - `src.main` と `src.container` を Composition Root とし、依存の組み立てはここに集約する
 - リポジトリ IF と外部サービス IF は `domain`、ユースケースと DTO は `application`
+- Unit of Work IF は `application`、SQLAlchemy による実装は `infrastructure/persistence`
 - DB、認証、キュー、LLM、通知など外部依存の実装は `infrastructure`
 - HTTP 入出力、Pydantic schema、middleware、worker entrypoint は `presentation`
 
@@ -48,6 +49,7 @@ disable-model-invocation: true
 
 ### infra
 
+- 現時点では `infra/` ディレクトリは存在しない
 - Terraform + Google Cloud
 - 再利用単位は `infra/modules`
 - 環境差分は `infra/environments/{staging,production}`

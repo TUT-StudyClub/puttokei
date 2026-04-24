@@ -7,7 +7,7 @@
 - 全体構成と infra の規則は `.codex/rules/project-architecture-rule.md`
 - backend の詳細なディレクトリ構成とアーキテクチャ規則は `.codex/rules/backend-architecture-rule.md`
 - mobile の詳細なディレクトリ構成とアーキテクチャ規則は `.codex/rules/mobile-architecture-rule.md`
-- ルート直下の `README` `Taskfile.yaml` `workflow` 群は空のことがあるので、実装前に必ず中身を確認する
+- ルート直下の `README` `Taskfile.yaml` `workflow` 群は実装済み。変更前に必ず中身を確認する
 
 ## 全体構成
 
@@ -29,11 +29,14 @@
 - `src/main.py`: FastAPI エントリポイント
 - `src/domain`: エンティティ、値オブジェクト、リポジトリ IF、サービス IF
 - `src/application`: ユースケースと DTO
+- `src/application/unit_of_work.py`: use case 単位の Unit of Work 抽象 IF
 - `src/infrastructure`: DB、LLM、認証、キュー、通知の実装
+- `src/infrastructure/persistence/unit_of_work.py`: SQLAlchemy Unit of Work 実装
 - `src/presentation`: FastAPI ルーター、スキーマ、ヘルスチェック、ミドルウェア、ワーカー
 - `tests/unit` `tests/integration` `tests/e2e`: テスト種別ごとに分割
 
 依存方向は常に `domain <- application <- infrastructure / presentation` を維持する。
+Use Case は `UnitOfWorkFactory` を受け取り、成功時だけ commit、未 commit または例外時は rollback する。
 
 ## mobile の期待構成
 
@@ -45,6 +48,7 @@
 
 ## infra の期待構成
 
+- 現時点では `infra/` ディレクトリは存在しない
 - `infra/modules`: 再利用する Terraform モジュール
 - `infra/environments/staging`: ステージング環境
 - `infra/environments/production`: 本番環境
