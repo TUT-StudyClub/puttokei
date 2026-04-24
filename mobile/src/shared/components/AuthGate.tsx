@@ -8,7 +8,7 @@
  * チュートリアル完了フラグはメモリ内 (Zustand) に保持するため、
  * アプリを再起動するたびにチュートリアルが再表示される。
  */
-import { type Href, useRouter, useSegments } from 'expo-router';
+import { type Href, useGlobalSearchParams, useRouter, useSegments } from 'expo-router';
 import { type ReactNode, useEffect, useState } from 'react';
 
 import { BOOT_SCREEN_MIN_DURATION_MS, BootScreen } from '@/shared/components/BootScreen';
@@ -26,6 +26,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const tutorialCompleted = useTutorialStore((s) => s.completed);
   const router = useRouter();
   const segments = useSegments() as string[];
+  const { returnTo } = useGlobalSearchParams<{ returnTo?: string }>();
   const [bootMinimumElapsed, setBootMinimumElapsed] = useState(false);
 
   useEffect(() => {
@@ -57,11 +58,12 @@ export function AuthGate({ children }: { children: ReactNode }) {
       return;
     }
 
-    // 3. 認証済 & チュートリアル完了 → (auth) から (tabs) へ抜けさせる。
+    // 3. 認証済 & チュートリアル完了 → (auth) から (tabs) または returnTo へ抜けさせる。
     if (topSegment === AUTH_SEGMENT) {
-      router.replace(TABS_ROUTE);
+      const destination = (returnTo as Href | undefined) ?? TABS_ROUTE;
+      router.replace(destination);
     }
-  }, [uid, tutorialCompleted, segments, router]);
+  }, [uid, tutorialCompleted, segments, router, returnTo]);
 
   useEffect(() => {
     hideSplashWhenReady();
