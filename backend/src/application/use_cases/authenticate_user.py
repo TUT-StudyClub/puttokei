@@ -1,5 +1,6 @@
 """Bearer token から認証済み User を解決する use case。"""
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -23,6 +24,17 @@ class DeletedAccountAuthenticationError(Exception):
     """論理削除済みアカウントが同じ Firebase UID でアクセスしている。"""
 
 
+@dataclass(frozen=True, slots=True)
+class AuthenticateUserResult:
+    """token 検証結果。
+
+    `/auth/verify` が `is_new` を要求するため、User 単体ではなく初回登録フラグ付きで返す。
+    """
+
+    user: User
+    is_new: bool
+
+
 class AuthenticateUser:
     """token 検証と未登録ユーザーの初期作成を application 層で実行する。"""
 
@@ -35,7 +47,7 @@ class AuthenticateUser:
         self.auth_verifier = auth_verifier
         self.unit_of_work_factory = unit_of_work_factory
 
-    async def execute(self, token: str) -> User:
+    async def execute(self, token: str) -> AuthenticateUserResult:
         try:
             verified = self.auth_verifier.verify_id_token(token)
         except InvalidTokenError as exc:
@@ -44,7 +56,7 @@ class AuthenticateUser:
         async with self.unit_of_work_factory() as uow:
             existing = await uow.users.find_by_firebase_uid(verified["uid"])
             if existing is not None:
-                return existing
+                return AuthenticateUserResult(user=existing, is_new=False)
 
             user, settings = _build_initial_user(verified)
             try:
@@ -52,7 +64,7 @@ class AuthenticateUser:
             except UserAlreadyExistsError as exc:
                 raise DeletedAccountAuthenticationError("account has been deleted") from exc
             await uow.commit()
-            return user
+            return AuthenticateUserResult(user=user, is_new=True)
 
 
 def _build_initial_user(verified: VerifiedToken) -> tuple[User, UserSettings]:
