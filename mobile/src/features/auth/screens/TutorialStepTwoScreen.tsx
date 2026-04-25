@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
   },
   progressRow: {
     position: 'absolute',
-    top: '2.5%',
+    top: '3.1%',
     left: '7.46%',
     right: '6.97%',
     flexDirection: 'row',
@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
   },
   hero: {
     position: 'absolute',
-    top: '7%',
+    top: '8.12%',
     left: 0,
     right: 0,
     alignItems: 'center',
