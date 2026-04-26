@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
   },
   hero: {
     position: 'absolute',
-    top: '8.12%',
+    top: '7.8%',
     left: 0,
     right: 0,
     alignItems: 'center',
