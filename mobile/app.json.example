@@ -15,7 +15,9 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "アウトプット画像を撮影するためにカメラを使用します。",
-        "NSPhotoLibraryUsageDescription": "アウトプット画像を写真フォルダから選択するために写真ライブラリを使用します。"
+        "NSPhotoLibraryUsageDescription": "アウトプット画像を写真フォルダから選択するために写真ライブラリを使用します。",
+        "NSMicrophoneUsageDescription": "アウトプット音声を文字起こしするためにマイクを使用します。",
+        "NSSpeechRecognitionUsageDescription": "アウトプット音声を文字起こしするために音声認識を使用します。"
       }
     },
     "android": {
@@ -50,7 +52,18 @@
         {
           "cameraPermission": "アウトプット画像を撮影するためにカメラを使用します。",
           "photosPermission": "アウトプット画像を写真フォルダから選択するために写真ライブラリを使用します。",
-          "microphonePermission": false
+          "microphonePermission": "アウトプット音声を文字起こしするためにマイクを使用します。"
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "アウトプット音声を文字起こしするためにマイクを使用します。",
+          "speechRecognitionPermission": "アウトプット音声を文字起こしするために音声認識を使用します。",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox",
+            "com.google.android.tts"
+          ]
         }
       ],
       [

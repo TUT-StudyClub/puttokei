@@ -40,6 +40,7 @@ import {
 import { DEFAULT_TIMER } from '@/features/session/config';
 import { useTimer } from '@/features/session/hooks/useTimer';
 import { useSubmitOutput } from '@/features/session/hooks/useSubmitOutput';
+import { useVoiceRecognition } from '@/features/session/hooks/useVoiceRecognition';
 import { isApiError } from '@/shared/lib/api';
 import { useLoopStore } from '@/shared/stores/loopStore';
 
@@ -59,7 +60,6 @@ const CAPTION_COLOR = '#777777';
 const ERROR_COLOR = '#D92D20';
 const MAX_OUTPUT_CONTENT_LENGTH = 2000;
 
-// 入力方法。音声入力はまだプレースホルダー。
 const INPUT_METHODS = ['text', 'image', 'voice'] as const;
 type InputMethod = (typeof INPUT_METHODS)[number];
 
@@ -96,6 +96,17 @@ function buildImageOutputContent(imageUris: string[]) {
   return content.length > MAX_OUTPUT_CONTENT_LENGTH
     ? content.slice(0, MAX_OUTPUT_CONTENT_LENGTH)
     : content;
+}
+
+function appendTranscriptToContent(currentContent: string, transcript: string) {
+  const nextTranscript = transcript.trim();
+  if (!nextTranscript) return currentContent;
+
+  const trimmedCurrentContent = currentContent.trimEnd();
+  if (!trimmedCurrentContent) return nextTranscript;
+  if (trimmedCurrentContent.endsWith(nextTranscript)) return currentContent;
+
+  return `${trimmedCurrentContent}\n${nextTranscript}`;
 }
 
 // 各方法を示すシンプルなラインアイコン。
@@ -362,6 +373,82 @@ function ImageSubmissionFooter({
   );
 }
 
+type VoiceRecognitionPanelProps = {
+  isRecognizing: boolean;
+  statusMessage: string;
+  errorMessage?: string | null;
+  interimTranscript: string;
+  onStart: () => void;
+  onStop: () => void;
+};
+
+function VoiceRecognitionPanel({
+  isRecognizing,
+  statusMessage,
+  errorMessage,
+  interimTranscript,
+  onStart,
+  onStop,
+}: VoiceRecognitionPanelProps) {
+  return (
+    <View style={styles.voicePanel} testID="output-voice-panel">
+      <View style={styles.voicePanelHeader}>
+        <View style={[styles.voicePulse, isRecognizing ? styles.voicePulseActive : null]}>
+          <InputMethodIcon method="voice" color={isRecognizing ? '#FFFFFF' : PRIMARY_COLOR} />
+        </View>
+        <SizableText style={styles.voiceStatus} testID="output-voice-status">
+          {statusMessage}
+        </SizableText>
+      </View>
+
+      {interimTranscript ? (
+        <View style={styles.voiceInterimBox} testID="output-voice-interim">
+          <SizableText style={styles.voiceInterimText}>{interimTranscript}</SizableText>
+        </View>
+      ) : null}
+
+      {errorMessage ? (
+        <SizableText style={styles.voiceError} testID="output-voice-error">
+          {errorMessage}
+        </SizableText>
+      ) : null}
+
+      <View style={styles.voiceActions}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: isRecognizing }}
+          disabled={isRecognizing}
+          onPress={onStart}
+          style={({ pressed }) => [
+            styles.voiceActionButton,
+            isRecognizing ? styles.voiceActionButtonDisabled : null,
+            pressed ? styles.buttonPressed : null,
+          ]}
+          testID="output-voice-start"
+        >
+          <SizableText style={styles.voiceActionButtonText}>開始</SizableText>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !isRecognizing }}
+          disabled={!isRecognizing}
+          onPress={onStop}
+          style={({ pressed }) => [
+            styles.voiceActionButton,
+            styles.voiceStopButton,
+            !isRecognizing ? styles.voiceActionButtonDisabled : null,
+            pressed ? styles.buttonPressed : null,
+          ]}
+          testID="output-voice-stop"
+        >
+          <SizableText style={styles.voiceActionButtonText}>停止</SizableText>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 type SessionRouteParams = {
   id?: string;
   input?: string;
@@ -398,6 +485,29 @@ export function OutputScreen() {
   const isImageMethod = inputMethod === 'image';
   const isVoiceMethod = inputMethod === 'voice';
 
+  const handleFinalVoiceTranscript = useCallback(
+    (transcript: string) => {
+      setContent((currentContent) => appendTranscriptToContent(currentContent, transcript));
+      setLocalErrorMessage(null);
+      if (isSubmitError) {
+        resetSubmit();
+      }
+    },
+    [isSubmitError, resetSubmit],
+  );
+
+  const {
+    isRecognizing: isVoiceRecognizing,
+    statusMessage: voiceStatusMessage,
+    errorMessage: voiceErrorMessage,
+    interimTranscript: voiceInterimTranscript,
+    startListening,
+    stopListening,
+    resetVoiceRecognition,
+  } = useVoiceRecognition({
+    onFinalTranscript: handleFinalVoiceTranscript,
+  });
+
   const navigateToBreak = useCallback(() => {
     router.replace({
       pathname: '/session/[id]/break',
@@ -426,6 +536,9 @@ export function OutputScreen() {
 
   const handleInputMethodChange = useCallback(
     (method: InputMethod) => {
+      if (method !== 'voice' && isVoiceRecognizing) {
+        stopListening();
+      }
       setInputMethod(method);
       setLocalErrorMessage(null);
       setIsImageMenuOpen(false);
@@ -433,7 +546,7 @@ export function OutputScreen() {
         resetSubmit();
       }
     },
-    [isSubmitError, resetSubmit],
+    [isSubmitError, isVoiceRecognizing, resetSubmit, stopListening],
   );
 
   const handleImageSubmit = useCallback(() => {
@@ -545,6 +658,11 @@ export function OutputScreen() {
         setLocalErrorMessage('時間になりました。画像を確認して提出してください。');
         return;
       }
+      if (isVoiceMethod && isVoiceRecognizing) {
+        stopListening();
+        setLocalErrorMessage('時間になりました。音声入力を停止して内容を確認してください。');
+        return;
+      }
       const trimmed = content.trim();
       if (trimmed.length === 0) {
         setLocalErrorMessage('時間になりました。学習内容を入力してから送信してください。');
@@ -560,12 +678,14 @@ export function OutputScreen() {
     setImageUris([]);
     setLocalErrorMessage(null);
     setIsImageMenuOpen(false);
+    resetVoiceRecognition();
     resetSubmit();
     start('output', outputMinutes * 60);
     return () => {
+      resetVoiceRecognition();
       reset();
     };
-  }, [outputMinutes, reset, resetSubmit, sessionId, start]);
+  }, [outputMinutes, reset, resetSubmit, resetVoiceRecognition, sessionId, start]);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -696,34 +816,40 @@ export function OutputScreen() {
                       onTakePhoto={handleTakePhoto}
                     />
                   ) : (
-                    <OutputEditor
-                      key={sessionId}
-                      value={content}
-                      onChange={(nextValue) => {
-                        setContent(nextValue);
-                        if (localErrorMessage !== null) {
-                          setLocalErrorMessage(null);
-                        }
-                        if (isSubmitError) {
-                          resetSubmit();
-                        }
-                      }}
-                      onSubmit={handleEditorSubmit}
-                      isSubmitting={isSubmitPending}
-                      errorMessage={submitErrorMessage}
-                      disabled={isVoiceMethod}
-                      onFocus={() => {
-                        requestAnimationFrame(() => {
-                          scrollRef.current?.scrollTo({ y: 120, animated: true });
-                        });
-                      }}
-                    />
+                    <>
+                      {isVoiceMethod ? (
+                        <VoiceRecognitionPanel
+                          isRecognizing={isVoiceRecognizing}
+                          statusMessage={voiceStatusMessage}
+                          errorMessage={voiceErrorMessage}
+                          interimTranscript={voiceInterimTranscript}
+                          onStart={startListening}
+                          onStop={stopListening}
+                        />
+                      ) : null}
+                      <OutputEditor
+                        key={sessionId}
+                        value={content}
+                        onChange={(nextValue) => {
+                          setContent(nextValue);
+                          if (localErrorMessage !== null) {
+                            setLocalErrorMessage(null);
+                          }
+                          if (isSubmitError) {
+                            resetSubmit();
+                          }
+                        }}
+                        onSubmit={handleEditorSubmit}
+                        isSubmitting={isSubmitPending}
+                        errorMessage={submitErrorMessage}
+                        onFocus={() => {
+                          requestAnimationFrame(() => {
+                            scrollRef.current?.scrollTo({ y: 120, animated: true });
+                          });
+                        }}
+                      />
+                    </>
                   )}
-                  {isVoiceMethod ? (
-                    <SizableText style={styles.methodNotice} testID="output-method-notice">
-                      {INPUT_METHOD_LABELS[inputMethod]}入力は近日公開予定です。
-                    </SizableText>
-                  ) : null}
                 </View>
               </View>
 
@@ -858,6 +984,79 @@ const styles = StyleSheet.create({
   },
   editorArea: {
     gap: 8,
+  },
+  voicePanel: {
+    gap: 12,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: PRIMARY_SOFT_COLOR,
+    backgroundColor: '#FFF7FB',
+  },
+  voicePanelHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  voicePulse: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 19,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: PRIMARY_SOFT_COLOR,
+  },
+  voicePulseActive: {
+    backgroundColor: PRIMARY_COLOR,
+    borderColor: PRIMARY_COLOR,
+  },
+  voiceStatus: {
+    flex: 1,
+    color: METHOD_ACTIVE_COLOR,
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 20,
+  },
+  voiceInterimBox: {
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  voiceInterimText: {
+    color: CAPTION_COLOR,
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  voiceError: {
+    color: ERROR_COLOR,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  voiceActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  voiceActionButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+    borderRadius: 14,
+    backgroundColor: ACTION_COLOR,
+  },
+  voiceStopButton: {
+    backgroundColor: PRIMARY_COLOR,
+  },
+  voiceActionButtonDisabled: {
+    opacity: 0.45,
+  },
+  voiceActionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 20,
   },
   methodNotice: {
     color: ERROR_COLOR,
