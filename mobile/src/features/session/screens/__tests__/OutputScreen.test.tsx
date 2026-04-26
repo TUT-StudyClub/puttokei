@@ -29,6 +29,35 @@ const mockRequestCameraPermissionsAsync = jest.fn();
 const mockLaunchCameraAsync = jest.fn();
 const mockRequestMediaLibraryPermissionsAsync = jest.fn();
 const mockLaunchImageLibraryAsync = jest.fn();
+const mockRequestSpeechPermissionsAsync = jest.fn();
+const mockSpeechRecognitionStart = jest.fn();
+const mockSpeechRecognitionStop = jest.fn();
+const mockSpeechRecognitionAbort = jest.fn();
+const mockIsSpeechRecognitionAvailable = jest.fn();
+const mockRequireOptionalNativeModule = jest.fn();
+const mockSpeechRecognitionListeners = new Map<string, ((event: any) => void)[]>();
+const mockSpeechRecognitionModule = {
+  requestPermissionsAsync: mockRequestSpeechPermissionsAsync,
+  start: mockSpeechRecognitionStart,
+  stop: mockSpeechRecognitionStop,
+  abort: mockSpeechRecognitionAbort,
+  isRecognitionAvailable: mockIsSpeechRecognitionAvailable,
+  addListener: (eventName: string, listener: (event: any) => void) => {
+    const listeners = mockSpeechRecognitionListeners.get(eventName) ?? [];
+    listeners.push(listener);
+    mockSpeechRecognitionListeners.set(eventName, listeners);
+
+    return {
+      remove: () => {
+        const currentListeners = mockSpeechRecognitionListeners.get(eventName) ?? [];
+        mockSpeechRecognitionListeners.set(
+          eventName,
+          currentListeners.filter((currentListener) => currentListener !== listener),
+        );
+      },
+    };
+  },
+};
 let mockRouteParams = {
   id: 'ses-123',
   input: '20',
@@ -53,12 +82,23 @@ jest.mock('expo-image-picker', () => ({
   launchImageLibraryAsync: mockLaunchImageLibraryAsync,
 }));
 
+jest.mock('expo', () => ({
+  __esModule: true,
+  requireOptionalNativeModule: mockRequireOptionalNativeModule,
+}));
+
 jest.mock('@/features/session/api/sessionApi');
 
 const { OutputScreen } =
   require('@/features/session/screens/OutputScreen') as typeof import('@/features/session/screens/OutputScreen');
 
 const keyboardListeners = new Map<string, KeyboardEventListener>();
+
+function emitSpeechRecognitionEvent(eventName: string, event: any = null) {
+  for (const listener of mockSpeechRecognitionListeners.get(eventName) ?? []) {
+    listener(event);
+  }
+}
 
 function renderWithProviders(ui: ReactElement) {
   const queryClient = new QueryClient({
@@ -109,6 +149,10 @@ describe('OutputScreen', () => {
     mockLaunchCameraAsync.mockResolvedValue({ canceled: true, assets: [] });
     mockRequestMediaLibraryPermissionsAsync.mockResolvedValue({ granted: true });
     mockLaunchImageLibraryAsync.mockResolvedValue({ canceled: true, assets: [] });
+    mockRequestSpeechPermissionsAsync.mockResolvedValue({ granted: true });
+    mockIsSpeechRecognitionAvailable.mockReturnValue(true);
+    mockRequireOptionalNativeModule.mockReturnValue(mockSpeechRecognitionModule);
+    mockSpeechRecognitionListeners.clear();
     resetRouteParams();
     keyboardListeners.clear();
     jest.spyOn(Keyboard, 'addListener').mockImplementation((eventName, listener) => {
@@ -186,6 +230,147 @@ describe('OutputScreen', () => {
     expect(queryByTestId('output-settings-button')).toBeNull();
     expect(queryByTestId('output-hourglass-badge')).toBeNull();
     expect(queryByTestId('output-timer-caption')).toBeNull();
+  });
+
+  it('音声タブ選択時は音声認識パネルと編集可能な本文欄を表示する', () => {
+    const { getByTestId, queryByTestId } = renderWithProviders(<OutputScreen />);
+
+    fireEvent.press(getByTestId('output-method-tab-voice'));
+
+    expect(getByTestId('output-voice-panel')).toBeTruthy();
+    expect(getByTestId('output-voice-start')).toBeTruthy();
+    expect(getByTestId('output-voice-stop')).toBeTruthy();
+    expect(getByTestId('output-voice-status').props.children).toBe(
+      'マイクボタンを押して話してください。',
+    );
+    expect(getByTestId('output-editor-textarea').props.editable).toBe(true);
+    expect(queryByTestId('output-method-notice')).toBeNull();
+    expect(mockRequireOptionalNativeModule).not.toHaveBeenCalled();
+  });
+
+  it('音声入力開始で権限確認後に ja-JP の継続認識を開始する', async () => {
+    const { getByTestId } = renderWithProviders(<OutputScreen />);
+
+    fireEvent.press(getByTestId('output-method-tab-voice'));
+
+    await act(async () => {
+      fireEvent.press(getByTestId('output-voice-start'));
+    });
+
+    expect(mockRequestSpeechPermissionsAsync).toHaveBeenCalledTimes(1);
+    expect(mockSpeechRecognitionStart).toHaveBeenCalledWith({
+      lang: 'ja-JP',
+      interimResults: true,
+      continuous: true,
+    });
+  });
+
+  it('音声認識の final result を本文に追加し、既存の送信フローで提出できる', async () => {
+    (sessionApi.submitOutput as jest.Mock).mockResolvedValue({
+      ...submitSuccessResponse,
+      output: {
+        ...submitSuccessResponse.output,
+        content: '関係代名詞は先行詞を説明する',
+      },
+    });
+    const { getByTestId } = renderWithProviders(<OutputScreen />);
+
+    fireEvent.press(getByTestId('output-method-tab-voice'));
+    await act(async () => {
+      fireEvent.press(getByTestId('output-voice-start'));
+    });
+    act(() => {
+      emitSpeechRecognitionEvent('start');
+      emitSpeechRecognitionEvent('result', {
+        isFinal: true,
+        results: [{ transcript: '関係代名詞は先行詞を説明する', confidence: 0.91, segments: [] }],
+      });
+    });
+
+    expect(getByTestId('output-editor-textarea').props.value).toBe('関係代名詞は先行詞を説明する');
+
+    act(() => {
+      fireEvent.press(getByTestId('output-editor-submit'));
+    });
+
+    await waitFor(() => {
+      expect(sessionApi.submitOutput).toHaveBeenCalledWith('ses-123', {
+        content: '関係代名詞は先行詞を説明する',
+        submitted_at: '2026-04-10T15:25:00.000Z',
+      });
+    });
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith({
+        pathname: '/session/[id]/break',
+        params: { id: 'ses-123', input: '20', output: '1', break: '5' },
+      });
+    });
+  });
+
+  it('音声認識の権限が拒否されたらエラーを表示し、開始しない', async () => {
+    mockRequestSpeechPermissionsAsync.mockResolvedValueOnce({ granted: false });
+    const { getByTestId } = renderWithProviders(<OutputScreen />);
+
+    fireEvent.press(getByTestId('output-method-tab-voice'));
+    await act(async () => {
+      fireEvent.press(getByTestId('output-voice-start'));
+    });
+
+    expect(getByTestId('output-voice-error').props.children).toBe(
+      'マイクまたは音声認識の使用が許可されていません。設定から許可してください。',
+    );
+    expect(mockSpeechRecognitionStart).not.toHaveBeenCalled();
+  });
+
+  it('端末が音声認識に非対応の場合はエラーを表示し、開始しない', async () => {
+    mockIsSpeechRecognitionAvailable.mockReturnValueOnce(false);
+    const { getByTestId } = renderWithProviders(<OutputScreen />);
+
+    fireEvent.press(getByTestId('output-method-tab-voice'));
+    await act(async () => {
+      fireEvent.press(getByTestId('output-voice-start'));
+    });
+
+    expect(getByTestId('output-voice-error').props.children).toBe(
+      'この端末では音声認識を利用できません。端末の音声認識設定を確認してください。',
+    );
+    expect(mockRequestSpeechPermissionsAsync).not.toHaveBeenCalled();
+    expect(mockSpeechRecognitionStart).not.toHaveBeenCalled();
+  });
+
+  it('native module が未組み込みの場合は再ビルド案内を表示し、開始しない', async () => {
+    mockRequireOptionalNativeModule.mockReturnValueOnce(null);
+    const { getByTestId } = renderWithProviders(<OutputScreen />);
+
+    fireEvent.press(getByTestId('output-method-tab-voice'));
+    await act(async () => {
+      fireEvent.press(getByTestId('output-voice-start'));
+    });
+
+    expect(getByTestId('output-voice-error').props.children).toBe(
+      '音声認識機能を使うには development build の再インストールが必要です。Metro を止めて task ios:device または task android:device を実行してください。',
+    );
+    expect(mockRequestSpeechPermissionsAsync).not.toHaveBeenCalled();
+    expect(mockSpeechRecognitionStart).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['network', '音声認識に必要な通信が失敗しました。通信環境を確認してもう一度お試しください。'],
+    ['no-speech', '音声を聞き取れませんでした。マイクに向かってもう一度話してください。'],
+    ['busy', '音声認識が別の処理中です。少し待ってからもう一度お試しください。'],
+  ])('音声認識エラー %s を日本語メッセージで表示する', async (error, expectedMessage) => {
+    const { getByTestId } = renderWithProviders(<OutputScreen />);
+
+    fireEvent.press(getByTestId('output-method-tab-voice'));
+    await act(async () => {
+      fireEvent.press(getByTestId('output-voice-start'));
+    });
+    act(() => {
+      emitSpeechRecognitionEvent('start');
+      emitSpeechRecognitionEvent('error', { error, message: 'speech recognition failed' });
+    });
+
+    expect(getByTestId('output-voice-error').props.children).toBe(expectedMessage);
   });
 
   it('画像追加メニューからカメラを開き、撮影画像を左から追加する', async () => {
@@ -498,5 +683,39 @@ describe('OutputScreen', () => {
       });
     });
     expect(sessionApi.submitOutput).toHaveBeenCalledTimes(2);
+  });
+
+  it('session id が変わったら音声認識状態と本文をリセットする', async () => {
+    const { getByTestId, queryByTestId, rerender } = renderWithProviders(<OutputScreen />);
+
+    fireEvent.press(getByTestId('output-method-tab-voice'));
+    await act(async () => {
+      fireEvent.press(getByTestId('output-voice-start'));
+    });
+    act(() => {
+      emitSpeechRecognitionEvent('start');
+      emitSpeechRecognitionEvent('result', {
+        isFinal: true,
+        results: [{ transcript: '前サイクルの音声メモ', confidence: 0.8, segments: [] }],
+      });
+    });
+
+    expect(getByTestId('output-editor-textarea').props.value).toBe('前サイクルの音声メモ');
+
+    act(() => {
+      mockRouteParams = {
+        id: 'ses-next',
+        input: '20',
+        output: '1',
+        break: '5',
+      };
+      rerender(<OutputScreen />);
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('output-editor-textarea').props.value).toBe('');
+    });
+    expect(queryByTestId('output-voice-panel')).toBeNull();
+    expect(mockSpeechRecognitionAbort).toHaveBeenCalledTimes(1);
   });
 });
