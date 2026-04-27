@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
     top: '19%',
     left: '13.18%',
     right: '12.94%',
-    height: '55%',
+    height: '55.5%',
     flexDirection: 'row',
     padding: 14,
     borderWidth: 1,
