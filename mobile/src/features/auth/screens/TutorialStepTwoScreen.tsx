@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
   },
   hero: {
     position: 'absolute',
-    top: '7.8%',
+    top: '8.5%',
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -220,10 +220,10 @@ const styles = StyleSheet.create({
   },
   previewCard: {
     position: 'absolute',
-    top: '18%',
+    top: '19%',
     left: '13.18%',
     right: '12.94%',
-    height: '56%',
+    height: '55%',
     flexDirection: 'row',
     padding: 14,
     borderWidth: 1,
