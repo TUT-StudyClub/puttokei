@@ -3,6 +3,8 @@
  * backend #54 の集計 API レスポンス仕様に対応する JSON 契約として扱う。
  */
 
+import type { OutputReviewItem } from '@/features/session/types';
+
 export const STATS_PERIODS = ['daily', 'weekly', 'monthly'] as const;
 export type Period = (typeof STATS_PERIODS)[number];
 
@@ -40,4 +42,27 @@ export type StatsPeriodResponse = {
   period: Period;
   points: StatsDataPoint[];
   summary: StatsSummary;
+};
+
+export type WeeklyReportSummary = {
+  input_minutes: number;
+  output_minutes: number;
+  break_minutes: number;
+  total_study_minutes: number;
+  total_sessions: number;
+};
+
+export type WeeklyReportPoint = {
+  bucket: string;
+  label: string;
+  study_minutes: number;
+  sessions: number;
+};
+
+export type WeeklyReportResponse = {
+  week_start: string;
+  week_end: string;
+  summary: WeeklyReportSummary;
+  points: WeeklyReportPoint[];
+  output_history: OutputReviewItem[];
 };
