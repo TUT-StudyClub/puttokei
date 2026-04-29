@@ -27,7 +27,6 @@ import { useLoopStore } from '@/shared/stores/loopStore';
 const SETTINGS_ROUTE = '/(tabs)/settings' as unknown as Href;
 
 const HOURGLASS_BADGE_COLOR = '#9CA3AF';
-const TEXT_ACTIVE = '#2F2F2F';
 const DOT_INACTIVE = '#D9D9D9';
 
 function formatMinutes(minutes: number) {
@@ -89,8 +88,8 @@ export function HomeScreen() {
             testIDPrefix="home"
             activeDotColor={HOURGLASS_BADGE_COLOR}
             activeDotFilled={false}
-            activeTextColor={TEXT_ACTIVE}
-            inactiveTextColor={DOT_INACTIVE}
+            activeTextColor="#9D9D9D"
+            inactiveTextColor="#CDCDCD"
             inactiveDotColor={DOT_INACTIVE}
             marginBottom={0}
             onChange={setPhase}
@@ -146,7 +145,7 @@ const styles = StyleSheet.create({
   },
   badgeWrapper: {
     position: 'absolute',
-    top: '8%',
+    top: '7.9%',
     left: '13.18%',
     right: '12.94%',
     alignItems: 'flex-start',
@@ -156,13 +155,13 @@ const styles = StyleSheet.create({
   },
   phaseTabsWrapper: {
     position: 'absolute',
-    top: '18%',
+    top: '18.6%',
     left: '13.18%',
     right: 0,
   },
   timerCircle: {
     position: 'absolute',
-    top: '25.5%',
+    top: '26.1%',
     left: '13%',
     right: '13%',
     aspectRatio: 1,
@@ -182,17 +181,18 @@ const styles = StyleSheet.create({
   },
   timerCaption: {
     position: 'absolute',
-    top: '68%',
+    top: '71%',
     left: 0,
     right: 0,
-    color: '#777777',
+    color: '#9D9D9D',
+    fontFamily: 'HiraginoSans-W3',
     fontSize: 12,
     lineHeight: 18,
     textAlign: 'center',
   },
   actionArea: {
     position: 'absolute',
-    top: '76%',
+    top: '78.3%',
     left: '13.18%',
     right: '12.94%',
     gap: 12,
