@@ -154,6 +154,50 @@ export function HourglassBadge({
   );
 }
 
+const PHASE_TAB_DOT_SIZE = 9.5;
+const PHASE_TAB_DOT_STROKE = 1.5;
+
+function PhaseTabDot({
+  color,
+  filled,
+  testID,
+}: {
+  color: string;
+  filled: boolean;
+  testID: string;
+}) {
+  const r = PHASE_TAB_DOT_SIZE / 2 - PHASE_TAB_DOT_STROKE / 2;
+  const c = PHASE_TAB_DOT_SIZE / 2;
+  return (
+    <View
+      testID={testID}
+      style={{
+        width: PHASE_TAB_DOT_SIZE,
+        height: PHASE_TAB_DOT_SIZE,
+        borderRadius: PHASE_TAB_DOT_SIZE / 2,
+        backgroundColor: filled ? color : 'transparent',
+        borderColor: color,
+        borderWidth: 0,
+      }}
+    >
+      {!filled && (
+        <Svg width={PHASE_TAB_DOT_SIZE} height={PHASE_TAB_DOT_SIZE}>
+          <Circle
+            cx={c}
+            cy={c}
+            r={r}
+            stroke={color}
+            strokeWidth={PHASE_TAB_DOT_STROKE}
+            strokeDasharray="0 2.51"
+            strokeLinecap="round"
+            fill="none"
+          />
+        </Svg>
+      )}
+    </View>
+  );
+}
+
 type PhaseTabsProps = {
   activePhase: SessionPhase | null;
   testIDPrefix: string;
@@ -197,20 +241,9 @@ export function PhaseTabs({
         const phaseInactiveTextColor = inactiveTextColors?.[phase] ?? inactiveTextColor;
         const tabContent = (
           <>
-            <View
-              style={[
-                styles.phaseTabDot,
-                {
-                  borderColor: phaseInactiveDotColor,
-                  backgroundColor: phaseInactiveDotFilled ? phaseInactiveDotColor : 'transparent',
-                },
-                isActive
-                  ? {
-                      borderColor: activeDotColor,
-                      backgroundColor: activeDotFilled ? activeDotColor : 'transparent',
-                    }
-                  : null,
-              ]}
+            <PhaseTabDot
+              color={isActive ? activeDotColor : phaseInactiveDotColor}
+              filled={isActive ? activeDotFilled : phaseInactiveDotFilled}
               testID={`${testIDPrefix}-phase-tab-${phase}-dot`}
             />
             <SizableText
@@ -389,15 +422,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 4,
   },
-  phaseTabDot: {
-    width: 9.5,
-    height: 9.5,
-    borderRadius: 5,
-    borderWidth: 1.5,
-    borderStyle: 'dotted',
-    backgroundColor: 'transparent',
-  },
   phaseTabLabel: {
+    fontFamily: 'HiraginoSans-W6',
     fontSize: 12,
     fontWeight: '600',
   },
