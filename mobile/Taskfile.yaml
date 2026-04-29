@@ -21,10 +21,20 @@ tasks:
     cmds:
       - npm run ios
 
+  ios:device:
+    desc: iOS 実機へ development build をインストールして起動する
+    cmds:
+      - npx expo run:ios --device
+
   android:
     desc: Android エミュレータで起動する
     cmds:
       - npm run android
+
+  android:device:
+    desc: Android 実機へ development build をインストールして起動する
+    cmds:
+      - npx expo run:android --device
 
   web:
     desc: Web プレビューを起動する

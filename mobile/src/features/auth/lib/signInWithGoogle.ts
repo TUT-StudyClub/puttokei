@@ -1,0 +1,48 @@
+/**
+ * Google Sign In → Firebase credential の取得。
+ *
+ * @react-native-google-signin/google-signin で Google credential を取得し、
+ * Firebase の GoogleAuthProvider.credential に変換してサインインする。
+ * webClientId は app.json の extra.googleWebClientId から読み込む。
+ * `configureGoogleSignIn()` を RootLayout から一度だけ呼ぶ前提。
+ */
+import { Platform } from 'react-native';
+import auth from '@react-native-firebase/auth';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import Constants from 'expo-constants';
+
+import { AuthFlowCancelledError } from './authErrors';
+
+let configured = false;
+
+export function configureGoogleSignIn(): void {
+  if (configured) return;
+  const webClientId = Constants.expoConfig?.extra?.googleWebClientId as string | undefined;
+  if (!webClientId) {
+    throw new Error('app.json の extra.googleWebClientId が未設定です');
+  }
+
+  GoogleSignin.configure({ webClientId });
+  configured = true;
+}
+
+export async function signInWithGoogle(): Promise<void> {
+  configureGoogleSignIn();
+
+  if (Platform.OS !== 'ios') {
+    await GoogleSignin.hasPlayServices();
+  }
+
+  const result = await GoogleSignin.signIn();
+
+  if (result.type === 'cancelled') {
+    throw new AuthFlowCancelledError();
+  }
+
+  if (!result.data.idToken) {
+    throw new Error('Google Sign In: idToken が取得できませんでした');
+  }
+
+  const credential = auth.GoogleAuthProvider.credential(result.data.idToken);
+  await auth().signInWithCredential(credential);
+}

@@ -9,13 +9,20 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
+      "usesAppleSignIn": true,
       "bundleIdentifier": "com.hourglass-nomibress.app",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "アウトプット画像を撮影するためにカメラを使用します。",
+        "NSPhotoLibraryUsageDescription": "アウトプット画像を写真フォルダから選択するために写真ライブラリを使用します。",
+        "NSMicrophoneUsageDescription": "アウトプット音声を文字起こしするためにマイクを使用します。",
+        "NSSpeechRecognitionUsageDescription": "アウトプット音声を文字起こしするために音声認識を使用します。"
       }
     },
     "android": {
-      "package": "com.hourglass.app"
+      "package": "com.hourglass.app",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "bundler": "metro",
@@ -23,6 +30,61 @@
     },
     "plugins": [
       "expo-router",
+      "./plugins/withModularHeaders",
+      "@react-native-firebase/app",
+      "expo-apple-authentication",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "YOUR_REVERSED_CLIENT_ID"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "アウトプット画像を撮影するためにカメラを使用します。",
+          "photosPermission": "アウトプット画像を写真フォルダから選択するために写真ライブラリを使用します。",
+          "microphonePermission": "アウトプット音声を文字起こしするためにマイクを使用します。"
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "アウトプット音声を文字起こしするためにマイクを使用します。",
+          "speechRecognitionPermission": "アウトプット音声を文字起こしするために音声認識を使用します。",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox",
+            "com.google.android.tts"
+          ]
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "アウトプット画像を撮影するためにカメラを使用します。",
+          "photosPermission": "アウトプット画像を写真フォルダから選択するために写真ライブラリを使用します。",
+          "microphonePermission": "アウトプット音声を文字起こしするためにマイクを使用します。"
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "アウトプット音声を文字起こしするためにマイクを使用します。",
+          "speechRecognitionPermission": "アウトプット音声を文字起こしするために音声認識を使用します。",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox",
+            "com.google.android.tts"
+          ]
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -44,7 +106,8 @@
       "eas": {
         "projectId": "4498f1e9-6c92-4c40-976d-8135bf225a8c"
       },
-      "apiBaseUrl": "http://localhost:8080/api/v1"
+      "apiBaseUrl": "http://localhost:8080/api/v1",
+      "googleWebClientId": "YOUR_GOOGLE_WEB_CLIENT_ID"
     },
     "owner": "yuehiyamada"
   }

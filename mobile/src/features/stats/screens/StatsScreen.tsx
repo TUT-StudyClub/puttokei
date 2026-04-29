@@ -6,7 +6,11 @@
  *  - isError: 取得失敗 + retry ボタン
  *  - 空データ: 促しメッセージ
  *  - 正常: Selector + SummaryCards + Chart
+ *
+ * 未認証ユーザーはこの画面のデータを取得できないため、`/(auth)/sign-in` に誘導する。
+ * サインイン成功後に戻ってこられるよう `returnTo` を渡している。
  */
+import { Redirect } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView } from 'react-native';
 import { Button, H2, Paragraph, YStack } from 'tamagui';
@@ -18,6 +22,7 @@ import { useStats } from '@/features/stats/hooks/useStats';
 import type { Period } from '@/features/stats/types';
 import { isApiError } from '@/shared/lib/api';
 import { LoadingIndicator } from '@/shared/components/LoadingIndicator';
+import { useAuthStore } from '@/shared/stores/authStore';
 
 function Header() {
   return (
@@ -29,8 +34,20 @@ function Header() {
 }
 
 export function StatsScreen() {
+  const uid = useAuthStore((s) => s.uid);
   const [period, setPeriod] = useState<Period>('daily');
   const statsQuery = useStats(period);
+
+  if (uid === null) {
+    return (
+      <Redirect
+        href={{
+          pathname: '/(auth)/sign-in',
+          params: { returnTo: '/(tabs)/stats' },
+        }}
+      />
+    );
+  }
 
   const errorMessage = statsQuery.isError
     ? isApiError(statsQuery.error)

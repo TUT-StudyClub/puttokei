@@ -115,9 +115,9 @@ describe('TutorialStepOneScreen', () => {
     const getExpectedScale = (phaseIndex: number) =>
       (phaseIndex + 1) / TUTORIAL_STEP_ONE_PHASES.length;
 
-    expect(getProgressBackgroundColor(screen, 1)).toBe('#D9D9D9');
-    expect(getProgressBackgroundColor(screen, 2)).toBe('#D9D9D9');
-    expect(getProgressBackgroundColor(screen, 3)).toBe('#D9D9D9');
+    expect(getProgressBackgroundColor(screen, 1)).toBe('#CDCDCD');
+    expect(getProgressBackgroundColor(screen, 2)).toBe('#CDCDCD');
+    expect(getProgressBackgroundColor(screen, 3)).toBe('#CDCDCD');
     expect(getProgressFillScale(screen)).toBeCloseTo(getExpectedScale(0), 3);
 
     act(() => {
@@ -135,9 +135,9 @@ describe('TutorialStepOneScreen', () => {
       );
     });
 
-    expect(getProgressBackgroundColor(screen, 1)).toBe('#D9D9D9');
-    expect(getProgressBackgroundColor(screen, 2)).toBe('#D9D9D9');
-    expect(getProgressBackgroundColor(screen, 3)).toBe('#D9D9D9');
+    expect(getProgressBackgroundColor(screen, 1)).toBe('#CDCDCD');
+    expect(getProgressBackgroundColor(screen, 2)).toBe('#CDCDCD');
+    expect(getProgressBackgroundColor(screen, 3)).toBe('#CDCDCD');
     expect(getProgressFillScale(screen)).toBeCloseTo(getExpectedScale(1), 3);
 
     act(() => {
@@ -146,9 +146,9 @@ describe('TutorialStepOneScreen', () => {
       );
     });
 
-    expect(getProgressBackgroundColor(screen, 1)).toBe('#D9D9D9');
-    expect(getProgressBackgroundColor(screen, 2)).toBe('#D9D9D9');
-    expect(getProgressBackgroundColor(screen, 3)).toBe('#D9D9D9');
+    expect(getProgressBackgroundColor(screen, 1)).toBe('#CDCDCD');
+    expect(getProgressBackgroundColor(screen, 2)).toBe('#CDCDCD');
+    expect(getProgressBackgroundColor(screen, 3)).toBe('#CDCDCD');
     expect(getProgressFillScale(screen)).toBeCloseTo(getExpectedScale(2), 3);
   });
 
