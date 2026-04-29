@@ -3,8 +3,11 @@
  *
  * 上部の週ナビゲーションとハイライトは固定し、その下から教科グラフと
  * アウトプット履歴をスクロールできる構成にする。
+ *
+ * 未認証ユーザーはこの画面のデータを取得できないため、`/(auth)/sign-in` に誘導する。
+ * サインイン成功後に戻ってこられるよう `returnTo` を渡している。
  */
-import { type RelativePathString, useRouter } from 'expo-router';
+import { Redirect, type RelativePathString, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -27,6 +30,7 @@ import { getMonthLabel, getSundayWeekStartKey } from '@/features/stats/lib/week'
 import type { WeeklyReportPoint, WeeklyReportResponse } from '@/features/stats/types';
 import type { OutputReviewItem } from '@/features/session/types';
 import { isApiError } from '@/shared/lib/api';
+import { useAuthStore } from '@/shared/stores/authStore';
 
 const HIGHLIGHT_BACKGROUND = require('../../../../assets/images/hilight-background-1.png');
 const HOURGLASS_ASSET = require('../../../../assets/images/hourglass_gradation.svg');
@@ -412,8 +416,23 @@ function ErrorBody({ message, onRetry }: { message: string; onRetry: () => void 
 }
 
 export function StatsScreen() {
+  const uid = useAuthStore((s) => s.uid);
   const [weekStart, setWeekStart] = useState(() => getSundayWeekStartKey());
   const weeklyReportQuery = useWeeklyReport(weekStart);
+  const handleRetry = useCallback(() => {
+    void weeklyReportQuery.refetch();
+  }, [weeklyReportQuery]);
+
+  if (uid === null) {
+    return (
+      <Redirect
+        href={{
+          pathname: '/(auth)/sign-in',
+          params: { returnTo: '/(tabs)/stats' },
+        }}
+      />
+    );
+  }
 
   const errorMessage = weeklyReportQuery.isError
     ? isApiError(weeklyReportQuery.error)
@@ -422,10 +441,6 @@ export function StatsScreen() {
         'レポートの取得に失敗しました。')
       : 'レポートの取得に失敗しました。'
     : null;
-
-  const handleRetry = useCallback(() => {
-    void weeklyReportQuery.refetch();
-  }, [weeklyReportQuery]);
 
   const body = (() => {
     if (weeklyReportQuery.isPending) {

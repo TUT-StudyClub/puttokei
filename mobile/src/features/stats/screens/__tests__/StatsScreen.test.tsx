@@ -16,6 +16,10 @@ import { useAuthStore } from '@/shared/stores/authStore';
 jest.mock('@/features/stats/api/statsApi');
 
 jest.mock('expo-router', () => ({
+  Redirect: ({ href }: { href: unknown }) => {
+    const { Text } = require('react-native');
+    return <Text testID="stats-redirect">{JSON.stringify(href)}</Text>;
+  },
   useRouter: () => ({
     push: jest.fn(),
   }),
@@ -119,6 +123,22 @@ describe('StatsScreen', () => {
       useAuthStore.setState({ uid: null, idToken: null });
     });
     jest.useRealTimers();
+  });
+
+  it('未認証の場合はサインインへ遷移し、週次レポートを取得しない', () => {
+    act(() => {
+      useAuthStore.setState({ uid: null, idToken: null });
+    });
+
+    const { getByTestId } = renderWithProviders(<StatsScreen />);
+
+    expect(getByTestId('stats-redirect').props.children).toBe(
+      JSON.stringify({
+        pathname: '/(auth)/sign-in',
+        params: { returnTo: '/(tabs)/stats' },
+      }),
+    );
+    expect(statsApi.fetchWeeklyReport).not.toHaveBeenCalled();
   });
 
   it('初期表示で現在週のレポートを取得し、ハイライト・グラフ・履歴を表示する', async () => {

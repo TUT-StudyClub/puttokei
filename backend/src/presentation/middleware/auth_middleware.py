@@ -30,7 +30,7 @@ async def get_current_user(
 
     container = get_presentation_container(request)
     try:
-        return await container.authenticate_user.execute(credentials.credentials)
+        result = await container.authenticate_user.execute(credentials.credentials)
     except InvalidAuthenticationTokenError as exc:
         raise ProblemDetailsError(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -47,3 +47,4 @@ async def get_current_user(
             detail="このアカウントは削除されています。",
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
+    return result.user

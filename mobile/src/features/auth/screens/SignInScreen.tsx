@@ -1,8 +1,9 @@
 /**
  * サインイン画面。
  *
- * Apple / Google サインインの本実装は #32 で対応予定。現状は UI のみで、
- * プロバイダ連携ハンドラはプレースホルダとしておく。
+ * Apple / Google サインインボタンから `useSignIn` 経由で Firebase credential
+ * を取得し、onIdTokenChanged → authStore → AuthGate で (tabs) へ遷移する。
+ * "あとで" ボタンはサインインをスキップして (tabs) へ直行する dev 確認導線。
  */
 import { useRouter, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -10,6 +11,8 @@ import { useCallback } from 'react';
 import { Image, ImageBackground, Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
 import { Path, Svg } from 'react-native-svg';
 import { SizableText } from 'tamagui';
+
+import { useSignIn } from '../hooks/useSignIn';
 
 const SIGN_IN_BACKGROUND = require('../../../../assets/images/overview-screen-background.png');
 const TYPOGRAPHY_WHITE = require('../../../../assets/images/typography_white.png');
@@ -49,14 +52,7 @@ function GoogleLogo({ size = 18 }: { size?: number }) {
 
 export function SignInScreen() {
   const router = useRouter();
-
-  const handleAppleSignIn = useCallback(() => {
-    // #32 で Firebase の Apple サインインに差し替える
-  }, []);
-
-  const handleGoogleSignIn = useCallback(() => {
-    // #32 で Firebase の Google サインインに差し替える
-  }, []);
+  const { loading, error, signInWithApple, signInWithGoogle, clearError } = useSignIn();
 
   const handleSkip = useCallback(() => {
     router.replace(TABS_ROUTE);
@@ -91,10 +87,21 @@ export function SignInScreen() {
               会員登録後レポート機能を使用できます
             </SizableText>
 
+            {error ? (
+              <Pressable onPress={clearError} testID="sign-in-error">
+                <SizableText style={styles.errorText}>{error}</SizableText>
+              </Pressable>
+            ) : null}
+
             <Pressable
               accessibilityRole="button"
-              style={({ pressed }) => [styles.appleButton, pressed ? styles.buttonPressed : null]}
-              onPress={handleAppleSignIn}
+              style={({ pressed }) => [
+                styles.appleButton,
+                pressed ? styles.buttonPressed : null,
+                loading ? styles.buttonDisabled : null,
+              ]}
+              onPress={signInWithApple}
+              disabled={loading}
               testID="sign-in-apple"
             >
               <AppleLogo />
@@ -103,8 +110,13 @@ export function SignInScreen() {
 
             <Pressable
               accessibilityRole="button"
-              style={({ pressed }) => [styles.googleButton, pressed ? styles.buttonPressed : null]}
-              onPress={handleGoogleSignIn}
+              style={({ pressed }) => [
+                styles.googleButton,
+                pressed ? styles.buttonPressed : null,
+                loading ? styles.buttonDisabled : null,
+              ]}
+              onPress={signInWithGoogle}
+              disabled={loading}
               testID="sign-in-google"
             >
               <View style={styles.googleIconCircle}>
@@ -184,6 +196,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 6,
   },
+  errorText: {
+    color: '#FFB4B4',
+    fontSize: 13,
+    fontWeight: '500',
+    lineHeight: 18,
+    textAlign: 'center',
+  },
   appleButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -224,6 +243,9 @@ const styles = StyleSheet.create({
   },
   buttonPressed: {
     opacity: 0.9,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   termsText: {
     color: 'rgba(255, 255, 255, 0.9)',
