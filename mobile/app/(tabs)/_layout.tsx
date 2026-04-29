@@ -50,21 +50,23 @@ export default function TabsLayout() {
         animation: 'none',
         tabBarActiveTintColor: ACTIVE_COLOR,
         tabBarInactiveTintColor: INACTIVE_COLOR,
-        tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
+        tabBarStyle: { paddingTop: 10 },
+        tabBarLabelStyle: { fontSize: 14, fontWeight: '600' },
+        tabBarIconStyle: { marginBottom: 8 },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: 'タイマー',
-          tabBarIcon: ({ color }) => <TimerTabIcon color={color} />,
+          tabBarIcon: ({ color }) => <TimerTabIcon color={color} size={39} />,
         }}
       />
       <Tabs.Screen
         name="stats"
         options={{
           title: 'レポート',
-          tabBarIcon: ({ color }) => <ReportTabIcon color={color} />,
+          tabBarIcon: ({ color }) => <ReportTabIcon color={color} size={39} />,
         }}
       />
       <Tabs.Screen name="history" options={{ href: null }} />
