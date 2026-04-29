@@ -13,8 +13,8 @@ import { useEffect } from 'react';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../tamagui.config';
+import { AuthGate } from '@/app/AuthGate';
 import { configureGoogleSignIn } from '@/features/auth/lib/signInWithGoogle';
-import { AuthGate } from '@/shared/components/AuthGate';
 import { refreshIdToken, subscribeIdTokenChanged } from '@/shared/lib/firebase';
 import { installDevMockAuth } from '@/shared/lib/devMockAuth';
 import { initializeFirebaseAuth } from '@/shared/lib/firebaseAuth';

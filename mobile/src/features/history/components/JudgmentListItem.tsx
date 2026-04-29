@@ -1,13 +1,13 @@
 import { Pressable } from 'react-native';
 import { Paragraph, SizableText, XStack, YStack } from 'tamagui';
 
-import type { Judgment } from '@/features/session/types';
 import { Card } from '@/shared/components/Card';
 import {
   formatJudgedAt,
   JUDGMENT_VERDICT_COLORS,
   JUDGMENT_VERDICT_LABELS,
 } from '@/shared/lib/judgmentPresentation';
+import type { Judgment } from '@/shared/types/session';
 
 type JudgmentListItemProps = {
   judgment: Judgment;

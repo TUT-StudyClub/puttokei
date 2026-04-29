@@ -3,9 +3,9 @@ import { Text } from 'react-native';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../tamagui.config';
+import { AuthGate } from '@/app/AuthGate';
 import { signOut } from '@/features/auth/lib/signOut';
 import { useProfile } from '@/features/profile/hooks/useProfile';
-import { AuthGate } from '@/shared/components/AuthGate';
 import { BOOT_SCREEN_MIN_DURATION_MS } from '@/shared/components/BootScreen';
 import { hideSplashWhenReady } from '@/shared/lib/splash';
 import { useAuthStore } from '@/shared/stores/authStore';

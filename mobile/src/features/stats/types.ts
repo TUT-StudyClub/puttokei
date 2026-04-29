@@ -3,7 +3,7 @@
  * backend #54 の集計 API レスポンス仕様に対応する JSON 契約として扱う。
  */
 
-import type { OutputReviewItem } from '@/features/session/types';
+import type { OutputReviewItem } from '@/shared/types/session';
 
 export const STATS_PERIODS = ['daily', 'weekly', 'monthly'] as const;
 export type Period = (typeof STATS_PERIODS)[number];

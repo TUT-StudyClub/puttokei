@@ -1,4 +1,4 @@
-import type { JudgmentVerdict } from '@/features/session/types';
+import type { JudgmentVerdict } from '@/shared/types/session';
 
 export const JUDGMENT_VERDICT_LABELS: Record<JudgmentVerdict, string> = {
   correct: 'Good',

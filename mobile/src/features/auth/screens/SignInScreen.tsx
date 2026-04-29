@@ -14,8 +14,8 @@ import { SizableText } from 'tamagui';
 
 import { useSignIn } from '../hooks/useSignIn';
 
-const SIGN_IN_BACKGROUND = require('../../../../assets/images/overview-screen-background.png');
-const TYPOGRAPHY_WHITE = require('../../../../assets/images/typography_white.png');
+const SIGN_IN_BACKGROUND = require('../../../../assets/images/onboarding/overview-screen-background.png');
+const TYPOGRAPHY_WHITE = require('../../../../assets/images/brand/typography-white.png');
 
 const TABS_ROUTE = '/(tabs)' as unknown as Href;
 

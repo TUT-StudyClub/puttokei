@@ -14,6 +14,8 @@ import { Circle, ClipPath, Defs, G, Path, Rect, Svg, SvgXml } from 'react-native
 import { SizableText } from 'tamagui';
 
 import { formatMmSs, useSmoothRemainingSeconds } from '@/features/session/hooks/useTimer';
+import { APP_COLORS } from '@/shared/lib/colors';
+import { inlineSvgStyleAttributes } from '@/shared/lib/svgStyles';
 import { LOOP_COUNT_MAX } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
@@ -26,11 +28,11 @@ export const SESSION_PHASE_LABELS: Record<SessionPhase, string> = {
   break: '休憩',
 };
 
-const TEXT_ACTIVE = '#2F2F2F';
-const DOT_INACTIVE = '#D9D9D9';
-const BORDER_COLOR = '#E5E7EB';
+const TEXT_ACTIVE = APP_COLORS.textPrimary;
+const DOT_INACTIVE = APP_COLORS.dotInactive;
+const BORDER_COLOR = APP_COLORS.border;
 const SETTINGS_ICON_HEX_PATH = 'M12 3 L20 7.5 V16.5 L12 21 L4 16.5 V7.5 Z';
-const HOURGLASS_BADGE_ASSET = require('../../../../assets/images/hourglass_gray.svg');
+const HOURGLASS_BADGE_ASSET = require('../../../../assets/images/session/hourglass-gray.svg');
 const HOURGLASS_BADGE_BASE_WIDTH = 18;
 const HOURGLASS_BADGE_BASE_HEIGHT = 31;
 const HOURGLASS_BADGE_ACTIVE_SCALE = 1.45;
@@ -80,40 +82,11 @@ const HOURGLASS_FALLING_PARTICLES: readonly FallingParticleConfig[] = [
 ];
 const HOURGLASS_FALLING_CLIP_ID = 'hourglassBadgeFallingClip';
 
-const SVG_CSS_ATTRIBUTE_NAMES: Record<string, string> = {
+const SVG_STYLE_ATTRIBUTE_NAMES: Record<string, string> = {
   'mask-type': 'maskType',
 };
 
-const SVG_UNSUPPORTED_CSS_PROPERTIES = new Set(['mix-blend-mode']);
-
-function cssPropertyToSvgAttribute(property: string) {
-  return (
-    SVG_CSS_ATTRIBUTE_NAMES[property] ??
-    property.replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase())
-  );
-}
-
-function inlineSvgStyleAttributes(xml: string) {
-  return xml.replace(/\sstyle="([^"]*)"/g, (_styleAttribute: string, declarations: string) => {
-    const attributes = declarations
-      .split(';')
-      .map((declaration) => declaration.trim())
-      .filter(Boolean)
-      .map((declaration) => {
-        const separatorIndex = declaration.indexOf(':');
-        if (separatorIndex === -1) return null;
-
-        const property = declaration.slice(0, separatorIndex).trim();
-        const value = declaration.slice(separatorIndex + 1).trim();
-        if (!property || !value || SVG_UNSUPPORTED_CSS_PROPERTIES.has(property)) return null;
-
-        return `${cssPropertyToSvgAttribute(property)}="${value}"`;
-      })
-      .filter((attribute): attribute is string => attribute !== null);
-
-    return attributes.length > 0 ? ` ${attributes.join(' ')}` : '';
-  });
-}
+const SVG_UNSUPPORTED_STYLE_PROPERTIES = new Set(['mix-blend-mode']);
 
 function clampSandProgress(progress: number) {
   return Math.min(1, Math.max(0, progress));
@@ -349,7 +322,12 @@ function useHourglassBadgeXml() {
       })
       .then((loadedXml) => {
         if (isMounted) {
-          setXml(inlineSvgStyleAttributes(loadedXml));
+          setXml(
+            inlineSvgStyleAttributes(loadedXml, {
+              attributeNames: SVG_STYLE_ATTRIBUTE_NAMES,
+              unsupportedProperties: SVG_UNSUPPORTED_STYLE_PROPERTIES,
+            }),
+          );
         }
       })
       .catch(() => undefined);

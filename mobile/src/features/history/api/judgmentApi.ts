@@ -1,9 +1,9 @@
 /**
  * 判定履歴 API。
  */
-import type { Judgment } from '@/features/session/types';
 import { api } from '@/shared/lib/api';
 import type { Cursor, Paginated } from '@/shared/types/api';
+import type { Judgment } from '@/shared/types/session';
 
 type JudgmentListResponse = {
   judgments: Judgment[];
