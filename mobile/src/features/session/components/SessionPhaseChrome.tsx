@@ -198,7 +198,10 @@ function injectHourglassSandOverlay(
   showStream: boolean,
 ) {
   if (progress === undefined) return xml;
-  return xml.replace('</svg>', `${buildHourglassSandOverlayXml(progress, color, showStream)}</svg>`);
+  return xml.replace(
+    '</svg>',
+    `${buildHourglassSandOverlayXml(progress, color, showStream)}</svg>`,
+  );
 }
 
 function useHourglassBadgeXml() {
@@ -355,13 +358,7 @@ function darkenSandColor(color: string) {
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
-function FallingSandParticle({
-  config,
-  color,
-}: {
-  config: FallingParticleConfig;
-  color: string;
-}) {
+function FallingSandParticle({ config, color }: { config: FallingParticleConfig; color: string }) {
   const reducedMotion = useReducedMotion();
   // 各粒子は 0..1 の周期で進行。フェーズが少しずつズレているので落下が連続して見える。
   const progress = useSharedValue(config.phase);
@@ -396,14 +393,7 @@ function FallingSandParticle({
     };
   });
 
-  return (
-    <AnimatedCircle
-      cx={config.cx}
-      r={config.r}
-      fill={color}
-      animatedProps={animatedProps}
-    />
-  );
+  return <AnimatedCircle cx={config.cx} r={config.r} fill={color} animatedProps={animatedProps} />;
 }
 
 function HourglassFallingSandLayer({

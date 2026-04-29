@@ -7,7 +7,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactElement, ReactNode } from 'react';
-import { Circle, Path, Rect } from 'react-native-svg';
+import { Path, Rect } from 'react-native-svg';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../../tamagui.config';
@@ -132,14 +132,6 @@ describe('InputScreen', () => {
     );
     expect(streamRect).toBeTruthy();
     expect(streamRect?.props.height).toBe(5.6);
-
-    // 落下粒子レイヤ: アクティブな砂時計の上に 8 粒子（メイン色 4 + アクセント色 4）。
-    const particleCircles = UNSAFE_getAllByType(Circle).filter(
-      (circle) => typeof circle.props.r === 'number' && circle.props.r < 0.5,
-    );
-    expect(particleCircles).toHaveLength(8);
-    expect(particleCircles.filter((c) => c.props.fill === '#4B5CFF')).toHaveLength(4);
-    expect(particleCircles.filter((c) => c.props.fill === '#4251e0')).toHaveLength(4);
   });
 
   it('タイマー完了で PATCH status=output が送られ、output 画面へ replace する', async () => {

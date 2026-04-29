@@ -72,11 +72,7 @@ export function HomeScreen() {
           testID="home-settings-button"
         />
 
-        <HourglassBadge
-          currentLoop={currentLoop}
-          testIDPrefix="home"
-          marginBottom={24}
-        />
+        <HourglassBadge currentLoop={currentLoop} testIDPrefix="home" marginBottom={24} />
 
         <PhaseTabs
           activePhase={phase}
