@@ -83,6 +83,54 @@ function makeWeeklyResponse(overrides: Partial<WeeklyReportResponse> = {}): Week
   };
 }
 
+function parseDateKeyForTest(dateKey: string): Date {
+  const [year = '1970', month = '1', day = '1'] = dateKey.split('-');
+  return new Date(Number(year), Number(month) - 1, Number(day));
+}
+
+function toDateKeyForTest(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function addDaysToDateKeyForTest(dateKey: string, days: number): string {
+  const date = parseDateKeyForTest(dateKey);
+  date.setDate(date.getDate() + days);
+  return toDateKeyForTest(date);
+}
+
+function makeWeeklyResponseForDates(
+  weekStart: string,
+  studiedMinutesByDate: Record<string, number>,
+): WeeklyReportResponse {
+  const points = Array.from({ length: 7 }, (_value, index) => {
+    const bucket = addDaysToDateKeyForTest(weekStart, index);
+    const minutes = studiedMinutesByDate[bucket] ?? 0;
+    return {
+      bucket,
+      label: String(parseDateKeyForTest(bucket).getDate()),
+      study_minutes: minutes,
+      sessions: minutes > 0 ? 1 : 0,
+    };
+  });
+
+  return makeWeeklyResponse({
+    week_start: weekStart,
+    week_end: addDaysToDateKeyForTest(weekStart, 6),
+    summary: {
+      input_minutes: 0,
+      output_minutes: 0,
+      break_minutes: 0,
+      total_study_minutes: points.reduce((total, point) => total + point.study_minutes, 0),
+      total_sessions: points.reduce((total, point) => total + point.sessions, 0),
+    },
+    points,
+    output_history: [],
+  });
+}
+
 function renderWithProviders(ui: ReactNode) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -144,7 +192,7 @@ describe('StatsScreen', () => {
   it('初期表示で現在週のレポートを取得し、ハイライト・グラフ・履歴を表示する', async () => {
     (statsApi.fetchWeeklyReport as jest.Mock).mockResolvedValue(makeWeeklyResponse());
 
-    const { getByTestId, getByText } = renderWithProviders(<StatsScreen />);
+    const { getByTestId, getByText, queryByTestId } = renderWithProviders(<StatsScreen />);
     await flushAsyncUpdates();
 
     await waitFor(() => {
@@ -153,10 +201,51 @@ describe('StatsScreen', () => {
     await waitFor(() => {
       expect(getByTestId('stats-highlight-card')).toBeTruthy();
     });
+    expect(queryByTestId('stats-hourglass-asset')).toBeNull();
+    expect(getByTestId('stats-session-badge').props.children.props.children).toEqual(['×', 5]);
     expect(getByTestId('stats-weekly-chart')).toBeTruthy();
     expect(getByTestId('mock-bar-chart')).toBeTruthy();
     expect(getByTestId('stats-output-history-item-out-1')).toBeTruthy();
     expect(getByText('4月')).toBeTruthy();
+  });
+
+  it('カレンダーアイコン押下で月間カレンダーと今月のハイライトを表示する', async () => {
+    const studiedMinutesByDate = {
+      '2026-04-05': 30,
+      '2026-04-08': 20,
+      '2026-04-09': 25,
+      '2026-04-12': 50,
+      '2026-04-13': 40,
+    };
+    (statsApi.fetchWeeklyReport as jest.Mock).mockImplementation((weekStart: string) =>
+      Promise.resolve(makeWeeklyResponseForDates(weekStart, studiedMinutesByDate)),
+    );
+
+    const { getByTestId, getByText, queryByTestId } = renderWithProviders(<StatsScreen />);
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(statsApi.fetchWeeklyReport).toHaveBeenCalledWith('2026-04-26');
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-calendar-toggle'));
+    });
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(getByTestId('stats-month-calendar')).toBeTruthy();
+    });
+    expect(queryByTestId('stats-weekly-chart')).toBeNull();
+    expect(getByTestId('month-day-2026-04-05-single')).toBeTruthy();
+    expect(getByTestId('month-day-2026-04-08-streak')).toBeTruthy();
+    expect(getByTestId('month-day-2026-04-09-streak')).toBeTruthy();
+    expect(getByTestId('month-day-2026-04-12-streak')).toBeTruthy();
+    expect(getByTestId('month-day-2026-04-13-streak')).toBeTruthy();
+    expect(getByTestId('monthly-highlight-card')).toBeTruthy();
+    expect(getByText('今月のハイライト')).toBeTruthy();
+    expect(getByText('合計日数')).toBeTruthy();
+    expect(getByText('最高連続日数')).toBeTruthy();
   });
 
   it('右矢印押下で翌週のレポートを取得する', async () => {
@@ -223,11 +312,12 @@ describe('StatsScreen', () => {
       }),
     );
 
-    const { getByTestId } = renderWithProviders(<StatsScreen />);
+    const { getByTestId, queryByTestId } = renderWithProviders(<StatsScreen />);
     await flushAsyncUpdates();
 
     await waitFor(() => {
       expect(getByTestId('stats-output-history-empty')).toBeTruthy();
     });
+    expect(queryByTestId('stats-session-badge')?.props.children.props.children).toEqual(['×', 0]);
   });
 });

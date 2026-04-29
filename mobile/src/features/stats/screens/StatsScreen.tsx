@@ -9,9 +9,9 @@
  */
 import { Redirect, type RelativePathString, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQueries } from '@tanstack/react-query';
+import { useCallback, useMemo, useState } from 'react';
 import {
-  Image,
   ImageBackground,
   Pressable,
   SafeAreaView,
@@ -21,21 +21,36 @@ import {
   View,
 } from 'react-native';
 import { BarChart } from 'react-native-gifted-charts';
-import { Circle, Path, Svg, SvgXml } from 'react-native-svg';
+import { Path, Svg } from 'react-native-svg';
 import { Button, Paragraph, SizableText, Spinner } from 'tamagui';
 
 import { WeekDateStrip } from '@/features/stats/components/WeekDateStrip';
-import { useWeeklyReport } from '@/features/stats/hooks/useWeeklyReport';
-import { getMonthLabel, getSundayWeekStartKey } from '@/features/stats/lib/week';
+import { fetchWeeklyReport } from '@/features/stats/api/statsApi';
+import { WEEKLY_REPORT_QUERY_KEY, useWeeklyReport } from '@/features/stats/hooks/useWeeklyReport';
+import {
+  addDaysToDateKey,
+  getDateNumberLabel,
+  getMonthLabel,
+  getSundayWeekStartKey,
+  getTokyoDateKey,
+  parseDateKey,
+  toDateKey,
+} from '@/features/stats/lib/week';
 import type { WeeklyReportPoint, WeeklyReportResponse } from '@/features/stats/types';
 import type { OutputReviewItem } from '@/features/session/types';
 import { isApiError } from '@/shared/lib/api';
 import { useAuthStore } from '@/shared/stores/authStore';
 
 const HIGHLIGHT_BACKGROUND = require('../../../../assets/images/hilight-background-1.png');
-const HOURGLASS_ASSET = require('../../../../assets/images/hourglass_gradation.svg');
+const MONTHLY_HIGHLIGHT_BACKGROUND = require('../../../../assets/images/hilight-background-2.png');
 
-const SVG_UNSUPPORTED_CSS_PROPERTIES = new Set(['filter', 'isolation', 'mix-blend-mode']);
+const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'] as const;
+
+type ReportViewMode = 'weekly' | 'monthly';
+
+const MONTH_DAY_SLOT_HEIGHT = 38;
+const MONTH_DAY_ROW_GAP = 2;
+const MONTH_CALENDAR_ARROW_HEIGHT = 58;
 
 const submittedAtFormatter = new Intl.DateTimeFormat('ja-JP', {
   timeZone: 'Asia/Tokyo',
@@ -45,66 +60,28 @@ const submittedAtFormatter = new Intl.DateTimeFormat('ja-JP', {
   minute: '2-digit',
 });
 
-function cssPropertyToSvgAttribute(property: string) {
-  return property.replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase());
-}
-
-function cssDeclarationsToSvgAttributes(declarations: string) {
-  return declarations
-    .split(';')
-    .map((declaration) => declaration.trim())
-    .filter(Boolean)
-    .map((declaration) => {
-      const separatorIndex = declaration.indexOf(':');
-      if (separatorIndex === -1) return null;
-
-      const property = declaration.slice(0, separatorIndex).trim();
-      const value = declaration.slice(separatorIndex + 1).trim();
-      if (!property || !value || SVG_UNSUPPORTED_CSS_PROPERTIES.has(property)) return null;
-
-      return `${cssPropertyToSvgAttribute(property)}="${value}"`;
-    })
-    .filter((attribute): attribute is string => attribute !== null);
-}
-
-function inlineSvgClassStyles(xml: string) {
-  const xmlWithoutUnsupportedHighlight = xml.replace(
-    /\s*<rect class="cls-10" x="-9\.33" y="-28\.16" width="67\.08" height="107\.05"\/>/g,
-    '',
-  );
-  const styleMatch = xmlWithoutUnsupportedHighlight.match(/<style>\s*([\s\S]*?)\s*<\/style>/);
-  const stylesheet = styleMatch?.[1];
-  if (!stylesheet) return xmlWithoutUnsupportedHighlight;
-
-  const classRules: Record<string, string[]> = {};
-  const classRulePattern = /\.([A-Za-z0-9_-]+)\s*\{([^}]+)\}/g;
-  let match: RegExpExecArray | null;
-  while ((match = classRulePattern.exec(stylesheet)) !== null) {
-    const className = match[1];
-    const declarations = match[2];
-    if (!className || !declarations) continue;
-
-    classRules[className] = cssDeclarationsToSvgAttributes(declarations);
-  }
-
-  return xmlWithoutUnsupportedHighlight
-    .replace(/<style>[\s\S]*?<\/style>/g, '')
-    .replace(/class="([^"]+)"/g, (_classAttribute: string, classNames: string) => {
-      const attributes = classNames
-        .split(/\s+/)
-        .flatMap((className) => classRules[className] ?? []);
-
-      return attributes.join(' ');
-    });
-}
-
 function CalendarIcon() {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M7 4 V7" stroke="#333333" strokeWidth={2.2} strokeLinecap="round" />
-      <Path d="M17 4 V7" stroke="#333333" strokeWidth={2.2} strokeLinecap="round" />
-      <Path d="M5 8 H19 V20 H5 Z" stroke="#333333" strokeWidth={2.2} strokeLinejoin="round" />
-      <Path d="M5 12 H19" stroke="#333333" strokeWidth={2.2} strokeLinecap="round" />
+      <Path d="M7 4 V7" stroke="#5367FF" strokeWidth={2.2} strokeLinecap="round" />
+      <Path d="M17 4 V7" stroke="#5367FF" strokeWidth={2.2} strokeLinecap="round" />
+      <Path d="M5 8 H19 V20 H5 Z" stroke="#5367FF" strokeWidth={2.2} strokeLinejoin="round" />
+      <Path d="M5 12 H19" stroke="#5367FF" strokeWidth={2.2} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function ArrowIcon({ direction }: { direction: 'left' | 'right' }) {
+  const path = direction === 'left' ? 'M15 5 L8 12 L15 19' : 'M9 5 L16 12 L9 19';
+  return (
+    <Svg width={26} height={26} viewBox="0 0 24 24" fill="none">
+      <Path
+        d={path}
+        stroke="#C9C9C9"
+        strokeWidth={2.2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
@@ -134,66 +111,132 @@ function PencilIcon() {
   );
 }
 
-function HourglassFallback() {
-  return (
-    <Svg width="100%" height="100%" viewBox="0 0 84 136" fill="none">
-      <Path
-        d="M18 12 H66 M18 124 H66 M24 12 C24 35 35 44 42 54 C49 44 60 35 60 12 M24 124 C24 101 35 92 42 82 C49 92 60 101 60 124"
-        stroke="#5367FF"
-        strokeWidth={7}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M31 36 H53 C50 43 45 48 42 53 C39 48 34 43 31 36 Z" fill="#78B6FF" />
-      <Path d="M28 101 C34 88 50 88 56 101 C50 110 34 110 28 101 Z" fill="#F7BFCB" />
-    </Svg>
-  );
+function getMonthStartKey(dateKey: string): string {
+  const date = parseDateKey(dateKey);
+  date.setDate(1);
+  return toDateKey(date);
 }
 
-function ReportHourglassAsset() {
-  const [xml, setXml] = useState<string | null>(null);
+function addMonthsToMonthStartKey(monthStartKey: string, months: number): string {
+  const monthStart = parseDateKey(monthStartKey);
+  const shifted = new Date(monthStart.getFullYear(), monthStart.getMonth() + months, 1);
+  return toDateKey(shifted);
+}
 
-  useEffect(() => {
-    let isMounted = true;
-    const source = Image.resolveAssetSource(HOURGLASS_ASSET);
-    const uri = source?.uri;
-    if (!uri || typeof fetch !== 'function') return;
+function getMonthCalendarDateKeys(monthStartKey: string): (string | null)[] {
+  const monthStart = parseDateKey(monthStartKey);
+  const year = monthStart.getFullYear();
+  const month = monthStart.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells: (string | null)[] = Array.from({ length: monthStart.getDay() }, () => null);
 
-    fetch(uri)
-      .then((response) => {
-        if (!response.ok && !(response.status === 0 && uri.startsWith('file://'))) {
-          throw new Error(`Failed to load report hourglass SVG: ${response.status}`);
-        }
-        return response.text();
-      })
-      .then((loadedXml) => {
-        if (isMounted) {
-          setXml(inlineSvgClassStyles(loadedXml));
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setXml(null);
-        }
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    cells.push(toDateKey(new Date(year, month, day)));
+  }
+  while (cells.length % 7 !== 0) {
+    cells.push(null);
+  }
+  return cells;
+}
+
+function getMonthWeekStartKeys(monthStartKey: string): string[] {
+  const monthStart = parseDateKey(monthStartKey);
+  const year = monthStart.getFullYear();
+  const month = monthStart.getMonth();
+  const monthEnd = new Date(year, month + 1, 0);
+  const gridStart = new Date(year, month, 1 - monthStart.getDay());
+  const gridEnd = new Date(year, month, monthEnd.getDate() + (6 - monthEnd.getDay()));
+  const weekStarts: string[] = [];
+
+  for (
+    const cursor = new Date(gridStart);
+    cursor <= gridEnd;
+    cursor.setDate(cursor.getDate() + 7)
+  ) {
+    weekStarts.push(toDateKey(cursor));
+  }
+  return weekStarts;
+}
+
+function getStudiedDateKeySet(reports: readonly WeeklyReportResponse[]): Set<string> {
+  const studiedDateKeys = new Set<string>();
+  reports.forEach((report) => {
+    report.points.forEach((point) => {
+      if (point.study_minutes > 0) {
+        studiedDateKeys.add(point.bucket);
+      }
+    });
+  });
+  return studiedDateKeys;
+}
+
+function getMonthlyStudiedDateKeys(
+  reports: readonly WeeklyReportResponse[],
+  monthStartKey: string,
+): string[] {
+  const monthPrefix = monthStartKey.slice(0, 7);
+  return Array.from(getStudiedDateKeySet(reports))
+    .filter((dateKey) => dateKey.startsWith(monthPrefix))
+    .sort();
+}
+
+function buildMonthlyHighlightSummary(
+  reports: readonly WeeklyReportResponse[],
+  monthStartKey: string,
+) {
+  const studiedDateKeys = getMonthlyStudiedDateKeys(reports, monthStartKey);
+  let longestStreakDays = 0;
+  let currentStreakDays = 0;
+  let previousDateKey: string | null = null;
+
+  studiedDateKeys.forEach((dateKey) => {
+    if (previousDateKey !== null && addDaysToDateKey(previousDateKey, 1) === dateKey) {
+      currentStreakDays += 1;
+    } else {
+      currentStreakDays = 1;
+    }
+    longestStreakDays = Math.max(longestStreakDays, currentStreakDays);
+    previousDateKey = dateKey;
+  });
+
+  return {
+    totalDays: studiedDateKeys.length,
+    longestStreakDays,
+  };
+}
+
+function useMonthlyWeeklyReports(monthStartKey: string, enabled: boolean) {
+  const idToken = useAuthStore((s) => s.idToken);
+  const weekStarts = useMemo(() => getMonthWeekStartKeys(monthStartKey), [monthStartKey]);
+  const queries = useQueries({
+    queries: weekStarts.map((weekStart) => ({
+      queryKey: WEEKLY_REPORT_QUERY_KEY(weekStart),
+      queryFn: () => fetchWeeklyReport(weekStart),
+      enabled: enabled && idToken !== null,
+      staleTime: 5 * 60 * 1000,
+      retry: false,
+    })),
+  });
+
+  return {
+    reports: queries.flatMap((query) => (query.data ? [query.data] : [])),
+    error: queries.find((query) => query.isError)?.error,
+    isPending: enabled && queries.some((query) => query.isPending),
+    isError: enabled && queries.some((query) => query.isError),
+    isFetching: enabled && queries.some((query) => query.isFetching),
+    refetch: () => {
+      queries.forEach((query) => {
+        void query.refetch();
       });
+    },
+  };
+}
 
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  if (!xml) return <HourglassFallback />;
-
-  return (
-    <SvgXml
-      xml={xml}
-      width="100%"
-      height="100%"
-      preserveAspectRatio="xMidYMid meet"
-      fallback={<HourglassFallback />}
-      onError={() => undefined}
-    />
-  );
+function getReportErrorMessage(error: unknown): string {
+  if (isApiError(error)) {
+    return error.problem?.detail ?? error.problem?.title ?? 'レポートの取得に失敗しました。';
+  }
+  return 'レポートの取得に失敗しました。';
 }
 
 function splitMinutes(minutes: number) {
@@ -210,6 +253,7 @@ function MetricLine({ label, minutes }: { label: string; minutes: number }) {
     <View style={styles.metricLine}>
       <SizableText style={styles.metricLabel}>{label}</SizableText>
       <View style={styles.metricValueRow}>
+        <View style={styles.metricConnector} />
         {parts.hours > 0 ? (
           <>
             <SizableText style={styles.metricValue}>{parts.hours}</SizableText>
@@ -228,38 +272,32 @@ function HighlightCard({ data }: { data: WeeklyReportResponse }) {
   return (
     <ImageBackground
       source={HIGHLIGHT_BACKGROUND}
-      resizeMode="cover"
+      resizeMode="stretch"
       style={styles.highlightCard}
       imageStyle={styles.highlightBackground}
       testID="stats-highlight-card"
     >
-      <SizableText style={styles.highlightCaption}>勉強時間合計</SizableText>
-      <View style={styles.totalTimeRow}>
-        <SizableText style={styles.totalTimeNumber}>{total.hours}</SizableText>
-        <SizableText style={styles.totalTimeUnit}>時間</SizableText>
-        <SizableText style={styles.totalTimeNumber}>{total.minutes}</SizableText>
-        <SizableText style={styles.totalTimeUnit}>分</SizableText>
+      <View pointerEvents="none" style={styles.sessionBadge} testID="stats-session-badge">
+        <SizableText style={styles.sessionBadgeText}>×{data.summary.total_sessions}</SizableText>
       </View>
-
-      <View style={styles.highlightBody}>
-        <View style={styles.hourglassColumn}>
-          <View style={styles.sessionBadge}>
-            <SizableText style={styles.sessionBadgeText}>
-              ×{data.summary.total_sessions}
-            </SizableText>
-          </View>
-          <View style={styles.hourglassAsset} testID="stats-hourglass-asset">
-            <ReportHourglassAsset />
-          </View>
+      <View style={styles.highlightContent}>
+        <SizableText style={styles.highlightCaption}>勉強時間合計</SizableText>
+        <View style={styles.totalTimeRow}>
+          <SizableText style={styles.totalTimeNumber}>{total.hours}</SizableText>
+          <SizableText style={styles.totalTimeUnit}>時間</SizableText>
+          <SizableText style={styles.totalTimeNumber}>{total.minutes}</SizableText>
+          <SizableText style={styles.totalTimeUnit}>分</SizableText>
         </View>
-        <View style={styles.highlightMetrics}>
-          <MetricLine label="インプット" minutes={data.summary.input_minutes} />
-          <View style={styles.metricDivider} />
-          <MetricLine label="アウトプット" minutes={data.summary.output_minutes} />
-          <View style={styles.breakPill}>
-            <SizableText style={styles.breakPillText}>
-              休憩{data.summary.break_minutes}分
-            </SizableText>
+
+        <View style={styles.highlightBody}>
+          <View style={styles.highlightMetrics}>
+            <MetricLine label="インプット" minutes={data.summary.input_minutes} />
+            <MetricLine label="アウトプット" minutes={data.summary.output_minutes} />
+            <View style={styles.breakPill}>
+              <SizableText style={styles.breakPillText}>
+                休憩{data.summary.break_minutes}分
+              </SizableText>
+            </View>
           </View>
         </View>
       </View>
@@ -276,6 +314,173 @@ function HighlightPlaceholder() {
       <Spinner />
       <SizableText style={styles.placeholderText}>レポートを読み込んでいます。</SizableText>
     </View>
+  );
+}
+
+function MonthlyCalendar({
+  monthStart,
+  reports,
+  onMonthChange,
+}: {
+  monthStart: string;
+  reports: WeeklyReportResponse[];
+  onMonthChange: (monthStart: string) => void;
+}) {
+  const todayKey = getTokyoDateKey();
+  const monthPrefix = monthStart.slice(0, 7);
+  const cells = useMemo(() => getMonthCalendarDateKeys(monthStart), [monthStart]);
+  const rows = useMemo(
+    () =>
+      Array.from({ length: Math.ceil(cells.length / 7) }, (_value, index) =>
+        cells.slice(index * 7, index * 7 + 7),
+      ),
+    [cells],
+  );
+  const studiedDateKeys = useMemo(() => getStudiedDateKeySet(reports), [reports]);
+  const monthCalendarArrowTop =
+    (rows.length * (MONTH_DAY_SLOT_HEIGHT + MONTH_DAY_ROW_GAP) - MONTH_CALENDAR_ARROW_HEIGHT) / 2;
+
+  return (
+    <View style={styles.monthCalendarRoot} testID="stats-month-calendar">
+      <View style={styles.calendarWeekdayRow}>
+        {WEEKDAY_LABELS.map((weekday) => (
+          <View key={weekday} style={styles.calendarWeekdayCell}>
+            <SizableText style={styles.calendarWeekdayText}>{weekday}</SizableText>
+          </View>
+        ))}
+      </View>
+      <View style={styles.monthCalendarGridWrap}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => onMonthChange(addMonthsToMonthStartKey(monthStart, -1))}
+          style={[
+            styles.monthCalendarArrow,
+            styles.monthCalendarArrowLeft,
+            { top: monthCalendarArrowTop },
+          ]}
+          testID="month-calendar-prev"
+        >
+          <ArrowIcon direction="left" />
+        </Pressable>
+        <View style={styles.monthCalendarGrid}>
+          {rows.map((row, rowIndex) => (
+            <View key={`month-week-${rowIndex}`} style={styles.calendarWeekRow}>
+              {row.map((dateKey, dayIndex) => {
+                if (dateKey === null) {
+                  return <View key={`blank-${rowIndex}-${dayIndex}`} style={styles.monthDaySlot} />;
+                }
+
+                const isStudied = studiedDateKeys.has(dateKey);
+                const previousDateKey = addDaysToDateKey(dateKey, -1);
+                const nextDateKey = addDaysToDateKey(dateKey, 1);
+                const hasPreviousStudied = studiedDateKeys.has(previousDateKey);
+                const hasNextStudied = studiedDateKeys.has(nextDateKey);
+                const hasPreviousInlineStudied =
+                  hasPreviousStudied && previousDateKey.startsWith(monthPrefix) && dayIndex > 0;
+                const hasNextInlineStudied =
+                  hasNextStudied && nextDateKey.startsWith(monthPrefix) && dayIndex < 6;
+                const isStreakDay = isStudied && (hasPreviousStudied || hasNextStudied);
+                const isSingleStudiedDay = isStudied && !isStreakDay;
+                const isFuture = dateKey > todayKey;
+                const isToday = dateKey === todayKey;
+                const studiedTestSuffix = isStreakDay
+                  ? 'streak'
+                  : isSingleStudiedDay
+                    ? 'single'
+                    : 'empty';
+
+                return (
+                  <View
+                    key={dateKey}
+                    style={styles.monthDaySlot}
+                    testID={`month-day-${dateKey}-${studiedTestSuffix}`}
+                  >
+                    <View
+                      style={[
+                        styles.monthDayMarker,
+                        isStreakDay ? styles.monthDayStreakMarker : null,
+                        isStreakDay && !hasPreviousInlineStudied
+                          ? styles.monthDayStreakStart
+                          : null,
+                        isStreakDay && hasPreviousInlineStudied && hasNextInlineStudied
+                          ? styles.monthDayStreakMiddle
+                          : null,
+                        isStreakDay && !hasNextInlineStudied ? styles.monthDayStreakEnd : null,
+                        isToday ? styles.monthDayTodayMarker : null,
+                      ]}
+                    >
+                      <SizableText
+                        style={[
+                          styles.monthDayText,
+                          isFuture && !isStudied ? styles.monthDayMutedText : null,
+                          isStudied ? styles.monthDayStudiedText : null,
+                        ]}
+                      >
+                        {getDateNumberLabel(dateKey)}
+                      </SizableText>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          ))}
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => onMonthChange(addMonthsToMonthStartKey(monthStart, 1))}
+          style={[
+            styles.monthCalendarArrow,
+            styles.monthCalendarArrowRight,
+            { top: monthCalendarArrowTop },
+          ]}
+          testID="month-calendar-next"
+        >
+          <ArrowIcon direction="right" />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function MonthlyHighlightCard({
+  reports,
+  monthStart,
+}: {
+  reports: WeeklyReportResponse[];
+  monthStart: string;
+}) {
+  const summary = useMemo(
+    () => buildMonthlyHighlightSummary(reports, monthStart),
+    [reports, monthStart],
+  );
+
+  return (
+    <ImageBackground
+      source={MONTHLY_HIGHLIGHT_BACKGROUND}
+      resizeMode="stretch"
+      style={styles.monthlyHighlightCard}
+      imageStyle={styles.monthlyHighlightBackground}
+      testID="monthly-highlight-card"
+    >
+      <View style={styles.monthlyHighlightContent}>
+        <View style={styles.monthlyHighlightMetric}>
+          <SizableText style={styles.monthlyHighlightLabel}>合計日数</SizableText>
+          <View style={styles.monthlyHighlightValueRow}>
+            <SizableText style={styles.monthlyHighlightNumber}>{summary.totalDays}</SizableText>
+            <SizableText style={styles.monthlyHighlightUnit}>日</SizableText>
+          </View>
+        </View>
+        <View style={styles.monthlyHighlightMetric}>
+          <SizableText style={styles.monthlyHighlightLabel}>最高連続日数</SizableText>
+          <View style={styles.monthlyHighlightValueRow}>
+            <SizableText style={styles.monthlyHighlightNumber}>
+              {summary.longestStreakDays}
+            </SizableText>
+            <SizableText style={styles.monthlyHighlightUnit}>日</SizableText>
+          </View>
+        </View>
+      </View>
+    </ImageBackground>
   );
 }
 
@@ -418,10 +623,23 @@ function ErrorBody({ message, onRetry }: { message: string; onRetry: () => void 
 export function StatsScreen() {
   const uid = useAuthStore((s) => s.uid);
   const [weekStart, setWeekStart] = useState(() => getSundayWeekStartKey());
+  const [reportViewMode, setReportViewMode] = useState<ReportViewMode>('weekly');
+  const [calendarMonthStart, setCalendarMonthStart] = useState(() => getMonthStartKey(weekStart));
   const weeklyReportQuery = useWeeklyReport(weekStart);
-  const handleRetry = useCallback(() => {
+  const monthlyReports = useMonthlyWeeklyReports(calendarMonthStart, reportViewMode === 'monthly');
+  const handleWeeklyRetry = useCallback(() => {
     void weeklyReportQuery.refetch();
   }, [weeklyReportQuery]);
+  const handleMonthlyRetry = useCallback(() => {
+    monthlyReports.refetch();
+  }, [monthlyReports]);
+  const handleOpenMonthlyCalendar = useCallback(() => {
+    setCalendarMonthStart(getMonthStartKey(weekStart));
+    setReportViewMode('monthly');
+  }, [weekStart]);
+  const handleCloseMonthlyCalendar = useCallback(() => {
+    setReportViewMode('weekly');
+  }, []);
 
   if (uid === null) {
     return (
@@ -434,13 +652,52 @@ export function StatsScreen() {
     );
   }
 
-  const errorMessage = weeklyReportQuery.isError
-    ? isApiError(weeklyReportQuery.error)
-      ? (weeklyReportQuery.error.problem?.detail ??
-        weeklyReportQuery.error.problem?.title ??
-        'レポートの取得に失敗しました。')
-      : 'レポートの取得に失敗しました。'
+  const weeklyErrorMessage = weeklyReportQuery.isError
+    ? getReportErrorMessage(weeklyReportQuery.error)
     : null;
+  const monthlyErrorMessage = monthlyReports.isError
+    ? getReportErrorMessage(monthlyReports.error)
+    : null;
+
+  const monthlyBody = (() => {
+    if (monthlyReports.isPending) {
+      return (
+        <View style={styles.messageBody}>
+          <Spinner testID="stats-monthly-loading" />
+          <Paragraph>カレンダーを読み込んでいます。</Paragraph>
+        </View>
+      );
+    }
+
+    if (monthlyReports.isError) {
+      return (
+        <ErrorBody
+          message={monthlyErrorMessage ?? 'レポートの取得に失敗しました。'}
+          onRetry={handleMonthlyRetry}
+        />
+      );
+    }
+
+    return (
+      <>
+        <MonthlyCalendar
+          monthStart={calendarMonthStart}
+          reports={monthlyReports.reports}
+          onMonthChange={setCalendarMonthStart}
+        />
+        <View style={styles.monthlyHighlightTitleRow}>
+          <SizableText style={styles.highlightTitle}>今月のハイライト</SizableText>
+          <ExternalIcon />
+        </View>
+        <MonthlyHighlightCard reports={monthlyReports.reports} monthStart={calendarMonthStart} />
+        {monthlyReports.isFetching ? (
+          <SizableText style={styles.refetchingText} testID="stats-monthly-refetching">
+            最新データを取得中…
+          </SizableText>
+        ) : null}
+      </>
+    );
+  })();
 
   const body = (() => {
     if (weeklyReportQuery.isPending) {
@@ -455,8 +712,8 @@ export function StatsScreen() {
     if (weeklyReportQuery.isError || weeklyReportQuery.data === undefined) {
       return (
         <ErrorBody
-          message={errorMessage ?? 'レポートの取得に失敗しました。'}
-          onRetry={handleRetry}
+          message={weeklyErrorMessage ?? 'レポートの取得に失敗しました。'}
+          onRetry={handleWeeklyRetry}
         />
       );
     }
@@ -474,17 +731,53 @@ export function StatsScreen() {
     );
   })();
 
+  if (reportViewMode === 'monthly') {
+    return (
+      <SafeAreaView style={styles.safeArea} testID="stats-root">
+        <StatusBar style="dark" />
+        <ScrollView
+          style={styles.monthlyScrollArea}
+          contentContainerStyle={styles.monthlyContent}
+          showsVerticalScrollIndicator={false}
+          testID="stats-monthly-content"
+        >
+          <View style={styles.monthRow}>
+            <SizableText style={styles.monthText}>{getMonthLabel(calendarMonthStart)}</SizableText>
+            <Pressable
+              accessibilityRole="button"
+              hitSlop={10}
+              onPress={handleCloseMonthlyCalendar}
+              style={styles.calendarButton}
+              testID="stats-calendar-toggle"
+            >
+              <CalendarIcon />
+            </Pressable>
+          </View>
+          {monthlyBody}
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} testID="stats-root">
       <StatusBar style="dark" />
       <View style={styles.fixedHeader}>
         <View style={styles.monthRow}>
           <SizableText style={styles.monthText}>{getMonthLabel(weekStart)}</SizableText>
-          <CalendarIcon />
+          <Pressable
+            accessibilityRole="button"
+            hitSlop={10}
+            onPress={handleOpenMonthlyCalendar}
+            style={styles.calendarButton}
+            testID="stats-calendar-toggle"
+          >
+            <CalendarIcon />
+          </Pressable>
         </View>
         <WeekDateStrip weekStart={weekStart} onWeekChange={setWeekStart} />
         <View style={styles.highlightTitleRow}>
-          <SizableText style={styles.highlightTitle}>ハイライト</SizableText>
+          <SizableText style={styles.highlightTitle}>今日のハイライト</SizableText>
           <ExternalIcon />
         </View>
         {weeklyReportQuery.data ? (
@@ -523,11 +816,116 @@ const styles = StyleSheet.create({
     gap: 6,
     marginBottom: 2,
   },
+  calendarButton: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   monthText: {
     color: '#333333',
     fontSize: 26,
     fontWeight: '800',
     lineHeight: 32,
+  },
+  monthlyScrollArea: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  monthlyContent: {
+    paddingHorizontal: 28,
+    paddingTop: 12,
+    paddingBottom: 32,
+  },
+  monthCalendarRoot: {
+    alignItems: 'center',
+    marginTop: 18,
+  },
+  calendarWeekdayRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  calendarWeekdayCell: {
+    width: 38,
+    height: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calendarWeekdayText: {
+    color: '#333333',
+    fontSize: 15,
+    fontWeight: '800',
+    lineHeight: 20,
+  },
+  monthCalendarGridWrap: {
+    position: 'relative',
+    alignSelf: 'center',
+    marginTop: 10,
+  },
+  monthCalendarGrid: {
+    alignItems: 'center',
+  },
+  calendarWeekRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  monthCalendarArrow: {
+    position: 'absolute',
+    zIndex: 2,
+    width: 38,
+    height: MONTH_CALENDAR_ARROW_HEIGHT,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  monthCalendarArrowLeft: {
+    left: -48,
+  },
+  monthCalendarArrowRight: {
+    right: -48,
+  },
+  monthDaySlot: {
+    width: 38,
+    height: MONTH_DAY_SLOT_HEIGHT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: MONTH_DAY_ROW_GAP,
+  },
+  monthDayMarker: {
+    width: 38,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  monthDayStreakMarker: {
+    backgroundColor: '#DDE5FF',
+  },
+  monthDayStreakStart: {
+    borderTopLeftRadius: 6,
+    borderBottomLeftRadius: 6,
+  },
+  monthDayStreakMiddle: {
+    borderRadius: 0,
+  },
+  monthDayStreakEnd: {
+    borderTopRightRadius: 6,
+    borderBottomRightRadius: 6,
+  },
+  monthDayTodayMarker: {
+    borderWidth: 1.8,
+    borderColor: '#5367FF',
+    borderRadius: 6,
+  },
+  monthDayText: {
+    color: '#333333',
+    fontSize: 20,
+    fontWeight: '700',
+    lineHeight: 24,
+  },
+  monthDayMutedText: {
+    color: '#CFCFCF',
+  },
+  monthDayStudiedText: {
+    color: '#5367FF',
   },
   highlightTitleRow: {
     flexDirection: 'row',
@@ -543,22 +941,72 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: 28,
   },
-  highlightCard: {
-    width: '86%',
-    maxWidth: 290,
-    minHeight: 290,
-    alignSelf: 'center',
-    overflow: 'hidden',
-    borderRadius: 25,
-    borderWidth: 4,
-    borderColor: '#333333',
-    backgroundColor: '#FFFFFF',
-    paddingTop: 24,
-    paddingHorizontal: 28,
-    paddingBottom: 24,
+  monthlyHighlightTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 22,
+    marginBottom: 8,
+    paddingHorizontal: 18,
   },
-  highlightBackground: {
-    borderRadius: 20,
+  highlightCard: {
+    width: '96%',
+    maxWidth: 360,
+    aspectRatio: 1264 / 1288,
+    alignSelf: 'center',
+    backgroundColor: 'transparent',
+  },
+  highlightBackground: {},
+  monthlyHighlightCard: {
+    width: '96%',
+    maxWidth: 330,
+    aspectRatio: 1264 / 992,
+    alignSelf: 'center',
+    backgroundColor: 'transparent',
+  },
+  monthlyHighlightBackground: {},
+  monthlyHighlightContent: {
+    flex: 1,
+    width: '48%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginLeft: 20,
+    paddingTop: 4,
+  },
+  monthlyHighlightMetric: {
+    alignItems: 'center',
+  },
+  monthlyHighlightLabel: {
+    color: '#333333',
+    fontSize: 15,
+    fontWeight: '800',
+    lineHeight: 22,
+  },
+  monthlyHighlightValueRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  monthlyHighlightNumber: {
+    color: '#333333',
+    fontSize: 38,
+    fontWeight: '900',
+    lineHeight: 41,
+  },
+  monthlyHighlightUnit: {
+    color: '#333333',
+    fontSize: 18,
+    fontWeight: '800',
+    lineHeight: 32,
+  },
+  highlightContent: {
+    flex: 1,
+    paddingTop: 30,
+    paddingHorizontal: 24,
+    paddingBottom: 20,
   },
   highlightPlaceholder: {
     alignItems: 'center',
@@ -597,45 +1045,30 @@ const styles = StyleSheet.create({
     lineHeight: 31,
   },
   highlightBody: {
-    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 18,
+    marginTop: 16,
   },
-  hourglassColumn: {
-    width: 102,
-    alignItems: 'center',
-    justifyContent: 'center',
+  highlightMetrics: {
+    width: 166,
+    alignSelf: 'flex-end',
+    gap: 7,
   },
   sessionBadge: {
     position: 'absolute',
-    top: 0,
-    left: 4,
+    top: '41.5%',
+    left: '12.3%',
     zIndex: 2,
-    minWidth: 38,
-    height: 30,
-    borderRadius: 15,
+    width: 52,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#5B6CFF',
-    shadowColor: '#5367FF',
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
+    transform: [{ rotate: '-13deg' }],
   },
   sessionBadgeText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 19,
     fontWeight: '800',
-    lineHeight: 18,
-  },
-  hourglassAsset: {
-    width: 90,
-    height: 132,
-  },
-  highlightMetrics: {
-    flex: 1,
-    gap: 10,
-    paddingLeft: 6,
+    lineHeight: 24,
   },
   metricLine: {
     gap: 2,
@@ -648,12 +1081,18 @@ const styles = StyleSheet.create({
   },
   metricValueRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     gap: 4,
+  },
+  metricConnector: {
+    width: 36,
+    height: 1,
+    backgroundColor: '#333333',
+    marginRight: 2,
   },
   metricValue: {
     color: '#333333',
-    fontSize: 28,
+    fontSize: 27,
     fontWeight: '900',
     lineHeight: 31,
   },
@@ -662,10 +1101,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     lineHeight: 25,
-  },
-  metricDivider: {
-    height: 1,
-    backgroundColor: '#D9D9D9',
   },
   breakPill: {
     alignSelf: 'flex-start',
