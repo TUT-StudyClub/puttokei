@@ -270,6 +270,8 @@ export function InputScreen() {
   const currentLoop = useLoopStore((s) => s.currentLoop);
   const extendTimer = useTimerStore((s) => s.extend);
   const timerStatus = useTimerStore((s) => s.status);
+  const totalSeconds = useTimerStore((s) => s.totalSeconds);
+  const remainingSeconds = useTimerStore((s) => s.remainingSeconds);
   const todayOutputsQuery = useTodayOutputs(isFocused);
   const todayOutputItems = todayOutputsQuery.data?.items;
   const todayOutputs = useMemo(() => todayOutputItems ?? [], [todayOutputItems]);
@@ -280,6 +282,8 @@ export function InputScreen() {
   );
   const hasOutputReview = todayOutputs.length > 0;
   const isDetailVisible = selectedOutput !== null;
+  const hourglassSandProgress =
+    totalSeconds > 0 ? Math.min(1, Math.max(0, remainingSeconds / totalSeconds)) : 1;
 
   const { start, reset } = useTimer({
     enabled: isFocused,
@@ -359,10 +363,11 @@ export function InputScreen() {
             <HourglassBadge
               currentLoop={currentLoop}
               testIDPrefix="input"
-              activeColor={PRIMARY_COLOR}
-              inactiveColor={TEXT_INACTIVE}
               borderColor={BORDER_COLOR}
               marginBottom={24}
+              sandColor={PRIMARY_COLOR}
+              sandProgress={hourglassSandProgress}
+              showSandStream={timerStatus === 'running'}
             />
           </>
         )}

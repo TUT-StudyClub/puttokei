@@ -7,6 +7,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactElement, ReactNode } from 'react';
+import { Rect } from 'react-native-svg';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../../tamagui.config';
@@ -95,6 +96,33 @@ describe('InputScreen', () => {
     expect(getByTestId('input-extend-button')).toBeTruthy();
     expect(useTimerStore.getState().phase).toBe('input');
     expect(useTimerStore.getState().totalSeconds).toBe(60);
+  });
+
+  it('上部の砂時計は残り時間に応じて上側の青い砂が減り、下側に溜まる', () => {
+    const { UNSAFE_getAllByType } = renderWithProviders(<InputScreen />);
+
+    act(() => {
+      useTimerStore.setState({
+        totalSeconds: 60,
+        remainingSeconds: 30,
+        status: 'running',
+      });
+    });
+
+    const sandRects = UNSAFE_getAllByType(Rect).filter((rect) => rect.props.fill === '#4B5CFF');
+    const upperSand = sandRects.find(
+      (rect) => rect.props.clipPath === 'url(#hourglassBadgeUpperSandClip)',
+    );
+    const lowerSand = sandRects.find(
+      (rect) => rect.props.clipPath === 'url(#hourglassBadgeLowerSandClip)',
+    );
+    const stream = sandRects.find((rect) => rect.props.rx === 0.45);
+
+    expect(upperSand?.props.y).toBeCloseTo(8.93);
+    expect(upperSand?.props.height).toBeCloseTo(5.32);
+    expect(lowerSand?.props.y).toBeCloseTo(22.065);
+    expect(lowerSand?.props.height).toBeCloseTo(5.315);
+    expect(stream).toBeTruthy();
   });
 
   it('タイマー完了で PATCH status=output が送られ、output 画面へ replace する', async () => {

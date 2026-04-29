@@ -67,7 +67,6 @@ const CURRENT_PHASE: SessionPhase = 'break';
 const BREAK_COLOR = '#9CA3AF';
 const INPUT_COLOR = '#4B5CFF';
 const TEXT_ACTIVE = '#2F2F2F';
-const TEXT_INACTIVE = '#9CA3AF';
 const DOT_INACTIVE = '#D9D9D9';
 const BORDER_COLOR = '#E5E7EB';
 const CAPTION_COLOR = '#777777';
@@ -827,7 +826,6 @@ export function BreakScreen() {
   const usesCompletedPhasePalette = screenMode === 'completed' || isNextCycleMode;
   const displayedPhase = usesCompletedPhasePalette ? null : CURRENT_PHASE;
   const phaseActiveColor = BREAK_COLOR;
-  const badgeActiveColor = screenMode === 'resting' ? BREAK_COLOR : INPUT_COLOR;
   const displayedLoop = isNextCycleMode ? Math.min(currentLoop + 1, LOOP_COUNT_MAX) : currentLoop;
   const completedPhaseColors = usesCompletedPhasePalette ? COMPLETED_PHASE_COLORS : undefined;
 
@@ -844,8 +842,6 @@ export function BreakScreen() {
           <HourglassBadge
             currentLoop={displayedLoop}
             testIDPrefix="break"
-            activeColor={badgeActiveColor}
-            inactiveColor={TEXT_INACTIVE}
             borderColor={BORDER_COLOR}
             marginBottom={0}
           />

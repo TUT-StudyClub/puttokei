@@ -53,7 +53,6 @@ const ACTION_COLOR = '#4B5CFF';
 const INPUT_PHASE_SOFT_COLOR = '#B9DFFF';
 const METHOD_ACTIVE_COLOR = '#2F2F2F';
 const METHOD_INACTIVE_COLOR = '#777777';
-const TEXT_INACTIVE = '#9CA3AF';
 const DOT_INACTIVE = '#D9D9D9';
 const BORDER_COLOR = '#E5E7EB';
 const CAPTION_COLOR = '#777777';
@@ -753,8 +752,6 @@ export function OutputScreen() {
                 <HourglassBadge
                   currentLoop={currentLoop}
                   testIDPrefix="output"
-                  activeColor={PRIMARY_COLOR}
-                  inactiveColor={TEXT_INACTIVE}
                   borderColor={BORDER_COLOR}
                 />
               </>

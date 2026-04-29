@@ -75,8 +75,6 @@ export function HomeScreen() {
         <HourglassBadge
           currentLoop={currentLoop}
           testIDPrefix="home"
-          activeColor={HOURGLASS_BADGE_COLOR}
-          inactiveColor={HOURGLASS_BADGE_COLOR}
           marginBottom={24}
         />
 
