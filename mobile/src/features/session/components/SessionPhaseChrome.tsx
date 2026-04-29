@@ -37,7 +37,7 @@ type SettingsIconProps = {
   color?: string;
 };
 
-function SettingsIcon({ size = 26, color = TEXT_ACTIVE }: SettingsIconProps) {
+function SettingsIcon({ size = 24, color = TEXT_ACTIVE }: SettingsIconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d={SETTINGS_ICON_HEX_PATH} stroke={color} strokeWidth={2} fill="none" />
@@ -336,14 +336,13 @@ export function CircularPhaseTimer({
 
 const styles = StyleSheet.create({
   settingsRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 4,
-    marginBottom: 12,
+    position: 'absolute',
+    top: '1%',
+    right: '10%',
   },
   settingsButton: {
-    width: 26,
-    height: 26,
+    width: 24,
+    height: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -352,15 +351,16 @@ const styles = StyleSheet.create({
   },
   badgeRow: {
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: 48,
+    marginBottom: 4,
   },
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 999,
+    gap: 16,
+    paddingVertical: 11,
+    paddingHorizontal: 18,
+    borderRadius: 15,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     shadowColor: '#000000',
@@ -372,7 +372,9 @@ const styles = StyleSheet.create({
   phaseTabs: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    marginBottom: 24,
+    paddingLeft: 0,
   },
   phaseTabItemRow: {
     flexDirection: 'row',
@@ -386,14 +388,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   phaseTabDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    width: 9.5,
+    height: 9.5,
+    borderRadius: 5,
     borderWidth: 1.5,
+    borderStyle: 'dotted',
     backgroundColor: 'transparent',
   },
   phaseTabLabel: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
   },
   phaseTabSeparator: {
@@ -425,7 +428,7 @@ const styles = StyleSheet.create({
   },
   timerText: {
     fontSize: 56,
-    fontWeight: '700',
+    fontWeight: '900',
     lineHeight: 64,
   },
   timerTextCompact: {
