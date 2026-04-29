@@ -27,7 +27,6 @@ import { useLoopStore } from '@/shared/stores/loopStore';
 const SETTINGS_ROUTE = '/(tabs)/settings' as unknown as Href;
 
 const HOURGLASS_BADGE_COLOR = '#9CA3AF';
-const TEXT_ACTIVE = '#2F2F2F';
 const DOT_INACTIVE = '#D9D9D9';
 
 function formatMinutes(minutes: number) {
@@ -72,36 +71,40 @@ export function HomeScreen() {
           testID="home-settings-button"
         />
 
-        <HourglassBadge
-          currentLoop={currentLoop}
-          testIDPrefix="home"
-          activeColor={HOURGLASS_BADGE_COLOR}
-          inactiveColor={HOURGLASS_BADGE_COLOR}
-          marginBottom={24}
-        />
+        <View style={styles.badgeWrapper}>
+          <HourglassBadge
+            currentLoop={currentLoop}
+            testIDPrefix="home"
+            activeColor={HOURGLASS_BADGE_COLOR}
+            inactiveColor={HOURGLASS_BADGE_COLOR}
+            marginBottom={0}
+            rowStyle={styles.badgeRowOverride}
+          />
+        </View>
 
-        <PhaseTabs
-          activePhase={phase}
-          testIDPrefix="home"
-          activeDotColor={HOURGLASS_BADGE_COLOR}
-          activeDotFilled={false}
-          activeTextColor={TEXT_ACTIVE}
-          inactiveTextColor={DOT_INACTIVE}
-          inactiveDotColor={DOT_INACTIVE}
-          marginBottom={36}
-          onChange={setPhase}
-        />
+        <View style={styles.phaseTabsWrapper}>
+          <PhaseTabs
+            activePhase={phase}
+            testIDPrefix="home"
+            activeDotColor={HOURGLASS_BADGE_COLOR}
+            activeDotFilled={false}
+            activeTextColor="#9D9D9D"
+            inactiveTextColor="#CDCDCD"
+            inactiveDotColor={DOT_INACTIVE}
+            marginBottom={0}
+            onChange={setPhase}
+          />
+        </View>
 
-        <View style={styles.timerStage}>
-          <View style={styles.timerCircle} testID="home-timer-circle">
-            <SizableText style={styles.timerText} testID="home-timer-text">
-              {formatMinutes(phaseMinutes[phase])}
-            </SizableText>
-          </View>
-          <SizableText style={styles.timerCaption} testID="home-timer-caption">
-            まずは20分間勉強してみましょう{'\n'}集中できなくても大丈夫です
+        <View style={styles.timerCircle} testID="home-timer-circle">
+          <SizableText style={styles.timerText} testID="home-timer-text">
+            {formatMinutes(phaseMinutes[phase])}
           </SizableText>
         </View>
+
+        <SizableText style={styles.timerCaption} testID="home-timer-caption">
+          まずは20分間勉強してみましょう{'\n'}集中できなくても大丈夫です
+        </SizableText>
 
         <View style={styles.actionArea}>
           {createSession.error ? (
@@ -139,40 +142,59 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingTop: 12,
-    paddingRight: 24,
-    paddingBottom: 32,
-    paddingLeft: 24,
   },
-  timerStage: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 24,
+  badgeWrapper: {
+    position: 'absolute',
+    top: '7.9%',
+    left: '13.18%',
+    right: '12.94%',
+    alignItems: 'flex-start',
+  },
+  badgeRowOverride: {
+    marginTop: 0,
+  },
+  phaseTabsWrapper: {
+    position: 'absolute',
+    top: '18.6%',
+    left: '13.18%',
+    right: 0,
   },
   timerCircle: {
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    borderWidth: 4,
-    borderColor: '#D9D9D9',
+    position: 'absolute',
+    top: '26.1%',
+    left: '13%',
+    right: '13%',
+    aspectRatio: 1,
+    borderRadius: 9999,
+    borderWidth: 11,
+    borderColor: '#EFEFEF',
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'visible',
   },
   timerText: {
-    color: '#D9D9D9',
-    fontSize: 56,
-    fontWeight: '700',
+    color: '#CDCDCD',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 58,
     lineHeight: 64,
   },
   timerCaption: {
-    color: '#777777',
-    fontSize: 13,
-    lineHeight: 20,
+    position: 'absolute',
+    top: '71%',
+    left: 0,
+    right: 0,
+    color: '#9D9D9D',
+    fontFamily: 'HiraginoSans-W3',
+    fontSize: 12,
+    lineHeight: 18,
     textAlign: 'center',
   },
   actionArea: {
+    position: 'absolute',
+    top: '78.3%',
+    left: '13.18%',
+    right: '12.94%',
     gap: 12,
   },
   errorText: {
@@ -182,8 +204,9 @@ const styles = StyleSheet.create({
   startButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    height: 56,
-    borderRadius: 18,
+    width: '100%',
+    height: 54,
+    borderRadius: 20,
     backgroundColor: '#4B5CFF',
   },
   startButtonPressed: {
@@ -194,7 +217,8 @@ const styles = StyleSheet.create({
   },
   startButtonText: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 17,
     fontWeight: '700',
     lineHeight: 22,
   },
