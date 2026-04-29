@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-    paddingVertical: 11,
+    paddingVertical: 11.4,
     paddingHorizontal: 18,
     borderRadius: 15,
     backgroundColor: '#FFFFFF',
@@ -402,6 +402,7 @@ const styles = StyleSheet.create({
   phaseTabSeparator: {
     width: 16,
     height: 1.5,
+    borderRadius: 999,
     marginHorizontal: 6,
   },
   timerWrap: {
