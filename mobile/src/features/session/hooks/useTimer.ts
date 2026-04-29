@@ -91,6 +91,48 @@ export function useSmoothRemainingSeconds(): number {
   return smoothRemainingSeconds;
 }
 
+/**
+ * `useSmoothRemainingSeconds` の間引き版。`intervalMs` ごとに 1 度だけ補間値を更新する。
+ *
+ * 砂時計のように、再描画コストが大きい SVG（ベースを SvgXml で再パースするなど）に
+ * 対しては、毎フレーム更新すると JS スレッドが詰まってアニメーションが止まって見える。
+ * 体感は十分滑らか（>= 10fps）に保ちつつ、再描画回数を抑えるためにこの hook を使う。
+ */
+export function useThrottledRemainingSeconds(intervalMs: number): number {
+  const status = useTimerStore((s) => s.status);
+  const remainingSeconds = useTimerStore((s) => s.remainingSeconds);
+  const [throttledRemainingSeconds, setThrottledRemainingSeconds] = useState(remainingSeconds);
+
+  const anchorRemainingRef = useRef(remainingSeconds);
+  const anchorTimestampRef = useRef(Date.now());
+
+  useEffect(() => {
+    anchorRemainingRef.current = remainingSeconds;
+    anchorTimestampRef.current = Date.now();
+    setThrottledRemainingSeconds(remainingSeconds);
+  }, [remainingSeconds]);
+
+  useEffect(() => {
+    // テスト環境では setInterval が fake timers と競合するため、
+    // store の整数秒をそのまま反映する（`useSmoothRemainingSeconds` と同方針）。
+    if (status !== 'running' || process.env.NODE_ENV === 'test') {
+      setThrottledRemainingSeconds(remainingSeconds);
+      return;
+    }
+
+    const id = setInterval(() => {
+      const elapsedSeconds = (Date.now() - anchorTimestampRef.current) / 1000;
+      const clampedElapsedSeconds = Math.min(elapsedSeconds, 0.999);
+      const nextRemainingSeconds = Math.max(0, anchorRemainingRef.current - clampedElapsedSeconds);
+      setThrottledRemainingSeconds(nextRemainingSeconds);
+    }, intervalMs);
+
+    return () => clearInterval(id);
+  }, [remainingSeconds, status, intervalMs]);
+
+  return throttledRemainingSeconds;
+}
+
 /** 秒数を `'MM:SS'` 形式の文字列にフォーマットする。負数は `'00:00'` にクランプする。 */
 export function formatMmSs(totalSeconds: number): string {
   const safe = Math.max(0, Math.floor(totalSeconds));

@@ -498,12 +498,6 @@ function HourglassBadgeIcon({
     />
   );
 
-  // 砂が現在進行形で落ちている（=アクティブで残量あり）ときだけ粒子レイヤを重ねる。
-  // 切り分け中: Bridgeless 環境での Reanimated クラッシュ調査のため、一時的に無効化。
-  const showFallingLayer = false;
-  // const showFallingLayer =
-  //   active && showSandStream && sandProgress !== undefined && sandProgress > 0;
-
   const baseLayer = xml ? (
     <SvgXml
       xml={injectHourglassSandOverlay(xml, activeSandProgress, sandColor, showSandStream)}
@@ -517,6 +511,10 @@ function HourglassBadgeIcon({
   ) : (
     fallback
   );
+
+  // 砂が現在進行形で落ちている（=アクティブで残量あり）ときだけ粒子レイヤを重ねる。
+  // 切り分け中: Bridgeless 環境での Reanimated クラッシュ調査のため、一時的に無効化。
+  const showFallingLayer = false;
 
   if (!showFallingLayer) {
     return baseLayer;

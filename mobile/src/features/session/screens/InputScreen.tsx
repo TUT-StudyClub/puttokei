@@ -26,7 +26,7 @@ import {
 } from '@/features/session/components/SessionPhaseChrome';
 import { DEFAULT_TIMER } from '@/features/session/config';
 import { useTodayOutputs } from '@/features/session/hooks/useTodayOutputs';
-import { useTimer } from '@/features/session/hooks/useTimer';
+import { useThrottledRemainingSeconds, useTimer } from '@/features/session/hooks/useTimer';
 import { useUpdateSessionStatus } from '@/features/session/hooks/useUpdateSessionStatus';
 import type { OutputReviewItem } from '@/features/session/types';
 import { useLoopStore } from '@/shared/stores/loopStore';
@@ -271,7 +271,10 @@ export function InputScreen() {
   const extendTimer = useTimerStore((s) => s.extend);
   const timerStatus = useTimerStore((s) => s.status);
   const totalSeconds = useTimerStore((s) => s.totalSeconds);
-  const remainingSeconds = useTimerStore((s) => s.remainingSeconds);
+  // 砂時計の砂量を 1 秒刻みではなく細かく変えるための補間値。
+  // SvgXml が砂進捗の更新ごとに重い XML を再パースするため、毎フレーム (60fps) ではなく
+  // 100ms 間隔 (10fps) に間引いて、視覚的な滑らかさを保ちつつ JS スレッドの負荷を抑える。
+  const smoothRemainingSeconds = useThrottledRemainingSeconds(100);
   const todayOutputsQuery = useTodayOutputs(isFocused);
   const todayOutputItems = todayOutputsQuery.data?.items;
   const todayOutputs = useMemo(() => todayOutputItems ?? [], [todayOutputItems]);
@@ -283,7 +286,7 @@ export function InputScreen() {
   const hasOutputReview = todayOutputs.length > 0;
   const isDetailVisible = selectedOutput !== null;
   const hourglassSandProgress =
-    totalSeconds > 0 ? Math.min(1, Math.max(0, remainingSeconds / totalSeconds)) : 1;
+    totalSeconds > 0 ? Math.min(1, Math.max(0, smoothRemainingSeconds / totalSeconds)) : 1;
 
   const { start, reset } = useTimer({
     enabled: isFocused,
