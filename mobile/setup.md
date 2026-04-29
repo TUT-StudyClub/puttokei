@@ -41,7 +41,61 @@ exampleでは`com.hourglass-nomibress.app`となっている
 
 真ん中の`hourglass-nomibress`を自分の名前に変えるのがおすすめ
 
-### 1-4. ios ディレクトリを作成する
+### 1-4. Firebase の設定
+
+Apple / Google サインインには Firebase が必要。次の 3 つをチームの Firebase
+プロジェクト（例: `hourglass-f10ca`）から取得して mobile 直下に配置する。
+
+1. **`GoogleService-Info.plist`** (iOS 用)
+   - Firebase Console → プロジェクト設定 → アプリ → iOS アプリを選択 → `GoogleService-Info.plist` をダウンロード
+   - `mobile/GoogleService-Info.plist` に配置（`.gitignore` 済み）
+2. **`google-services.json`** (Android 用)
+   - 同じプロジェクト設定 → Android アプリを選択 → `google-services.json` をダウンロード
+   - `mobile/google-services.json` に配置（`.gitignore` 済み）
+3. **`googleWebClientId`** (Google Sign In 用)
+   - Firebase Console → プロジェクト設定 → Authentication → Google プロバイダを開く
+   - 「ウェブ SDK の構成」セクションの「ウェブクライアント ID」をコピー
+   - `mobile/app.json` の `extra.googleWebClientId` に貼り付け（`YOUR_GOOGLE_WEB_CLIENT_ID` を置換）
+
+iOS の URL Scheme は `GoogleService-Info.plist` 内の `REVERSED_CLIENT_ID`
+を使う。`app.json` の `@react-native-google-signin/google-signin` プラグイン
+設定 `iosUrlScheme` を `YOUR_REVERSED_CLIENT_ID` → その値で置換する。
+
+> Firebase の Swift Pod を扱うため `./plugins/withModularHeaders` という
+> Expo config plugin を `app.json.example` に入れてある。`prebuild` 時に
+> Podfile へ `modular_headers => true` を差し込むので手動操作は不要。
+
+#### Apple サインインを有効にするには（Apple Developer Program 登録後）
+
+コード側（`expo-apple-authentication` / `signInWithApple.ts` / `app.json` の
+`ios.usesAppleSignIn: true`）はすでに配線済みなので、次の手順だけ踏めば実機
+で動き出す。Apple Developer Program 未加入の間は iOS の「Apple でサインイン」
+ボタンを押すと失敗するが、Google 側は影響を受けない。
+
+1. [Apple Developer](https://developer.apple.com) で **App ID** を作成し、
+   `mobile/app.json` の `ios.bundleIdentifier` と一致させる。`Sign in with
+Apple` capability を有効にする。
+2. **Services ID** を作成（Web 側の OAuth 識別子）。戻りの URL には
+   Firebase Console が提示する `https://<project>.firebaseapp.com/__/auth/handler`
+   を登録する。
+3. **Key** を作成し `Sign in with Apple` を有効化 → `.p8` ファイルをダウンロード。
+4. Firebase Console → Authentication → Sign-in method → **Apple** を有効化。
+   - Services ID、Apple Team ID、Key ID、ダウンロードした `.p8` の中身を貼る。
+5. `ios/` を再生成する。`usesAppleSignIn: true` から `entitlements` と
+   capability が自動付与される。次のどちらかで実行する。
+   - **差分 prebuild（推奨）**: `npx expo prebuild -p ios` で差分更新する。
+     Xcode の独自設定や Signing 情報を保ったまま capability だけ追加される。
+     反映されない場合は Xcode の Signing & Capabilities タブで
+     `+ Capability` → **Sign in with Apple** を手動追加する。
+   - **クリーン再生成**: `npx expo prebuild -p ios --clean` で `ios/` を
+     全面再生成する。確実に設定が反映される代わりに **ローカルの `ios/`
+     変更は全消去される** ので注意。手動で加えた Podfile 修正や Xcode 設定
+     は事前に退避しておく。
+6. Xcode の Signing & Capabilities で **Sign in with Apple** が付いていること
+   を確認。
+7. 実機ビルドして動作確認する。
+
+### 1-5. ios ディレクトリを作成する
 
 ```bash
 npx expo prebuild -p ios       # ios/ ディレクトリ生成
@@ -49,7 +103,7 @@ npx expo prebuild -p ios       # ios/ ディレクトリ生成
 
 mobile直下にiosディレクトリがあることを確認
 
-#### 1-4-a. CocoaPods の依存をインストールする(1-4.の失敗時のみ実行)
+#### 1-5-a. CocoaPods の依存をインストールする(1-5.の失敗時のみ実行)
 
 `prebuild` の末尾で自動実行されるが、失敗した場合や手動でやり直したい場合は以下を実行する。
 
@@ -74,11 +128,26 @@ cd ..
 
 ### 2-1. backend/.envファイルの作成
 
-現状で加える変更はない
-
 ```bash
 cp .env.example .env
 ```
+
+実機 Firebase ログインを検証するときは次の 2 点を編集する。dev テストユーザ
+ログイン（`[dev] テストユーザーでログイン`）のみで動作確認する場合は
+デフォルトのままで良い。
+
+- `FIREBASE_PROJECT_ID` を **mobile と同じプロジェクト ID** に合わせる
+  （例: `hourglass-f10ca`）。`GoogleService-Info.plist` 内の `PROJECT_ID`
+  と一致していること。
+- Firebase Admin SDK 用の credentials を用意する。次のどちらか:
+  1. **Service account JSON (推奨)**: Firebase Console → プロジェクト設定 →
+     サービスアカウント → 「新しい秘密鍵の生成」で JSON をダウンロードし、
+     `backend/firebase-service-account.json` に保存 (`.gitignore` 済み)。
+     `.env` に `FIREBASE_CREDENTIALS_PATH=./firebase-service-account.json`
+     を追記。
+  2. **Application Default Credentials**: Firebase プロジェクトに直接アクセス
+     権がある開発者は `gcloud auth application-default login` で済む
+     （`FIREBASE_CREDENTIALS_PATH` は未設定のままで良い）。
 
 ## 3. dockerの起動
 
