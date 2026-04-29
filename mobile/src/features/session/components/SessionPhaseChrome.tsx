@@ -1,7 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
-import { Circle, ClipPath, Defs, Path, Rect, Svg, SvgXml } from 'react-native-svg';
+import Animated, {
+  cancelAnimation,
+  Easing,
+  useAnimatedProps,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
+import { Circle, ClipPath, Defs, G, Path, Rect, Svg, SvgXml } from 'react-native-svg';
 import { SizableText } from 'tamagui';
 
 import { formatMmSs, useSmoothRemainingSeconds } from '@/features/session/hooks/useTimer';
@@ -41,8 +50,35 @@ const HOURGLASS_SAND_BOTTOM_TOP = 16.75;
 const HOURGLASS_SAND_BOTTOM = 27.38;
 const HOURGLASS_SAND_X = 3.3;
 const HOURGLASS_SAND_WIDTH = 11.1;
-const HOURGLASS_SAND_STREAM_Y = 13.35;
-const HOURGLASS_SAND_STREAM_HEIGHT = 6.1;
+// 砂粒が落下する縦の筋の位置。砂時計のくびれを通って下部に落ちる範囲。
+const HOURGLASS_STREAM_X = 8.69;
+const HOURGLASS_STREAM_Y = 13.4;
+const HOURGLASS_STREAM_WIDTH = 0.32;
+const HOURGLASS_STREAM_HEIGHT = 5.6;
+// 上部の砂表面が中央に向かって凹む深さ（漏斗状）。残量が少なくなったら自動で縮める。
+const HOURGLASS_FUNNEL_DEPTH_MAX = 1.6;
+// 下部の砂が中央に向かって盛り上がる山の高さ。
+const HOURGLASS_MOUND_PEAK_MAX = 2.0;
+type FallingParticleConfig = {
+  cx: number;
+  r: number;
+  phase: number;
+  durationMs: number;
+  accent: boolean;
+};
+
+// 砂粒のアニメーション設定。各粒子が異なる速度・位相で落下する。
+const HOURGLASS_FALLING_PARTICLES: readonly FallingParticleConfig[] = [
+  { cx: 8.78, r: 0.3, phase: 0.0, durationMs: 720, accent: false },
+  { cx: 9.0, r: 0.22, phase: 0.18, durationMs: 640, accent: true },
+  { cx: 8.66, r: 0.34, phase: 0.34, durationMs: 880, accent: false },
+  { cx: 8.92, r: 0.2, phase: 0.46, durationMs: 700, accent: true },
+  { cx: 8.84, r: 0.28, phase: 0.58, durationMs: 760, accent: false },
+  { cx: 9.05, r: 0.18, phase: 0.7, durationMs: 620, accent: true },
+  { cx: 8.72, r: 0.32, phase: 0.82, durationMs: 820, accent: false },
+  { cx: 8.96, r: 0.24, phase: 0.92, durationMs: 680, accent: true },
+];
+const HOURGLASS_FALLING_CLIP_ID = 'hourglassBadgeFallingClip';
 
 const SVG_CSS_ATTRIBUTE_NAMES: Record<string, string> = {
   'mask-type': 'maskType',
@@ -83,26 +119,60 @@ function clampSandProgress(progress: number) {
   return Math.min(1, Math.max(0, progress));
 }
 
-function getHourglassSandMetrics(progress: number) {
+function formatSvgNumber(value: number) {
+  // SVG path の d 属性で扱いやすいよう、不要な末尾 0 を落として小数 3 桁までに丸める。
+  return Number.parseFloat(value.toFixed(3)).toString();
+}
+
+function getHourglassSandShapes(progress: number) {
   const remainingRatio = clampSandProgress(progress);
   const elapsedRatio = 1 - remainingRatio;
   const upperHeight = (HOURGLASS_SAND_NECK_Y - HOURGLASS_SAND_TOP) * remainingRatio;
   const lowerHeight = (HOURGLASS_SAND_BOTTOM - HOURGLASS_SAND_BOTTOM_TOP) * elapsedRatio;
+  const upperY = HOURGLASS_SAND_NECK_Y - upperHeight;
+  const lowerY = HOURGLASS_SAND_BOTTOM - lowerHeight;
+
+  const xLeft = HOURGLASS_SAND_X;
+  const xRight = HOURGLASS_SAND_X + HOURGLASS_SAND_WIDTH;
+  const xCenter = HOURGLASS_SAND_X + HOURGLASS_SAND_WIDTH / 2;
+
+  // 上部: 中央が下にへこむ漏斗型。残量が浅くなりすぎたときは凹みを縮小する。
+  const funnelDepth = Math.min(HOURGLASS_FUNNEL_DEPTH_MAX, upperHeight * 0.6);
+  const upperPath =
+    upperHeight > 0
+      ? `M${formatSvgNumber(xLeft)} ${formatSvgNumber(upperY)}` +
+        ` L${formatSvgNumber(xCenter)} ${formatSvgNumber(upperY + funnelDepth)}` +
+        ` L${formatSvgNumber(xRight)} ${formatSvgNumber(upperY)}` +
+        ` L${formatSvgNumber(xRight)} ${formatSvgNumber(HOURGLASS_SAND_NECK_Y)}` +
+        ` L${formatSvgNumber(xLeft)} ${formatSvgNumber(HOURGLASS_SAND_NECK_Y)} Z`
+      : '';
+
+  // 下部: 中央が高い山型。山頂は内側に収めて clipPath からはみ出さない。
+  const peakBoost = Math.min(HOURGLASS_MOUND_PEAK_MAX, lowerHeight * 0.4);
+  const peakY = Math.max(HOURGLASS_SAND_BOTTOM_TOP, lowerY - peakBoost);
+  const lowerPath =
+    lowerHeight > 0
+      ? `M${formatSvgNumber(xLeft)} ${formatSvgNumber(HOURGLASS_SAND_BOTTOM)}` +
+        ` L${formatSvgNumber(xLeft)} ${formatSvgNumber(lowerY)}` +
+        ` L${formatSvgNumber(xCenter)} ${formatSvgNumber(peakY)}` +
+        ` L${formatSvgNumber(xRight)} ${formatSvgNumber(lowerY)}` +
+        ` L${formatSvgNumber(xRight)} ${formatSvgNumber(HOURGLASS_SAND_BOTTOM)} Z`
+      : '';
 
   return {
-    upperY: HOURGLASS_SAND_NECK_Y - upperHeight,
+    upperPath,
+    lowerPath,
     upperHeight,
-    lowerY: HOURGLASS_SAND_BOTTOM - lowerHeight,
     lowerHeight,
     isDraining: remainingRatio > 0,
   };
 }
 
 function buildHourglassSandOverlayXml(progress: number, color: string, showStream: boolean) {
-  const { upperY, upperHeight, lowerY, lowerHeight, isDraining } = getHourglassSandMetrics(progress);
+  const { upperPath, lowerPath, isDraining } = getHourglassSandShapes(progress);
   const stream =
     showStream && isDraining
-      ? `<rect x="8.38" y="${HOURGLASS_SAND_STREAM_Y}" width="0.9" height="${HOURGLASS_SAND_STREAM_HEIGHT}" rx="0.45" fill="${color}" opacity="0.95"/>`
+      ? `<rect x="${HOURGLASS_STREAM_X}" y="${HOURGLASS_STREAM_Y}" width="${HOURGLASS_STREAM_WIDTH}" height="${HOURGLASS_STREAM_HEIGHT}" rx="${HOURGLASS_STREAM_WIDTH / 2}" fill="${color}" opacity="0.55"/>`
       : '';
 
   return `
@@ -115,8 +185,8 @@ function buildHourglassSandOverlayXml(progress: number, color: string, showStrea
   </clipPath>
 </defs>
 <g opacity="0.92">
-  <rect x="${HOURGLASS_SAND_X}" y="${upperY}" width="${HOURGLASS_SAND_WIDTH}" height="${upperHeight}" fill="${color}" clip-path="url(#${HOURGLASS_SAND_UPPER_CLIP_ID})"/>
-  <rect x="${HOURGLASS_SAND_X}" y="${lowerY}" width="${HOURGLASS_SAND_WIDTH}" height="${lowerHeight}" fill="${color}" clip-path="url(#${HOURGLASS_SAND_LOWER_CLIP_ID})"/>
+  ${upperPath ? `<path d="${upperPath}" fill="${color}" clip-path="url(#${HOURGLASS_SAND_UPPER_CLIP_ID})"/>` : ''}
+  ${lowerPath ? `<path d="${lowerPath}" fill="${color}" clip-path="url(#${HOURGLASS_SAND_LOWER_CLIP_ID})"/>` : ''}
   ${stream}
 </g>`;
 }
@@ -238,11 +308,10 @@ function HourglassBadgeSandOverlay({
   color: string;
   showStream: boolean;
 }) {
-  const { upperY, upperHeight, lowerY, lowerHeight, isDraining } =
-    getHourglassSandMetrics(progress);
+  const { upperPath, lowerPath, isDraining } = getHourglassSandShapes(progress);
 
   return (
-    <>
+    <G opacity={0.92}>
       <Defs>
         <ClipPath id={HOURGLASS_SAND_UPPER_CLIP_ID}>
           <Path d={HOURGLASS_SAND_UPPER_CLIP_PATH} />
@@ -251,36 +320,132 @@ function HourglassBadgeSandOverlay({
           <Path d={HOURGLASS_SAND_LOWER_CLIP_PATH} />
         </ClipPath>
       </Defs>
-      <Rect
-        x={HOURGLASS_SAND_X}
-        y={upperY}
-        width={HOURGLASS_SAND_WIDTH}
-        height={upperHeight}
-        fill={color}
-        clipPath={`url(#${HOURGLASS_SAND_UPPER_CLIP_ID})`}
-        opacity={0.92}
-      />
-      <Rect
-        x={HOURGLASS_SAND_X}
-        y={lowerY}
-        width={HOURGLASS_SAND_WIDTH}
-        height={lowerHeight}
-        fill={color}
-        clipPath={`url(#${HOURGLASS_SAND_LOWER_CLIP_ID})`}
-        opacity={0.92}
-      />
+      {upperPath ? (
+        <Path d={upperPath} fill={color} clipPath={`url(#${HOURGLASS_SAND_UPPER_CLIP_ID})`} />
+      ) : null}
+      {lowerPath ? (
+        <Path d={lowerPath} fill={color} clipPath={`url(#${HOURGLASS_SAND_LOWER_CLIP_ID})`} />
+      ) : null}
       {showStream && isDraining ? (
         <Rect
-          x={8.38}
-          y={HOURGLASS_SAND_STREAM_Y}
-          width={0.9}
-          height={HOURGLASS_SAND_STREAM_HEIGHT}
-          rx={0.45}
+          x={HOURGLASS_STREAM_X}
+          y={HOURGLASS_STREAM_Y}
+          width={HOURGLASS_STREAM_WIDTH}
+          height={HOURGLASS_STREAM_HEIGHT}
+          rx={HOURGLASS_STREAM_WIDTH / 2}
           fill={color}
-          opacity={0.95}
+          opacity={0.55}
         />
       ) : null}
-    </>
+    </G>
+  );
+}
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+function darkenSandColor(color: string) {
+  // 12% ほど暗くしたアクセント色を返す。色解釈に失敗したら元の色を opacity 多めで返す。
+  const hex = color.replace('#', '');
+  if (hex.length !== 6 || /[^0-9a-fA-F]/.test(hex)) return color;
+  const factor = 0.88;
+  const r = Math.max(0, Math.min(255, Math.round(parseInt(hex.slice(0, 2), 16) * factor)));
+  const g = Math.max(0, Math.min(255, Math.round(parseInt(hex.slice(2, 4), 16) * factor)));
+  const b = Math.max(0, Math.min(255, Math.round(parseInt(hex.slice(4, 6), 16) * factor)));
+  const toHex = (n: number) => n.toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function FallingSandParticle({
+  config,
+  color,
+}: {
+  config: FallingParticleConfig;
+  color: string;
+}) {
+  const reducedMotion = useReducedMotion();
+  // 各粒子は 0..1 の周期で進行。フェーズが少しずつズレているので落下が連続して見える。
+  const progress = useSharedValue(config.phase);
+
+  useEffect(() => {
+    if (reducedMotion) {
+      // 視差効果低減モードでは静止し、中央付近に薄く点を残す。
+      progress.value = 0.5;
+      return;
+    }
+    progress.value = config.phase;
+    progress.value = withRepeat(
+      withTiming(config.phase + 1, {
+        duration: config.durationMs,
+        easing: Easing.linear,
+      }),
+      -1,
+      false,
+    );
+    return () => cancelAnimation(progress);
+  }, [config.phase, config.durationMs, reducedMotion, progress]);
+
+  const animatedProps = useAnimatedProps(() => {
+    'worklet';
+    const t = progress.value % 1;
+    const cy = HOURGLASS_STREAM_Y + HOURGLASS_STREAM_HEIGHT * t;
+    // 上下端でフェードイン・アウトさせ、テレポートした感じを抑える。
+    const fade = Math.min(1, t * 6) * Math.min(1, (1 - t) * 6);
+    return {
+      cy,
+      opacity: 0.92 * fade,
+    };
+  });
+
+  return (
+    <AnimatedCircle
+      cx={config.cx}
+      r={config.r}
+      fill={color}
+      animatedProps={animatedProps}
+    />
+  );
+}
+
+function HourglassFallingSandLayer({
+  width,
+  height,
+  color,
+}: {
+  width: number;
+  height: number;
+  color: string;
+}) {
+  const accentColor = useMemo(() => darkenSandColor(color), [color]);
+
+  return (
+    <Svg
+      style={StyleSheet.absoluteFillObject}
+      width={width}
+      height={height}
+      viewBox="0 0 18 31"
+      preserveAspectRatio="xMidYMid meet"
+      pointerEvents="none"
+    >
+      <Defs>
+        <ClipPath id={HOURGLASS_FALLING_CLIP_ID}>
+          <Rect
+            x={HOURGLASS_STREAM_X - 0.6}
+            y={HOURGLASS_STREAM_Y}
+            width={HOURGLASS_STREAM_WIDTH + 1.2}
+            height={HOURGLASS_STREAM_HEIGHT}
+          />
+        </ClipPath>
+      </Defs>
+      <G clipPath={`url(#${HOURGLASS_FALLING_CLIP_ID})`}>
+        {HOURGLASS_FALLING_PARTICLES.map((particle, index) => (
+          <FallingSandParticle
+            key={`${particle.cx}-${index}`}
+            config={particle}
+            color={particle.accent ? accentColor : color}
+          />
+        ))}
+      </G>
+    </Svg>
   );
 }
 
@@ -333,17 +498,15 @@ function HourglassBadgeIcon({
     />
   );
 
-  if (!xml) return fallback;
-  const renderedXml = injectHourglassSandOverlay(
-    xml,
-    activeSandProgress,
-    sandColor,
-    showSandStream,
-  );
+  // 砂が現在進行形で落ちている（=アクティブで残量あり）ときだけ粒子レイヤを重ねる。
+  // 切り分け中: Bridgeless 環境での Reanimated クラッシュ調査のため、一時的に無効化。
+  const showFallingLayer = false;
+  // const showFallingLayer =
+  //   active && showSandStream && sandProgress !== undefined && sandProgress > 0;
 
-  return (
+  const baseLayer = xml ? (
     <SvgXml
-      xml={renderedXml}
+      xml={injectHourglassSandOverlay(xml, activeSandProgress, sandColor, showSandStream)}
       width={width}
       height={height}
       preserveAspectRatio="xMidYMid meet"
@@ -351,6 +514,23 @@ function HourglassBadgeIcon({
       onError={() => undefined}
       testID={testID}
     />
+  ) : (
+    fallback
+  );
+
+  if (!showFallingLayer) {
+    return baseLayer;
+  }
+
+  return (
+    <View
+      style={{ width, height }}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
+      {baseLayer}
+      <HourglassFallingSandLayer width={width} height={height} color={sandColor} />
+    </View>
   );
 }
 

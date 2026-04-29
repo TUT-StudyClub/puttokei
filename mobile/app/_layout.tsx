@@ -16,14 +16,23 @@ import config from '../tamagui.config';
 import { configureGoogleSignIn } from '@/features/auth/lib/signInWithGoogle';
 import { AuthGate } from '@/shared/components/AuthGate';
 import { refreshIdToken, subscribeIdTokenChanged } from '@/shared/lib/firebase';
+import { installDevMockAuth } from '@/shared/lib/devMockAuth';
 import { initializeFirebaseAuth } from '@/shared/lib/firebaseAuth';
 import { setTokenProvider, setTokenRefresher } from '@/shared/lib/api';
 import { queryClient } from '@/shared/lib/queryClient';
 import { getAuthIdToken, useAuthStore } from '@/shared/stores/authStore';
 
+// 開発ビルド (__DEV__) では Firebase Auth の代わりに dev mock を使い、サインイン画面を
+// 経由せずに固定 UID で API を叩く。バックエンドの DEV_MOCK_AUTH_ENABLED=true と対応。
+const USE_DEV_MOCK_AUTH = __DEV__;
+
 export default function RootLayout() {
   useEffect(() => {
-    initializeFirebaseAuth();
+    if (USE_DEV_MOCK_AUTH) {
+      installDevMockAuth();
+    } else {
+      initializeFirebaseAuth();
+    }
     configureGoogleSignIn();
     setTokenProvider(() => getAuthIdToken());
     setTokenRefresher(() => refreshIdToken());

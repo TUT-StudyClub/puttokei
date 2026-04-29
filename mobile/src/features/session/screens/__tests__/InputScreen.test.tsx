@@ -7,7 +7,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactElement, ReactNode } from 'react';
-import { Rect } from 'react-native-svg';
+import { Circle, Path, Rect } from 'react-native-svg';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../../tamagui.config';
@@ -98,7 +98,7 @@ describe('InputScreen', () => {
     expect(useTimerStore.getState().totalSeconds).toBe(60);
   });
 
-  it('上部の砂時計は残り時間に応じて上側の青い砂が減り、下側に溜まる', () => {
+  it('上部の砂時計は残り時間に応じて上が漏斗状に凹み、下が山型に積もる', () => {
     const { UNSAFE_getAllByType } = renderWithProviders(<InputScreen />);
 
     act(() => {
@@ -109,20 +109,37 @@ describe('InputScreen', () => {
       });
     });
 
-    const sandRects = UNSAFE_getAllByType(Rect).filter((rect) => rect.props.fill === '#4B5CFF');
-    const upperSand = sandRects.find(
-      (rect) => rect.props.clipPath === 'url(#hourglassBadgeUpperSandClip)',
+    // 砂塊は Path（漏斗・山型）として描画される。
+    const sandPaths = UNSAFE_getAllByType(Path).filter((path) => path.props.fill === '#4B5CFF');
+    const upperSand = sandPaths.find(
+      (path) => path.props.clipPath === 'url(#hourglassBadgeUpperSandClip)',
     );
-    const lowerSand = sandRects.find(
-      (rect) => rect.props.clipPath === 'url(#hourglassBadgeLowerSandClip)',
+    const lowerSand = sandPaths.find(
+      (path) => path.props.clipPath === 'url(#hourglassBadgeLowerSandClip)',
     );
-    const stream = sandRects.find((rect) => rect.props.rx === 0.45);
 
-    expect(upperSand?.props.y).toBeCloseTo(8.93);
-    expect(upperSand?.props.height).toBeCloseTo(5.32);
-    expect(lowerSand?.props.y).toBeCloseTo(22.065);
-    expect(lowerSand?.props.height).toBeCloseTo(5.315);
-    expect(stream).toBeTruthy();
+    expect(upperSand).toBeTruthy();
+    expect(lowerSand).toBeTruthy();
+    // 上部 path は中央に向けて凹む V 字を含む。残量 50% のとき凹み深さは 1.6（上限）
+    expect(upperSand?.props.d).toContain('M3.3 8.93');
+    expect(upperSand?.props.d).toContain('L8.85 10.53');
+    // 下部 path は中央が高い山。lowerY = 22.065、山頂 = 22.065 - min(2.0, lowerHeight*0.4) = 20.065
+    expect(lowerSand?.props.d).toContain('L8.85 20.065');
+
+    // ストリームは雫型ではなく細い縦の筋（width 0.32）。
+    const streamRect = UNSAFE_getAllByType(Rect).find(
+      (rect) => rect.props.fill === '#4B5CFF' && rect.props.width === 0.32,
+    );
+    expect(streamRect).toBeTruthy();
+    expect(streamRect?.props.height).toBe(5.6);
+
+    // 落下粒子レイヤ: アクティブな砂時計の上に 8 粒子（メイン色 4 + アクセント色 4）。
+    const particleCircles = UNSAFE_getAllByType(Circle).filter(
+      (circle) => typeof circle.props.r === 'number' && circle.props.r < 0.5,
+    );
+    expect(particleCircles).toHaveLength(8);
+    expect(particleCircles.filter((c) => c.props.fill === '#4B5CFF')).toHaveLength(4);
+    expect(particleCircles.filter((c) => c.props.fill === '#4251e0')).toHaveLength(4);
   });
 
   it('タイマー完了で PATCH status=output が送られ、output 画面へ replace する', async () => {
