@@ -402,6 +402,7 @@ export function InputScreen() {
               sandLayers={hourglassSandLayers}
               activeLayerIndex={0}
               showSandStream={timerStatus === 'running'}
+              variant="blue"
             />
           </>
         )}

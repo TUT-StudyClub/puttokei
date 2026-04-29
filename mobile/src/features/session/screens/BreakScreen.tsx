@@ -844,6 +844,7 @@ export function BreakScreen() {
             testIDPrefix="break"
             borderColor={BORDER_COLOR}
             marginBottom={0}
+            variant="blue"
           />
         </View>
 

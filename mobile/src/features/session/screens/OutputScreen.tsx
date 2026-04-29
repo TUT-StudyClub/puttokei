@@ -795,6 +795,7 @@ export function OutputScreen() {
                   sandLayers={hourglassSandLayers}
                   activeLayerIndex={1}
                   showSandStream={timerStatus === 'running'}
+                  variant="blue"
                 />
               </>
             ) : null}
