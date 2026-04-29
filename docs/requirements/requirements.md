@@ -110,7 +110,11 @@
 
 **3.2.1. 認証**
 
-現行実装では専用の `/api/v1/auth/verify` は公開していない。認証が必要な endpoint では `auth_middleware` が `Authorization: Bearer <Firebase ID Token>` を検証し、未登録ユーザーなら backend 側で初期作成する。
+| **Method** | **Path** | **概要** | **認証** | **レスポンス概要** |
+| --- | --- | --- | --- | --- |
+| POST | /api/v1/auth/verify | Firebase ID Token を検証し、未登録 UID なら users を自動作成する | 必須 | { user, is_new } |
+
+認証が必要な他の endpoint では `auth_middleware` が `Authorization: Bearer <Firebase ID Token>` を検証し、未登録ユーザーなら backend 側で初期作成する。`/auth/verify` は mobile 側のサインイン直後にユーザー登録を確実にするための明示的な呼び出し口で、`is_new` により初回登録かどうかをクライアントに伝える。
 
 **3.2.2. セッション管理**
 
@@ -165,6 +169,26 @@
 | GET | /health/ready | DB接続含む準備完了確認 | 不要 | { status, db } |
 
 #### 3.3. 主要リクエスト / レスポンススキーマ
+
+**3.3.0. 認証検証レスポンス**
+
+POST `/api/v1/auth/verify`（リクエストボディは空、`Authorization: Bearer <Firebase ID Token>` を必須とする）
+
+```basic
+{
+  "user": {
+    "id": "5c3aeb42-7c3f-4e06-8d27-8a9b13a2f1b5",
+    "firebase_uid": "firebase-uid-xxxx",
+    "auth_provider": "apple",
+    "display_name": null,
+    "age_group": null,
+    "onboarding_completed": false,
+    "created_at": "2026-04-25T09:12:00+00:00",
+    "updated_at": "2026-04-25T09:12:00+00:00"
+  },
+  "is_new": true
+}
+```
 
 **3.3.1. セッション作成リクエスト**
 

@@ -5,9 +5,13 @@
 
 from fastapi import APIRouter
 
+from src.presentation.api.v1.auth import auth_router
 from src.presentation.api.v1.sessions import sessions_router
+from src.presentation.api.v1.stats import stats_router
 from src.presentation.api.v1.users import users_router
 
 api_v1_router = APIRouter()
+api_v1_router.include_router(auth_router)
 api_v1_router.include_router(users_router)
 api_v1_router.include_router(sessions_router)
+api_v1_router.include_router(stats_router)

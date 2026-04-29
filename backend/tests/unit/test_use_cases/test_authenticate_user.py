@@ -52,7 +52,8 @@ async def test_returns_existing_user_without_commit():
 
     result = await use_case.execute(user.firebase_uid)
 
-    assert result == user
+    assert result.user == user
+    assert result.is_new is False
     assert uow.commit_count == 0
     assert uow.rollback_count == 1
 
@@ -68,12 +69,13 @@ async def test_auto_creates_user_and_settings():
 
     result = await use_case.execute("new-user:apple.com")
 
-    assert result.firebase_uid == "new-user"
-    assert result.auth_provider is AuthProvider.APPLE
-    assert result.onboarding_completed is False
-    assert result.id in repo.settings
-    assert result.created_at.utcoffset() == UTC.utcoffset(None)
-    assert repo.settings[result.id].created_at.utcoffset() == UTC.utcoffset(None)
+    assert result.is_new is True
+    assert result.user.firebase_uid == "new-user"
+    assert result.user.auth_provider is AuthProvider.APPLE
+    assert result.user.onboarding_completed is False
+    assert result.user.id in repo.settings
+    assert result.user.created_at.utcoffset() == UTC.utcoffset(None)
+    assert repo.settings[result.user.id].created_at.utcoffset() == UTC.utcoffset(None)
     assert uow.commit_count == 1
     assert uow.rollback_count == 0
 
