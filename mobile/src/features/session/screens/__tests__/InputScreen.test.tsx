@@ -98,9 +98,10 @@ describe('InputScreen', () => {
     expect(useTimerStore.getState().totalSeconds).toBe(60);
   });
 
-  it('上部の砂時計は残り時間に応じて上が漏斗状に凹み、下が山型に積もる', () => {
+  it('上部の砂時計は青→ピンク→白の順に積層され、下部は input の duration 比率内に収まる', () => {
     const { UNSAFE_getAllByType } = renderWithProviders(<InputScreen />);
 
+    // route params は input='1', output='5', break='5' (合計 11 分)。残量 50%。
     act(() => {
       useTimerStore.setState({
         totalSeconds: 60,
@@ -109,29 +110,84 @@ describe('InputScreen', () => {
       });
     });
 
-    // 砂塊は Path（漏斗・山型）として描画される。
-    const sandPaths = UNSAFE_getAllByType(Path).filter((path) => path.props.fill === '#4B5CFF');
-    const upperSand = sandPaths.find(
-      (path) => path.props.clipPath === 'url(#hourglassBadgeUpperSandClip)',
-    );
-    const lowerSand = sandPaths.find(
-      (path) => path.props.clipPath === 'url(#hourglassBadgeLowerSandClip)',
+    const upperClip = 'url(#hourglassBadgeUpperSandClip)';
+    const lowerClip = 'url(#hourglassBadgeLowerSandClip)';
+    const upperPaths = UNSAFE_getAllByType(Path).filter(
+      (path) => path.props.clipPath === upperClip,
     );
 
-    expect(upperSand).toBeTruthy();
-    expect(lowerSand).toBeTruthy();
-    // 上部 path は中央に向けて凹む V 字を含む。残量 50% のとき凹み深さは 1.6（上限）
-    expect(upperSand?.props.d).toContain('M3.3 8.93');
-    expect(upperSand?.props.d).toContain('L8.85 10.53');
-    // 下部 path は中央が高い山。lowerY = 22.065、山頂 = 22.065 - min(2.0, lowerHeight*0.4) = 20.065
-    expect(lowerSand?.props.d).toContain('L8.85 20.065');
+    const blueUpper = upperPaths.find((path) => path.props.fill === '#4B5CFF');
+    const pinkUpper = upperPaths.find((path) => path.props.fill === '#EC4899');
+    const whiteUpper = upperPaths.find((path) => path.props.fill === '#FFFFFF');
+    expect(blueUpper).toBeTruthy();
+    expect(pinkUpper).toBeTruthy();
+    expect(whiteUpper).toBeTruthy();
 
-    // ストリームは雫型ではなく細い縦の筋（width 0.32）。
+    // 白 (break) のみが最上層で V 字凹みを持つ。
+    // top y = 4.094, V 頂点 y = 4.094 + min(1.6, height*0.6) = 4.094 + 1.6 = 5.694
+    expect(whiteUpper?.props.d).toContain('M3.3 4.094');
+    expect(whiteUpper?.props.d).toContain('L8.85 5.694');
+    expect(whiteUpper?.props.fillOpacity).toBe(0.92);
+
+    // 中間 (ピンク・青) は V 字なしの 4 点矩形 → x=8.85 (中央) での折れ点が含まれない。
+    expect(pinkUpper?.props.d).not.toMatch(/L8\.85 \d/);
+    expect(blueUpper?.props.d).not.toMatch(/L8\.85 \d/);
+
+    // 下部は青 (active=input) のみ。input 比率 1/11 で大きく抑制された山型。
+    const lowerPaths = UNSAFE_getAllByType(Path).filter(
+      (path) => path.props.clipPath === lowerClip,
+    );
+    expect(lowerPaths).toHaveLength(1);
+    const blueLower = lowerPaths[0];
+    expect(blueLower.props.fill).toBe('#4B5CFF');
+    // lowerHeight = 10.63 * (1/11) * 0.5 ≈ 0.483, lowerY ≈ 26.897
+    // peakBoost = min(2.0, 0.483 * 0.4) ≈ 0.193, peakY ≈ 26.704
+    expect(blueLower.props.d).toContain('L8.85 26.704');
+
+    // ストリームは active 色 (青)、細い縦の筋 (width 0.32)。
     const streamRect = UNSAFE_getAllByType(Rect).find(
       (rect) => rect.props.fill === '#4B5CFF' && rect.props.width === 0.32,
     );
     expect(streamRect).toBeTruthy();
     expect(streamRect?.props.height).toBe(5.6);
+  });
+
+  it('インプットフェーズ終了時、上部にピンクと白が残り、下部の青は input 比率で頭打ちになる', () => {
+    const { UNSAFE_getAllByType } = renderWithProviders(<InputScreen />);
+
+    // 残量 0 = input フェーズ完了直後の状態。
+    act(() => {
+      useTimerStore.setState({
+        totalSeconds: 60,
+        remainingSeconds: 0,
+        status: 'running',
+      });
+    });
+
+    const upperClip = 'url(#hourglassBadgeUpperSandClip)';
+    const lowerClip = 'url(#hourglassBadgeLowerSandClip)';
+    const upperPaths = UNSAFE_getAllByType(Path).filter(
+      (path) => path.props.clipPath === upperClip,
+    );
+
+    // 青 (input) は上部に残らない。
+    expect(upperPaths.find((p) => p.props.fill === '#4B5CFF')).toBeUndefined();
+    // ピンクと白は上に積もったまま残る。
+    expect(upperPaths.find((p) => p.props.fill === '#EC4899')).toBeTruthy();
+    const whiteUpper = upperPaths.find((p) => p.props.fill === '#FFFFFF');
+    expect(whiteUpper).toBeTruthy();
+    // 白が新しい最上層なので V 字凹みを持つ。
+    expect(whiteUpper?.props.d).toMatch(/L8\.85 \d/);
+
+    // 下部の青は input 比率 (1/11) ぶんしか積もらない (砂時計下部を満たさない)。
+    const lowerPaths = UNSAFE_getAllByType(Path).filter(
+      (path) => path.props.clipPath === lowerClip,
+    );
+    expect(lowerPaths).toHaveLength(1);
+    const blueLower = lowerPaths[0];
+    expect(blueLower.props.fill).toBe('#4B5CFF');
+    // lowerHeight = 10.63 * 1/11 ≈ 0.966, lowerY = 27.38 - 0.966 ≈ 26.414
+    expect(blueLower.props.d).toContain('L3.3 26.414');
   });
 
   it('タイマー完了で PATCH status=output が送られ、output 画面へ replace する', async () => {

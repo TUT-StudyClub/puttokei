@@ -20,6 +20,7 @@ import { AnnotatedOutputText } from '@/features/session/components/AnnotatedOutp
 import {
   CircularPhaseTimer,
   HourglassBadge,
+  type HourglassSandLayer,
   PhaseTabs,
   type SessionPhase,
   SessionSettingsButton,
@@ -38,6 +39,10 @@ const CURRENT_PHASE: SessionPhase = 'input';
 const EXTEND_MINUTES = 5;
 
 const PRIMARY_COLOR = '#4B5CFF';
+const OUTPUT_PHASE_COLOR = '#EC4899';
+const BREAK_PHASE_COLOR = '#FFFFFF';
+// 白の砂は砂時計内側 (#EFEFEF) に対して視認しやすいよう、薄めに重ねる。
+const BREAK_PHASE_OPACITY = 0.92;
 const TEXT_ACTIVE = '#2F2F2F';
 const TEXT_INACTIVE = '#9CA3AF';
 const DOT_INACTIVE = '#D9D9D9';
@@ -287,6 +292,32 @@ export function InputScreen() {
   const isDetailVisible = selectedOutput !== null;
   const hourglassSandProgress =
     totalSeconds > 0 ? Math.min(1, Math.max(0, smoothRemainingSeconds / totalSeconds)) : 1;
+  // 砂時計の積層: 下から青(input) → ピンク(output) → 白(break)。
+  // input 層だけが残量に応じて減り、output / break 層は満タンで上に残る。
+  const hourglassSandLayers = useMemo<readonly HourglassSandLayer[]>(
+    () => [
+      {
+        label: 'input',
+        color: PRIMARY_COLOR,
+        weight: inputMinutes,
+        progress: hourglassSandProgress,
+      },
+      {
+        label: 'output',
+        color: OUTPUT_PHASE_COLOR,
+        weight: outputMinutes,
+        progress: 1,
+      },
+      {
+        label: 'break',
+        color: BREAK_PHASE_COLOR,
+        weight: breakMinutes,
+        progress: 1,
+        opacity: BREAK_PHASE_OPACITY,
+      },
+    ],
+    [inputMinutes, outputMinutes, breakMinutes, hourglassSandProgress],
+  );
 
   const { start, reset } = useTimer({
     enabled: isFocused,
@@ -368,8 +399,8 @@ export function InputScreen() {
               testIDPrefix="input"
               borderColor={BORDER_COLOR}
               marginBottom={24}
-              sandColor={PRIMARY_COLOR}
-              sandProgress={hourglassSandProgress}
+              sandLayers={hourglassSandLayers}
+              activeLayerIndex={0}
               showSandStream={timerStatus === 'running'}
             />
           </>

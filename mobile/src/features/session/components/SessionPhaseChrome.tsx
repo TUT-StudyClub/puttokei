@@ -124,30 +124,134 @@ function formatSvgNumber(value: number) {
   return Number.parseFloat(value.toFixed(3)).toString();
 }
 
-function getHourglassSandShapes(progress: number) {
-  const remainingRatio = clampSandProgress(progress);
-  const elapsedRatio = 1 - remainingRatio;
-  const upperHeight = (HOURGLASS_SAND_NECK_Y - HOURGLASS_SAND_TOP) * remainingRatio;
-  const lowerHeight = (HOURGLASS_SAND_BOTTOM - HOURGLASS_SAND_BOTTOM_TOP) * elapsedRatio;
-  const upperY = HOURGLASS_SAND_NECK_Y - upperHeight;
-  const lowerY = HOURGLASS_SAND_BOTTOM - lowerHeight;
+/**
+ * 砂時計に積み上げる 1 層分の砂の指定。
+ *
+ * 上部の漏斗には配列順（=下から上）で層が積まれ、最上層だけが漏斗状の凹みを持つ。
+ * 下部山型は `activeLayerIndex` の層の色のみで描画され、高さは当該層の duration 比率を上限とする。
+ */
+export type HourglassSandLayer = {
+  /** 砂粒の色（例: '#4B5CFF'） */
+  color: string;
+  /** 当該層の高さの重み。配列内の他の `weight` との比で正規化される（通常は phase の duration を渡す）。 */
+  weight: number;
+  /** 残量比率。1 で満タン、0 で空。active 以外の層は 1 を渡す想定。 */
+  progress: number;
+  /** 砂粒の不透明度。未指定は 1.0。 */
+  opacity?: number;
+  /** デバッグ用ラベル。任意。 */
+  label?: 'input' | 'output' | 'break' | string;
+};
 
+type HourglassUpperLayerShape = {
+  color: string;
+  opacity: number;
+  upperPath: string;
+  isTopLayer: boolean;
+};
+
+type HourglassSandLayerShapes = {
+  upperLayers: HourglassUpperLayerShape[];
+  lowerPath: string;
+  lowerColor: string;
+  lowerOpacity: number;
+  isDraining: boolean;
+};
+
+const EMPTY_SAND_SHAPES: HourglassSandLayerShapes = {
+  upperLayers: [],
+  lowerPath: '',
+  lowerColor: '',
+  lowerOpacity: 1,
+  isDraining: false,
+};
+
+function getHourglassSandLayerShapes(
+  layers: readonly HourglassSandLayer[],
+  activeLayerIndex: number,
+): HourglassSandLayerShapes {
+  // weight が正の層のみ採用する。元の index を覚えておいて activeLayerIndex を再マッピングする。
+  const indexed = layers
+    .map((layer, originalIndex) => ({ layer, originalIndex }))
+    .filter(({ layer }) => layer.weight > 0);
+
+  if (indexed.length === 0) return EMPTY_SAND_SHAPES;
+
+  const totalWeight = indexed.reduce((sum, { layer }) => sum + layer.weight, 0);
+  if (totalWeight <= 0) return EMPTY_SAND_SHAPES;
+
+  const upperTotalHeight = HOURGLASS_SAND_NECK_Y - HOURGLASS_SAND_TOP;
+  const lowerTotalHeight = HOURGLASS_SAND_BOTTOM - HOURGLASS_SAND_BOTTOM_TOP;
   const xLeft = HOURGLASS_SAND_X;
   const xRight = HOURGLASS_SAND_X + HOURGLASS_SAND_WIDTH;
   const xCenter = HOURGLASS_SAND_X + HOURGLASS_SAND_WIDTH / 2;
 
-  // 上部: 中央が下にへこむ漏斗型。残量が浅くなりすぎたときは凹みを縮小する。
-  const funnelDepth = Math.min(HOURGLASS_FUNNEL_DEPTH_MAX, upperHeight * 0.6);
-  const upperPath =
-    upperHeight > 0
-      ? `M${formatSvgNumber(xLeft)} ${formatSvgNumber(upperY)}` +
-        ` L${formatSvgNumber(xCenter)} ${formatSvgNumber(upperY + funnelDepth)}` +
-        ` L${formatSvgNumber(xRight)} ${formatSvgNumber(upperY)}` +
-        ` L${formatSvgNumber(xRight)} ${formatSvgNumber(HOURGLASS_SAND_NECK_Y)}` +
-        ` L${formatSvgNumber(xLeft)} ${formatSvgNumber(HOURGLASS_SAND_NECK_Y)} Z`
-      : '';
+  const heights = indexed.map(({ layer }) => {
+    const normalizedWeight = layer.weight / totalWeight;
+    const safeProgress = clampSandProgress(layer.progress);
+    return upperTotalHeight * normalizedWeight * safeProgress;
+  });
 
-  // 下部: 中央が高い山型。山頂は内側に収めて clipPath からはみ出さない。
+  // 高さ > 0 の層のうち、配列順で最後のものが「最上層」(漏斗の凹みを持つ層)。
+  let topVisibleIdx = -1;
+  for (let i = heights.length - 1; i >= 0; i--) {
+    if ((heights[i] ?? 0) > 0) {
+      topVisibleIdx = i;
+      break;
+    }
+  }
+
+  let bottomY = HOURGLASS_SAND_NECK_Y;
+  const upperLayers: HourglassUpperLayerShape[] = indexed.map(({ layer }, idx) => {
+    const layerHeight = heights[idx] ?? 0;
+    if (layerHeight <= 0) {
+      return {
+        color: layer.color,
+        opacity: layer.opacity ?? 1,
+        upperPath: '',
+        isTopLayer: false,
+      };
+    }
+    const topY = bottomY - layerHeight;
+    const isTop = idx === topVisibleIdx;
+
+    let upperPath: string;
+    if (isTop) {
+      // 最上層: 中央が下にへこむ漏斗型。残量が浅くなりすぎたときは凹みを縮小する。
+      const funnelDepth = Math.min(HOURGLASS_FUNNEL_DEPTH_MAX, layerHeight * 0.6);
+      upperPath =
+        `M${formatSvgNumber(xLeft)} ${formatSvgNumber(topY)}` +
+        ` L${formatSvgNumber(xCenter)} ${formatSvgNumber(topY + funnelDepth)}` +
+        ` L${formatSvgNumber(xRight)} ${formatSvgNumber(topY)}` +
+        ` L${formatSvgNumber(xRight)} ${formatSvgNumber(bottomY)}` +
+        ` L${formatSvgNumber(xLeft)} ${formatSvgNumber(bottomY)} Z`;
+    } else {
+      // 中間・下層: 上端は隣の層の下端と一致するため、段差なしの矩形で十分。
+      upperPath =
+        `M${formatSvgNumber(xLeft)} ${formatSvgNumber(topY)}` +
+        ` L${formatSvgNumber(xRight)} ${formatSvgNumber(topY)}` +
+        ` L${formatSvgNumber(xRight)} ${formatSvgNumber(bottomY)}` +
+        ` L${formatSvgNumber(xLeft)} ${formatSvgNumber(bottomY)} Z`;
+    }
+
+    bottomY = topY;
+    return {
+      color: layer.color,
+      opacity: layer.opacity ?? 1,
+      upperPath,
+      isTopLayer: isTop,
+    };
+  });
+
+  const activeMatch = indexed.find(({ originalIndex }) => originalIndex === activeLayerIndex);
+  const activeLayer = activeMatch?.layer;
+  const activeNormalizedWeight = activeLayer ? activeLayer.weight / totalWeight : 0;
+  const activeProgress = activeLayer ? clampSandProgress(activeLayer.progress) : 1;
+  const activeElapsed = 1 - activeProgress;
+
+  // 下部の砂は active 層の色のみで描画。高さは active の duration 比率を上限とする。
+  const lowerHeight = lowerTotalHeight * activeNormalizedWeight * activeElapsed;
+  const lowerY = HOURGLASS_SAND_BOTTOM - lowerHeight;
   const peakBoost = Math.min(HOURGLASS_MOUND_PEAK_MAX, lowerHeight * 0.4);
   const peakY = Math.max(HOURGLASS_SAND_BOTTOM_TOP, lowerY - peakBoost);
   const lowerPath =
@@ -159,20 +263,43 @@ function getHourglassSandShapes(progress: number) {
         ` L${formatSvgNumber(xRight)} ${formatSvgNumber(HOURGLASS_SAND_BOTTOM)} Z`
       : '';
 
+  const isDraining = activeLayer ? activeProgress > 0 && activeProgress < 1 : false;
+
   return {
-    upperPath,
+    upperLayers,
     lowerPath,
-    upperHeight,
-    lowerHeight,
-    isDraining: remainingRatio > 0,
+    lowerColor: activeLayer?.color ?? '',
+    lowerOpacity: activeLayer?.opacity ?? 1,
+    isDraining,
   };
 }
 
-function buildHourglassSandOverlayXml(progress: number, color: string, showStream: boolean) {
-  const { upperPath, lowerPath, isDraining } = getHourglassSandShapes(progress);
+function buildHourglassSandOverlayXml(
+  layers: readonly HourglassSandLayer[],
+  activeLayerIndex: number,
+  showStream: boolean,
+) {
+  const { upperLayers, lowerPath, lowerColor, lowerOpacity, isDraining } =
+    getHourglassSandLayerShapes(layers, activeLayerIndex);
+
+  const upperXml = upperLayers
+    .filter((layer) => layer.upperPath)
+    .map((layer) => {
+      const opacityAttr =
+        layer.opacity < 1 ? ` fill-opacity="${formatSvgNumber(layer.opacity)}"` : '';
+      return `<path d="${layer.upperPath}" fill="${layer.color}"${opacityAttr} clip-path="url(#${HOURGLASS_SAND_UPPER_CLIP_ID})"/>`;
+    })
+    .join('');
+
+  const lowerOpacityAttr =
+    lowerOpacity < 1 ? ` fill-opacity="${formatSvgNumber(lowerOpacity)}"` : '';
+  const lowerXml = lowerPath
+    ? `<path d="${lowerPath}" fill="${lowerColor}"${lowerOpacityAttr} clip-path="url(#${HOURGLASS_SAND_LOWER_CLIP_ID})"/>`
+    : '';
+
   const stream =
     showStream && isDraining
-      ? `<rect x="${HOURGLASS_STREAM_X}" y="${HOURGLASS_STREAM_Y}" width="${HOURGLASS_STREAM_WIDTH}" height="${HOURGLASS_STREAM_HEIGHT}" rx="${HOURGLASS_STREAM_WIDTH / 2}" fill="${color}" opacity="0.55"/>`
+      ? `<rect x="${HOURGLASS_STREAM_X}" y="${HOURGLASS_STREAM_Y}" width="${HOURGLASS_STREAM_WIDTH}" height="${HOURGLASS_STREAM_HEIGHT}" rx="${HOURGLASS_STREAM_WIDTH / 2}" fill="${lowerColor}" opacity="0.55"/>`
       : '';
 
   return `
@@ -185,22 +312,22 @@ function buildHourglassSandOverlayXml(progress: number, color: string, showStrea
   </clipPath>
 </defs>
 <g opacity="0.92">
-  ${upperPath ? `<path d="${upperPath}" fill="${color}" clip-path="url(#${HOURGLASS_SAND_UPPER_CLIP_ID})"/>` : ''}
-  ${lowerPath ? `<path d="${lowerPath}" fill="${color}" clip-path="url(#${HOURGLASS_SAND_LOWER_CLIP_ID})"/>` : ''}
+  ${upperXml}
+  ${lowerXml}
   ${stream}
 </g>`;
 }
 
 function injectHourglassSandOverlay(
   xml: string,
-  progress: number | undefined,
-  color: string,
+  layers: readonly HourglassSandLayer[],
+  activeLayerIndex: number,
   showStream: boolean,
 ) {
-  if (progress === undefined) return xml;
+  if (layers.length === 0) return xml;
   return xml.replace(
     '</svg>',
-    `${buildHourglassSandOverlayXml(progress, color, showStream)}</svg>`,
+    `${buildHourglassSandOverlayXml(layers, activeLayerIndex, showStream)}</svg>`,
   );
 }
 
@@ -286,8 +413,8 @@ export function SessionSettingsButton({
 
 type HourglassBadgeIconProps = {
   active: boolean;
-  sandColor: string;
-  sandProgress?: number;
+  layers: readonly HourglassSandLayer[];
+  activeLayerIndex: number;
   showSandStream: boolean;
   xml: string | null;
   testID: string;
@@ -297,21 +424,22 @@ type HourglassBadgeFallbackIconProps = {
   width: number;
   height: number;
   testID: string;
-  sandColor: string;
-  sandProgress?: number;
+  layers: readonly HourglassSandLayer[];
+  activeLayerIndex: number;
   showSandStream: boolean;
 };
 
 function HourglassBadgeSandOverlay({
-  progress,
-  color,
+  layers,
+  activeLayerIndex,
   showStream,
 }: {
-  progress: number;
-  color: string;
+  layers: readonly HourglassSandLayer[];
+  activeLayerIndex: number;
   showStream: boolean;
 }) {
-  const { upperPath, lowerPath, isDraining } = getHourglassSandShapes(progress);
+  const { upperLayers, lowerPath, lowerColor, lowerOpacity, isDraining } =
+    getHourglassSandLayerShapes(layers, activeLayerIndex);
 
   return (
     <G opacity={0.92}>
@@ -323,11 +451,24 @@ function HourglassBadgeSandOverlay({
           <Path d={HOURGLASS_SAND_LOWER_CLIP_PATH} />
         </ClipPath>
       </Defs>
-      {upperPath ? (
-        <Path d={upperPath} fill={color} clipPath={`url(#${HOURGLASS_SAND_UPPER_CLIP_ID})`} />
-      ) : null}
+      {upperLayers.map((layer, idx) =>
+        layer.upperPath ? (
+          <Path
+            key={`sand-upper-${idx}`}
+            d={layer.upperPath}
+            fill={layer.color}
+            fillOpacity={layer.opacity}
+            clipPath={`url(#${HOURGLASS_SAND_UPPER_CLIP_ID})`}
+          />
+        ) : null,
+      )}
       {lowerPath ? (
-        <Path d={lowerPath} fill={color} clipPath={`url(#${HOURGLASS_SAND_LOWER_CLIP_ID})`} />
+        <Path
+          d={lowerPath}
+          fill={lowerColor}
+          fillOpacity={lowerOpacity}
+          clipPath={`url(#${HOURGLASS_SAND_LOWER_CLIP_ID})`}
+        />
       ) : null}
       {showStream && isDraining ? (
         <Rect
@@ -336,7 +477,7 @@ function HourglassBadgeSandOverlay({
           width={HOURGLASS_STREAM_WIDTH}
           height={HOURGLASS_STREAM_HEIGHT}
           rx={HOURGLASS_STREAM_WIDTH / 2}
-          fill={color}
+          fill={lowerColor}
           opacity={0.55}
         />
       ) : null}
@@ -443,18 +584,18 @@ function HourglassBadgeFallbackIcon({
   width,
   height,
   testID,
-  sandColor,
-  sandProgress,
+  layers,
+  activeLayerIndex,
   showSandStream,
 }: HourglassBadgeFallbackIconProps) {
   return (
     <Svg width={width} height={height} viewBox="0 0 18 31" fill="none" testID={testID}>
       <Path d={HOURGLASS_BADGE_FALLBACK_PATH} fill="#CDCDCD" />
       <Path d={HOURGLASS_BADGE_FALLBACK_INNER_PATH} fill="#EFEFEF" />
-      {sandProgress === undefined ? null : (
+      {layers.length === 0 ? null : (
         <HourglassBadgeSandOverlay
-          progress={sandProgress}
-          color={sandColor}
+          layers={layers}
+          activeLayerIndex={activeLayerIndex}
           showStream={showSandStream}
         />
       )}
@@ -464,8 +605,8 @@ function HourglassBadgeFallbackIcon({
 
 function HourglassBadgeIcon({
   active,
-  sandColor,
-  sandProgress,
+  layers,
+  activeLayerIndex,
   showSandStream,
   xml,
   testID,
@@ -476,21 +617,24 @@ function HourglassBadgeIcon({
   const height = active
     ? HOURGLASS_BADGE_BASE_HEIGHT * HOURGLASS_BADGE_ACTIVE_SCALE
     : HOURGLASS_BADGE_BASE_HEIGHT;
-  const activeSandProgress = active ? sandProgress : undefined;
+  // 非アクティブなループバッジには砂を描画しない。
+  const effectiveLayers: readonly HourglassSandLayer[] = active ? layers : [];
+  // 落下ストリーム描画用の active 層の色（粒子レイヤで使用）
+  const activeLayerColor = layers[activeLayerIndex]?.color ?? '#4B5CFF';
   const fallback = (
     <HourglassBadgeFallbackIcon
       width={width}
       height={height}
       testID={testID}
-      sandColor={sandColor}
-      sandProgress={activeSandProgress}
+      layers={effectiveLayers}
+      activeLayerIndex={activeLayerIndex}
       showSandStream={showSandStream}
     />
   );
 
   const baseLayer = xml ? (
     <SvgXml
-      xml={injectHourglassSandOverlay(xml, activeSandProgress, sandColor, showSandStream)}
+      xml={injectHourglassSandOverlay(xml, effectiveLayers, activeLayerIndex, showSandStream)}
       width={width}
       height={height}
       preserveAspectRatio="xMidYMid meet"
@@ -517,7 +661,7 @@ function HourglassBadgeIcon({
       importantForAccessibility="no-hide-descendants"
     >
       {baseLayer}
-      <HourglassFallingSandLayer width={width} height={height} color={sandColor} />
+      <HourglassFallingSandLayer width={width} height={height} color={activeLayerColor} />
     </View>
   );
 }
@@ -529,8 +673,14 @@ type HourglassBadgeProps = {
   marginBottom?: number;
   rowStyle?: StyleProp<ViewStyle>;
   badgeStyle?: StyleProp<ViewStyle>;
+  /** @deprecated `sandLayers` を推奨。`sandLayers` 未指定時に 1 層へ正規化される。 */
   sandColor?: string;
+  /** @deprecated `sandLayers` を推奨。`sandLayers` 未指定時に 1 層へ正規化される。 */
   sandProgress?: number;
+  /** 下から積み上げる砂の層。配列の最後が最上層 = 漏斗の凹みを持つ。 */
+  sandLayers?: readonly HourglassSandLayer[];
+  /** `sandLayers` の中で残量が動いている層の index。下部山型・ストリームの色源。 */
+  activeLayerIndex?: number;
   showSandStream?: boolean;
 };
 
@@ -541,11 +691,22 @@ export function HourglassBadge({
   marginBottom = 20,
   rowStyle,
   badgeStyle,
-  sandColor = '#4B5CFF',
+  sandColor,
   sandProgress,
+  sandLayers,
+  activeLayerIndex = 0,
   showSandStream = false,
 }: HourglassBadgeProps) {
   const hourglassXml = useHourglassBadgeXml();
+
+  // 旧 API (`sandColor` + `sandProgress`) が来た場合は単層の sandLayers に正規化する。
+  const layers = useMemo<readonly HourglassSandLayer[]>(() => {
+    if (sandLayers && sandLayers.length > 0) return sandLayers;
+    if (sandProgress !== undefined) {
+      return [{ color: sandColor ?? '#4B5CFF', weight: 1, progress: sandProgress }];
+    }
+    return [];
+  }, [sandLayers, sandColor, sandProgress]);
 
   return (
     <View style={[styles.badgeRow, { marginBottom }, rowStyle]}>
@@ -559,8 +720,8 @@ export function HourglassBadge({
             <HourglassBadgeIcon
               key={index}
               active={isActive}
-              sandColor={sandColor}
-              sandProgress={sandProgress}
+              layers={layers}
+              activeLayerIndex={activeLayerIndex}
               showSandStream={showSandStream}
               xml={hourglassXml}
               testID={`${testIDPrefix}-hourglass-badge-icon-${index + 1}`}
