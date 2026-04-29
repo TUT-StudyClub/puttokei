@@ -1,10 +1,10 @@
 """Bearer token から認証済み User を解決する use case。"""
 
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import uuid4
 
 from src.application.unit_of_work import UnitOfWorkFactory
+from src.common.models import FrozenModel
 from src.domain.entities.user import User
 from src.domain.entities.user_settings import UserSettings
 from src.domain.repositories.user_repository import UserAlreadyExistsError
@@ -24,8 +24,7 @@ class DeletedAccountAuthenticationError(Exception):
     """論理削除済みアカウントが同じ Firebase UID でアクセスしている。"""
 
 
-@dataclass(frozen=True, slots=True)
-class AuthenticateUserResult:
+class AuthenticateUserResult(FrozenModel):
     """token 検証結果。
 
     `/auth/verify` が `is_new` を要求するため、User 単体ではなく初回登録フラグ付きで返す。
