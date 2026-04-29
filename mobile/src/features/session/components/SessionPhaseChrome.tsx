@@ -218,7 +218,9 @@ export function PhaseTabs({
               style={[
                 styles.phaseTabLabel,
                 { color: phaseInactiveTextColor },
-                isActive ? { color: activeTextColor, fontWeight: '700' } : null,
+                isActive
+                  ? { color: activeTextColor, fontFamily: 'HiraginoSans-W6', fontWeight: '700' }
+                  : null,
               ]}
             >
               {SESSION_PHASE_LABELS[phase]}
