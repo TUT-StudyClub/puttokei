@@ -10,7 +10,7 @@ jest.mock('@/features/stats/screens/StatsScreen', () => ({
 }));
 
 describe('StatsTab', () => {
-  it('StatsScreen を描画する', () => {
+  it('StatsScreen を表示する', () => {
     const screen = render(<StatsTab />);
 
     expect(screen.getByTestId('stats-screen')).toBeTruthy();

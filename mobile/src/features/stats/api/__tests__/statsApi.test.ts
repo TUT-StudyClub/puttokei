@@ -5,7 +5,11 @@
  * 実 HTTP 層の挙動 (Authorization 付与, 401 リトライ) は api.test.ts でカバー済み。
  */
 import { api } from '@/shared/lib/api';
-import { fetchStatsByPeriod, fetchStatsSummary } from '@/features/stats/api/statsApi';
+import {
+  fetchStatsByPeriod,
+  fetchStatsSummary,
+  fetchWeeklyReport,
+} from '@/features/stats/api/statsApi';
 import type { StatsPeriodResponse, StatsSummary } from '@/features/stats/types';
 
 describe('statsApi', () => {
@@ -55,4 +59,26 @@ describe('statsApi', () => {
       expect(result.period).toBe(period);
     },
   );
+
+  it('fetchWeeklyReport は week_start 付きで /stats/weekly を叩く', async () => {
+    const weeklyFixture = {
+      week_start: '2026-04-26',
+      week_end: '2026-05-02',
+      summary: {
+        input_minutes: 50,
+        output_minutes: 20,
+        break_minutes: 15,
+        total_study_minutes: 70,
+        total_sessions: 2,
+      },
+      points: [],
+      output_history: [],
+    };
+    getSpy.mockResolvedValueOnce({ data: weeklyFixture, status: 200 });
+
+    const result = await fetchWeeklyReport('2026-04-26');
+
+    expect(getSpy).toHaveBeenCalledWith('/stats/weekly?week_start=2026-04-26');
+    expect(result).toEqual(weeklyFixture);
+  });
 });
