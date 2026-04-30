@@ -110,8 +110,9 @@ describe('InputScreen', () => {
       });
     });
 
-    const upperClip = 'url(#hourglassBadgeUpperSandClip)';
-    const lowerClip = 'url(#hourglassBadgeLowerSandClip)';
+    // InputScreen は blue variant の砂時計を使うため、blue 用の clip path id と座標で検証する。
+    const upperClip = 'url(#hourglassBadgeBlueUpperSandClip)';
+    const lowerClip = 'url(#hourglassBadgeBlueLowerSandClip)';
     const upperPaths = UNSAFE_getAllByType(Path).filter(
       (path) => path.props.clipPath === upperClip,
     );
@@ -124,14 +125,16 @@ describe('InputScreen', () => {
     expect(whiteUpper).toBeTruthy();
 
     // 白 (break) のみが最上層で V 字凹みを持つ。
-    // top y = 4.094, V 頂点 y = 4.094 + min(1.6, height*0.6) = 4.094 + 1.6 = 5.694
-    expect(whiteUpper?.props.d).toContain('M3.3 4.094');
-    expect(whiteUpper?.props.d).toContain('L8.85 5.694');
+    // upperTotalHeight = 18.85 - 4.7746 = 14.0754
+    // break 高さ = 14.0754 * 5/11 ≈ 6.398、白の top y ≈ 5.414
+    // V 頂点 y = 5.414 + min(2.12, 6.398*0.6) = 5.414 + 2.12 = 7.534
+    expect(whiteUpper?.props.d).toContain('M4.4 5.414');
+    expect(whiteUpper?.props.d).toContain('L11.8 7.534');
     expect(whiteUpper?.props.fillOpacity).toBe(0.92);
 
-    // 中間 (ピンク・青) は V 字なしの 4 点矩形 → x=8.85 (中央) での折れ点が含まれない。
-    expect(pinkUpper?.props.d).not.toMatch(/L8\.85 \d/);
-    expect(blueUpper?.props.d).not.toMatch(/L8\.85 \d/);
+    // 中間 (ピンク・青) は V 字なしの 4 点矩形 → x=11.8 (中央) での折れ点が含まれない。
+    expect(pinkUpper?.props.d).not.toMatch(/L11\.8 \d/);
+    expect(blueUpper?.props.d).not.toMatch(/L11\.8 \d/);
 
     // 下部は青 (active=input) のみ。input 比率 1/11 で大きく抑制された山型。
     const lowerPaths = UNSAFE_getAllByType(Path).filter(
@@ -140,16 +143,17 @@ describe('InputScreen', () => {
     expect(lowerPaths).toHaveLength(1);
     const blueLower = lowerPaths[0];
     expect(blueLower.props.fill).toBe('#4B5CFF');
-    // lowerHeight = 10.63 * (1/11) * 0.5 ≈ 0.483, lowerY ≈ 26.897
-    // peakBoost = min(2.0, 0.483 * 0.4) ≈ 0.193, peakY ≈ 26.704
-    expect(blueLower.props.d).toContain('L8.85 26.704');
+    // lowerTotalHeight = 36.2147 - 22.16 = 14.0547
+    // lowerHeight = 14.0547 * (1/11) * 0.5 ≈ 0.639, lowerY ≈ 35.576
+    // peakBoost = min(2.65, 0.639 * 0.4) ≈ 0.256, peakY ≈ 35.32
+    expect(blueLower.props.d).toContain('L11.8 35.32');
 
-    // ストリームは active 色 (青)、細い縦の筋 (width 0.32)。
+    // ストリームは active 色 (青)、細い縦の筋 (blue config では width 0.43 / height 7.41)。
     const streamRect = UNSAFE_getAllByType(Rect).find(
-      (rect) => rect.props.fill === '#4B5CFF' && rect.props.width === 0.32,
+      (rect) => rect.props.fill === '#4B5CFF' && rect.props.width === 0.43,
     );
     expect(streamRect).toBeTruthy();
-    expect(streamRect?.props.height).toBe(5.6);
+    expect(streamRect?.props.height).toBe(7.41);
   });
 
   it('インプットフェーズ終了時、上部にピンクと白が残り、下部の青は input 比率で頭打ちになる', () => {
@@ -164,8 +168,9 @@ describe('InputScreen', () => {
       });
     });
 
-    const upperClip = 'url(#hourglassBadgeUpperSandClip)';
-    const lowerClip = 'url(#hourglassBadgeLowerSandClip)';
+    // InputScreen は blue variant の砂時計を使うため、blue 用の clip path id で検証する。
+    const upperClip = 'url(#hourglassBadgeBlueUpperSandClip)';
+    const lowerClip = 'url(#hourglassBadgeBlueLowerSandClip)';
     const upperPaths = UNSAFE_getAllByType(Path).filter(
       (path) => path.props.clipPath === upperClip,
     );
@@ -176,8 +181,8 @@ describe('InputScreen', () => {
     expect(upperPaths.find((p) => p.props.fill === '#EC4899')).toBeTruthy();
     const whiteUpper = upperPaths.find((p) => p.props.fill === '#FFFFFF');
     expect(whiteUpper).toBeTruthy();
-    // 白が新しい最上層なので V 字凹みを持つ。
-    expect(whiteUpper?.props.d).toMatch(/L8\.85 \d/);
+    // 白が新しい最上層なので V 字凹み (中央 x=11.8 での折れ点) を持つ。
+    expect(whiteUpper?.props.d).toMatch(/L11\.8 \d/);
 
     // 下部の青は input 比率 (1/11) ぶんしか積もらない (砂時計下部を満たさない)。
     const lowerPaths = UNSAFE_getAllByType(Path).filter(
@@ -186,8 +191,8 @@ describe('InputScreen', () => {
     expect(lowerPaths).toHaveLength(1);
     const blueLower = lowerPaths[0];
     expect(blueLower.props.fill).toBe('#4B5CFF');
-    // lowerHeight = 10.63 * 1/11 ≈ 0.966, lowerY = 27.38 - 0.966 ≈ 26.414
-    expect(blueLower.props.d).toContain('L3.3 26.414');
+    // lowerHeight = 14.0547 * 1/11 ≈ 1.278, lowerY = 36.2147 - 1.278 ≈ 34.937
+    expect(blueLower.props.d).toContain('L4.4 34.937');
   });
 
   it('タイマー完了で PATCH status=output が送られ、output 画面へ replace する', async () => {
