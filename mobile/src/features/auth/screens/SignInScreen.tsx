@@ -5,7 +5,7 @@
  * を取得し、onIdTokenChanged → authStore → AuthGate で (tabs) へ遷移する。
  * "あとで" ボタンはサインインをスキップして (tabs) へ直行する dev 確認導線。
  */
-import { useRouter, type Href } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback } from 'react';
 import { Image, ImageBackground, Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
@@ -13,11 +13,10 @@ import { Path, Svg } from 'react-native-svg';
 import { SizableText } from 'tamagui';
 
 import { useSignIn } from '../hooks/useSignIn';
+import { APP_ROUTES } from '@/shared/lib/routes';
 
 const SIGN_IN_BACKGROUND = require('../../../../assets/images/overview-screen-background.png');
 const TYPOGRAPHY_WHITE = require('../../../../assets/images/typography_white.png');
-
-const TABS_ROUTE = '/(tabs)' as unknown as Href;
 
 function AppleLogo({ size = 18 }: { size?: number }) {
   return (
@@ -55,7 +54,7 @@ export function SignInScreen() {
   const { loading, error, signInWithApple, signInWithGoogle, clearError } = useSignIn();
 
   const handleSkip = useCallback(() => {
-    router.replace(TABS_ROUTE);
+    router.replace(APP_ROUTES.tabs);
   }, [router]);
 
   return (

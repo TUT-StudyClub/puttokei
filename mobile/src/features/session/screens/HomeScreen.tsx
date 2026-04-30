@@ -7,7 +7,7 @@
  * 科目 (subject) / トピック (topic) の入力フローは未実装のため、
  * 当面はプレースホルダー値で createSession を呼ぶ。後続タスクで入力 UI を追加する想定。
  */
-import { type Href, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import { Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
@@ -22,9 +22,8 @@ import {
 import { DEFAULT_TIMER } from '@/features/session/config';
 import { useCreateSession } from '@/features/session/hooks/useCreateSession';
 import { useSettings } from '@/features/settings/hooks/useSettings';
+import { APP_ROUTES } from '@/shared/lib/routes';
 import { useLoopStore } from '@/shared/stores/loopStore';
-
-const SETTINGS_ROUTE = '/(tabs)/settings' as unknown as Href;
 
 const HOURGLASS_BADGE_COLOR = '#9CA3AF';
 const DOT_INACTIVE = '#D9D9D9';
@@ -67,7 +66,7 @@ export function HomeScreen() {
       <StatusBar style="dark" />
       <View style={styles.container} testID="home-root">
         <SessionSettingsButton
-          onPress={() => router.push(SETTINGS_ROUTE)}
+          onPress={() => router.push(APP_ROUTES.settings)}
           testID="home-settings-button"
         />
 

@@ -14,10 +14,11 @@ import {
   TUTORIAL_PROGRESS_FILL_DURATION_MS,
   TUTORIAL_ROUTE_TRANSITION_DELAY_MS,
 } from '@/features/auth/screens/tutorialConfig';
+import { APP_ROUTES } from '@/shared/lib/routes';
 import { useTutorialStore } from '@/shared/stores/tutorialStore';
 
-const NEXT_ROUTE = '/(tabs)' as unknown as Href;
-const SKIP_ROUTE = '/(tabs)' as unknown as Href;
+const NEXT_ROUTE = APP_ROUTES.tabs;
+const SKIP_ROUTE = APP_ROUTES.tabs;
 const HOURGLASS_FALL_DURATION_MS = 1500;
 const HOURGLASS_ROTATION_DURATION_MS = 1200;
 const HOURGLASS_EFFECT_FADE_DURATION_MS = 180;

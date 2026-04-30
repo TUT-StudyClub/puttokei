@@ -14,6 +14,7 @@ import { Circle, ClipPath, Defs, G, Path, Rect, Svg, SvgXml } from 'react-native
 import { SizableText } from 'tamagui';
 
 import { formatMmSs, useSmoothRemainingSeconds } from '@/features/session/hooks/useTimer';
+import { inlineSvgStyleAttributes } from '@/features/session/lib/svgStyleAttributes';
 import { LOOP_COUNT_MAX } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
@@ -179,41 +180,6 @@ const HOURGLASS_FALLING_PARTICLES: readonly FallingParticleConfig[] = [
   { cx: 8.96, r: 0.24, phase: 0.92, durationMs: 680, accent: true },
 ];
 const HOURGLASS_FALLING_CLIP_ID = 'hourglassBadgeFallingClip';
-
-const SVG_CSS_ATTRIBUTE_NAMES: Record<string, string> = {
-  'mask-type': 'maskType',
-};
-
-const SVG_UNSUPPORTED_CSS_PROPERTIES = new Set(['mix-blend-mode']);
-
-function cssPropertyToSvgAttribute(property: string) {
-  return (
-    SVG_CSS_ATTRIBUTE_NAMES[property] ??
-    property.replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase())
-  );
-}
-
-function inlineSvgStyleAttributes(xml: string) {
-  return xml.replace(/\sstyle="([^"]*)"/g, (_styleAttribute: string, declarations: string) => {
-    const attributes = declarations
-      .split(';')
-      .map((declaration) => declaration.trim())
-      .filter(Boolean)
-      .map((declaration) => {
-        const separatorIndex = declaration.indexOf(':');
-        if (separatorIndex === -1) return null;
-
-        const property = declaration.slice(0, separatorIndex).trim();
-        const value = declaration.slice(separatorIndex + 1).trim();
-        if (!property || !value || SVG_UNSUPPORTED_CSS_PROPERTIES.has(property)) return null;
-
-        return `${cssPropertyToSvgAttribute(property)}="${value}"`;
-      })
-      .filter((attribute): attribute is string => attribute !== null);
-
-    return attributes.length > 0 ? ` ${attributes.join(' ')}` : '';
-  });
-}
 
 function clampSandProgress(progress: number) {
   return Math.min(1, Math.max(0, progress));

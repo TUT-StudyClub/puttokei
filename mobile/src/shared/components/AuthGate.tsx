@@ -8,7 +8,7 @@
  * チュートリアル完了フラグはメモリ内 (Zustand) に保持するため、
  * アプリを再起動するたびにチュートリアルが再表示される。
  */
-import { type Href, useGlobalSearchParams, useRouter, useSegments } from 'expo-router';
+import { useGlobalSearchParams, useRouter, useSegments } from 'expo-router';
 import { type ReactNode, useCallback, useEffect, useState } from 'react';
 
 import { signOut } from '@/features/auth/lib/signOut';
@@ -16,23 +16,13 @@ import { useProfile } from '@/features/profile/hooks/useProfile';
 import { BOOT_SCREEN_MIN_DURATION_MS, BootScreen } from '@/shared/components/BootScreen';
 import { ProfileErrorScreen } from '@/shared/components/ProfileErrorScreen';
 import { isApiError } from '@/shared/lib/api';
+import { APP_ROUTES, resolveReturnToRoute } from '@/shared/lib/routes';
 import { hideSplashWhenReady } from '@/shared/lib/splash';
 import { useAuthStore } from '@/shared/stores/authStore';
 import { useTutorialStore } from '@/shared/stores/tutorialStore';
 
 const AUTH_SEGMENT = '(auth)';
 const TABS_SEGMENT = '(tabs)';
-const AUTH_OVERVIEW_ROUTE = '/(auth)/overview' as unknown as Href;
-const TABS_ROUTE = '/(tabs)' as unknown as Href;
-const RETURN_TO_ROUTES = new Set<string>(['/(tabs)/stats']);
-
-function resolveReturnTo(returnTo: string | undefined): Href {
-  if (returnTo !== undefined && RETURN_TO_ROUTES.has(returnTo)) {
-    return returnTo as unknown as Href;
-  }
-
-  return TABS_ROUTE;
-}
 
 function resolveProfileErrorMessage(error: unknown): string {
   if (isApiError(error)) {
@@ -81,7 +71,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     // 1. チュートリアル未完了は uid に関わらず (auth) 配下に固定する。
     if (!tutorialCompleted) {
       if (topSegment !== AUTH_SEGMENT) {
-        router.replace(AUTH_OVERVIEW_ROUTE);
+        router.replace(APP_ROUTES.authOverview);
       }
       return;
     }
@@ -89,14 +79,14 @@ export function AuthGate({ children }: { children: ReactNode }) {
     // 2. 未認証 & チュートリアル完了 → (tabs) or (auth)/sign-in を許可。
     if (uid === null) {
       if (topSegment !== AUTH_SEGMENT && topSegment !== TABS_SEGMENT) {
-        router.replace(AUTH_OVERVIEW_ROUTE);
+        router.replace(APP_ROUTES.authOverview);
       }
       return;
     }
 
     // 3. 認証済 & チュートリアル完了 → (auth) から (tabs) または許可済み returnTo へ抜けさせる。
     if (topSegment === AUTH_SEGMENT) {
-      router.replace(resolveReturnTo(returnTo));
+      router.replace(resolveReturnToRoute(returnTo));
     }
   }, [uid, tutorialCompleted, segments, router, returnTo]);
 

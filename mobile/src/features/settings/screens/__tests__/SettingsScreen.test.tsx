@@ -9,16 +9,13 @@
  * - ログアウトボタン押下で Alert.alert を開き、確定で authStore.clear() と router.replace が呼ばれること
  * - 戻るボタンで router.back() が呼ばれること
  */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react-native';
-import type { ReactNode } from 'react';
+import { act, cleanup, fireEvent, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
-import { TamaguiProvider } from 'tamagui';
 
-import config from '../../../../../tamagui.config';
 import * as settingsApi from '@/features/settings/api/settingsApi';
 import { SettingsScreen } from '@/features/settings/screens/SettingsScreen';
 import { useAuthStore } from '@/shared/stores/authStore';
+import { createTestQueryClient, renderWithProviders } from '@/shared/test/renderWithProviders';
 
 const mockPush = jest.fn();
 const mockReplace = jest.fn();
@@ -38,18 +35,15 @@ const SETTINGS_FIXTURE = {
   updated_at: '2026-04-16T00:00:00Z',
 };
 
-function renderWithProviders(ui: ReactNode) {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { retry: false, gcTime: Infinity },
-      mutations: { retry: false, gcTime: Infinity },
-    },
+function renderSettingsScreen() {
+  return renderWithProviders(<SettingsScreen />, {
+    queryClient: createTestQueryClient({
+      defaultOptions: {
+        queries: { gcTime: Infinity },
+        mutations: { gcTime: Infinity },
+      },
+    }),
   });
-  return render(
-    <TamaguiProvider config={config} defaultTheme="light">
-      <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
-    </TamaguiProvider>,
-  );
 }
 
 async function flushAsyncUpdates() {
@@ -83,7 +77,7 @@ describe('SettingsScreen', () => {
   });
 
   it('取得完了後にタイマーと通知の値がカードに表示される', async () => {
-    const { getByTestId, getByText } = renderWithProviders(<SettingsScreen />);
+    const { getByTestId, getByText } = renderSettingsScreen();
 
     await waitFor(() => {
       expect(settingsApi.fetchMySettings).toHaveBeenCalled();
@@ -101,7 +95,7 @@ describe('SettingsScreen', () => {
   });
 
   it('インプット時間の行をタップしてピッカーで値を選ぶと updateMySettings が呼ばれる', async () => {
-    const { getByTestId } = renderWithProviders(<SettingsScreen />);
+    const { getByTestId } = renderSettingsScreen();
     await flushAsyncUpdates();
 
     await waitFor(() => {
@@ -123,7 +117,7 @@ describe('SettingsScreen', () => {
   });
 
   it('通知行をタップしてピッカーで「なし」を選ぶと notification_enabled が PATCH される', async () => {
-    const { getByTestId } = renderWithProviders(<SettingsScreen />);
+    const { getByTestId } = renderSettingsScreen();
     await flushAsyncUpdates();
 
     await waitFor(() => {
@@ -145,7 +139,7 @@ describe('SettingsScreen', () => {
   });
 
   it('言語行をタップしてピッカーで English を選ぶと表示が切り替わる', async () => {
-    const { getByTestId, getByText } = renderWithProviders(<SettingsScreen />);
+    const { getByTestId, getByText } = renderSettingsScreen();
     await flushAsyncUpdates();
 
     await waitFor(() => {
@@ -170,7 +164,7 @@ describe('SettingsScreen', () => {
   it('アカウント削除ボタンで確認ダイアログを開き、確定で deleteMyAccount が呼ばれる', async () => {
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 
-    const { getByTestId } = renderWithProviders(<SettingsScreen />);
+    const { getByTestId } = renderSettingsScreen();
     await flushAsyncUpdates();
 
     const deleteButton = getByTestId('settings-delete-account');
@@ -200,7 +194,7 @@ describe('SettingsScreen', () => {
   it('ログアウトボタンで確認ダイアログを開き、確定で authStore.clear() と router.replace が呼ばれる', async () => {
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 
-    const { getByTestId } = renderWithProviders(<SettingsScreen />);
+    const { getByTestId } = renderSettingsScreen();
     await flushAsyncUpdates();
 
     fireEvent.press(getByTestId('settings-logout'));
@@ -223,7 +217,7 @@ describe('SettingsScreen', () => {
   });
 
   it('戻るボタンで router.back() が呼ばれる', async () => {
-    const { getByTestId } = renderWithProviders(<SettingsScreen />);
+    const { getByTestId } = renderSettingsScreen();
     await flushAsyncUpdates();
 
     fireEvent.press(getByTestId('settings-back-button'));
@@ -235,7 +229,7 @@ describe('SettingsScreen', () => {
       .mockRejectedValueOnce(new Error('network down'))
       .mockResolvedValueOnce(SETTINGS_FIXTURE);
 
-    const { getByTestId, queryByTestId } = renderWithProviders(<SettingsScreen />);
+    const { getByTestId, queryByTestId } = renderSettingsScreen();
 
     await waitFor(() => {
       expect(getByTestId('settings-fetch-error')).toBeTruthy();

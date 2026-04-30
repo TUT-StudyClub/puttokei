@@ -14,20 +14,23 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Image,
   Keyboard,
   KeyboardAvoidingView,
-  NativeModules,
   Platform,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
-import { Circle, Path, Svg } from 'react-native-svg';
 import { SizableText } from 'tamagui';
 
+import {
+  ImageOutputPanel,
+  ImageSubmissionFooter,
+  InputMethodTabs,
+  type InputMethod,
+  VoiceRecognitionPanel,
+} from '@/features/session/components/OutputInputPanels';
 import { OutputEditor } from '@/features/session/components/OutputEditor';
 import type { OutputEditorSubmitPayload } from '@/features/session/components/OutputEditor';
 import {
@@ -42,7 +45,13 @@ import { DEFAULT_TIMER } from '@/features/session/config';
 import { useThrottledRemainingSeconds, useTimer } from '@/features/session/hooks/useTimer';
 import { useSubmitOutput } from '@/features/session/hooks/useSubmitOutput';
 import { useVoiceRecognition } from '@/features/session/hooks/useVoiceRecognition';
+import { hasNativeImagePickerModule } from '@/features/session/lib/nativeImagePicker';
+import {
+  appendTranscriptToContent,
+  buildImageOutputContent,
+} from '@/features/session/lib/outputContent';
 import { isApiError } from '@/shared/lib/api';
+import { APP_ROUTES } from '@/shared/lib/routes';
 import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
@@ -65,396 +74,6 @@ const DOT_INACTIVE = '#D9D9D9';
 const BORDER_COLOR = '#E5E7EB';
 const CAPTION_COLOR = '#777777';
 const ERROR_COLOR = '#D92D20';
-const MAX_OUTPUT_CONTENT_LENGTH = 2000;
-
-const INPUT_METHODS = ['text', 'image', 'voice'] as const;
-type InputMethod = (typeof INPUT_METHODS)[number];
-
-const INPUT_METHOD_LABELS: Record<InputMethod, string> = {
-  text: 'テキスト',
-  image: '画像',
-  voice: '音声',
-};
-
-type ExpoNativeModulesGlobal = typeof globalThis & {
-  expo?: {
-    modules?: Record<string, unknown>;
-  };
-};
-
-type LegacyExpoNativeProxy = {
-  exportedMethods?: Record<string, unknown>;
-};
-
-function hasNativeImagePickerModule() {
-  const expoModules = (globalThis as ExpoNativeModulesGlobal).expo?.modules;
-  const legacyExpoModules = NativeModules.NativeUnimoduleProxy as LegacyExpoNativeProxy | undefined;
-
-  return Boolean(
-    expoModules?.ExponentImagePicker || legacyExpoModules?.exportedMethods?.ExponentImagePicker,
-  );
-}
-
-function buildImageOutputContent(imageUris: string[]) {
-  const header = `画像でアウトプットしました。撮影した学習内容の画像を提出しました。（${imageUris.length}枚）`;
-  const lines = imageUris.map((uri, index) => `画像${index + 1}: ${uri}`);
-  const content = [header, ...lines].join('\n');
-
-  return content.length > MAX_OUTPUT_CONTENT_LENGTH
-    ? content.slice(0, MAX_OUTPUT_CONTENT_LENGTH)
-    : content;
-}
-
-function appendTranscriptToContent(currentContent: string, transcript: string) {
-  const nextTranscript = transcript.trim();
-  if (!nextTranscript) return currentContent;
-
-  const trimmedCurrentContent = currentContent.trimEnd();
-  if (!trimmedCurrentContent) return nextTranscript;
-  if (trimmedCurrentContent.endsWith(nextTranscript)) return currentContent;
-
-  return `${trimmedCurrentContent}\n${nextTranscript}`;
-}
-
-// 各方法を示すシンプルなラインアイコン。
-function InputMethodIcon({
-  method,
-  color,
-  size = 18,
-}: {
-  method: InputMethod;
-  color: string;
-  size?: number;
-}) {
-  switch (method) {
-    case 'text':
-      return (
-        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-          <Path
-            d="M4 18 L14 8 L16 10 L6 20 H4 Z"
-            stroke={color}
-            strokeWidth={1.8}
-            strokeLinejoin="round"
-            fill="none"
-          />
-          <Path
-            d="M14 8 L17 5 L19 7 L16 10"
-            stroke={color}
-            strokeWidth={1.8}
-            strokeLinejoin="round"
-            fill="none"
-          />
-        </Svg>
-      );
-    case 'image':
-      return (
-        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-          <Path
-            d="M4 5 H20 V19 H4 Z"
-            stroke={color}
-            strokeWidth={1.8}
-            strokeLinejoin="round"
-            fill="none"
-          />
-          <Circle cx={9} cy={10} r={1.6} stroke={color} strokeWidth={1.6} fill="none" />
-          <Path
-            d="M5 18 L10 13 L14 16 L17 13 L19 15"
-            stroke={color}
-            strokeWidth={1.6}
-            strokeLinejoin="round"
-            fill="none"
-          />
-        </Svg>
-      );
-    case 'voice':
-      return (
-        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-          <Path
-            d="M12 4 C10.3 4 9 5.3 9 7 V12 C9 13.7 10.3 15 12 15 C13.7 15 15 13.7 15 12 V7 C15 5.3 13.7 4 12 4 Z"
-            stroke={color}
-            strokeWidth={1.8}
-            strokeLinejoin="round"
-            fill="none"
-          />
-          <Path
-            d="M6 12 C6 15.3 8.7 18 12 18 C15.3 18 18 15.3 18 12"
-            stroke={color}
-            strokeWidth={1.8}
-            strokeLinecap="round"
-            fill="none"
-          />
-          <Path d="M12 18 V21" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
-        </Svg>
-      );
-  }
-}
-
-type InputMethodTabsProps = {
-  value: InputMethod;
-  onChange: (method: InputMethod) => void;
-};
-
-function InputMethodTabs({ value, onChange }: InputMethodTabsProps) {
-  const isImagePanel = value === 'image';
-
-  return (
-    <View
-      style={[styles.methodTabs, isImagePanel ? styles.methodTabsImagePanel : null]}
-      testID="output-method-tabs"
-    >
-      {INPUT_METHODS.map((method) => {
-        const isActive = method === value;
-        const color = isActive ? METHOD_ACTIVE_COLOR : METHOD_INACTIVE_COLOR;
-        return (
-          <Pressable
-            key={method}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: isActive }}
-            onPress={() => onChange(method)}
-            style={[styles.methodTab, isActive ? styles.methodTabActive : null]}
-            testID={`output-method-tab-${method}`}
-          >
-            <InputMethodIcon method={method} color={color} size={20} />
-            <SizableText
-              style={[styles.methodTabLabel, isActive ? styles.methodTabLabelActive : null]}
-            >
-              {INPUT_METHOD_LABELS[method]}
-            </SizableText>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
-function AddImageIcon({ color = METHOD_ACTIVE_COLOR }: { color?: string }) {
-  return (
-    <Svg width={42} height={42} viewBox="0 0 48 48" fill="none">
-      <Path
-        d="M9 12 H32 C34.2 12 36 13.8 36 16 V20"
-        stroke={color}
-        strokeWidth={3}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M9 12 V34 C9 36.2 10.8 38 13 38 H34 C36.2 38 38 36.2 38 34 V27"
-        stroke={color}
-        strokeWidth={3}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Circle cx={18} cy={21} r={3.5} stroke={color} strokeWidth={3} />
-      <Path
-        d="M12 35 L22 25 L29 31 L33 27 L38 32"
-        stroke={color}
-        strokeWidth={3}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M39 8 V20" stroke={color} strokeWidth={3} strokeLinecap="round" />
-      <Path d="M33 14 H45" stroke={color} strokeWidth={3} strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-type ImageOutputPanelProps = {
-  imageUris: string[];
-  isMenuOpen: boolean;
-  onToggleMenu: () => void;
-  onPickFromLibrary: () => void;
-  onTakePhoto: () => void;
-};
-
-function ImageOutputPanel({
-  imageUris,
-  isMenuOpen,
-  onToggleMenu,
-  onPickFromLibrary,
-  onTakePhoto,
-}: ImageOutputPanelProps) {
-  return (
-    <View style={styles.imageOutputPanel} testID="output-image-panel">
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.imageGrid}
-      >
-        {imageUris.map((uri, index) => (
-          <Image
-            key={`${uri}-${index}`}
-            accessibilityLabel={`撮影済み画像${index + 1}`}
-            resizeMode="cover"
-            source={{ uri }}
-            style={styles.imageThumbnail}
-            testID={`output-image-thumbnail-${index}`}
-          />
-        ))}
-        <View style={styles.imageAddColumn}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="画像を追加"
-            accessibilityState={{ expanded: isMenuOpen }}
-            onPress={onToggleMenu}
-            style={({ pressed }) => [
-              styles.imageAddButton,
-              isMenuOpen ? styles.imageAddButtonActive : null,
-              pressed ? styles.buttonPressed : null,
-            ]}
-            testID="output-image-add-button"
-          >
-            <AddImageIcon />
-          </Pressable>
-          {isMenuOpen ? (
-            <View style={styles.imageAddMenu} testID="output-image-add-menu">
-              <View style={styles.imageAddMenuArrow} />
-              <Pressable
-                accessibilityRole="menuitem"
-                onPress={onPickFromLibrary}
-                style={({ pressed }) => [
-                  styles.imageAddMenuItem,
-                  pressed ? styles.imageAddMenuItemPressed : null,
-                ]}
-                testID="output-image-add-menu-library"
-              >
-                <SizableText style={styles.imageAddMenuItemText}>写真アルバムから選択</SizableText>
-              </Pressable>
-              <View style={styles.imageAddMenuDivider} />
-              <Pressable
-                accessibilityRole="menuitem"
-                onPress={onTakePhoto}
-                style={({ pressed }) => [
-                  styles.imageAddMenuItem,
-                  pressed ? styles.imageAddMenuItemPressed : null,
-                ]}
-                testID="output-image-add-menu-camera"
-              >
-                <SizableText style={styles.imageAddMenuItemText}>写真を撮影</SizableText>
-              </Pressable>
-            </View>
-          ) : null}
-        </View>
-      </ScrollView>
-    </View>
-  );
-}
-
-type ImageSubmissionFooterProps = {
-  errorMessage?: string | null;
-  isSubmitting: boolean;
-  onSubmit: () => void;
-};
-
-function ImageSubmissionFooter({
-  errorMessage,
-  isSubmitting,
-  onSubmit,
-}: ImageSubmissionFooterProps) {
-  return (
-    <View style={styles.imageSubmissionFooter}>
-      <SizableText style={styles.imageSubmissionNote} testID="output-image-submit-note">
-        提出後も時間内であれば編集できます
-      </SizableText>
-      {errorMessage ? (
-        <SizableText style={styles.imageSubmissionError} testID="output-image-submit-error">
-          {errorMessage}
-        </SizableText>
-      ) : null}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ disabled: isSubmitting }}
-        disabled={isSubmitting}
-        onPress={onSubmit}
-        style={({ pressed }) => [
-          styles.imageSubmitButton,
-          pressed ? styles.buttonPressed : null,
-          isSubmitting ? styles.imageSubmitButtonDisabled : null,
-        ]}
-        testID="output-image-submit"
-      >
-        <SizableText style={styles.imageSubmitButtonText}>
-          {isSubmitting ? '提出中...' : '提出する'}
-        </SizableText>
-      </Pressable>
-    </View>
-  );
-}
-
-type VoiceRecognitionPanelProps = {
-  isRecognizing: boolean;
-  statusMessage: string;
-  errorMessage?: string | null;
-  interimTranscript: string;
-  onStart: () => void;
-  onStop: () => void;
-};
-
-function VoiceRecognitionPanel({
-  isRecognizing,
-  statusMessage,
-  errorMessage,
-  interimTranscript,
-  onStart,
-  onStop,
-}: VoiceRecognitionPanelProps) {
-  return (
-    <View style={styles.voicePanel} testID="output-voice-panel">
-      <View style={styles.voicePanelHeader}>
-        <View style={[styles.voicePulse, isRecognizing ? styles.voicePulseActive : null]}>
-          <InputMethodIcon method="voice" color={isRecognizing ? '#FFFFFF' : PRIMARY_COLOR} />
-        </View>
-        <SizableText style={styles.voiceStatus} testID="output-voice-status">
-          {statusMessage}
-        </SizableText>
-      </View>
-
-      {interimTranscript ? (
-        <View style={styles.voiceInterimBox} testID="output-voice-interim">
-          <SizableText style={styles.voiceInterimText}>{interimTranscript}</SizableText>
-        </View>
-      ) : null}
-
-      {errorMessage ? (
-        <SizableText style={styles.voiceError} testID="output-voice-error">
-          {errorMessage}
-        </SizableText>
-      ) : null}
-
-      <View style={styles.voiceActions}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ disabled: isRecognizing }}
-          disabled={isRecognizing}
-          onPress={onStart}
-          style={({ pressed }) => [
-            styles.voiceActionButton,
-            isRecognizing ? styles.voiceActionButtonDisabled : null,
-            pressed ? styles.buttonPressed : null,
-          ]}
-          testID="output-voice-start"
-        >
-          <SizableText style={styles.voiceActionButtonText}>開始</SizableText>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ disabled: !isRecognizing }}
-          disabled={!isRecognizing}
-          onPress={onStop}
-          style={({ pressed }) => [
-            styles.voiceActionButton,
-            styles.voiceStopButton,
-            !isRecognizing ? styles.voiceActionButtonDisabled : null,
-            pressed ? styles.buttonPressed : null,
-          ]}
-          testID="output-voice-stop"
-        >
-          <SizableText style={styles.voiceActionButtonText}>停止</SizableText>
-        </Pressable>
-      </View>
-    </View>
-  );
-}
 
 type SessionRouteParams = {
   id?: string;
@@ -786,7 +405,7 @@ export function OutputScreen() {
             {showSessionChrome ? (
               <>
                 <SessionSettingsButton
-                  onPress={() => router.push('/(tabs)/settings')}
+                  onPress={() => router.push(APP_ROUTES.settings)}
                   testID="output-settings-button"
                 />
 

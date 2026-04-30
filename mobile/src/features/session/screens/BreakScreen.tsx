@@ -7,7 +7,7 @@
 import { useIsFocused } from '@react-navigation/native';
 import { useMutation } from '@tanstack/react-query';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
-import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -61,11 +61,15 @@ import {
   useThrottledRemainingSeconds,
   useTimer,
 } from '@/features/session/hooks/useTimer';
+import {
+  clampNextCycleRotation,
+  normalizeNextCycleRotationDelta,
+} from '@/features/session/lib/nextCycleRotation';
 import type { CreateSessionInput, Session } from '@/features/session/types';
+import { APP_ROUTES } from '@/shared/lib/routes';
 import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
-const SETTINGS_ROUTE = '/(tabs)/settings' as unknown as Href;
 // 中央表示用の砂時計は青枠 SVG を blue variant の baseHeight/baseWidth から比率を求める。
 const NEXT_CYCLE_HOURGLASS_ASPECT_RATIO =
   HOURGLASS_VARIANTS.blue.baseHeight / HOURGLASS_VARIANTS.blue.baseWidth;
@@ -411,18 +415,10 @@ function TurnArrow() {
   );
 }
 
-function clampRotation(rotation: number) {
-  return Math.max(
-    -NEXT_CYCLE_MAX_DRAG_ROTATION_DEGREES,
-    Math.min(NEXT_CYCLE_MAX_DRAG_ROTATION_DEGREES, rotation),
-  );
-}
-
-function normalizeRotationDelta(delta: number) {
-  if (delta > 180) return delta - 360;
-  if (delta < -180) return delta + 360;
-  return delta;
-}
+const clampRotation = (rotation: number) =>
+  clampNextCycleRotation(rotation, NEXT_CYCLE_MAX_DRAG_ROTATION_DEGREES);
+const normalizeRotationDelta = (delta: number) =>
+  normalizeNextCycleRotationDelta(delta, NEXT_CYCLE_ROTATE_THRESHOLD_DEGREES);
 
 function getGestureAngle(
   event: GestureResponderEvent,
@@ -1213,7 +1209,7 @@ export function BreakScreen() {
       <StatusBar style="dark" />
       <View style={styles.container} testID="break-root">
         <SessionSettingsButton
-          onPress={() => router.push(SETTINGS_ROUTE)}
+          onPress={() => router.push(APP_ROUTES.settings)}
           testID="break-settings-button"
         />
 

@@ -1,17 +1,14 @@
 /**
  * StatsScreen の週単位レポート表示を検証する。
  */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react-native';
-import type { ReactNode } from 'react';
-import { TamaguiProvider } from 'tamagui';
+import { act, cleanup, fireEvent, waitFor } from '@testing-library/react-native';
 
-import config from '../../../../../tamagui.config';
 import * as statsApi from '@/features/stats/api/statsApi';
 import { StatsScreen } from '@/features/stats/screens/StatsScreen';
 import type { WeeklyReportResponse } from '@/features/stats/types';
 import { ApiError } from '@/shared/lib/api';
 import { useAuthStore } from '@/shared/stores/authStore';
+import { createTestQueryClient, renderWithProviders } from '@/shared/test/renderWithProviders';
 
 jest.mock('@/features/stats/api/statsApi');
 
@@ -131,18 +128,15 @@ function makeWeeklyResponseForDates(
   });
 }
 
-function renderWithProviders(ui: ReactNode) {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { retry: false, gcTime: Infinity },
-      mutations: { retry: false, gcTime: Infinity },
-    },
+function renderStatsScreen() {
+  return renderWithProviders(<StatsScreen />, {
+    queryClient: createTestQueryClient({
+      defaultOptions: {
+        queries: { gcTime: Infinity },
+        mutations: { gcTime: Infinity },
+      },
+    }),
   });
-  return render(
-    <TamaguiProvider config={config} defaultTheme="light">
-      <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
-    </TamaguiProvider>,
-  );
 }
 
 async function flushAsyncUpdates() {
@@ -178,7 +172,7 @@ describe('StatsScreen', () => {
       useAuthStore.setState({ uid: null, idToken: null });
     });
 
-    const { getByTestId } = renderWithProviders(<StatsScreen />);
+    const { getByTestId } = renderStatsScreen();
 
     expect(getByTestId('stats-redirect').props.children).toBe(
       JSON.stringify({
@@ -192,7 +186,7 @@ describe('StatsScreen', () => {
   it('初期表示で現在週のレポートを取得し、ハイライト・グラフ・履歴を表示する', async () => {
     (statsApi.fetchWeeklyReport as jest.Mock).mockResolvedValue(makeWeeklyResponse());
 
-    const { getByTestId, getByText, queryByTestId } = renderWithProviders(<StatsScreen />);
+    const { getByTestId, getByText, queryByTestId } = renderStatsScreen();
     await flushAsyncUpdates();
 
     await waitFor(() => {
@@ -221,7 +215,7 @@ describe('StatsScreen', () => {
       Promise.resolve(makeWeeklyResponseForDates(weekStart, studiedMinutesByDate)),
     );
 
-    const { getByTestId, getByText, queryByTestId } = renderWithProviders(<StatsScreen />);
+    const { getByTestId, getByText, queryByTestId } = renderStatsScreen();
     await flushAsyncUpdates();
 
     await waitFor(() => {
@@ -253,7 +247,7 @@ describe('StatsScreen', () => {
       Promise.resolve(makeWeeklyResponse({ week_start: weekStart })),
     );
 
-    const { getByTestId } = renderWithProviders(<StatsScreen />);
+    const { getByTestId } = renderStatsScreen();
     await flushAsyncUpdates();
 
     await waitFor(() => {
@@ -280,7 +274,7 @@ describe('StatsScreen', () => {
       }),
     );
 
-    const { getByTestId } = renderWithProviders(<StatsScreen />);
+    const { getByTestId } = renderStatsScreen();
     await flushAsyncUpdates();
 
     await waitFor(() => {
@@ -312,7 +306,7 @@ describe('StatsScreen', () => {
       }),
     );
 
-    const { getByTestId, queryByTestId } = renderWithProviders(<StatsScreen />);
+    const { getByTestId, queryByTestId } = renderStatsScreen();
     await flushAsyncUpdates();
 
     await waitFor(() => {

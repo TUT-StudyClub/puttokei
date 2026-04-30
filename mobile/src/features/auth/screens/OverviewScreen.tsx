@@ -3,7 +3,7 @@
  *
  * ボタン操作でチュートリアル Step1 へ遷移する。
  */
-import { useRouter, type Href } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Image, ImageBackground, Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
@@ -13,11 +13,10 @@ import {
   OVERVIEW_ACTION_BUTTON_HEIGHT,
   TUTORIAL_ROUTE_TRANSITION_DELAY_MS,
 } from '@/features/auth/screens/tutorialConfig';
+import { APP_ROUTES } from '@/shared/lib/routes';
 
 const OVERVIEW_BACKGROUND = require('../../../../assets/images/overview-screen-background.png');
 const TYPOGRAPHY_WHITE = require('../../../../assets/images/typography_white.png');
-
-const TUTORIAL_STEP_ONE_ROUTE = '/(auth)/tutorial-step-one' as unknown as Href;
 
 const DESCRIPTION =
   'インプットとアウトプットを\n無意識に繰り返すことで、気づいたら\n集中して勉強してしまうアプリです';
@@ -32,7 +31,7 @@ export function OverviewScreen() {
 
     setIsNavigating(true);
     navigationTimeoutRef.current = setTimeout(() => {
-      router.replace(TUTORIAL_STEP_ONE_ROUTE);
+      router.replace(APP_ROUTES.authTutorialStepOne);
     }, TUTORIAL_ROUTE_TRANSITION_DELAY_MS);
   }, [isNavigating, router]);
 

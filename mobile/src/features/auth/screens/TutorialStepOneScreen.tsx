@@ -11,6 +11,7 @@ import { Animated, Easing, Pressable, SafeAreaView, StyleSheet, View } from 'rea
 import { SizableText } from 'tamagui';
 
 import { TUTORIAL_ROUTE_TRANSITION_DELAY_MS } from '@/features/auth/screens/tutorialConfig';
+import { APP_ROUTES } from '@/shared/lib/routes';
 import { useTutorialStore } from '@/shared/stores/tutorialStore';
 
 type TutorialPhase = {
@@ -21,8 +22,8 @@ type TutorialPhase = {
   rows: number[];
 };
 
-const NEXT_ROUTE = '/(auth)/tutorial-step-two' as unknown as Href;
-const SKIP_ROUTE = '/(tabs)' as unknown as Href;
+const NEXT_ROUTE = APP_ROUTES.authTutorialStepTwo;
+const SKIP_ROUTE = APP_ROUTES.tabs;
 export const TUTORIAL_STEP_ONE_TOTAL_DURATION_MS = 7500;
 
 export const TUTORIAL_STEP_ONE_PHASES: readonly TutorialPhase[] = [
