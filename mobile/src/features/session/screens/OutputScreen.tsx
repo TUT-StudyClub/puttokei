@@ -54,7 +54,9 @@ const PRIMARY_SOFT_COLOR = '#FBE4EF';
 const ACTION_COLOR = '#4B5CFF';
 const INPUT_PHASE_SOFT_COLOR = '#B9DFFF';
 // 砂時計バッジに積む 3 色 (input=青 / output=ピンク / break=白)。
-const HOURGLASS_INPUT_COLOR = '#4B5CFF';
+// PRIMARY_COLOR (画面テーマのピンク) と砂時計の砂色を分離するため、output 用の砂色も独立した定数で管理する。
+const HOURGLASS_INPUT_COLOR = '#148BFF';
+const HOURGLASS_OUTPUT_COLOR = '#F24D7E';
 const HOURGLASS_BREAK_COLOR = '#FFFFFF';
 const HOURGLASS_BREAK_OPACITY = 0.92;
 const METHOD_ACTIVE_COLOR = '#2F2F2F';
@@ -498,7 +500,7 @@ export function OutputScreen() {
       },
       {
         label: 'output',
-        color: PRIMARY_COLOR,
+        color: HOURGLASS_OUTPUT_COLOR,
         weight: outputMinutes,
         progress: hourglassSandProgress,
       },

@@ -117,8 +117,8 @@ describe('InputScreen', () => {
       (path) => path.props.clipPath === upperClip,
     );
 
-    const blueUpper = upperPaths.find((path) => path.props.fill === '#4B5CFF');
-    const pinkUpper = upperPaths.find((path) => path.props.fill === '#EC4899');
+    const blueUpper = upperPaths.find((path) => path.props.fill === '#148BFF');
+    const pinkUpper = upperPaths.find((path) => path.props.fill === '#F24D7E');
     const whiteUpper = upperPaths.find((path) => path.props.fill === '#FFFFFF');
     expect(blueUpper).toBeTruthy();
     expect(pinkUpper).toBeTruthy();
@@ -142,7 +142,7 @@ describe('InputScreen', () => {
     );
     expect(lowerPaths).toHaveLength(1);
     const blueLower = lowerPaths[0];
-    expect(blueLower.props.fill).toBe('#4B5CFF');
+    expect(blueLower.props.fill).toBe('#148BFF');
     // lowerTotalHeight = 36.2147 - 22.16 = 14.0547
     // lowerHeight = 14.0547 * (1/11) * 0.5 ≈ 0.639, lowerY ≈ 35.576
     // peakBoost = min(2.65, 0.639 * 0.4) ≈ 0.256, peakY ≈ 35.32
@@ -150,7 +150,7 @@ describe('InputScreen', () => {
 
     // ストリームは active 色 (青)、細い縦の筋 (blue config では width 0.43 / height 7.41)。
     const streamRect = UNSAFE_getAllByType(Rect).find(
-      (rect) => rect.props.fill === '#4B5CFF' && rect.props.width === 0.43,
+      (rect) => rect.props.fill === '#148BFF' && rect.props.width === 0.43,
     );
     expect(streamRect).toBeTruthy();
     expect(streamRect?.props.height).toBe(7.41);
@@ -176,9 +176,9 @@ describe('InputScreen', () => {
     );
 
     // 青 (input) は上部に残らない。
-    expect(upperPaths.find((p) => p.props.fill === '#4B5CFF')).toBeUndefined();
+    expect(upperPaths.find((p) => p.props.fill === '#148BFF')).toBeUndefined();
     // ピンクと白は上に積もったまま残る。
-    expect(upperPaths.find((p) => p.props.fill === '#EC4899')).toBeTruthy();
+    expect(upperPaths.find((p) => p.props.fill === '#F24D7E')).toBeTruthy();
     const whiteUpper = upperPaths.find((p) => p.props.fill === '#FFFFFF');
     expect(whiteUpper).toBeTruthy();
     // 白が新しい最上層なので V 字凹み (中央 x=11.8 での折れ点) を持つ。
@@ -190,7 +190,7 @@ describe('InputScreen', () => {
     );
     expect(lowerPaths).toHaveLength(1);
     const blueLower = lowerPaths[0];
-    expect(blueLower.props.fill).toBe('#4B5CFF');
+    expect(blueLower.props.fill).toBe('#148BFF');
     // lowerHeight = 14.0547 * 1/11 ≈ 1.278, lowerY = 36.2147 - 1.278 ≈ 34.937
     expect(blueLower.props.d).toContain('L4.4 34.937');
   });

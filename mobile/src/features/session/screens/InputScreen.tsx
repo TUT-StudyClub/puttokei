@@ -44,7 +44,9 @@ const TODAY_OUTPUT_ROW_HEIGHT = 40;
 const TODAY_OUTPUT_VISIBLE_ROWS = 3;
 
 const PRIMARY_COLOR = '#4B5CFF';
-const OUTPUT_PHASE_COLOR = '#EC4899';
+// 砂時計の砂積層に使う色。PRIMARY_COLOR (画面テーマの青) と砂時計の砂色を分離するため、input 用の砂色も独立した定数で管理する。
+const HOURGLASS_INPUT_COLOR = '#148BFF';
+const OUTPUT_PHASE_COLOR = '#F24D7E';
 const BREAK_PHASE_COLOR = '#FFFFFF';
 // 白の砂は砂時計内側 (#EFEFEF) に対して視認しやすいよう、薄めに重ねる。
 const BREAK_PHASE_OPACITY = 0.92;
@@ -313,7 +315,7 @@ export function InputScreen() {
     () => [
       {
         label: 'input',
-        color: PRIMARY_COLOR,
+        color: HOURGLASS_INPUT_COLOR,
         weight: inputMinutes,
         progress: hourglassSandProgress,
       },

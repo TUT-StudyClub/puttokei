@@ -89,8 +89,8 @@ const CAPTION_COLOR = '#777777';
 const ERROR_COLOR = '#D92D20';
 
 // 砂時計の砂積層に使う色。input=青 / output=ピンク / break=白。
-const HOURGLASS_INPUT_COLOR = '#4B5CFF';
-const HOURGLASS_OUTPUT_COLOR = '#EC4899';
+const HOURGLASS_INPUT_COLOR = '#148BFF';
+const HOURGLASS_OUTPUT_COLOR = '#F24D7E';
 const HOURGLASS_BREAK_COLOR = '#FFFFFF';
 const HOURGLASS_BREAK_OPACITY = 0.92;
 

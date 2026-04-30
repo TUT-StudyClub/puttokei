@@ -142,15 +142,15 @@ describe('BreakScreen', () => {
     const whiteUpper = upperPaths.find((path) => path.props.fill === '#FFFFFF');
     expect(whiteUpper).toBeTruthy();
     expect(whiteUpper?.props.fillOpacity).toBe(0.92);
-    expect(upperPaths.find((path) => path.props.fill === '#4B5CFF')).toBeUndefined();
-    expect(upperPaths.find((path) => path.props.fill === '#EC4899')).toBeUndefined();
+    expect(upperPaths.find((path) => path.props.fill === '#148BFF')).toBeUndefined();
+    expect(upperPaths.find((path) => path.props.fill === '#F24D7E')).toBeUndefined();
 
     // 下部には input(青) / output(ピンク) / break(白) の 3 色が積もる。
     const lowerPaths = UNSAFE_getAllByType(Path).filter(
       (path) => path.props.clipPath === lowerClip,
     );
-    expect(lowerPaths.find((path) => path.props.fill === '#4B5CFF')).toBeTruthy();
-    expect(lowerPaths.find((path) => path.props.fill === '#EC4899')).toBeTruthy();
+    expect(lowerPaths.find((path) => path.props.fill === '#148BFF')).toBeTruthy();
+    expect(lowerPaths.find((path) => path.props.fill === '#F24D7E')).toBeTruthy();
     expect(lowerPaths.find((path) => path.props.fill === '#FFFFFF')).toBeTruthy();
 
     // ストリームは active = 白。blue variant の width=0.43 / height=7.41 で同定する。
@@ -183,8 +183,8 @@ describe('BreakScreen', () => {
     const lowerPaths = UNSAFE_getAllByType(Path).filter(
       (path) => path.props.clipPath === lowerClip,
     );
-    expect(lowerPaths.find((path) => path.props.fill === '#4B5CFF')).toBeTruthy();
-    expect(lowerPaths.find((path) => path.props.fill === '#EC4899')).toBeTruthy();
+    expect(lowerPaths.find((path) => path.props.fill === '#148BFF')).toBeTruthy();
+    expect(lowerPaths.find((path) => path.props.fill === '#F24D7E')).toBeTruthy();
     expect(lowerPaths.find((path) => path.props.fill === '#FFFFFF')).toBeTruthy();
   });
 
