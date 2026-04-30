@@ -25,7 +25,11 @@ import {
   type SessionPhase,
   SessionSettingsButton,
 } from '@/features/session/components/SessionPhaseChrome';
-import { DEFAULT_TIMER } from '@/features/session/config';
+import {
+  DEFAULT_TIMER,
+  HOURGLASS_BREAK_SAND_OPACITY,
+  HOURGLASS_SAND_COLORS,
+} from '@/features/session/config';
 import { useTodayOutputs } from '@/features/session/hooks/useTodayOutputs';
 import { useThrottledRemainingSeconds, useTimer } from '@/features/session/hooks/useTimer';
 import { useUpdateSessionStatus } from '@/features/session/hooks/useUpdateSessionStatus';
@@ -37,12 +41,10 @@ const SETTINGS_ROUTE = '/(tabs)/settings' as unknown as Href;
 
 const CURRENT_PHASE: SessionPhase = 'input';
 const EXTEND_MINUTES = 5;
+const TODAY_OUTPUT_ROW_HEIGHT = 40;
+const TODAY_OUTPUT_VISIBLE_ROWS = 3;
 
 const PRIMARY_COLOR = '#4B5CFF';
-const OUTPUT_PHASE_COLOR = '#EC4899';
-const BREAK_PHASE_COLOR = '#FFFFFF';
-// 白の砂は砂時計内側 (#EFEFEF) に対して視認しやすいよう、薄めに重ねる。
-const BREAK_PHASE_OPACITY = 0.92;
 const TEXT_ACTIVE = '#2F2F2F';
 const TEXT_INACTIVE = '#9CA3AF';
 const DOT_INACTIVE = '#D9D9D9';
@@ -124,31 +126,41 @@ type TodayOutputListProps = {
 function TodayOutputList({ items, onSelect }: TodayOutputListProps) {
   if (items.length === 0) return null;
 
+  const isScrollable = items.length > TODAY_OUTPUT_VISIBLE_ROWS;
+
   return (
     <View style={styles.todayOutputsSection} testID="today-outputs-section">
       <SizableText style={styles.todayOutputsTitle}>今日のアウトプット</SizableText>
       <View style={styles.todayOutputsCard}>
-        {items.map((item, index) => (
-          <Pressable
-            key={item.output.id}
-            accessibilityRole="button"
-            onPress={() => onSelect(item)}
-            style={({ pressed }) => [
-              styles.todayOutputRow,
-              index < items.length - 1 ? styles.todayOutputRowBorder : null,
-              pressed ? styles.buttonPressed : null,
-            ]}
-            testID={`today-output-row-${item.output.id}`}
-          >
-            <View style={styles.todayOutputIcon}>
-              <PencilIcon size={16} />
-            </View>
-            <SizableText style={styles.todayOutputText} numberOfLines={1}>
-              {buildOutputPreview(item.output.content)}
-            </SizableText>
-            <SizableText style={styles.todayOutputCycle}>サイクル{item.cycle_index}</SizableText>
-          </Pressable>
-        ))}
+        <ScrollView
+          style={isScrollable ? styles.todayOutputsScroll : null}
+          scrollEnabled={isScrollable}
+          showsVerticalScrollIndicator={isScrollable}
+          nestedScrollEnabled
+          testID="today-outputs-scroll"
+        >
+          {items.map((item, index) => (
+            <Pressable
+              key={item.output.id}
+              accessibilityRole="button"
+              onPress={() => onSelect(item)}
+              style={({ pressed }) => [
+                styles.todayOutputRow,
+                index < items.length - 1 ? styles.todayOutputRowBorder : null,
+                pressed ? styles.buttonPressed : null,
+              ]}
+              testID={`today-output-row-${item.output.id}`}
+            >
+              <View style={styles.todayOutputIcon}>
+                <PencilIcon size={16} />
+              </View>
+              <SizableText style={styles.todayOutputText} numberOfLines={1}>
+                {buildOutputPreview(item.output.content)}
+              </SizableText>
+              <SizableText style={styles.todayOutputCycle}>サイクル{item.cycle_index}</SizableText>
+            </Pressable>
+          ))}
+        </ScrollView>
       </View>
     </View>
   );
@@ -273,6 +285,7 @@ export function InputScreen() {
   const updateStatus = useUpdateSessionStatus();
   const cancelMutation = useUpdateSessionStatus();
   const currentLoop = useLoopStore((s) => s.currentLoop);
+  const resetLoop = useLoopStore((s) => s.reset);
   const extendTimer = useTimerStore((s) => s.extend);
   const timerStatus = useTimerStore((s) => s.status);
   const totalSeconds = useTimerStore((s) => s.totalSeconds);
@@ -298,22 +311,22 @@ export function InputScreen() {
     () => [
       {
         label: 'input',
-        color: PRIMARY_COLOR,
+        color: HOURGLASS_SAND_COLORS.input,
         weight: inputMinutes,
         progress: hourglassSandProgress,
       },
       {
         label: 'output',
-        color: OUTPUT_PHASE_COLOR,
+        color: HOURGLASS_SAND_COLORS.output,
         weight: outputMinutes,
         progress: 1,
       },
       {
         label: 'break',
-        color: BREAK_PHASE_COLOR,
+        color: HOURGLASS_SAND_COLORS.break,
         weight: breakMinutes,
         progress: 1,
-        opacity: BREAK_PHASE_OPACITY,
+        opacity: HOURGLASS_BREAK_SAND_OPACITY,
       },
     ],
     [inputMinutes, outputMinutes, breakMinutes, hourglassSandProgress],
@@ -367,6 +380,7 @@ export function InputScreen() {
             { sessionId, status: 'cancelled' },
             {
               onSuccess: () => {
+                resetLoop();
                 router.replace('/(tabs)');
               },
             },
@@ -402,6 +416,7 @@ export function InputScreen() {
               sandLayers={hourglassSandLayers}
               activeLayerIndex={0}
               showSandStream={timerStatus === 'running'}
+              variant="blue"
             />
           </>
         )}
@@ -523,6 +538,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 4,
     backgroundColor: '#FFFFFF',
+  },
+  todayOutputsScroll: {
+    maxHeight: TODAY_OUTPUT_ROW_HEIGHT * TODAY_OUTPUT_VISIBLE_ROWS,
   },
   todayOutputRow: {
     minHeight: 40,

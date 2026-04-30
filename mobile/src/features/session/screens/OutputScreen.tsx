@@ -12,7 +12,7 @@
 import { useIsFocused } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -36,13 +36,18 @@ import {
 import {
   CircularPhaseTimer,
   HourglassBadge,
+  type HourglassSandLayer,
   PhaseTabs,
   type SessionPhase,
   SessionSettingsButton,
 } from '@/features/session/components/SessionPhaseChrome';
-import { DEFAULT_TIMER } from '@/features/session/config';
+import {
+  DEFAULT_TIMER,
+  HOURGLASS_BREAK_SAND_OPACITY,
+  HOURGLASS_SAND_COLORS,
+} from '@/features/session/config';
 import { useSubmitOutput } from '@/features/session/hooks/useSubmitOutput';
-import { useTimer } from '@/features/session/hooks/useTimer';
+import { useThrottledRemainingSeconds, useTimer } from '@/features/session/hooks/useTimer';
 import { useVoiceRecognition } from '@/features/session/hooks/useVoiceRecognition';
 import {
   appendTranscriptToContent,
@@ -52,6 +57,7 @@ import {
 import { isApiError } from '@/shared/lib/api';
 import { APP_COLORS } from '@/shared/lib/colors';
 import { useLoopStore } from '@/shared/stores/loopStore';
+import { useTimerStore } from '@/shared/stores/timerStore';
 
 const CURRENT_PHASE: SessionPhase = 'output';
 
@@ -88,6 +94,9 @@ export function OutputScreen() {
   } = useSubmitOutput();
   const currentLoop = useLoopStore((s) => s.currentLoop);
   const scrollRef = useRef<ScrollView>(null);
+  const timerStatus = useTimerStore((s) => s.status);
+  const totalSeconds = useTimerStore((s) => s.totalSeconds);
+  const smoothRemainingSeconds = useThrottledRemainingSeconds(100);
 
   const [content, setContent] = useState('');
   const [localErrorMessage, setLocalErrorMessage] = useState<string | null>(null);
@@ -98,6 +107,27 @@ export function OutputScreen() {
 
   const isImageMethod = inputMethod === 'image';
   const isVoiceMethod = inputMethod === 'voice';
+  const hourglassSandProgress =
+    totalSeconds > 0 ? Math.min(1, Math.max(0, smoothRemainingSeconds / totalSeconds)) : 1;
+  const hourglassSandLayers = useMemo<readonly HourglassSandLayer[]>(
+    () => [
+      { label: 'input', color: HOURGLASS_SAND_COLORS.input, weight: inputMinutes, progress: 0 },
+      {
+        label: 'output',
+        color: HOURGLASS_SAND_COLORS.output,
+        weight: outputMinutes,
+        progress: hourglassSandProgress,
+      },
+      {
+        label: 'break',
+        color: HOURGLASS_SAND_COLORS.break,
+        weight: breakMinutes,
+        progress: 1,
+        opacity: HOURGLASS_BREAK_SAND_OPACITY,
+      },
+    ],
+    [inputMinutes, outputMinutes, breakMinutes, hourglassSandProgress],
+  );
 
   const handleFinalVoiceTranscript = useCallback(
     (transcript: string) => {
@@ -368,6 +398,10 @@ export function OutputScreen() {
                   currentLoop={currentLoop}
                   testIDPrefix="output"
                   borderColor={BORDER_COLOR}
+                  sandLayers={hourglassSandLayers}
+                  activeLayerIndex={1}
+                  showSandStream={timerStatus === 'running'}
+                  variant="blue"
                 />
               </>
             ) : null}

@@ -5,6 +5,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
+import { Path, Rect } from 'react-native-svg';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../../tamagui.config';
@@ -73,6 +74,15 @@ function rotationResponderEvent(
   };
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+
+  return { promise, resolve };
+}
+
 describe('BreakScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -119,6 +129,70 @@ describe('BreakScreen', () => {
     expect(useTimerStore.getState().totalSeconds).toBe(60);
   });
 
+  it('休憩中の砂時計は上部が白のみ・下部に青/ピンク/白が積もり、ストリームは白色', () => {
+    const { UNSAFE_getAllByType } = renderWithProviders(<BreakScreen />);
+
+    act(() => {
+      useTimerStore.setState({
+        totalSeconds: 60,
+        remainingSeconds: 30,
+        status: 'running',
+      });
+    });
+
+    const upperClip = 'url(#hourglassBadgeBlueUpperSandClip)';
+    const lowerClip = 'url(#hourglassBadgeBlueLowerSandClip)';
+
+    const upperPaths = UNSAFE_getAllByType(Path).filter(
+      (path) => path.props.clipPath === upperClip,
+    );
+    const whiteUpper = upperPaths.find((path) => path.props.fill === '#FFFFFF');
+    expect(whiteUpper).toBeTruthy();
+    expect(whiteUpper?.props.fillOpacity).toBe(0.92);
+    expect(upperPaths.find((path) => path.props.fill === '#148BFF')).toBeUndefined();
+    expect(upperPaths.find((path) => path.props.fill === '#F24D7E')).toBeUndefined();
+
+    const lowerPaths = UNSAFE_getAllByType(Path).filter(
+      (path) => path.props.clipPath === lowerClip,
+    );
+    expect(lowerPaths.find((path) => path.props.fill === '#148BFF')).toBeTruthy();
+    expect(lowerPaths.find((path) => path.props.fill === '#F24D7E')).toBeTruthy();
+    expect(lowerPaths.find((path) => path.props.fill === '#FFFFFF')).toBeTruthy();
+
+    const streamRect = UNSAFE_getAllByType(Rect).find(
+      (rect) => rect.props.fill === '#FFFFFF' && rect.props.width === 0.43,
+    );
+    expect(streamRect).toBeTruthy();
+    expect(streamRect?.props.height).toBe(7.41);
+  });
+
+  it('休憩終了直後は上部に砂が無く、下部に青/ピンク/白が積もる', () => {
+    const { UNSAFE_getAllByType } = renderWithProviders(<BreakScreen />);
+
+    act(() => {
+      useTimerStore.setState({
+        totalSeconds: 60,
+        remainingSeconds: 0,
+        status: 'running',
+      });
+    });
+
+    const upperClip = 'url(#hourglassBadgeBlueUpperSandClip)';
+    const lowerClip = 'url(#hourglassBadgeBlueLowerSandClip)';
+
+    const upperPaths = UNSAFE_getAllByType(Path).filter(
+      (path) => path.props.clipPath === upperClip,
+    );
+    expect(upperPaths).toHaveLength(0);
+
+    const lowerPaths = UNSAFE_getAllByType(Path).filter(
+      (path) => path.props.clipPath === lowerClip,
+    );
+    expect(lowerPaths.find((path) => path.props.fill === '#148BFF')).toBeTruthy();
+    expect(lowerPaths.find((path) => path.props.fill === '#F24D7E')).toBeTruthy();
+    expect(lowerPaths.find((path) => path.props.fill === '#FFFFFF')).toBeTruthy();
+  });
+
   it('タイマー完了で休憩完了画面を表示し、result へ自動遷移しない', async () => {
     const { getByTestId, getByText } = renderWithProviders(<BreakScreen />);
 
@@ -150,10 +224,11 @@ describe('BreakScreen', () => {
     expect(getByTestId('break-next-cycle-view')).toBeTruthy();
     expect(getByText('砂時計を回して次のサイクルを回そう！')).toBeTruthy();
     expect(getByTestId('break-next-cycle-cancel')).toBeTruthy();
+    expect(useLoopStore.getState().currentLoop).toBe(1);
   });
 
-  it('次サイクル準備画面の砂時計を回転させると新しいセッションを作成し input へ遷移する', async () => {
-    (sessionApi.createSession as jest.Mock).mockResolvedValue({
+  it('次サイクル準備画面の砂時計を回転させ、セッション作成成功後にだけループを進める', async () => {
+    const nextSession = {
       id: 'ses-next',
       user_id: 'usr-1',
       status: 'input',
@@ -165,7 +240,9 @@ describe('BreakScreen', () => {
       started_at: '2026-04-10T15:30:00.000Z',
       completed_at: null,
       created_at: '2026-04-10T15:30:00.000Z',
-    });
+    };
+    const createSessionDeferred = createDeferred<typeof nextSession>();
+    (sessionApi.createSession as jest.Mock).mockReturnValue(createSessionDeferred.promise);
 
     const { getByTestId } = renderWithProviders(<BreakScreen />);
 
@@ -224,6 +301,14 @@ describe('BreakScreen', () => {
         break_minutes: 1,
       });
     });
+    expect(useLoopStore.getState().currentLoop).toBe(1);
+    expect(mockPush).not.toHaveBeenCalled();
+
+    await act(async () => {
+      createSessionDeferred.resolve(nextSession);
+      await Promise.resolve();
+    });
+
     await waitFor(() => {
       expect(mockPush).toHaveBeenCalledWith({
         pathname: '/session/[id]/input',

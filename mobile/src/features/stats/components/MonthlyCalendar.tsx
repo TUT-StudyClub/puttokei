@@ -8,11 +8,7 @@ import {
   getMonthCalendarDateKeys,
   getStudiedDateKeySet,
 } from '@/features/stats/lib/monthlyReport';
-import {
-  addDaysToDateKey,
-  getDateNumberLabel,
-  getTokyoDateKey,
-} from '@/features/stats/lib/week';
+import { addDaysToDateKey, getDateNumberLabel, getTokyoDateKey } from '@/features/stats/lib/week';
 import type { WeeklyReportResponse } from '@/features/stats/types';
 
 const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'] as const;

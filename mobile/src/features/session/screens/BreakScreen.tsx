@@ -8,55 +8,46 @@ import { useIsFocused } from '@react-navigation/native';
 import { useMutation } from '@tanstack/react-query';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
-import {
-  Animated,
-  Image,
-  Pressable,
-  SafeAreaView,
-  StyleSheet,
-  useWindowDimensions,
-  View,
-} from 'react-native';
-import { Path, Svg, SvgXml } from 'react-native-svg';
-import { SizableText, Spinner } from 'tamagui';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { SafeAreaView, StyleSheet, View } from 'react-native';
+import { SizableText } from 'tamagui';
 
 import { createSession } from '@/features/session/api/sessionApi';
-import {
-  BreakCompletedView,
-  HourglassGraphic,
-} from '@/features/session/components/BreakCompletedView';
+import { BreakCompletedView } from '@/features/session/components/BreakCompletedView';
+import { NextCycleReadyView } from '@/features/session/components/NextCycleReadyView';
 import {
   CircularPhaseTimer,
   HourglassBadge,
+  type HourglassSandLayer,
   PhaseTabs,
   type SessionPhase,
   SessionSettingsButton,
 } from '@/features/session/components/SessionPhaseChrome';
-import { DEFAULT_TIMER } from '@/features/session/config';
+import {
+  DEFAULT_TIMER,
+  HOURGLASS_BREAK_SAND_OPACITY,
+  HOURGLASS_SAND_COLORS,
+} from '@/features/session/config';
 import { useJudgment } from '@/features/session/hooks/useJudgment';
-import { useNextCycleRotation } from '@/features/session/hooks/useNextCycleRotation';
-import { useSmoothRemainingSeconds, useTimer } from '@/features/session/hooks/useTimer';
+import {
+  useSmoothRemainingSeconds,
+  useThrottledRemainingSeconds,
+  useTimer,
+} from '@/features/session/hooks/useTimer';
 import type { CreateSessionInput, Session } from '@/features/session/types';
 import { APP_COLORS } from '@/shared/lib/colors';
-import { inlineSvgClassStyles } from '@/shared/lib/svgStyles';
-import { LOOP_COUNT_MAX, useLoopStore } from '@/shared/stores/loopStore';
+import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
 const SETTINGS_ROUTE = '/(tabs)/settings' as unknown as Href;
-const NEXT_CYCLE_HOURGLASS_ASSET = require('../../../../assets/images/session/hourglass-gradation.svg');
-const NEXT_CYCLE_HOURGLASS_ASPECT_RATIO = 76.91 / 43.11;
 
 const CURRENT_PHASE: SessionPhase = 'break';
 
-// 休憩中はグレー、次サイクル準備ではインプットと同じブルーを使う。
 const BREAK_COLOR = APP_COLORS.textInactive;
-const INPUT_COLOR = APP_COLORS.input;
 const TEXT_ACTIVE = APP_COLORS.textPrimary;
 const DOT_INACTIVE = APP_COLORS.dotInactive;
 const BORDER_COLOR = APP_COLORS.border;
 const CAPTION_COLOR = APP_COLORS.textMuted;
-const ERROR_COLOR = APP_COLORS.error;
 
 // 下部の「採点進捗カード」用トークン。濃い背景に青いプログレスバーを乗せる。
 const PROGRESS_CARD_BG = '#2A2A2E';
@@ -76,17 +67,6 @@ const COMPLETED_PHASE_COLORS: Record<SessionPhase, string> = {
   output: '#F8D8E4',
   break: '#C9C9C9',
 };
-
-const NEXT_CYCLE_SVG_STYLE_ATTRIBUTE_NAMES: Record<string, string> = {
-  'clip-path': 'clipPath',
-  'color-interpolation-filters': 'colorInterpolationFilters',
-  'fill-rule': 'fillRule',
-  'stroke-linecap': 'strokeLinecap',
-  'stroke-linejoin': 'strokeLinejoin',
-  'stroke-width': 'strokeWidth',
-};
-
-const NEXT_CYCLE_SVG_UNSUPPORTED_STYLE_PROPERTIES = new Set(['isolation', 'mix-blend-mode']);
 
 type JudgingProgressCardProps = {
   progressPercent: number;
@@ -120,171 +100,6 @@ function JudgingProgressCard({ progressPercent, isReady }: JudgingProgressCardPr
   );
 }
 
-function NextCycleHourglassAsset() {
-  const [xml, setXml] = useState<string | null>(null);
-
-  useEffect(() => {
-    let isMounted = true;
-    const source = Image.resolveAssetSource(NEXT_CYCLE_HOURGLASS_ASSET);
-    const uri = source?.uri;
-    if (!uri || typeof fetch !== 'function') return;
-
-    fetch(uri)
-      .then((response) => {
-        if (!response.ok && !(response.status === 0 && uri.startsWith('file://'))) {
-          throw new Error(`Failed to load next cycle hourglass SVG: ${response.status}`);
-        }
-        return response.text();
-      })
-      .then((loadedXml) => {
-        if (isMounted) {
-          const xmlWithoutUnsupportedHighlight = loadedXml.replace(
-            /\s*<rect class="cls-10" x="-9\.33" y="-28\.16" width="67\.08" height="107\.05"\/>/g,
-            '',
-          );
-          setXml(
-            inlineSvgClassStyles(xmlWithoutUnsupportedHighlight, {
-              attributeNames: NEXT_CYCLE_SVG_STYLE_ATTRIBUTE_NAMES,
-              unsupportedProperties: NEXT_CYCLE_SVG_UNSUPPORTED_STYLE_PROPERTIES,
-            }),
-          );
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setXml(null);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  const fallback = <HourglassGraphic size={220} strokeColor={INPUT_COLOR} />;
-
-  if (!xml) return fallback;
-
-  return (
-    <SvgXml
-      xml={xml}
-      width="100%"
-      height="100%"
-      preserveAspectRatio="xMidYMid meet"
-      fallback={fallback}
-      onError={() => undefined}
-    />
-  );
-}
-
-type NextCycleReadyViewProps = {
-  isStarting: boolean;
-  hasStartError: boolean;
-  onStart: () => void;
-  onCancel: () => void;
-};
-
-function TurnArrow() {
-  return (
-    <Svg width={92} height={120} viewBox="0 0 92 120" fill="none">
-      <Path
-        d="M58 10 C70 43 62 76 31 95"
-        stroke="#2F2F2F"
-        strokeWidth={14}
-        strokeLinecap="butt"
-        fill="none"
-      />
-      <Path d="M27 71 L28 108 L60 89 Z" fill="#2F2F2F" />
-    </Svg>
-  );
-}
-
-function NextCycleReadyView({
-  isStarting,
-  hasStartError,
-  onStart,
-  onCancel,
-}: NextCycleReadyViewProps) {
-  const { height: windowHeight } = useWindowDimensions();
-  const isCompactHeight = windowHeight < 820;
-  const hourglassHeight = isCompactHeight ? 258 : 286;
-  const hourglassWidth = hourglassHeight / NEXT_CYCLE_HOURGLASS_ASPECT_RATIO;
-  const { handleRotationAreaLayout, hourglassRotationStyle, rotationResponder } =
-    useNextCycleRotation({ isStarting, onStart });
-
-  return (
-    <View style={styles.nextReadyContent} testID="break-next-cycle-view">
-      <View
-        accessibilityLabel="砂時計を回して次のインプットを開始"
-        onLayout={handleRotationAreaLayout}
-        style={styles.nextReadyRotationArea}
-        testID="break-next-cycle-rotation-area"
-        {...rotationResponder.panHandlers}
-      >
-        <SizableText style={styles.nextReadyTitle}>
-          砂時計を回して次のサイクルを回そう！
-        </SizableText>
-
-        <View
-          style={[
-            styles.nextReadyGraphicArea,
-            isCompactHeight ? styles.nextReadyGraphicAreaCompact : null,
-          ]}
-        >
-          <View
-            style={[styles.nextHourglassButton, isStarting ? styles.buttonDisabled : null]}
-            testID="break-next-cycle-hourglass"
-          >
-            <Animated.View
-              style={[
-                styles.nextCycleHourglassAsset,
-                {
-                  width: hourglassWidth,
-                  height: hourglassHeight,
-                  transform: [{ rotate: hourglassRotationStyle }],
-                },
-              ]}
-            >
-              <NextCycleHourglassAsset />
-            </Animated.View>
-            {isStarting ? (
-              <View style={styles.nextStartingOverlay}>
-                <Spinner color={INPUT_COLOR} />
-              </View>
-            ) : null}
-          </View>
-
-          <View style={styles.turnArrow}>
-            <TurnArrow />
-          </View>
-        </View>
-
-        <SizableText style={styles.nextReadyDescription}>
-          回すと次のインプットがスタートします。{'\n'}
-          スタート後、アウトプットの評価を見ることができます。
-        </SizableText>
-      </View>
-
-      <View style={styles.nextReadyBottom}>
-        {hasStartError ? (
-          <SizableText style={styles.errorText} testID="break-next-cycle-error">
-            次のサイクルを開始できませんでした。通信環境を確認してもう一度お試しください。
-          </SizableText>
-        ) : null}
-
-        <Pressable
-          accessibilityRole="button"
-          onPress={onCancel}
-          style={({ pressed }) => [styles.abortButton, pressed ? styles.buttonPressed : null]}
-          testID="break-next-cycle-cancel"
-        >
-          <SizableText style={styles.abortButtonText}>中断する</SizableText>
-        </Pressable>
-      </View>
-    </View>
-  );
-}
-
 type SessionRouteParams = {
   id?: string;
   input?: string;
@@ -303,19 +118,46 @@ export function BreakScreen() {
   const isFocused = useIsFocused();
   const currentLoop = useLoopStore((s) => s.currentLoop);
   const incrementLoop = useLoopStore((s) => s.incrementLoop);
+  const resetLoop = useLoopStore((s) => s.reset);
   const [screenMode, setScreenMode] = useState<BreakScreenMode>('resting');
+  const activeBadgeIconRef = useRef<View>(null);
+  const badgeOriginRef = useRef<{ x: number; y: number } | null>(null);
+  const [entranceOrigin, setEntranceOrigin] = useState<{ x: number; y: number } | null>(null);
 
   const judgmentQuery = useJudgment(sessionId);
   const isJudgmentReady = judgmentQuery.data?.kind === 'ready';
 
   const smoothRemainingSeconds = useSmoothRemainingSeconds();
   const totalSeconds = useTimerStore((s) => s.totalSeconds);
+  const timerStatus = useTimerStore((s) => s.status);
+  const throttledRemainingSeconds = useThrottledRemainingSeconds(100);
   const elapsedRatio =
     totalSeconds > 0 ? Math.min(1, Math.max(0, 1 - smoothRemainingSeconds / totalSeconds)) : 0;
   const pendingProgress = Math.round(
     PROGRESS_PENDING_MIN + elapsedRatio * (PROGRESS_PENDING_MAX - PROGRESS_PENDING_MIN),
   );
   const progressPercent = isJudgmentReady ? 100 : pendingProgress;
+  const hourglassSandProgress =
+    screenMode === 'resting' && totalSeconds > 0
+      ? Math.min(1, Math.max(0, throttledRemainingSeconds / totalSeconds))
+      : 0;
+  const hourglassSandLayers = useMemo<readonly HourglassSandLayer[]>(
+    () => [
+      { label: 'input', color: HOURGLASS_SAND_COLORS.input, weight: inputMinutes, progress: 0 },
+      { label: 'output', color: HOURGLASS_SAND_COLORS.output, weight: outputMinutes, progress: 0 },
+      {
+        label: 'break',
+        color: HOURGLASS_SAND_COLORS.break,
+        weight: breakMinutes,
+        progress: hourglassSandProgress,
+        opacity: HOURGLASS_BREAK_SAND_OPACITY,
+      },
+    ],
+    [inputMinutes, outputMinutes, breakMinutes, hourglassSandProgress],
+  );
+  const effectiveSandLayers: readonly HourglassSandLayer[] =
+    screenMode === 'nextCycle' ? [] : hourglassSandLayers;
+  const showSandStream = screenMode === 'resting' && timerStatus === 'running';
 
   const { start, reset } = useTimer({
     enabled: isFocused && screenMode === 'resting',
@@ -362,8 +204,31 @@ export function BreakScreen() {
 
   const handleCancelNextCycle = () => {
     reset();
+    resetLoop();
     router.replace('/(tabs)');
   };
+
+  const measureActiveBadgeOrigin = useCallback(() => {
+    let measuredOrigin: { x: number; y: number } | null = null;
+    activeBadgeIconRef.current?.measureInWindow((x, y, w, h) => {
+      if (w > 0 && h > 0) {
+        const origin = { x: x + w / 2, y: y + h / 2 };
+        measuredOrigin = origin;
+        badgeOriginRef.current = origin;
+      }
+    });
+
+    return measuredOrigin ?? badgeOriginRef.current;
+  }, []);
+
+  const handleBadgeStackLayout = useCallback(() => {
+    measureActiveBadgeOrigin();
+  }, [measureActiveBadgeOrigin]);
+
+  const handleEnterNextCycle = useCallback(() => {
+    setEntranceOrigin(measureActiveBadgeOrigin());
+    setScreenMode('nextCycle');
+  }, [measureActiveBadgeOrigin]);
 
   const captionText = isJudgmentReady
     ? '休憩後次のサイクルを回すか決めることができます。'
@@ -373,7 +238,7 @@ export function BreakScreen() {
   const usesCompletedPhasePalette = screenMode === 'completed' || isNextCycleMode;
   const displayedPhase = usesCompletedPhasePalette ? null : CURRENT_PHASE;
   const phaseActiveColor = BREAK_COLOR;
-  const displayedLoop = isNextCycleMode ? Math.min(currentLoop + 1, LOOP_COUNT_MAX) : currentLoop;
+  const displayedLoop = currentLoop;
   const completedPhaseColors = usesCompletedPhasePalette ? COMPLETED_PHASE_COLORS : undefined;
 
   return (
@@ -385,12 +250,17 @@ export function BreakScreen() {
           testID="break-settings-button"
         />
 
-        <View style={styles.badgeStack}>
+        <View style={styles.badgeStack} onLayout={handleBadgeStackLayout}>
           <HourglassBadge
             currentLoop={displayedLoop}
             testIDPrefix="break"
             borderColor={BORDER_COLOR}
             marginBottom={0}
+            variant="blue"
+            sandLayers={effectiveSandLayers}
+            activeLayerIndex={2}
+            showSandStream={showSandStream}
+            activeIconRef={activeBadgeIconRef}
           />
         </View>
 
@@ -423,16 +293,14 @@ export function BreakScreen() {
             <JudgingProgressCard progressPercent={progressPercent} isReady={isJudgmentReady} />
           </>
         ) : screenMode === 'completed' ? (
-          <BreakCompletedView
-            currentLoop={currentLoop}
-            onNextCycle={() => setScreenMode('nextCycle')}
-          />
+          <BreakCompletedView currentLoop={currentLoop} onNextCycle={handleEnterNextCycle} />
         ) : (
           <NextCycleReadyView
             isStarting={createNextCycle.isPending}
             hasStartError={createNextCycle.isError}
             onStart={handleStartNextCycle}
             onCancel={handleCancelNextCycle}
+            entranceOrigin={entranceOrigin}
           />
         )}
       </View>
@@ -518,97 +386,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     textAlign: 'center',
-  },
-  nextReadyContent: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 10,
-  },
-  nextReadyRotationArea: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-  },
-  nextReadyTitle: {
-    color: TEXT_ACTIVE,
-    fontSize: 19,
-    fontWeight: '800',
-    lineHeight: 25,
-    textAlign: 'center',
-  },
-  nextReadyGraphicArea: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    minHeight: 280,
-    marginTop: 12,
-  },
-  nextReadyGraphicAreaCompact: {
-    minHeight: 252,
-    marginTop: 10,
-  },
-  nextHourglassButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  nextCycleHourglassAsset: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  nextStartingOverlay: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    backgroundColor: 'rgba(255, 255, 255, 0.86)',
-  },
-  turnArrow: {
-    position: 'absolute',
-    right: 24,
-    bottom: 48,
-  },
-  nextReadyBottom: {
-    alignItems: 'center',
-    width: '100%',
-    gap: 14,
-  },
-  nextReadyDescription: {
-    color: '#9B9B9B',
-    fontSize: 12,
-    fontWeight: '600',
-    lineHeight: 20,
-    textAlign: 'center',
-  },
-  abortButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    height: 62,
-    borderWidth: 1.5,
-    borderColor: '#777777',
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-  },
-  abortButtonText: {
-    color: '#777777',
-    fontSize: 21,
-    fontWeight: '800',
-    lineHeight: 25,
-  },
-  errorText: {
-    color: ERROR_COLOR,
-    fontSize: 12,
-    lineHeight: 18,
-    textAlign: 'center',
-  },
-  buttonPressed: {
-    opacity: 0.72,
-  },
-  buttonDisabled: {
-    opacity: 0.58,
   },
 });

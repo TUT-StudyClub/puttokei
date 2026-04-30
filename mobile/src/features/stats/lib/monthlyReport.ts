@@ -1,8 +1,4 @@
-import {
-  addDaysToDateKey,
-  parseDateKey,
-  toDateKey,
-} from '@/features/stats/lib/week';
+import { addDaysToDateKey, parseDateKey, toDateKey } from '@/features/stats/lib/week';
 import type { WeeklyReportResponse } from '@/features/stats/types';
 
 export type MonthlyHighlightSummary = {

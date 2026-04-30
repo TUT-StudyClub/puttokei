@@ -11,3 +11,12 @@ export const DEFAULT_TIMER = {
   output_minutes: 5,
   break_minutes: 5,
 } as const;
+
+export const HOURGLASS_SAND_COLORS = {
+  input: '#148BFF',
+  output: '#F24D7E',
+  break: '#FFFFFF',
+  mixed: '#BA64E8',
+} as const;
+
+export const HOURGLASS_BREAK_SAND_OPACITY = 0.92;
