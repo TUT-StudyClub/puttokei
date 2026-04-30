@@ -555,8 +555,7 @@ function NextCycleReadyView({
       }
       const centerX = x + w / 2;
       const centerY = y + h / 2;
-      const badgeWidth =
-        HOURGLASS_VARIANTS.blue.baseWidth * HOURGLASS_BADGE_ACTIVE_SCALE;
+      const badgeWidth = HOURGLASS_VARIANTS.blue.baseWidth * HOURGLASS_BADGE_ACTIVE_SCALE;
       entranceOffsetX.value = entranceOrigin.x - centerX;
       entranceOffsetY.value = entranceOrigin.y - centerY;
       entranceStartScale.value = badgeWidth / hourglassWidth;
@@ -765,14 +764,8 @@ function NextCycleReadyView({
 
           // 混色は回転量 (= 完了判定で使う metric) に比例して 0→1 まで進める。
           // ユーザーが回している途中で「だんだん混ざる」見え方を作る。
-          const rotationAmount = Math.max(
-            Math.abs(draggedRotation.current),
-            pathRotation.current,
-          );
-          mixProgress.value = Math.min(
-            1,
-            rotationAmount / NEXT_CYCLE_ROTATE_THRESHOLD_DEGREES,
-          );
+          const rotationAmount = Math.max(Math.abs(draggedRotation.current), pathRotation.current);
+          mixProgress.value = Math.min(1, rotationAmount / NEXT_CYCLE_ROTATE_THRESHOLD_DEGREES);
 
           hasCompletedRotationGesture.current =
             rotationAmount >= NEXT_CYCLE_ROTATE_THRESHOLD_DEGREES;
@@ -1112,9 +1105,7 @@ export function BreakScreen() {
   // - 3: 砂時計回し画面 (まだ回す前) でも紫にしない → currentLoop のまま
   // - 4: 回し終え後 mix→return が着地した瞬間、終わったループを紫化・次のループを青化
   // → advanceLoopVisual === true のときに +1 する。
-  const displayedLoop = advanceLoopVisual
-    ? Math.min(currentLoop + 1, LOOP_COUNT_MAX)
-    : currentLoop;
+  const displayedLoop = advanceLoopVisual ? Math.min(currentLoop + 1, LOOP_COUNT_MAX) : currentLoop;
   const completedPhaseColors = usesCompletedPhasePalette ? COMPLETED_PHASE_COLORS : undefined;
 
   return (
@@ -1126,11 +1117,7 @@ export function BreakScreen() {
           testID="break-settings-button"
         />
 
-        <View
-          ref={badgeStackRef}
-          style={styles.badgeStack}
-          onLayout={handleBadgeStackLayout}
-        >
+        <View ref={badgeStackRef} style={styles.badgeStack} onLayout={handleBadgeStackLayout}>
           <HourglassBadge
             currentLoop={displayedLoop}
             testIDPrefix="break"

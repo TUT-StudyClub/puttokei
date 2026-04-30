@@ -805,8 +805,7 @@ export function HourglassBadgeIcon({
   height: heightOverride,
 }: HourglassBadgeIconProps) {
   const width =
-    widthOverride ??
-    (active ? config.baseWidth * HOURGLASS_BADGE_ACTIVE_SCALE : config.baseWidth);
+    widthOverride ?? (active ? config.baseWidth * HOURGLASS_BADGE_ACTIVE_SCALE : config.baseWidth);
   const height =
     heightOverride ??
     (active ? config.baseHeight * HOURGLASS_BADGE_ACTIVE_SCALE : config.baseHeight);
