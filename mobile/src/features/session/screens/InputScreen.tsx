@@ -290,6 +290,7 @@ export function InputScreen() {
   const updateStatus = useUpdateSessionStatus();
   const cancelMutation = useUpdateSessionStatus();
   const currentLoop = useLoopStore((s) => s.currentLoop);
+  const resetLoop = useLoopStore((s) => s.reset);
   const extendTimer = useTimerStore((s) => s.extend);
   const timerStatus = useTimerStore((s) => s.status);
   const totalSeconds = useTimerStore((s) => s.totalSeconds);
@@ -384,6 +385,7 @@ export function InputScreen() {
             { sessionId, status: 'cancelled' },
             {
               onSuccess: () => {
+                resetLoop();
                 router.replace('/(tabs)');
               },
             },

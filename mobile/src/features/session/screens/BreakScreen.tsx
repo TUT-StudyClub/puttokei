@@ -951,6 +951,7 @@ export function BreakScreen() {
   const isFocused = useIsFocused();
   const currentLoop = useLoopStore((s) => s.currentLoop);
   const incrementLoop = useLoopStore((s) => s.incrementLoop);
+  const resetLoop = useLoopStore((s) => s.reset);
   const [screenMode, setScreenMode] = useState<BreakScreenMode>('resting');
   // 進行中サイクルの砂時計バッジ (= currentLoop 番目の砂時計) の位置を window 座標で測ってキャッシュする。
   // 「次のサイクルへ」押下時にこのキャッシュを entranceOrigin に流し込む。
@@ -1047,6 +1048,7 @@ export function BreakScreen() {
 
   const handleCancelNextCycle = () => {
     reset();
+    resetLoop();
     router.replace('/(tabs)');
   };
 
