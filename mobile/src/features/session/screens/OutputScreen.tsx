@@ -12,7 +12,7 @@
 import { useIsFocused } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Image,
   Keyboard,
@@ -33,16 +33,18 @@ import type { OutputEditorSubmitPayload } from '@/features/session/components/Ou
 import {
   CircularPhaseTimer,
   HourglassBadge,
+  type HourglassSandLayer,
   PhaseTabs,
   type SessionPhase,
   SessionSettingsButton,
 } from '@/features/session/components/SessionPhaseChrome';
 import { DEFAULT_TIMER } from '@/features/session/config';
-import { useTimer } from '@/features/session/hooks/useTimer';
+import { useThrottledRemainingSeconds, useTimer } from '@/features/session/hooks/useTimer';
 import { useSubmitOutput } from '@/features/session/hooks/useSubmitOutput';
 import { useVoiceRecognition } from '@/features/session/hooks/useVoiceRecognition';
 import { isApiError } from '@/shared/lib/api';
 import { useLoopStore } from '@/shared/stores/loopStore';
+import { useTimerStore } from '@/shared/stores/timerStore';
 
 const CURRENT_PHASE: SessionPhase = 'output';
 
@@ -51,9 +53,14 @@ const PRIMARY_COLOR = '#EC4899';
 const PRIMARY_SOFT_COLOR = '#FBE4EF';
 const ACTION_COLOR = '#4B5CFF';
 const INPUT_PHASE_SOFT_COLOR = '#B9DFFF';
+// 砂時計バッジに積む 3 色 (input=青 / output=ピンク / break=白)。
+// PRIMARY_COLOR (画面テーマのピンク) と砂時計の砂色を分離するため、output 用の砂色も独立した定数で管理する。
+const HOURGLASS_INPUT_COLOR = '#148BFF';
+const HOURGLASS_OUTPUT_COLOR = '#F24D7E';
+const HOURGLASS_BREAK_COLOR = '#FFFFFF';
+const HOURGLASS_BREAK_OPACITY = 0.92;
 const METHOD_ACTIVE_COLOR = '#2F2F2F';
 const METHOD_INACTIVE_COLOR = '#777777';
-const TEXT_INACTIVE = '#9CA3AF';
 const DOT_INACTIVE = '#D9D9D9';
 const BORDER_COLOR = '#E5E7EB';
 const CAPTION_COLOR = '#777777';
@@ -475,6 +482,39 @@ export function OutputScreen() {
   const currentLoop = useLoopStore((s) => s.currentLoop);
   const scrollRef = useRef<ScrollView>(null);
 
+  // 砂時計バッジ用のタイマー進捗。SvgXml 再パースが重いので 100ms に間引く (InputScreen と同方針)。
+  const timerStatus = useTimerStore((s) => s.status);
+  const totalSeconds = useTimerStore((s) => s.totalSeconds);
+  const smoothRemainingSeconds = useThrottledRemainingSeconds(100);
+  const hourglassSandProgress =
+    totalSeconds > 0 ? Math.min(1, Math.max(0, smoothRemainingSeconds / totalSeconds)) : 1;
+  // 下から 青(input/完了済み) → ピンク(output/動く) → 白(break/未開始) の 3 層。
+  // input は progress=0 で全量が下部に積もり、output が時間とともに減って下部に追加で積もる。
+  const hourglassSandLayers = useMemo<readonly HourglassSandLayer[]>(
+    () => [
+      {
+        label: 'input',
+        color: HOURGLASS_INPUT_COLOR,
+        weight: inputMinutes,
+        progress: 0,
+      },
+      {
+        label: 'output',
+        color: HOURGLASS_OUTPUT_COLOR,
+        weight: outputMinutes,
+        progress: hourglassSandProgress,
+      },
+      {
+        label: 'break',
+        color: HOURGLASS_BREAK_COLOR,
+        weight: breakMinutes,
+        progress: 1,
+        opacity: HOURGLASS_BREAK_OPACITY,
+      },
+    ],
+    [inputMinutes, outputMinutes, breakMinutes, hourglassSandProgress],
+  );
+
   const [content, setContent] = useState('');
   const [localErrorMessage, setLocalErrorMessage] = useState<string | null>(null);
   const [inputMethod, setInputMethod] = useState<InputMethod>('text');
@@ -753,9 +793,11 @@ export function OutputScreen() {
                 <HourglassBadge
                   currentLoop={currentLoop}
                   testIDPrefix="output"
-                  activeColor={PRIMARY_COLOR}
-                  inactiveColor={TEXT_INACTIVE}
                   borderColor={BORDER_COLOR}
+                  sandLayers={hourglassSandLayers}
+                  activeLayerIndex={1}
+                  showSandStream={timerStatus === 'running'}
+                  variant="blue"
                 />
               </>
             ) : null}

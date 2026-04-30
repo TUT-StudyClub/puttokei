@@ -20,13 +20,14 @@ import { AnnotatedOutputText } from '@/features/session/components/AnnotatedOutp
 import {
   CircularPhaseTimer,
   HourglassBadge,
+  type HourglassSandLayer,
   PhaseTabs,
   type SessionPhase,
   SessionSettingsButton,
 } from '@/features/session/components/SessionPhaseChrome';
 import { DEFAULT_TIMER } from '@/features/session/config';
 import { useTodayOutputs } from '@/features/session/hooks/useTodayOutputs';
-import { useTimer } from '@/features/session/hooks/useTimer';
+import { useThrottledRemainingSeconds, useTimer } from '@/features/session/hooks/useTimer';
 import { useUpdateSessionStatus } from '@/features/session/hooks/useUpdateSessionStatus';
 import type { OutputReviewItem } from '@/features/session/types';
 import { useLoopStore } from '@/shared/stores/loopStore';
@@ -37,7 +38,18 @@ const SETTINGS_ROUTE = '/(tabs)/settings' as unknown as Href;
 const CURRENT_PHASE: SessionPhase = 'input';
 const EXTEND_MINUTES = 5;
 
+// 「今日のアウトプット」一覧で、スクロールせずに見せる最大行数と 1 行の高さ。
+// `todayOutputRow.minHeight` と揃え、4 件目以降は一覧内だけがスクロールするようにする。
+const TODAY_OUTPUT_ROW_HEIGHT = 40;
+const TODAY_OUTPUT_VISIBLE_ROWS = 3;
+
 const PRIMARY_COLOR = '#4B5CFF';
+// 砂時計の砂積層に使う色。PRIMARY_COLOR (画面テーマの青) と砂時計の砂色を分離するため、input 用の砂色も独立した定数で管理する。
+const HOURGLASS_INPUT_COLOR = '#148BFF';
+const OUTPUT_PHASE_COLOR = '#F24D7E';
+const BREAK_PHASE_COLOR = '#FFFFFF';
+// 白の砂は砂時計内側 (#EFEFEF) に対して視認しやすいよう、薄めに重ねる。
+const BREAK_PHASE_OPACITY = 0.92;
 const TEXT_ACTIVE = '#2F2F2F';
 const TEXT_INACTIVE = '#9CA3AF';
 const DOT_INACTIVE = '#D9D9D9';
@@ -119,31 +131,41 @@ type TodayOutputListProps = {
 function TodayOutputList({ items, onSelect }: TodayOutputListProps) {
   if (items.length === 0) return null;
 
+  const isScrollable = items.length > TODAY_OUTPUT_VISIBLE_ROWS;
+
   return (
     <View style={styles.todayOutputsSection} testID="today-outputs-section">
       <SizableText style={styles.todayOutputsTitle}>今日のアウトプット</SizableText>
       <View style={styles.todayOutputsCard}>
-        {items.map((item, index) => (
-          <Pressable
-            key={item.output.id}
-            accessibilityRole="button"
-            onPress={() => onSelect(item)}
-            style={({ pressed }) => [
-              styles.todayOutputRow,
-              index < items.length - 1 ? styles.todayOutputRowBorder : null,
-              pressed ? styles.buttonPressed : null,
-            ]}
-            testID={`today-output-row-${item.output.id}`}
-          >
-            <View style={styles.todayOutputIcon}>
-              <PencilIcon size={16} />
-            </View>
-            <SizableText style={styles.todayOutputText} numberOfLines={1}>
-              {buildOutputPreview(item.output.content)}
-            </SizableText>
-            <SizableText style={styles.todayOutputCycle}>サイクル{item.cycle_index}</SizableText>
-          </Pressable>
-        ))}
+        <ScrollView
+          style={isScrollable ? styles.todayOutputsScroll : null}
+          scrollEnabled={isScrollable}
+          showsVerticalScrollIndicator={isScrollable}
+          nestedScrollEnabled
+          testID="today-outputs-scroll"
+        >
+          {items.map((item, index) => (
+            <Pressable
+              key={item.output.id}
+              accessibilityRole="button"
+              onPress={() => onSelect(item)}
+              style={({ pressed }) => [
+                styles.todayOutputRow,
+                index < items.length - 1 ? styles.todayOutputRowBorder : null,
+                pressed ? styles.buttonPressed : null,
+              ]}
+              testID={`today-output-row-${item.output.id}`}
+            >
+              <View style={styles.todayOutputIcon}>
+                <PencilIcon size={16} />
+              </View>
+              <SizableText style={styles.todayOutputText} numberOfLines={1}>
+                {buildOutputPreview(item.output.content)}
+              </SizableText>
+              <SizableText style={styles.todayOutputCycle}>サイクル{item.cycle_index}</SizableText>
+            </Pressable>
+          ))}
+        </ScrollView>
       </View>
     </View>
   );
@@ -268,8 +290,14 @@ export function InputScreen() {
   const updateStatus = useUpdateSessionStatus();
   const cancelMutation = useUpdateSessionStatus();
   const currentLoop = useLoopStore((s) => s.currentLoop);
+  const resetLoop = useLoopStore((s) => s.reset);
   const extendTimer = useTimerStore((s) => s.extend);
   const timerStatus = useTimerStore((s) => s.status);
+  const totalSeconds = useTimerStore((s) => s.totalSeconds);
+  // 砂時計の砂量を 1 秒刻みではなく細かく変えるための補間値。
+  // SvgXml が砂進捗の更新ごとに重い XML を再パースするため、毎フレーム (60fps) ではなく
+  // 100ms 間隔 (10fps) に間引いて、視覚的な滑らかさを保ちつつ JS スレッドの負荷を抑える。
+  const smoothRemainingSeconds = useThrottledRemainingSeconds(100);
   const todayOutputsQuery = useTodayOutputs(isFocused);
   const todayOutputItems = todayOutputsQuery.data?.items;
   const todayOutputs = useMemo(() => todayOutputItems ?? [], [todayOutputItems]);
@@ -280,6 +308,34 @@ export function InputScreen() {
   );
   const hasOutputReview = todayOutputs.length > 0;
   const isDetailVisible = selectedOutput !== null;
+  const hourglassSandProgress =
+    totalSeconds > 0 ? Math.min(1, Math.max(0, smoothRemainingSeconds / totalSeconds)) : 1;
+  // 砂時計の積層: 下から青(input) → ピンク(output) → 白(break)。
+  // input 層だけが残量に応じて減り、output / break 層は満タンで上に残る。
+  const hourglassSandLayers = useMemo<readonly HourglassSandLayer[]>(
+    () => [
+      {
+        label: 'input',
+        color: HOURGLASS_INPUT_COLOR,
+        weight: inputMinutes,
+        progress: hourglassSandProgress,
+      },
+      {
+        label: 'output',
+        color: OUTPUT_PHASE_COLOR,
+        weight: outputMinutes,
+        progress: 1,
+      },
+      {
+        label: 'break',
+        color: BREAK_PHASE_COLOR,
+        weight: breakMinutes,
+        progress: 1,
+        opacity: BREAK_PHASE_OPACITY,
+      },
+    ],
+    [inputMinutes, outputMinutes, breakMinutes, hourglassSandProgress],
+  );
 
   const { start, reset } = useTimer({
     enabled: isFocused,
@@ -329,6 +385,7 @@ export function InputScreen() {
             { sessionId, status: 'cancelled' },
             {
               onSuccess: () => {
+                resetLoop();
                 router.replace('/(tabs)');
               },
             },
@@ -359,10 +416,12 @@ export function InputScreen() {
             <HourglassBadge
               currentLoop={currentLoop}
               testIDPrefix="input"
-              activeColor={PRIMARY_COLOR}
-              inactiveColor={TEXT_INACTIVE}
               borderColor={BORDER_COLOR}
               marginBottom={24}
+              sandLayers={hourglassSandLayers}
+              activeLayerIndex={0}
+              showSandStream={timerStatus === 'running'}
+              variant="blue"
             />
           </>
         )}
@@ -484,6 +543,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 4,
     backgroundColor: '#FFFFFF',
+  },
+  todayOutputsScroll: {
+    maxHeight: TODAY_OUTPUT_ROW_HEIGHT * TODAY_OUTPUT_VISIBLE_ROWS,
   },
   todayOutputRow: {
     minHeight: 40,

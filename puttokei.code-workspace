@@ -25,7 +25,8 @@
         "changeProcessCWD": true
       }
     ],
-    "prettier.configPath": "${workspaceFolder:root}/mobile/.prettierrc"
+    "prettier.configPath": "${workspaceFolder:root}/mobile/.prettierrc",
+    "claudeCode.enableNewConversationShortcut": true
   },
   "extensions": {
     "recommendations": [
