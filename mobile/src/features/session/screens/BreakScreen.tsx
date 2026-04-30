@@ -388,9 +388,13 @@ type NextCycleReadyViewProps = {
   onReturnedToBadge?: () => void;
 };
 
-const NEXT_CYCLE_MIX_DURATION_MS = 350;
+const NEXT_CYCLE_DRAIN_DURATION_MS = 800;
 const NEXT_CYCLE_RETURN_DURATION_MS = 600;
-type ExitPhase = 'mixing' | 'returning' | 'done';
+// 回転がリリースされた際に「混色がまだ 1 に達していない」場合の追いつきアニメ尺。
+const NEXT_CYCLE_MIX_CATCHUP_DURATION_MS = 150;
+// mix→drain で 3 色から 1 色に統合された後の砂の色。purple variant SVG の濃い側 (#BA64E8) に揃える。
+const HOURGLASS_MIXED_COLOR = '#BA64E8';
+type ExitPhase = 'draining' | 'returning' | 'done';
 
 function TurnArrow() {
   return (
@@ -468,13 +472,11 @@ function NextCycleReadyView({
   const hasCompletedRotationGesture = useRef(false);
   const hasTriggeredRotationStart = useRef(false);
 
-  // 中央砂時計の SVG XML (blue / purple variant)。
-  // - blue: エントランス〜回し中の表示。バッジと同じ青枠アセットを大きく表示する。
-  // - purple: 回し終え後の「砂が混ざった」状態を示すため、cross-fade で重ねる。
+  // 中央砂時計の SVG XML (blue variant)。バッジと同じ青枠アセットを終始大きく表示する。
+  // 砂の混色・落下は内側の sand layers (HourglassSandLayer) を差し替えて表現するため、
+  // purple variant の SVG は中央表示では使わない。
   const blueHourglassXml = useHourglassBadgeXml(HOURGLASS_VARIANTS.blue.asset);
-  const purpleHourglassXml = useHourglassBadgeXml(HOURGLASS_VARIANTS.purple.asset);
   const blueHourglassConfig = HOURGLASS_VARIANTS.blue;
-  const purpleHourglassConfig = HOURGLASS_VARIANTS.purple;
 
   // エントランスアニメ。entranceOrigin が null のときは即着地状態とする。
   const centerHourglassRef = useRef<View>(null);
@@ -485,11 +487,19 @@ function NextCycleReadyView({
   const entranceOpacity = useSharedValue(entranceOrigin ? 0 : 1);
   const [hasLanded, setHasLanded] = useState(!entranceOrigin);
 
-  // 回し終え後の「色混ぜ → バッジ位置へ戻る」アニメ。
-  // mixProgress: 0 = 青/3層, 1 = 紫 (purple variant)
+  // 回し終え後の「色混ぜ → 砂落下 → バッジ位置へ戻る」アニメ用の各種値。
+  // mixProgress: 0 = 青/ピンク/白 3 層, 1 = 紫 1 層 (位置はどちらも上部チャンバーで満タン)
+  // drainProgress: 1 = 上部に満タン, 0 = 下部に落ちきった (mix 完了後に 1→0)
   const mixProgress = useSharedValue(0);
+  const [drainProgress, setDrainProgress] = useState(1);
   const [exitPhase, setExitPhase] = useState<ExitPhase | null>(null);
   const isExiting = exitPhase !== null;
+
+  // 落下中の紫の砂層。drainProgress が変わるたびに新しい配列にして HourglassBadgeIcon に渡す。
+  const mixedSandLayers = useMemo<readonly HourglassSandLayer[]>(
+    () => [{ label: 'mixed', color: HOURGLASS_MIXED_COLOR, weight: 1, progress: drainProgress }],
+    [drainProgress],
+  );
 
   const startIdleAnimation = useCallback(() => {
     idleAnimation.current?.stop();
@@ -601,8 +611,22 @@ function NextCycleReadyView({
     ],
   });
 
-  // ジェスチャー回転で 1 周以上達成 → mix → return → onStart の連鎖を始める。
-  // entranceOrigin が無い (= エントランスをスキップした) 場合はアニメも省略して即 onStart。
+  // 回し終え時のチェイン (mix → drain → return) を JS 側で進めるための ref。
+  // 各 phase の完了タイミングで親コールバックを呼ぶが、worklet/タイマーから安全に参照
+  // できるよう ref に最新の関数を保持する。
+  const onReturnedToBadgeRef = useRef(onReturnedToBadge);
+  const onStartRef = useRef(onStart);
+  useEffect(() => {
+    onReturnedToBadgeRef.current = onReturnedToBadge;
+  }, [onReturnedToBadge]);
+  useEffect(() => {
+    onStartRef.current = onStart;
+  }, [onStart]);
+
+  // ジェスチャー回転で 1 周以上達成 → 落下 (drain) フェーズへ直行する。
+  // 混色 (mixProgress) は回転中に既にユーザー入力で 0→1 まで進んでいる前提なので、
+  // ここでは念のため 1 に追いつかせるだけ。entranceOrigin が無い (テスト等) 場合は
+  // アニメをスキップして即 onStart。
   const triggerNextCycleByRotation = useCallback(() => {
     if (hasTriggeredRotationStart.current || isStarting) return;
 
@@ -618,38 +642,68 @@ function NextCycleReadyView({
     idleAnimation.current?.stop();
     hourglassRotation.setValue(0);
 
-    setExitPhase('mixing');
-    mixProgress.value = withTiming(
-      1,
-      { duration: NEXT_CYCLE_MIX_DURATION_MS, easing: ReEasing.inOut(ReEasing.cubic) },
-      (mixed) => {
-        if (!mixed) return;
-        runOnJS(setExitPhase)('returning');
-        // entranceProgress を 1 → 0 に逆再生し、バッジ位置・バッジサイズへ戻す。
-        entranceProgress.value = withTiming(
-          0,
-          {
-            duration: NEXT_CYCLE_RETURN_DURATION_MS,
-            easing: ReEasing.in(ReEasing.cubic),
-          },
-          (returned) => {
-            if (!returned) return;
-            runOnJS(setExitPhase)('done');
-            if (onReturnedToBadge) runOnJS(onReturnedToBadge)();
-            runOnJS(onStart)();
-          },
-        );
+    // 1 をわずかに割っているケースに備えて、短いタイミングで 1 へ寄せる。
+    if (mixProgress.value < 1) {
+      mixProgress.value = withTiming(1, {
+        duration: NEXT_CYCLE_MIX_CATCHUP_DURATION_MS,
+        easing: ReEasing.out(ReEasing.cubic),
+      });
+    }
+
+    setDrainProgress(1);
+    setExitPhase('draining');
+  }, [entranceOrigin, hourglassRotation, isStarting, mixProgress, onStart]);
+
+  // drain phase: 紫 1 層の progress を 1→0 に動かして上部から下部へ砂を落下させる。
+  // SVG の sand overlay は JS スレッドでビルドされるため、Reanimated でなく React state を
+  // ~30fps で更新する。
+  useEffect(() => {
+    if (exitPhase !== 'draining') return;
+    let rafId: number | null = null;
+    const startTime = Date.now();
+    const tick = () => {
+      const elapsed = Date.now() - startTime;
+      const t = Math.min(1, elapsed / NEXT_CYCLE_DRAIN_DURATION_MS);
+      // ease-in: 落下開始はゆっくり、後半で素早く落ちきる感じ。
+      const eased = t * t;
+      setDrainProgress(Math.max(0, 1 - eased));
+      if (t < 1) {
+        rafId = requestAnimationFrame(tick);
+      } else {
+        setExitPhase('returning');
+      }
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
+  }, [exitPhase]);
+
+  // return phase: entranceProgress を 1→0 に逆再生してバッジ位置へ移動・縮小。
+  // 完了時は worklet からは setExitPhase('done') のみを runOnJS する。
+  // 「+1」と「onStart」は次の useEffect (exitPhase==='done' 監視) で React レンダー後に呼ぶ。
+  // worklet コールバック内で複数 setState + 関数呼び出しを連続実行すると、router.push と
+  // Reanimated cleanup が衝突して落ちることがあるため、必ず一段噛ませる。
+  useEffect(() => {
+    if (exitPhase !== 'returning') return;
+    entranceProgress.value = withTiming(
+      0,
+      { duration: NEXT_CYCLE_RETURN_DURATION_MS, easing: ReEasing.in(ReEasing.cubic) },
+      (returned) => {
+        if (!returned) return;
+        runOnJS(setExitPhase)('done');
       },
     );
-  }, [
-    entranceOrigin,
-    entranceProgress,
-    hourglassRotation,
-    isStarting,
-    mixProgress,
-    onReturnedToBadge,
-    onStart,
-  ]);
+  }, [entranceProgress, exitPhase]);
+
+  // exitPhase が 'done' になった = バッジ位置への return が完了したタイミングで、
+  // displayedLoop の +1 (onReturnedToBadge) と createSession トリガー (onStart) を順に呼ぶ。
+  // ここは React レンダー後の同期 JS なので、router.push と worklet 完了の競合を起こさない。
+  useEffect(() => {
+    if (exitPhase !== 'done') return;
+    onReturnedToBadgeRef.current?.();
+    onStartRef.current();
+  }, [exitPhase]);
 
   const handleRotationAreaLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
@@ -676,6 +730,8 @@ function NextCycleReadyView({
           hasCompletedRotationGesture.current = false;
           hourglassRotation.setValue(0);
           hasTriggeredRotationStart.current = false;
+          // 新しいジェスチャー開始時は混色を初期化する。
+          mixProgress.value = 0;
         },
         onPanResponderMove: (event) => {
           if (isStarting || hasTriggeredRotationStart.current) return;
@@ -707,9 +763,19 @@ function NextCycleReadyView({
             lastTouchAngle.current = currentAngle;
           }
 
+          // 混色は回転量 (= 完了判定で使う metric) に比例して 0→1 まで進める。
+          // ユーザーが回している途中で「だんだん混ざる」見え方を作る。
+          const rotationAmount = Math.max(
+            Math.abs(draggedRotation.current),
+            pathRotation.current,
+          );
+          mixProgress.value = Math.min(
+            1,
+            rotationAmount / NEXT_CYCLE_ROTATE_THRESHOLD_DEGREES,
+          );
+
           hasCompletedRotationGesture.current =
-            Math.max(Math.abs(draggedRotation.current), pathRotation.current) >=
-            NEXT_CYCLE_ROTATE_THRESHOLD_DEGREES;
+            rotationAmount >= NEXT_CYCLE_ROTATE_THRESHOLD_DEGREES;
         },
         onPanResponderRelease: () => {
           const shouldStart = hasCompletedRotationGesture.current;
@@ -723,6 +789,11 @@ function NextCycleReadyView({
             triggerNextCycleByRotation();
           } else {
             hourglassRotation.setValue(0);
+            // 未達成のリリースは混色も逆再生で 0 に戻す。
+            mixProgress.value = withTiming(0, {
+              duration: NEXT_CYCLE_MIX_CATCHUP_DURATION_MS,
+              easing: ReEasing.out(ReEasing.cubic),
+            });
             startIdleAnimation();
           }
         },
@@ -734,6 +805,10 @@ function NextCycleReadyView({
           hasCompletedRotationGesture.current = false;
           if (!hasTriggeredRotationStart.current) {
             hourglassRotation.setValue(0);
+            mixProgress.value = withTiming(0, {
+              duration: NEXT_CYCLE_MIX_CATCHUP_DURATION_MS,
+              easing: ReEasing.out(ReEasing.cubic),
+            });
             startIdleAnimation();
           }
         },
@@ -743,6 +818,7 @@ function NextCycleReadyView({
       hourglassRotation,
       isExiting,
       isStarting,
+      mixProgress,
       startIdleAnimation,
       triggerNextCycleByRotation,
     ],
@@ -790,7 +866,12 @@ function NextCycleReadyView({
                   },
                 ]}
               >
-                {/* 紫 (混色後) を下に敷き、青/3層を上に重ねて mixProgress で cross-fade する。 */}
+                {/*
+                  下層: 紫 1 層 (mix 後の砂)。drainProgress に従って上部 → 下部へ落下する。
+                  上層: 青/ピンク/白 3 層 (mix 前の砂)。mixProgress で fade-out して下層へ譲る。
+                  どちらも同じ青枠 SVG (blueHourglassXml) を使うため、cross-fade 中は枠線が
+                  ブレない。
+                */}
                 <ReAnimated.View
                   style={[
                     StyleSheet.absoluteFillObject,
@@ -803,12 +884,12 @@ function NextCycleReadyView({
                     active
                     width={hourglassWidth}
                     height={hourglassHeight}
-                    layers={[]}
+                    layers={mixedSandLayers}
                     activeLayerIndex={0}
-                    showSandStream={false}
-                    xml={purpleHourglassXml}
-                    config={purpleHourglassConfig}
-                    testID="break-next-cycle-hourglass-icon-purple"
+                    showSandStream={isExiting}
+                    xml={blueHourglassXml}
+                    config={blueHourglassConfig}
+                    testID="break-next-cycle-hourglass-icon-mixed"
                   />
                 </ReAnimated.View>
                 <ReAnimated.View
