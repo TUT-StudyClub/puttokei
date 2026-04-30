@@ -742,7 +742,7 @@ function NextCycleReadyView({
 
           if (currentAngle !== null && lastTouchAngle.current !== null) {
             const rotationDelta =
-              normalizeRotationDelta(lastTouchAngle.current - currentAngle) *
+              normalizeRotationDelta(currentAngle - lastTouchAngle.current) *
               NEXT_CYCLE_ROTATION_SENSITIVITY;
             const nextRotation = clampRotation(draggedRotation.current + rotationDelta);
             draggedRotation.current = nextRotation;
