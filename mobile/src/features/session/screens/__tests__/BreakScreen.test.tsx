@@ -5,6 +5,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
+import { Path, Rect } from 'react-native-svg';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../../tamagui.config';
@@ -117,6 +118,74 @@ describe('BreakScreen', () => {
     expect(getByTestId('break-progress-card')).toBeTruthy();
     expect(useTimerStore.getState().phase).toBe('break');
     expect(useTimerStore.getState().totalSeconds).toBe(60);
+  });
+
+  it('休憩中の砂時計は上部が白のみ・下部に青/ピンク/白が積もり、ストリームは白色', () => {
+    const { UNSAFE_getAllByType } = renderWithProviders(<BreakScreen />);
+
+    // route params は input='20', output='5', break='1' (合計 26 分)。break 50% 経過。
+    act(() => {
+      useTimerStore.setState({
+        totalSeconds: 60,
+        remainingSeconds: 30,
+        status: 'running',
+      });
+    });
+
+    const upperClip = 'url(#hourglassBadgeBlueUpperSandClip)';
+    const lowerClip = 'url(#hourglassBadgeBlueLowerSandClip)';
+
+    const upperPaths = UNSAFE_getAllByType(Path).filter(
+      (path) => path.props.clipPath === upperClip,
+    );
+    // 上部は白 (break) のみ。input/output は progress=0 なので上部に出ない。
+    const whiteUpper = upperPaths.find((path) => path.props.fill === '#FFFFFF');
+    expect(whiteUpper).toBeTruthy();
+    expect(whiteUpper?.props.fillOpacity).toBe(0.92);
+    expect(upperPaths.find((path) => path.props.fill === '#4B5CFF')).toBeUndefined();
+    expect(upperPaths.find((path) => path.props.fill === '#EC4899')).toBeUndefined();
+
+    // 下部には input(青) / output(ピンク) / break(白) の 3 色が積もる。
+    const lowerPaths = UNSAFE_getAllByType(Path).filter(
+      (path) => path.props.clipPath === lowerClip,
+    );
+    expect(lowerPaths.find((path) => path.props.fill === '#4B5CFF')).toBeTruthy();
+    expect(lowerPaths.find((path) => path.props.fill === '#EC4899')).toBeTruthy();
+    expect(lowerPaths.find((path) => path.props.fill === '#FFFFFF')).toBeTruthy();
+
+    // ストリームは active = 白。blue variant の width=0.43 / height=7.41 で同定する。
+    const streamRect = UNSAFE_getAllByType(Rect).find(
+      (rect) => rect.props.fill === '#FFFFFF' && rect.props.width === 0.43,
+    );
+    expect(streamRect).toBeTruthy();
+    expect(streamRect?.props.height).toBe(7.41);
+  });
+
+  it('休憩終了直後 (remaining=0) は上部に砂が無く、下部に青/ピンク/白が積もる', () => {
+    const { UNSAFE_getAllByType } = renderWithProviders(<BreakScreen />);
+
+    act(() => {
+      useTimerStore.setState({
+        totalSeconds: 60,
+        remainingSeconds: 0,
+        status: 'running',
+      });
+    });
+
+    const upperClip = 'url(#hourglassBadgeBlueUpperSandClip)';
+    const lowerClip = 'url(#hourglassBadgeBlueLowerSandClip)';
+
+    const upperPaths = UNSAFE_getAllByType(Path).filter(
+      (path) => path.props.clipPath === upperClip,
+    );
+    expect(upperPaths).toHaveLength(0);
+
+    const lowerPaths = UNSAFE_getAllByType(Path).filter(
+      (path) => path.props.clipPath === lowerClip,
+    );
+    expect(lowerPaths.find((path) => path.props.fill === '#4B5CFF')).toBeTruthy();
+    expect(lowerPaths.find((path) => path.props.fill === '#EC4899')).toBeTruthy();
+    expect(lowerPaths.find((path) => path.props.fill === '#FFFFFF')).toBeTruthy();
   });
 
   it('タイマー完了で休憩完了画面を表示し、result へ自動遷移しない', async () => {

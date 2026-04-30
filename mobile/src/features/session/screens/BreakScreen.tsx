@@ -39,13 +39,18 @@ import { createSession } from '@/features/session/api/sessionApi';
 import {
   CircularPhaseTimer,
   HourglassBadge,
+  type HourglassSandLayer,
   PhaseTabs,
   type SessionPhase,
   SessionSettingsButton,
 } from '@/features/session/components/SessionPhaseChrome';
 import { DEFAULT_TIMER } from '@/features/session/config';
 import { useJudgment } from '@/features/session/hooks/useJudgment';
-import { useSmoothRemainingSeconds, useTimer } from '@/features/session/hooks/useTimer';
+import {
+  useSmoothRemainingSeconds,
+  useThrottledRemainingSeconds,
+  useTimer,
+} from '@/features/session/hooks/useTimer';
 import type { CreateSessionInput, Session } from '@/features/session/types';
 import { LOOP_COUNT_MAX, useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
@@ -71,6 +76,12 @@ const DOT_INACTIVE = '#D9D9D9';
 const BORDER_COLOR = '#E5E7EB';
 const CAPTION_COLOR = '#777777';
 const ERROR_COLOR = '#D92D20';
+
+// 砂時計の砂積層に使う色。input=青 / output=ピンク / break=白。
+const HOURGLASS_INPUT_COLOR = '#4B5CFF';
+const HOURGLASS_OUTPUT_COLOR = '#EC4899';
+const HOURGLASS_BREAK_COLOR = '#FFFFFF';
+const HOURGLASS_BREAK_OPACITY = 0.92;
 
 // 下部の「採点進捗カード」用トークン。濃い背景に青いプログレスバーを乗せる。
 const PROGRESS_CARD_BG = '#2A2A2E';
@@ -770,6 +781,37 @@ export function BreakScreen() {
   );
   const progressPercent = isJudgmentReady ? 100 : pendingProgress;
 
+  const timerStatus = useTimerStore((s) => s.status);
+  const throttledRemainingSeconds = useThrottledRemainingSeconds(100);
+
+  // 休憩中だけ白の残量を反映する。完了 / 次サイクル準備中は 0 として扱い、白も下に積もりきった見た目にする。
+  const hourglassSandProgress =
+    screenMode === 'resting' && totalSeconds > 0
+      ? Math.min(1, Math.max(0, throttledRemainingSeconds / totalSeconds))
+      : 0;
+
+  // input / output の砂は既に下部に積もりきっている (progress=0)。
+  // break のみが active として上から減っていく。
+  const hourglassSandLayers = useMemo<readonly HourglassSandLayer[]>(
+    () => [
+      { label: 'input', color: HOURGLASS_INPUT_COLOR, weight: inputMinutes, progress: 0 },
+      { label: 'output', color: HOURGLASS_OUTPUT_COLOR, weight: outputMinutes, progress: 0 },
+      {
+        label: 'break',
+        color: HOURGLASS_BREAK_COLOR,
+        weight: breakMinutes,
+        progress: hourglassSandProgress,
+        opacity: HOURGLASS_BREAK_OPACITY,
+      },
+    ],
+    [inputMinutes, outputMinutes, breakMinutes, hourglassSandProgress],
+  );
+
+  // 次サイクル準備中は「これから始まる新しいサイクル」を表すため、砂層を渡さず素のアセットを表示する。
+  const effectiveSandLayers: readonly HourglassSandLayer[] =
+    screenMode === 'nextCycle' ? [] : hourglassSandLayers;
+  const showSandStream = screenMode === 'resting' && timerStatus === 'running';
+
   const { start, reset } = useTimer({
     enabled: isFocused && screenMode === 'resting',
     onComplete: () => {
@@ -845,6 +887,9 @@ export function BreakScreen() {
             borderColor={BORDER_COLOR}
             marginBottom={0}
             variant="blue"
+            sandLayers={effectiveSandLayers}
+            activeLayerIndex={2}
+            showSandStream={showSandStream}
           />
         </View>
 
