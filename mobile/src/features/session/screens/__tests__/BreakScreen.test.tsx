@@ -74,6 +74,15 @@ function rotationResponderEvent(
   };
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+
+  return { promise, resolve };
+}
+
 describe('BreakScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -219,10 +228,11 @@ describe('BreakScreen', () => {
     expect(getByTestId('break-next-cycle-view')).toBeTruthy();
     expect(getByText('砂時計を回して次のサイクルを回そう！')).toBeTruthy();
     expect(getByTestId('break-next-cycle-cancel')).toBeTruthy();
+    expect(useLoopStore.getState().currentLoop).toBe(1);
   });
 
-  it('次サイクル準備画面の砂時計を回転させると新しいセッションを作成し input へ遷移する', async () => {
-    (sessionApi.createSession as jest.Mock).mockResolvedValue({
+  it('次サイクル準備画面の砂時計を回転させ、セッション作成成功後にだけループを進める', async () => {
+    const nextSession = {
       id: 'ses-next',
       user_id: 'usr-1',
       status: 'input',
@@ -234,7 +244,9 @@ describe('BreakScreen', () => {
       started_at: '2026-04-10T15:30:00.000Z',
       completed_at: null,
       created_at: '2026-04-10T15:30:00.000Z',
-    });
+    };
+    const createSessionDeferred = createDeferred<typeof nextSession>();
+    (sessionApi.createSession as jest.Mock).mockReturnValue(createSessionDeferred.promise);
 
     const { getByTestId } = renderWithProviders(<BreakScreen />);
 
@@ -293,6 +305,14 @@ describe('BreakScreen', () => {
         break_minutes: 1,
       });
     });
+    expect(useLoopStore.getState().currentLoop).toBe(1);
+    expect(mockPush).not.toHaveBeenCalled();
+
+    await act(async () => {
+      createSessionDeferred.resolve(nextSession);
+      await Promise.resolve();
+    });
+
     await waitFor(() => {
       expect(mockPush).toHaveBeenCalledWith({
         pathname: '/session/[id]/input',

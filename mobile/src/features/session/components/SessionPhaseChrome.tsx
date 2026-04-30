@@ -971,10 +971,18 @@ export function HourglassBadge({
             />
           );
           // active バッジには測定用の wrapper View を被せて ref を forward する。
-          // 非 active 側は従来どおり直接配置し、レイアウト差分を最小化する。
+          // wrapper には明示サイズを当てて、flex の暗黙縮小や collapse による 0 サイズ化を防ぐ
+          // (= measureInWindow で確実にバッジ中心を取れるようにする)。
           if (isActive && activeIconRef) {
+            const activeWidth = iconConfig.baseWidth * HOURGLASS_BADGE_ACTIVE_SCALE;
+            const activeHeight = iconConfig.baseHeight * HOURGLASS_BADGE_ACTIVE_SCALE;
             return (
-              <View key={index} ref={activeIconRef} collapsable={false}>
+              <View
+                key={index}
+                ref={activeIconRef}
+                collapsable={false}
+                style={{ width: activeWidth, height: activeHeight }}
+              >
                 {iconElement}
               </View>
             );

@@ -61,7 +61,7 @@ import {
   useTimer,
 } from '@/features/session/hooks/useTimer';
 import type { CreateSessionInput, Session } from '@/features/session/types';
-import { LOOP_COUNT_MAX, useLoopStore } from '@/shared/stores/loopStore';
+import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
 const SETTINGS_ROUTE = '/(tabs)/settings' as unknown as Href;
@@ -381,11 +381,6 @@ type NextCycleReadyViewProps = {
    * `null` の場合はアニメをスキップして即着地状態にする。
    */
   entranceOrigin: { x: number; y: number } | null;
-  /**
-   * 砂時計を回した後の return アニメが画面上部のバッジ位置に着地したタイミングで呼ばれる。
-   * BreakScreen 側で `displayedLoop` を進めて、完了したループの色を紫に切り替えるために使う。
-   */
-  onReturnedToBadge?: () => void;
 };
 
 const NEXT_CYCLE_DRAIN_DURATION_MS = 800;
@@ -456,7 +451,6 @@ function NextCycleReadyView({
   onStart,
   onCancel,
   entranceOrigin,
-  onReturnedToBadge,
 }: NextCycleReadyViewProps) {
   const hourglassRotation = useRef(new Animated.Value(-NEXT_CYCLE_IDLE_ROTATION_DEGREES)).current;
   const idleAnimation = useRef<Animated.CompositeAnimation | null>(null);
@@ -610,14 +604,9 @@ function NextCycleReadyView({
     ],
   });
 
-  // 回し終え時のチェイン (mix → drain → return) を JS 側で進めるための ref。
-  // 各 phase の完了タイミングで親コールバックを呼ぶが、worklet/タイマーから安全に参照
-  // できるよう ref に最新の関数を保持する。
-  const onReturnedToBadgeRef = useRef(onReturnedToBadge);
+  // 回し終え時のチェイン (drain → return) 完了時に onStart を呼ぶための ref。
+  // worklet コールバック / タイマーから安全に参照できるよう、最新の関数を保持する。
   const onStartRef = useRef(onStart);
-  useEffect(() => {
-    onReturnedToBadgeRef.current = onReturnedToBadge;
-  }, [onReturnedToBadge]);
   useEffect(() => {
     onStartRef.current = onStart;
   }, [onStart]);
@@ -695,12 +684,11 @@ function NextCycleReadyView({
     );
   }, [entranceProgress, exitPhase]);
 
-  // exitPhase が 'done' になった = バッジ位置への return が完了したタイミングで、
-  // displayedLoop の +1 (onReturnedToBadge) と createSession トリガー (onStart) を順に呼ぶ。
+  // exitPhase が 'done' = バッジ位置への return が完了したタイミングで createSession を起動する。
   // ここは React レンダー後の同期 JS なので、router.push と worklet 完了の競合を起こさない。
+  // ループ進行 (= バッジを紫に進める) は createNextCycle.onSuccess 内の incrementLoop に任せる。
   useEffect(() => {
     if (exitPhase !== 'done') return;
-    onReturnedToBadgeRef.current?.();
     onStartRef.current();
   }, [exitPhase]);
 
@@ -970,9 +958,6 @@ export function BreakScreen() {
   const activeBadgeIconRef = useRef<View>(null);
   const badgeOriginRef = useRef<{ x: number; y: number } | null>(null);
   const [entranceOrigin, setEntranceOrigin] = useState<{ x: number; y: number } | null>(null);
-  // mix→return アニメ着地と同時に上部バッジの色を進めるためのフラグ。
-  // true で「終わったループ」を紫、次のループを青で表示する (= displayedLoop = currentLoop + 1)。
-  const [advanceLoopVisual, setAdvanceLoopVisual] = useState(false);
 
   const judgmentQuery = useJudgment(sessionId);
   const isJudgmentReady = judgmentQuery.data?.kind === 'ready';
@@ -1065,31 +1050,32 @@ export function BreakScreen() {
     router.replace('/(tabs)');
   };
 
+  const measureActiveBadgeOrigin = useCallback(() => {
+    let measuredOrigin: { x: number; y: number } | null = null;
+    activeBadgeIconRef.current?.measureInWindow((x, y, w, h) => {
+      if (w > 0 && h > 0) {
+        const origin = { x: x + w / 2, y: y + h / 2 };
+        measuredOrigin = origin;
+        badgeOriginRef.current = origin;
+      }
+    });
+
+    return measuredOrigin ?? badgeOriginRef.current;
+  }, []);
+
   // 進行中サイクル (currentLoop) の砂時計の中心を window 座標で測ってキャッシュする。
   // バッジ列の onLayout から呼び出すことで、初回マウント以降の再レイアウトにも追従する。
   // tests のように measureInWindow が非同期で fire しない環境では origin が null のままになり、
   // エントランスアニメはスキップされる (NextCycleReadyView 側で即着地)。
   const handleBadgeStackLayout = useCallback(() => {
-    activeBadgeIconRef.current?.measureInWindow((x, y, w, h) => {
-      if (w > 0 && h > 0) {
-        badgeOriginRef.current = { x: x + w / 2, y: y + h / 2 };
-      }
-    });
-  }, []);
+    measureActiveBadgeOrigin();
+  }, [measureActiveBadgeOrigin]);
 
-  // 「次のサイクルへ」ボタン押下: キャッシュ済みのバッジ位置を流し込み、即 nextCycle へ遷移。
-  // 過去の遷移で立てた advance フラグもリセットしておく。
+  // 「次のサイクルへ」ボタン押下: 可能なら直前の実測値を使い、取れない場合はキャッシュ済み位置へフォールバックする。
   const handleEnterNextCycle = useCallback(() => {
-    setEntranceOrigin(badgeOriginRef.current);
-    setAdvanceLoopVisual(false);
+    setEntranceOrigin(measureActiveBadgeOrigin());
     setScreenMode('nextCycle');
-  }, []);
-
-  // mix→return アニメで中央砂時計が「画面上部のバッジ位置」に着地したタイミングで呼ばれる。
-  // この瞬間に displayedLoop を +1 して、終わったループを紫・次のループを青で見せる。
-  const handleReturnedToBadge = useCallback(() => {
-    setAdvanceLoopVisual(true);
-  }, []);
+  }, [measureActiveBadgeOrigin]);
 
   const captionText = isJudgmentReady
     ? '休憩後次のサイクルを回すか決めることができます。'
@@ -1099,13 +1085,11 @@ export function BreakScreen() {
   const usesCompletedPhasePalette = screenMode === 'completed' || isNextCycleMode;
   const displayedPhase = usesCompletedPhasePalette ? null : CURRENT_PHASE;
   const phaseActiveColor = BREAK_COLOR;
-  // フロー要件:
-  // - 1: 休憩終了時、紫にしない → currentLoop のまま
-  // - 2: 完了画面でも紫にしない → currentLoop のまま
-  // - 3: 砂時計回し画面 (まだ回す前) でも紫にしない → currentLoop のまま
-  // - 4: 回し終え後 mix→return が着地した瞬間、終わったループを紫化・次のループを青化
-  // → advanceLoopVisual === true のときに +1 する。
-  const displayedLoop = advanceLoopVisual ? Math.min(currentLoop + 1, LOOP_COUNT_MAX) : currentLoop;
+  // ループ進行 (= 終わったループを紫化、次を青化) はここでは行わない。
+  // return アニメで戻ってきた砂時計を「現在 active な青バッジ」と完全に重ねるため、
+  // バッジ列のレイアウトは触らずに据え置く。実際のループ進行は createNextCycle.onSuccess
+  // 内の incrementLoop() に任せ、router.push と同タイミングで自然に反映される。
+  const displayedLoop = currentLoop;
   const completedPhaseColors = usesCompletedPhasePalette ? COMPLETED_PHASE_COLORS : undefined;
 
   return (
@@ -1168,7 +1152,6 @@ export function BreakScreen() {
             onStart={handleStartNextCycle}
             onCancel={handleCancelNextCycle}
             entranceOrigin={entranceOrigin}
-            onReturnedToBadge={handleReturnedToBadge}
           />
         )}
       </View>
