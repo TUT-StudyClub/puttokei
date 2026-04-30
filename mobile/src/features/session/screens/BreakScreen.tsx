@@ -47,6 +47,7 @@ import {
   HOURGLASS_VARIANTS,
   HourglassBadge,
   HourglassBadgeIcon,
+  HourglassBadgeSandOverlay,
   type HourglassSandLayer,
   PhaseTabs,
   type SessionPhase,
@@ -70,6 +71,10 @@ const NEXT_CYCLE_HOURGLASS_ASPECT_RATIO =
   HOURGLASS_VARIANTS.blue.baseHeight / HOURGLASS_VARIANTS.blue.baseWidth;
 const NEXT_CYCLE_ENTRANCE_DURATION_MS = 600;
 const NEXT_CYCLE_IDLE_ROTATION_DEGREES = 5;
+// 砂塊の追加揺れ。枠より少し振幅を大きくして「中の砂が慣性で振られる」感じを作る。
+const NEXT_CYCLE_SAND_SLOSH_AMPLITUDE_DEGREES = NEXT_CYCLE_IDLE_ROTATION_DEGREES * 1.15;
+// 枠の揺れに対して砂揺れを位相遅れで開始することで、剛体ではない追従に見せる。
+const NEXT_CYCLE_SAND_SLOSH_DELAY_MS = 180;
 const NEXT_CYCLE_ROTATE_THRESHOLD_DEGREES = 360;
 const NEXT_CYCLE_MAX_DRAG_ROTATION_DEGREES = 1080;
 const NEXT_CYCLE_ROTATION_SENSITIVITY = 1.25;
@@ -454,6 +459,15 @@ function NextCycleReadyView({
 }: NextCycleReadyViewProps) {
   const hourglassRotation = useRef(new Animated.Value(-NEXT_CYCLE_IDLE_ROTATION_DEGREES)).current;
   const idleAnimation = useRef<Animated.CompositeAnimation | null>(null);
+  // 砂塊だけに掛ける追加の rotate 値。枠より位相が遅れた揺れを駆動する。
+  const sandSloshValue = useRef(
+    new Animated.Value(-NEXT_CYCLE_SAND_SLOSH_AMPLITUDE_DEGREES),
+  ).current;
+  const sandIdleAnimation = useRef<Animated.CompositeAnimation | null>(null);
+  // 砂の表面 (谷 / 山) を中心からどれだけ左右にずらすか (-1..1)。
+  // sandSloshValue を購読して 30fps 程度で再描画する。
+  // 初期は中央 (傾きなし) で表示しておき、idle 開始後に listener が値を流し込む。
+  const [surfaceTilt, setSurfaceTilt] = useState(0);
   const { height: windowHeight } = useWindowDimensions();
   const isCompactHeight = windowHeight < 820;
   const hourglassHeight = isCompactHeight ? 258 : 286;
@@ -497,7 +511,9 @@ function NextCycleReadyView({
 
   const startIdleAnimation = useCallback(() => {
     idleAnimation.current?.stop();
+    sandIdleAnimation.current?.stop();
     hourglassRotation.setValue(-NEXT_CYCLE_IDLE_ROTATION_DEGREES);
+    sandSloshValue.setValue(-NEXT_CYCLE_SAND_SLOSH_AMPLITUDE_DEGREES);
     const animation = Animated.loop(
       Animated.sequence([
         Animated.timing(hourglassRotation, {
@@ -517,7 +533,30 @@ function NextCycleReadyView({
 
     idleAnimation.current = animation;
     animation.start();
-  }, [hourglassRotation]);
+
+    // 砂揺れは枠と同じ周期だが Animated.delay で開始タイミングを遅らせ、視覚上の位相遅れを作る。
+    // useNativeDriver を有効にするのは rotate transform 用、surfaceTilt の購読は addListener 経由。
+    const sandAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.delay(NEXT_CYCLE_SAND_SLOSH_DELAY_MS),
+        Animated.timing(sandSloshValue, {
+          toValue: NEXT_CYCLE_SAND_SLOSH_AMPLITUDE_DEGREES,
+          duration: 1400,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(sandSloshValue, {
+          toValue: -NEXT_CYCLE_SAND_SLOSH_AMPLITUDE_DEGREES,
+          duration: 1400,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    sandIdleAnimation.current = sandAnimation;
+    sandAnimation.start();
+  }, [hourglassRotation, sandSloshValue]);
 
   // 着地後 (= entrance 完了) かつ exit 開始前のあいだだけ idle 回転を再生する。
   // 回し中の固定 / 回し終え後の mix+return 中は idle を止め、ジェスチャー結果の rotate を保持する。
@@ -526,8 +565,24 @@ function NextCycleReadyView({
     startIdleAnimation();
     return () => {
       idleAnimation.current?.stop();
+      sandIdleAnimation.current?.stop();
     };
   }, [hasLanded, isExiting, startIdleAnimation]);
+
+  // sandSloshValue の角度を購読して、砂表面 (谷 / 山) の傾き (-1..1) を 30fps 程度で更新する。
+  // useNativeDriver の rotate transform と並行に SVG の path を再生成する用途。
+  useEffect(() => {
+    const id = sandSloshValue.addListener(({ value }) => {
+      const next = Math.max(
+        -1,
+        Math.min(1, value / NEXT_CYCLE_SAND_SLOSH_AMPLITUDE_DEGREES),
+      );
+      setSurfaceTilt(next);
+    });
+    return () => {
+      sandSloshValue.removeListener(id);
+    };
+  }, [sandSloshValue]);
 
   // 中央位置のレイアウト確定をトリガーに、バッジ位置 → 中央への transform 補間を仕込む。
   const handleCenterHourglassLayout = useCallback(() => {
@@ -604,6 +659,18 @@ function NextCycleReadyView({
     ],
   });
 
+  // 砂塊だけに掛ける rotate transform。枠の rotate に重ねて、位相遅れの揺れを表現する。
+  const sandSloshRotationStyle = sandSloshValue.interpolate({
+    inputRange: [-NEXT_CYCLE_SAND_SLOSH_AMPLITUDE_DEGREES, NEXT_CYCLE_SAND_SLOSH_AMPLITUDE_DEGREES],
+    outputRange: [
+      `${-NEXT_CYCLE_SAND_SLOSH_AMPLITUDE_DEGREES}deg`,
+      `${NEXT_CYCLE_SAND_SLOSH_AMPLITUDE_DEGREES}deg`,
+    ],
+    extrapolate: 'clamp',
+  });
+
+  const sandOverlayViewBox = `0 0 ${blueHourglassConfig.viewBoxWidth} ${blueHourglassConfig.viewBoxHeight}`;
+
   // 回し終え時のチェイン (drain → return) 完了時に onStart を呼ぶための ref。
   // worklet コールバック / タイマーから安全に参照できるよう、最新の関数を保持する。
   const onStartRef = useRef(onStart);
@@ -628,7 +695,9 @@ function NextCycleReadyView({
     // ジェスチャーで残った回転は 0 に即値リセット。SVG は 0° と 360n° で見た目が
     // 同じため、巻き戻しアニメは行わず、外側の translate+scale で視覚を引っ張る。
     idleAnimation.current?.stop();
+    sandIdleAnimation.current?.stop();
     hourglassRotation.setValue(0);
+    sandSloshValue.setValue(0);
 
     // 1 をわずかに割っているケースに備えて、短いタイミングで 1 へ寄せる。
     if (mixProgress.value < 1) {
@@ -640,7 +709,7 @@ function NextCycleReadyView({
 
     setDrainProgress(1);
     setExitPhase('draining');
-  }, [entranceOrigin, hourglassRotation, isStarting, mixProgress, onStart]);
+  }, [entranceOrigin, hourglassRotation, isStarting, mixProgress, onStart, sandSloshValue]);
 
   // drain phase: 紫 1 層の progress を 1→0 に動かして上部から下部へ砂を落下させる。
   // SVG の sand overlay は JS スレッドでビルドされるため、Reanimated でなく React state を
@@ -710,12 +779,15 @@ function NextCycleReadyView({
         onMoveShouldSetPanResponder: () => hasLanded && !isExiting && !isStarting,
         onPanResponderGrant: (event) => {
           idleAnimation.current?.stop();
+          sandIdleAnimation.current?.stop();
           lastTouchAngle.current = getGestureAngle(event, rotationAreaSize.current);
           lastTouchPoint.current = getGesturePoint(event);
           draggedRotation.current = 0;
           pathRotation.current = 0;
           hasCompletedRotationGesture.current = false;
           hourglassRotation.setValue(0);
+          // ジェスチャー中は砂揺れを止めて中央に戻す。表面 tilt も中央に戻る。
+          sandSloshValue.setValue(0);
           hasTriggeredRotationStart.current = false;
           // 新しいジェスチャー開始時は混色を初期化する。
           mixProgress.value = 0;
@@ -800,6 +872,7 @@ function NextCycleReadyView({
       isExiting,
       isStarting,
       mixProgress,
+      sandSloshValue,
       startIdleAnimation,
       triggerNextCycleByRotation,
     ],
@@ -865,13 +938,35 @@ function NextCycleReadyView({
                     active
                     width={hourglassWidth}
                     height={hourglassHeight}
-                    layers={mixedSandLayers}
+                    layers={[]}
                     activeLayerIndex={0}
-                    showSandStream={isExiting}
+                    showSandStream={false}
                     xml={blueHourglassXml}
                     config={blueHourglassConfig}
                     testID="break-next-cycle-hourglass-icon-mixed"
                   />
+                  <Animated.View
+                    style={[
+                      StyleSheet.absoluteFillObject,
+                      { transform: [{ rotate: sandSloshRotationStyle }] },
+                    ]}
+                    pointerEvents="none"
+                  >
+                    <Svg
+                      width={hourglassWidth}
+                      height={hourglassHeight}
+                      viewBox={sandOverlayViewBox}
+                      preserveAspectRatio="xMidYMid meet"
+                    >
+                      <HourglassBadgeSandOverlay
+                        layers={mixedSandLayers}
+                        activeLayerIndex={0}
+                        showStream={isExiting}
+                        config={blueHourglassConfig}
+                        surfaceTilt={surfaceTilt}
+                      />
+                    </Svg>
+                  </Animated.View>
                 </ReAnimated.View>
                 <ReAnimated.View
                   style={[
@@ -885,13 +980,35 @@ function NextCycleReadyView({
                     active
                     width={hourglassWidth}
                     height={hourglassHeight}
-                    layers={NEXT_CYCLE_FULL_SAND_LAYERS}
+                    layers={[]}
                     activeLayerIndex={0}
                     showSandStream={false}
                     xml={blueHourglassXml}
                     config={blueHourglassConfig}
                     testID="break-next-cycle-hourglass-icon"
                   />
+                  <Animated.View
+                    style={[
+                      StyleSheet.absoluteFillObject,
+                      { transform: [{ rotate: sandSloshRotationStyle }] },
+                    ]}
+                    pointerEvents="none"
+                  >
+                    <Svg
+                      width={hourglassWidth}
+                      height={hourglassHeight}
+                      viewBox={sandOverlayViewBox}
+                      preserveAspectRatio="xMidYMid meet"
+                    >
+                      <HourglassBadgeSandOverlay
+                        layers={NEXT_CYCLE_FULL_SAND_LAYERS}
+                        activeLayerIndex={0}
+                        showStream={false}
+                        config={blueHourglassConfig}
+                        surfaceTilt={surfaceTilt}
+                      />
+                    </Svg>
+                  </Animated.View>
                 </ReAnimated.View>
               </Animated.View>
             </ReAnimated.View>

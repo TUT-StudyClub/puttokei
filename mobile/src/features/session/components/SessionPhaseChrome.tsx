@@ -275,10 +275,15 @@ const EMPTY_SAND_SHAPES: HourglassSandLayerShapes = {
   isDraining: false,
 };
 
+// 砂の表面の谷 / 山の頂点を、揺れに合わせて中心からどれだけ左右にずらすかの最大幅 (sandWidth 比)。
+// 砂時計を傾けたときに液面の頂点が低い側へスライドする見た目を作る。
+const HOURGLASS_SURFACE_TILT_X_RATIO = 0.18;
+
 function getHourglassSandLayerShapes(
   layers: readonly HourglassSandLayer[],
   activeLayerIndex: number,
   config: HourglassVariantConfig,
+  surfaceTilt = 0,
 ): HourglassSandLayerShapes {
   // weight が正の層のみ採用する。元の index を覚えておいて activeLayerIndex を再マッピングする。
   const indexed = layers
@@ -295,6 +300,10 @@ function getHourglassSandLayerShapes(
   const xLeft = config.sandX;
   const xRight = config.sandX + config.sandWidth;
   const xCenter = config.sandX + config.sandWidth / 2;
+  // -1..1 にクランプし、左右どちらの壁も超えないようオフセット幅を決定する。
+  const clampedTilt = Math.max(-1, Math.min(1, surfaceTilt));
+  const tiltOffset = clampedTilt * config.sandWidth * HOURGLASS_SURFACE_TILT_X_RATIO;
+  const surfacePeakX = xCenter + tiltOffset;
 
   const heights = indexed.map(({ layer }) => {
     const normalizedWeight = layer.weight / totalWeight;
@@ -328,10 +337,11 @@ function getHourglassSandLayerShapes(
     let upperPath: string;
     if (isTop) {
       // 最上層: 中央が下にへこむ漏斗型。残量が浅くなりすぎたときは凹みを縮小する。
+      // 揺れている時は谷の頂点 X を傾斜方向に少しずらして液面の傾きを表現する。
       const funnelDepth = Math.min(config.funnelDepthMax, layerHeight * 0.6);
       upperPath =
         `M${formatSvgNumber(xLeft)} ${formatSvgNumber(topY)}` +
-        ` L${formatSvgNumber(xCenter)} ${formatSvgNumber(topY + funnelDepth)}` +
+        ` L${formatSvgNumber(surfacePeakX)} ${formatSvgNumber(topY + funnelDepth)}` +
         ` L${formatSvgNumber(xRight)} ${formatSvgNumber(topY)}` +
         ` L${formatSvgNumber(xRight)} ${formatSvgNumber(bottomY)}` +
         ` L${formatSvgNumber(xLeft)} ${formatSvgNumber(bottomY)} Z`;
@@ -388,12 +398,13 @@ function getHourglassSandLayerShapes(
     let path: string;
     if (isTop) {
       // 最上層: 中央が上に持ち上がる山型。山の高さは盛り上がりが上部の下端を超えないようクランプ。
+      // 揺れている時は山の頂点 X を傾斜方向にずらして「砂が片側に寄る」見え方を作る。
       const peakBoost = Math.min(config.moundPeakMax, layerHeight * 0.4);
       const peakY = Math.max(config.sandBottomTop, topY - peakBoost);
       path =
         `M${formatSvgNumber(xLeft)} ${formatSvgNumber(lowerCurrentBottomY)}` +
         ` L${formatSvgNumber(xLeft)} ${formatSvgNumber(topY)}` +
-        ` L${formatSvgNumber(xCenter)} ${formatSvgNumber(peakY)}` +
+        ` L${formatSvgNumber(surfacePeakX)} ${formatSvgNumber(peakY)}` +
         ` L${formatSvgNumber(xRight)} ${formatSvgNumber(topY)}` +
         ` L${formatSvgNumber(xRight)} ${formatSvgNumber(lowerCurrentBottomY)} Z`;
     } else {
@@ -591,21 +602,25 @@ type HourglassBadgeFallbackIconProps = {
   config: HourglassVariantConfig;
 };
 
-function HourglassBadgeSandOverlay({
+export function HourglassBadgeSandOverlay({
   layers,
   activeLayerIndex,
   showStream,
   config,
+  surfaceTilt = 0,
 }: {
   layers: readonly HourglassSandLayer[];
   activeLayerIndex: number;
   showStream: boolean;
   config: HourglassVariantConfig;
+  /** -1..1。砂の表面 (谷 / 山) を中心からどれだけ左右にずらすか。0 で従来挙動。 */
+  surfaceTilt?: number;
 }) {
   const { upperLayers, lowerLayers, streamColor, isDraining } = getHourglassSandLayerShapes(
     layers,
     activeLayerIndex,
     config,
+    surfaceTilt,
   );
 
   return (
