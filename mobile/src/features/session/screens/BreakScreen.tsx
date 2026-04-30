@@ -573,10 +573,7 @@ function NextCycleReadyView({
   // useNativeDriver の rotate transform と並行に SVG の path を再生成する用途。
   useEffect(() => {
     const id = sandSloshValue.addListener(({ value }) => {
-      const next = Math.max(
-        -1,
-        Math.min(1, value / NEXT_CYCLE_SAND_SLOSH_AMPLITUDE_DEGREES),
-      );
+      const next = Math.max(-1, Math.min(1, value / NEXT_CYCLE_SAND_SLOSH_AMPLITUDE_DEGREES));
       setSurfaceTilt(next);
     });
     return () => {
