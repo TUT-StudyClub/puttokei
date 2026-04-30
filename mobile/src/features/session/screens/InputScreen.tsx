@@ -38,6 +38,11 @@ const SETTINGS_ROUTE = '/(tabs)/settings' as unknown as Href;
 const CURRENT_PHASE: SessionPhase = 'input';
 const EXTEND_MINUTES = 5;
 
+// 「今日のアウトプット」一覧で、スクロールせずに見せる最大行数と 1 行の高さ。
+// `todayOutputRow.minHeight` と揃え、4 件目以降は一覧内だけがスクロールするようにする。
+const TODAY_OUTPUT_ROW_HEIGHT = 40;
+const TODAY_OUTPUT_VISIBLE_ROWS = 3;
+
 const PRIMARY_COLOR = '#4B5CFF';
 const OUTPUT_PHASE_COLOR = '#EC4899';
 const BREAK_PHASE_COLOR = '#FFFFFF';
@@ -124,31 +129,41 @@ type TodayOutputListProps = {
 function TodayOutputList({ items, onSelect }: TodayOutputListProps) {
   if (items.length === 0) return null;
 
+  const isScrollable = items.length > TODAY_OUTPUT_VISIBLE_ROWS;
+
   return (
     <View style={styles.todayOutputsSection} testID="today-outputs-section">
       <SizableText style={styles.todayOutputsTitle}>今日のアウトプット</SizableText>
       <View style={styles.todayOutputsCard}>
-        {items.map((item, index) => (
-          <Pressable
-            key={item.output.id}
-            accessibilityRole="button"
-            onPress={() => onSelect(item)}
-            style={({ pressed }) => [
-              styles.todayOutputRow,
-              index < items.length - 1 ? styles.todayOutputRowBorder : null,
-              pressed ? styles.buttonPressed : null,
-            ]}
-            testID={`today-output-row-${item.output.id}`}
-          >
-            <View style={styles.todayOutputIcon}>
-              <PencilIcon size={16} />
-            </View>
-            <SizableText style={styles.todayOutputText} numberOfLines={1}>
-              {buildOutputPreview(item.output.content)}
-            </SizableText>
-            <SizableText style={styles.todayOutputCycle}>サイクル{item.cycle_index}</SizableText>
-          </Pressable>
-        ))}
+        <ScrollView
+          style={isScrollable ? styles.todayOutputsScroll : null}
+          scrollEnabled={isScrollable}
+          showsVerticalScrollIndicator={isScrollable}
+          nestedScrollEnabled
+          testID="today-outputs-scroll"
+        >
+          {items.map((item, index) => (
+            <Pressable
+              key={item.output.id}
+              accessibilityRole="button"
+              onPress={() => onSelect(item)}
+              style={({ pressed }) => [
+                styles.todayOutputRow,
+                index < items.length - 1 ? styles.todayOutputRowBorder : null,
+                pressed ? styles.buttonPressed : null,
+              ]}
+              testID={`today-output-row-${item.output.id}`}
+            >
+              <View style={styles.todayOutputIcon}>
+                <PencilIcon size={16} />
+              </View>
+              <SizableText style={styles.todayOutputText} numberOfLines={1}>
+                {buildOutputPreview(item.output.content)}
+              </SizableText>
+              <SizableText style={styles.todayOutputCycle}>サイクル{item.cycle_index}</SizableText>
+            </Pressable>
+          ))}
+        </ScrollView>
       </View>
     </View>
   );
@@ -524,6 +539,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 4,
     backgroundColor: '#FFFFFF',
+  },
+  todayOutputsScroll: {
+    maxHeight: TODAY_OUTPUT_ROW_HEIGHT * TODAY_OUTPUT_VISIBLE_ROWS,
   },
   todayOutputRow: {
     minHeight: 40,

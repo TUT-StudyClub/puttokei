@@ -35,13 +35,14 @@ const HOURGLASS_BADGE_ACTIVE_SCALE = 1.45;
 /**
  * 砂時計バッジのアセットバリアント。
  *
- * - `gray`: ホーム画面用のグレー砂時計 (viewBox 0 0 18 31)。
- * - `blue`: セッション (input / output / break) 用の青枠砂時計 (viewBox 0 0 24 41)。
+ * - `gray`: ホーム画面と未着手サイクル用のグレー砂時計 (viewBox 0 0 18 31)。
+ * - `blue`: 進行中サイクル用の青枠砂時計 (viewBox 0 0 24 41)。砂の overlay を流し込む。
+ * - `purple`: 完了済みサイクル用の紫サイクル完了砂時計 (viewBox 0 0 24 41)。
  *
  * SVG ファイルごとに viewBox や砂を流し込む内部形状の座標が異なるため、座標定数と
  * クリップパスを variant ごとに保持する。
  */
-export type HourglassBadgeVariant = 'gray' | 'blue';
+export type HourglassBadgeVariant = 'gray' | 'blue' | 'purple';
 
 type HourglassVariantConfig = {
   asset: number;
@@ -140,9 +141,21 @@ const HOURGLASS_BLUE_CONFIG: HourglassVariantConfig = {
   fallbackInnerColor: '#EFEFEF',
 };
 
+// purple variant は「完了済みサイクル」を示す。SVG 自体に砂が溜まった様子が描き込まれて
+// いるため動的な砂 overlay は使わないが、blue と同じ viewBox / 内部座標を持つので
+// 砂関連の座標は blue を流用する。
+const HOURGLASS_PURPLE_CONFIG: HourglassVariantConfig = {
+  ...HOURGLASS_BLUE_CONFIG,
+  asset: require('../../../../assets/images/hourglass_purple.svg'),
+  upperClipId: 'hourglassBadgePurpleUpperSandClip',
+  lowerClipId: 'hourglassBadgePurpleLowerSandClip',
+  fallbackInnerColor: '#BA64E8',
+};
+
 const HOURGLASS_VARIANTS: Record<HourglassBadgeVariant, HourglassVariantConfig> = {
   gray: HOURGLASS_GRAY_CONFIG,
   blue: HOURGLASS_BLUE_CONFIG,
+  purple: HOURGLASS_PURPLE_CONFIG,
 };
 
 const DEFAULT_HOURGLASS_VARIANT: HourglassBadgeVariant = 'gray';
@@ -786,12 +799,8 @@ function HourglassBadgeIcon({
   testID,
   config,
 }: HourglassBadgeIconProps) {
-  const width = active
-    ? config.baseWidth * HOURGLASS_BADGE_ACTIVE_SCALE
-    : config.baseWidth;
-  const height = active
-    ? config.baseHeight * HOURGLASS_BADGE_ACTIVE_SCALE
-    : config.baseHeight;
+  const width = active ? config.baseWidth * HOURGLASS_BADGE_ACTIVE_SCALE : config.baseWidth;
+  const height = active ? config.baseHeight * HOURGLASS_BADGE_ACTIVE_SCALE : config.baseHeight;
   // 非アクティブなループバッジには砂を描画しない。
   const effectiveLayers: readonly HourglassSandLayer[] = active ? layers : [];
   // 落下ストリーム描画用の active 層の色（粒子レイヤで使用）
@@ -873,6 +882,26 @@ type HourglassBadgeProps = {
   variant?: HourglassBadgeVariant;
 };
 
+/**
+ * サイクル番号と「進行中サイクル」「base variant」から、その砂時計に適用する variant を返す。
+ *
+ * - base が `gray` (ホーム画面想定) の場合は常に `gray` を返す。
+ * - base が `blue` 系 (input / output / break 画面) の場合:
+ *   - 進行中サイクルと一致 → そのまま blue
+ *   - 進行中より前 (=完了済み) → purple
+ *   - 進行中より後 (=未着手) → gray
+ */
+function resolveIconVariant(
+  loopIndex: number,
+  currentLoop: number,
+  baseVariant: HourglassBadgeVariant,
+): HourglassBadgeVariant {
+  if (baseVariant === 'gray') return 'gray';
+  if (loopIndex === currentLoop) return baseVariant;
+  if (loopIndex < currentLoop) return 'purple';
+  return 'gray';
+}
+
 export function HourglassBadge({
   currentLoop,
   testIDPrefix,
@@ -887,8 +916,14 @@ export function HourglassBadge({
   showSandStream = false,
   variant = DEFAULT_HOURGLASS_VARIANT,
 }: HourglassBadgeProps) {
-  const config = HOURGLASS_VARIANTS[variant];
-  const hourglassXml = useHourglassBadgeXml(config.asset);
+  const grayXml = useHourglassBadgeXml(HOURGLASS_VARIANTS.gray.asset);
+  const blueXml = useHourglassBadgeXml(HOURGLASS_VARIANTS.blue.asset);
+  const purpleXml = useHourglassBadgeXml(HOURGLASS_VARIANTS.purple.asset);
+  const xmlByVariant: Record<HourglassBadgeVariant, string | null> = {
+    gray: grayXml,
+    blue: blueXml,
+    purple: purpleXml,
+  };
 
   // 旧 API (`sandColor` + `sandProgress`) が来た場合は単層の sandLayers に正規化する。
   const layers = useMemo<readonly HourglassSandLayer[]>(() => {
@@ -906,7 +941,10 @@ export function HourglassBadge({
         testID={`${testIDPrefix}-hourglass-badge`}
       >
         {Array.from({ length: LOOP_COUNT_MAX }).map((_, index) => {
-          const isActive = index + 1 === currentLoop;
+          const loopIndex = index + 1;
+          const isActive = loopIndex === currentLoop;
+          const iconVariant = resolveIconVariant(loopIndex, currentLoop, variant);
+          const iconConfig = HOURGLASS_VARIANTS[iconVariant];
           return (
             <HourglassBadgeIcon
               key={index}
@@ -914,9 +952,9 @@ export function HourglassBadge({
               layers={layers}
               activeLayerIndex={activeLayerIndex}
               showSandStream={showSandStream}
-              xml={hourglassXml}
+              xml={xmlByVariant[iconVariant]}
               testID={`${testIDPrefix}-hourglass-badge-icon-${index + 1}`}
-              config={config}
+              config={iconConfig}
             />
           );
         })}
