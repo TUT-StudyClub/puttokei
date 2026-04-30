@@ -14,7 +14,6 @@ import {
   Animated,
   Easing,
   type GestureResponderEvent,
-  Image,
   type LayoutChangeEvent,
   PanResponder,
   Pressable,
@@ -23,6 +22,13 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import ReAnimated, {
+  Easing as ReEasing,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import {
   Circle,
   Defs,
@@ -31,18 +37,21 @@ import {
   Path,
   Stop,
   Svg,
-  SvgXml,
 } from 'react-native-svg';
 import { SizableText, Spinner } from 'tamagui';
 
 import { createSession } from '@/features/session/api/sessionApi';
 import {
   CircularPhaseTimer,
+  HOURGLASS_BADGE_ACTIVE_SCALE,
+  HOURGLASS_VARIANTS,
   HourglassBadge,
+  HourglassBadgeIcon,
   type HourglassSandLayer,
   PhaseTabs,
   type SessionPhase,
   SessionSettingsButton,
+  useHourglassBadgeXml,
 } from '@/features/session/components/SessionPhaseChrome';
 import { DEFAULT_TIMER } from '@/features/session/config';
 import { useJudgment } from '@/features/session/hooks/useJudgment';
@@ -56,8 +65,10 @@ import { LOOP_COUNT_MAX, useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
 const SETTINGS_ROUTE = '/(tabs)/settings' as unknown as Href;
-const NEXT_CYCLE_HOURGLASS_ASSET = require('../../../../assets/images/hourglass_gradation.svg');
-const NEXT_CYCLE_HOURGLASS_ASPECT_RATIO = 76.91 / 43.11;
+// 中央表示用の砂時計は青枠 SVG を blue variant の baseHeight/baseWidth から比率を求める。
+const NEXT_CYCLE_HOURGLASS_ASPECT_RATIO =
+  HOURGLASS_VARIANTS.blue.baseHeight / HOURGLASS_VARIANTS.blue.baseWidth;
+const NEXT_CYCLE_ENTRANCE_DURATION_MS = 600;
 const NEXT_CYCLE_IDLE_ROTATION_DEGREES = 5;
 const NEXT_CYCLE_ROTATE_THRESHOLD_DEGREES = 360;
 const NEXT_CYCLE_MAX_DRAG_ROTATION_DEGREES = 1080;
@@ -83,6 +94,20 @@ const HOURGLASS_OUTPUT_COLOR = '#EC4899';
 const HOURGLASS_BREAK_COLOR = '#FFFFFF';
 const HOURGLASS_BREAK_OPACITY = 0.92;
 
+// 次サイクル準備中に中央へ表示する砂時計の砂層。3 層が満タンに積まれた状態で、
+// 「これから始まる新しいサイクル」を象徴する。weight は等比でよい。
+const NEXT_CYCLE_FULL_SAND_LAYERS: readonly HourglassSandLayer[] = [
+  { label: 'input', color: HOURGLASS_INPUT_COLOR, weight: 1, progress: 1 },
+  { label: 'output', color: HOURGLASS_OUTPUT_COLOR, weight: 1, progress: 1 },
+  {
+    label: 'break',
+    color: HOURGLASS_BREAK_COLOR,
+    weight: 1,
+    progress: 1,
+    opacity: HOURGLASS_BREAK_OPACITY,
+  },
+];
+
 // 下部の「採点進捗カード」用トークン。濃い背景に青いプログレスバーを乗せる。
 const PROGRESS_CARD_BG = '#2A2A2E';
 const PROGRESS_CARD_TEXT = '#FFFFFF';
@@ -101,73 +126,6 @@ const COMPLETED_PHASE_COLORS: Record<SessionPhase, string> = {
   output: '#F8D8E4',
   break: '#C9C9C9',
 };
-
-const SVG_CSS_ATTRIBUTE_NAMES: Record<string, string> = {
-  'clip-path': 'clipPath',
-  'color-interpolation-filters': 'colorInterpolationFilters',
-  'fill-rule': 'fillRule',
-  'stroke-linecap': 'strokeLinecap',
-  'stroke-linejoin': 'strokeLinejoin',
-  'stroke-width': 'strokeWidth',
-};
-
-const SVG_UNSUPPORTED_CSS_PROPERTIES = new Set(['isolation', 'mix-blend-mode']);
-
-function cssPropertyToSvgAttribute(property: string) {
-  return (
-    SVG_CSS_ATTRIBUTE_NAMES[property] ??
-    property.replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase())
-  );
-}
-
-function cssDeclarationsToSvgAttributes(declarations: string) {
-  return declarations
-    .split(';')
-    .map((declaration) => declaration.trim())
-    .filter(Boolean)
-    .map((declaration) => {
-      const separatorIndex = declaration.indexOf(':');
-      if (separatorIndex === -1) return null;
-
-      const property = declaration.slice(0, separatorIndex).trim();
-      const value = declaration.slice(separatorIndex + 1).trim();
-      if (!property || !value || SVG_UNSUPPORTED_CSS_PROPERTIES.has(property)) return null;
-
-      return `${cssPropertyToSvgAttribute(property)}="${value}"`;
-    })
-    .filter((attribute): attribute is string => attribute !== null);
-}
-
-function inlineSvgClassStyles(xml: string) {
-  const xmlWithoutUnsupportedHighlight = xml.replace(
-    /\s*<rect class="cls-10" x="-9\.33" y="-28\.16" width="67\.08" height="107\.05"\/>/g,
-    '',
-  );
-  const styleMatch = xmlWithoutUnsupportedHighlight.match(/<style>\s*([\s\S]*?)\s*<\/style>/);
-  const stylesheet = styleMatch?.[1];
-  if (!stylesheet) return xmlWithoutUnsupportedHighlight;
-
-  const classRules: Record<string, string[]> = {};
-  const classRulePattern = /\.([A-Za-z0-9_-]+)\s*\{([^}]+)\}/g;
-  let match: RegExpExecArray | null;
-  while ((match = classRulePattern.exec(stylesheet)) !== null) {
-    const className = match[1];
-    const declarations = match[2];
-    if (!className || !declarations) continue;
-
-    classRules[className] = cssDeclarationsToSvgAttributes(declarations);
-  }
-
-  return xmlWithoutUnsupportedHighlight
-    .replace(/<style>[\s\S]*?<\/style>/g, '')
-    .replace(/class="([^"]+)"/g, (_classAttribute: string, classNames: string) => {
-      const attributes = classNames
-        .split(/\s+/)
-        .flatMap((className) => classRules[className] ?? []);
-
-      return attributes.join(' ');
-    });
-}
 
 type JudgingProgressCardProps = {
   progressPercent: number;
@@ -263,54 +221,6 @@ function HourglassGraphic({
         <Ellipse cx={100} cy={72} rx={42} ry={21} fill="#EFEFEF" opacity={0.78} />
       </Svg>
     </View>
-  );
-}
-
-function NextCycleHourglassAsset() {
-  const [xml, setXml] = useState<string | null>(null);
-
-  useEffect(() => {
-    let isMounted = true;
-    const source = Image.resolveAssetSource(NEXT_CYCLE_HOURGLASS_ASSET);
-    const uri = source?.uri;
-    if (!uri || typeof fetch !== 'function') return;
-
-    fetch(uri)
-      .then((response) => {
-        if (!response.ok && !(response.status === 0 && uri.startsWith('file://'))) {
-          throw new Error(`Failed to load next cycle hourglass SVG: ${response.status}`);
-        }
-        return response.text();
-      })
-      .then((loadedXml) => {
-        if (isMounted) {
-          setXml(inlineSvgClassStyles(loadedXml));
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setXml(null);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  const fallback = <HourglassGraphic size={220} strokeColor={INPUT_COLOR} />;
-
-  if (!xml) return fallback;
-
-  return (
-    <SvgXml
-      xml={xml}
-      width="100%"
-      height="100%"
-      preserveAspectRatio="xMidYMid meet"
-      fallback={fallback}
-      onError={() => undefined}
-    />
   );
 }
 
@@ -466,7 +376,21 @@ type NextCycleReadyViewProps = {
   hasStartError: boolean;
   onStart: () => void;
   onCancel: () => void;
+  /**
+   * エントランスアニメの起点となる、画面上部 HourglassBadge のアクティブ砂時計の中心 (window 座標)。
+   * `null` の場合はアニメをスキップして即着地状態にする。
+   */
+  entranceOrigin: { x: number; y: number } | null;
+  /**
+   * 砂時計を回した後の return アニメが画面上部のバッジ位置に着地したタイミングで呼ばれる。
+   * BreakScreen 側で `displayedLoop` を進めて、完了したループの色を紫に切り替えるために使う。
+   */
+  onReturnedToBadge?: () => void;
 };
+
+const NEXT_CYCLE_MIX_DURATION_MS = 350;
+const NEXT_CYCLE_RETURN_DURATION_MS = 600;
+type ExitPhase = 'mixing' | 'returning' | 'done';
 
 function TurnArrow() {
   return (
@@ -527,6 +451,8 @@ function NextCycleReadyView({
   hasStartError,
   onStart,
   onCancel,
+  entranceOrigin,
+  onReturnedToBadge,
 }: NextCycleReadyViewProps) {
   const hourglassRotation = useRef(new Animated.Value(-NEXT_CYCLE_IDLE_ROTATION_DEGREES)).current;
   const idleAnimation = useRef<Animated.CompositeAnimation | null>(null);
@@ -541,6 +467,29 @@ function NextCycleReadyView({
   const pathRotation = useRef(0);
   const hasCompletedRotationGesture = useRef(false);
   const hasTriggeredRotationStart = useRef(false);
+
+  // 中央砂時計の SVG XML (blue / purple variant)。
+  // - blue: エントランス〜回し中の表示。バッジと同じ青枠アセットを大きく表示する。
+  // - purple: 回し終え後の「砂が混ざった」状態を示すため、cross-fade で重ねる。
+  const blueHourglassXml = useHourglassBadgeXml(HOURGLASS_VARIANTS.blue.asset);
+  const purpleHourglassXml = useHourglassBadgeXml(HOURGLASS_VARIANTS.purple.asset);
+  const blueHourglassConfig = HOURGLASS_VARIANTS.blue;
+  const purpleHourglassConfig = HOURGLASS_VARIANTS.purple;
+
+  // エントランスアニメ。entranceOrigin が null のときは即着地状態とする。
+  const centerHourglassRef = useRef<View>(null);
+  const entranceProgress = useSharedValue(0);
+  const entranceOffsetX = useSharedValue(0);
+  const entranceOffsetY = useSharedValue(0);
+  const entranceStartScale = useSharedValue(1);
+  const entranceOpacity = useSharedValue(entranceOrigin ? 0 : 1);
+  const [hasLanded, setHasLanded] = useState(!entranceOrigin);
+
+  // 回し終え後の「色混ぜ → バッジ位置へ戻る」アニメ。
+  // mixProgress: 0 = 青/3層, 1 = 紫 (purple variant)
+  const mixProgress = useSharedValue(0);
+  const [exitPhase, setExitPhase] = useState<ExitPhase | null>(null);
+  const isExiting = exitPhase !== null;
 
   const startIdleAnimation = useCallback(() => {
     idleAnimation.current?.stop();
@@ -566,12 +515,83 @@ function NextCycleReadyView({
     animation.start();
   }, [hourglassRotation]);
 
+  // 着地後 (= entrance 完了) かつ exit 開始前のあいだだけ idle 回転を再生する。
+  // 回し中の固定 / 回し終え後の mix+return 中は idle を止め、ジェスチャー結果の rotate を保持する。
   useEffect(() => {
+    if (!hasLanded || isExiting) return;
     startIdleAnimation();
     return () => {
       idleAnimation.current?.stop();
     };
-  }, [startIdleAnimation]);
+  }, [hasLanded, isExiting, startIdleAnimation]);
+
+  // 中央位置のレイアウト確定をトリガーに、バッジ位置 → 中央への transform 補間を仕込む。
+  const handleCenterHourglassLayout = useCallback(() => {
+    if (!entranceOrigin) {
+      entranceOpacity.value = 1;
+      return;
+    }
+    const node = centerHourglassRef.current;
+    if (!node) {
+      entranceOpacity.value = 1;
+      setHasLanded(true);
+      return;
+    }
+    node.measureInWindow((x, y, w, h) => {
+      if (!w || !h) {
+        entranceOpacity.value = 1;
+        setHasLanded(true);
+        return;
+      }
+      const centerX = x + w / 2;
+      const centerY = y + h / 2;
+      const badgeWidth =
+        HOURGLASS_VARIANTS.blue.baseWidth * HOURGLASS_BADGE_ACTIVE_SCALE;
+      entranceOffsetX.value = entranceOrigin.x - centerX;
+      entranceOffsetY.value = entranceOrigin.y - centerY;
+      entranceStartScale.value = badgeWidth / hourglassWidth;
+      entranceProgress.value = 0;
+      entranceOpacity.value = 1;
+      entranceProgress.value = withTiming(
+        1,
+        {
+          duration: NEXT_CYCLE_ENTRANCE_DURATION_MS,
+          easing: ReEasing.out(ReEasing.cubic),
+        },
+        (finished) => {
+          if (finished) runOnJS(setHasLanded)(true);
+        },
+      );
+    });
+  }, [
+    entranceOffsetX,
+    entranceOffsetY,
+    entranceOpacity,
+    entranceProgress,
+    entranceStartScale,
+    entranceOrigin,
+    hourglassWidth,
+  ]);
+
+  const entranceAnimatedStyle = useAnimatedStyle(() => {
+    const t = entranceProgress.value;
+    const tx = entranceOffsetX.value * (1 - t);
+    const ty = entranceOffsetY.value * (1 - t);
+    const scale = entranceStartScale.value + (1 - entranceStartScale.value) * t;
+    return {
+      opacity: entranceOpacity.value,
+      transform: [{ translateX: tx }, { translateY: ty }, { scale }],
+    };
+  });
+
+  // mix の cross-fade。青/3層 (input/output/break) は mixProgress 0→1 で消え、
+  // 紫 (purple variant) が同じ尺で現れる。
+  const blueLayerStyle = useAnimatedStyle(() => ({
+    opacity: 1 - mixProgress.value,
+  }));
+  const purpleLayerStyle = useAnimatedStyle(() => ({
+    opacity: mixProgress.value,
+  }));
 
   const hourglassRotationStyle = hourglassRotation.interpolate({
     inputRange: [-NEXT_CYCLE_MAX_DRAG_ROTATION_DEGREES, NEXT_CYCLE_MAX_DRAG_ROTATION_DEGREES],
@@ -581,12 +601,55 @@ function NextCycleReadyView({
     ],
   });
 
+  // ジェスチャー回転で 1 周以上達成 → mix → return → onStart の連鎖を始める。
+  // entranceOrigin が無い (= エントランスをスキップした) 場合はアニメも省略して即 onStart。
   const triggerNextCycleByRotation = useCallback(() => {
     if (hasTriggeredRotationStart.current || isStarting) return;
 
     hasTriggeredRotationStart.current = true;
-    onStart();
-  }, [isStarting, onStart]);
+
+    if (!entranceOrigin) {
+      onStart();
+      return;
+    }
+
+    // ジェスチャーで残った回転は 0 に即値リセット。SVG は 0° と 360n° で見た目が
+    // 同じため、巻き戻しアニメは行わず、外側の translate+scale で視覚を引っ張る。
+    idleAnimation.current?.stop();
+    hourglassRotation.setValue(0);
+
+    setExitPhase('mixing');
+    mixProgress.value = withTiming(
+      1,
+      { duration: NEXT_CYCLE_MIX_DURATION_MS, easing: ReEasing.inOut(ReEasing.cubic) },
+      (mixed) => {
+        if (!mixed) return;
+        runOnJS(setExitPhase)('returning');
+        // entranceProgress を 1 → 0 に逆再生し、バッジ位置・バッジサイズへ戻す。
+        entranceProgress.value = withTiming(
+          0,
+          {
+            duration: NEXT_CYCLE_RETURN_DURATION_MS,
+            easing: ReEasing.in(ReEasing.cubic),
+          },
+          (returned) => {
+            if (!returned) return;
+            runOnJS(setExitPhase)('done');
+            if (onReturnedToBadge) runOnJS(onReturnedToBadge)();
+            runOnJS(onStart)();
+          },
+        );
+      },
+    );
+  }, [
+    entranceOrigin,
+    entranceProgress,
+    hourglassRotation,
+    isStarting,
+    mixProgress,
+    onReturnedToBadge,
+    onStart,
+  ]);
 
   const handleRotationAreaLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
@@ -598,10 +661,12 @@ function NextCycleReadyView({
   const rotationResponder = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponderCapture: () => !isStarting,
-        onStartShouldSetPanResponder: () => !isStarting,
-        onMoveShouldSetPanResponderCapture: () => !isStarting,
-        onMoveShouldSetPanResponder: () => !isStarting,
+        // 着地前 (hasLanded === false) と exit (mix/return) 中はジェスチャー不可。
+        // エントランス・退場アニメ中の二重トリガーを防ぐ。
+        onStartShouldSetPanResponderCapture: () => hasLanded && !isExiting && !isStarting,
+        onStartShouldSetPanResponder: () => hasLanded && !isExiting && !isStarting,
+        onMoveShouldSetPanResponderCapture: () => hasLanded && !isExiting && !isStarting,
+        onMoveShouldSetPanResponder: () => hasLanded && !isExiting && !isStarting,
         onPanResponderGrant: (event) => {
           idleAnimation.current?.stop();
           lastTouchAngle.current = getGestureAngle(event, rotationAreaSize.current);
@@ -673,7 +738,14 @@ function NextCycleReadyView({
           }
         },
       }),
-    [hourglassRotation, isStarting, startIdleAnimation, triggerNextCycleByRotation],
+    [
+      hasLanded,
+      hourglassRotation,
+      isExiting,
+      isStarting,
+      startIdleAnimation,
+      triggerNextCycleByRotation,
+    ],
   );
 
   return (
@@ -699,18 +771,68 @@ function NextCycleReadyView({
             style={[styles.nextHourglassButton, isStarting ? styles.buttonDisabled : null]}
             testID="break-next-cycle-hourglass"
           >
-            <Animated.View
+            <ReAnimated.View
+              ref={centerHourglassRef}
+              onLayout={handleCenterHourglassLayout}
               style={[
                 styles.nextCycleHourglassAsset,
-                {
-                  width: hourglassWidth,
-                  height: hourglassHeight,
-                  transform: [{ rotate: hourglassRotationStyle }],
-                },
+                { width: hourglassWidth, height: hourglassHeight },
+                entranceAnimatedStyle,
               ]}
             >
-              <NextCycleHourglassAsset />
-            </Animated.View>
+              <Animated.View
+                style={[
+                  styles.nextCycleHourglassAsset,
+                  {
+                    width: hourglassWidth,
+                    height: hourglassHeight,
+                    transform: [{ rotate: hourglassRotationStyle }],
+                  },
+                ]}
+              >
+                {/* 紫 (混色後) を下に敷き、青/3層を上に重ねて mixProgress で cross-fade する。 */}
+                <ReAnimated.View
+                  style={[
+                    StyleSheet.absoluteFillObject,
+                    styles.nextCycleHourglassAsset,
+                    purpleLayerStyle,
+                  ]}
+                  pointerEvents="none"
+                >
+                  <HourglassBadgeIcon
+                    active
+                    width={hourglassWidth}
+                    height={hourglassHeight}
+                    layers={[]}
+                    activeLayerIndex={0}
+                    showSandStream={false}
+                    xml={purpleHourglassXml}
+                    config={purpleHourglassConfig}
+                    testID="break-next-cycle-hourglass-icon-purple"
+                  />
+                </ReAnimated.View>
+                <ReAnimated.View
+                  style={[
+                    styles.nextCycleHourglassAsset,
+                    { width: hourglassWidth, height: hourglassHeight },
+                    blueLayerStyle,
+                  ]}
+                  pointerEvents="none"
+                >
+                  <HourglassBadgeIcon
+                    active
+                    width={hourglassWidth}
+                    height={hourglassHeight}
+                    layers={NEXT_CYCLE_FULL_SAND_LAYERS}
+                    activeLayerIndex={0}
+                    showSandStream={false}
+                    xml={blueHourglassXml}
+                    config={blueHourglassConfig}
+                    testID="break-next-cycle-hourglass-icon"
+                  />
+                </ReAnimated.View>
+              </Animated.View>
+            </ReAnimated.View>
             {isStarting ? (
               <View style={styles.nextStartingOverlay}>
                 <Spinner color={INPUT_COLOR} />
@@ -768,6 +890,15 @@ export function BreakScreen() {
   const currentLoop = useLoopStore((s) => s.currentLoop);
   const incrementLoop = useLoopStore((s) => s.incrementLoop);
   const [screenMode, setScreenMode] = useState<BreakScreenMode>('resting');
+  // 進行中サイクルの砂時計バッジ (= currentLoop 番目の砂時計) の位置を window 座標で測ってキャッシュする。
+  // 「次のサイクルへ」押下時にこのキャッシュを entranceOrigin に流し込む。
+  const badgeStackRef = useRef<View>(null);
+  const activeBadgeIconRef = useRef<View>(null);
+  const badgeOriginRef = useRef<{ x: number; y: number } | null>(null);
+  const [entranceOrigin, setEntranceOrigin] = useState<{ x: number; y: number } | null>(null);
+  // mix→return アニメ着地と同時に上部バッジの色を進めるためのフラグ。
+  // true で「終わったループ」を紫、次のループを青で表示する (= displayedLoop = currentLoop + 1)。
+  const [advanceLoopVisual, setAdvanceLoopVisual] = useState(false);
 
   const judgmentQuery = useJudgment(sessionId);
   const isJudgmentReady = judgmentQuery.data?.kind === 'ready';
@@ -860,6 +991,32 @@ export function BreakScreen() {
     router.replace('/(tabs)');
   };
 
+  // 進行中サイクル (currentLoop) の砂時計の中心を window 座標で測ってキャッシュする。
+  // バッジ列の onLayout から呼び出すことで、初回マウント以降の再レイアウトにも追従する。
+  // tests のように measureInWindow が非同期で fire しない環境では origin が null のままになり、
+  // エントランスアニメはスキップされる (NextCycleReadyView 側で即着地)。
+  const handleBadgeStackLayout = useCallback(() => {
+    activeBadgeIconRef.current?.measureInWindow((x, y, w, h) => {
+      if (w > 0 && h > 0) {
+        badgeOriginRef.current = { x: x + w / 2, y: y + h / 2 };
+      }
+    });
+  }, []);
+
+  // 「次のサイクルへ」ボタン押下: キャッシュ済みのバッジ位置を流し込み、即 nextCycle へ遷移。
+  // 過去の遷移で立てた advance フラグもリセットしておく。
+  const handleEnterNextCycle = useCallback(() => {
+    setEntranceOrigin(badgeOriginRef.current);
+    setAdvanceLoopVisual(false);
+    setScreenMode('nextCycle');
+  }, []);
+
+  // mix→return アニメで中央砂時計が「画面上部のバッジ位置」に着地したタイミングで呼ばれる。
+  // この瞬間に displayedLoop を +1 して、終わったループを紫・次のループを青で見せる。
+  const handleReturnedToBadge = useCallback(() => {
+    setAdvanceLoopVisual(true);
+  }, []);
+
   const captionText = isJudgmentReady
     ? '休憩後次のサイクルを回すか決めることができます。'
     : 'AI採点中です。ゆっくり休憩してください。';
@@ -868,7 +1025,15 @@ export function BreakScreen() {
   const usesCompletedPhasePalette = screenMode === 'completed' || isNextCycleMode;
   const displayedPhase = usesCompletedPhasePalette ? null : CURRENT_PHASE;
   const phaseActiveColor = BREAK_COLOR;
-  const displayedLoop = isNextCycleMode ? Math.min(currentLoop + 1, LOOP_COUNT_MAX) : currentLoop;
+  // フロー要件:
+  // - 1: 休憩終了時、紫にしない → currentLoop のまま
+  // - 2: 完了画面でも紫にしない → currentLoop のまま
+  // - 3: 砂時計回し画面 (まだ回す前) でも紫にしない → currentLoop のまま
+  // - 4: 回し終え後 mix→return が着地した瞬間、終わったループを紫化・次のループを青化
+  // → advanceLoopVisual === true のときに +1 する。
+  const displayedLoop = advanceLoopVisual
+    ? Math.min(currentLoop + 1, LOOP_COUNT_MAX)
+    : currentLoop;
   const completedPhaseColors = usesCompletedPhasePalette ? COMPLETED_PHASE_COLORS : undefined;
 
   return (
@@ -880,7 +1045,11 @@ export function BreakScreen() {
           testID="break-settings-button"
         />
 
-        <View style={styles.badgeStack}>
+        <View
+          ref={badgeStackRef}
+          style={styles.badgeStack}
+          onLayout={handleBadgeStackLayout}
+        >
           <HourglassBadge
             currentLoop={displayedLoop}
             testIDPrefix="break"
@@ -890,6 +1059,7 @@ export function BreakScreen() {
             sandLayers={effectiveSandLayers}
             activeLayerIndex={2}
             showSandStream={showSandStream}
+            activeIconRef={activeBadgeIconRef}
           />
         </View>
 
@@ -922,16 +1092,15 @@ export function BreakScreen() {
             <JudgingProgressCard progressPercent={progressPercent} isReady={isJudgmentReady} />
           </>
         ) : screenMode === 'completed' ? (
-          <BreakCompletedView
-            currentLoop={currentLoop}
-            onNextCycle={() => setScreenMode('nextCycle')}
-          />
+          <BreakCompletedView currentLoop={currentLoop} onNextCycle={handleEnterNextCycle} />
         ) : (
           <NextCycleReadyView
             isStarting={createNextCycle.isPending}
             hasStartError={createNextCycle.isError}
             onStart={handleStartNextCycle}
             onCancel={handleCancelNextCycle}
+            entranceOrigin={entranceOrigin}
+            onReturnedToBadge={handleReturnedToBadge}
           />
         )}
       </View>

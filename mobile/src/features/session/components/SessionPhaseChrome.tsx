@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
@@ -30,7 +30,7 @@ const TEXT_ACTIVE = '#2F2F2F';
 const DOT_INACTIVE = '#D9D9D9';
 const BORDER_COLOR = '#E5E7EB';
 const SETTINGS_ICON_HEX_PATH = 'M12 3 L20 7.5 V16.5 L12 21 L4 16.5 V7.5 Z';
-const HOURGLASS_BADGE_ACTIVE_SCALE = 1.45;
+export const HOURGLASS_BADGE_ACTIVE_SCALE = 1.45;
 
 /**
  * 砂時計バッジのアセットバリアント。
@@ -152,7 +152,7 @@ const HOURGLASS_PURPLE_CONFIG: HourglassVariantConfig = {
   fallbackInnerColor: '#BA64E8',
 };
 
-const HOURGLASS_VARIANTS: Record<HourglassBadgeVariant, HourglassVariantConfig> = {
+export const HOURGLASS_VARIANTS: Record<HourglassBadgeVariant, HourglassVariantConfig> = {
   gray: HOURGLASS_GRAY_CONFIG,
   blue: HOURGLASS_BLUE_CONFIG,
   purple: HOURGLASS_PURPLE_CONFIG,
@@ -493,7 +493,7 @@ function injectHourglassSandOverlay(
   );
 }
 
-function useHourglassBadgeXml(asset: number) {
+export function useHourglassBadgeXml(asset: number) {
   const [xml, setXml] = useState<string | null>(null);
 
   useEffect(() => {
@@ -568,7 +568,7 @@ export function SessionSettingsButton({
   );
 }
 
-type HourglassBadgeIconProps = {
+export type HourglassBadgeIconProps = {
   active: boolean;
   layers: readonly HourglassSandLayer[];
   activeLayerIndex: number;
@@ -576,6 +576,9 @@ type HourglassBadgeIconProps = {
   xml: string | null;
   testID: string;
   config: HourglassVariantConfig;
+  /** 明示サイズ。未指定時は active フラグ × baseWidth/Height から従来計算する。 */
+  width?: number;
+  height?: number;
 };
 
 type HourglassBadgeFallbackIconProps = {
@@ -790,7 +793,7 @@ function HourglassBadgeFallbackIcon({
   );
 }
 
-function HourglassBadgeIcon({
+export function HourglassBadgeIcon({
   active,
   layers,
   activeLayerIndex,
@@ -798,9 +801,15 @@ function HourglassBadgeIcon({
   xml,
   testID,
   config,
+  width: widthOverride,
+  height: heightOverride,
 }: HourglassBadgeIconProps) {
-  const width = active ? config.baseWidth * HOURGLASS_BADGE_ACTIVE_SCALE : config.baseWidth;
-  const height = active ? config.baseHeight * HOURGLASS_BADGE_ACTIVE_SCALE : config.baseHeight;
+  const width =
+    widthOverride ??
+    (active ? config.baseWidth * HOURGLASS_BADGE_ACTIVE_SCALE : config.baseWidth);
+  const height =
+    heightOverride ??
+    (active ? config.baseHeight * HOURGLASS_BADGE_ACTIVE_SCALE : config.baseHeight);
   // 非アクティブなループバッジには砂を描画しない。
   const effectiveLayers: readonly HourglassSandLayer[] = active ? layers : [];
   // 落下ストリーム描画用の active 層の色（粒子レイヤで使用）
@@ -880,6 +889,11 @@ type HourglassBadgeProps = {
   showSandStream?: boolean;
   /** バッジ画像のバリアント。ホーム画面は `gray`、セッション系画面は `blue` を指定する。 */
   variant?: HourglassBadgeVariant;
+  /**
+   * `currentLoop` 番目（= 進行中サイクル）の砂時計を覆う Wrapper View に当てる ref。
+   * バッジ列の中で active バッジだけの位置を `measureInWindow` 等で取得したいときに使う。
+   */
+  activeIconRef?: React.Ref<View>;
 };
 
 /**
@@ -915,6 +929,7 @@ export function HourglassBadge({
   activeLayerIndex = 0,
   showSandStream = false,
   variant = DEFAULT_HOURGLASS_VARIANT,
+  activeIconRef,
 }: HourglassBadgeProps) {
   const grayXml = useHourglassBadgeXml(HOURGLASS_VARIANTS.gray.asset);
   const blueXml = useHourglassBadgeXml(HOURGLASS_VARIANTS.blue.asset);
@@ -945,9 +960,8 @@ export function HourglassBadge({
           const isActive = loopIndex === currentLoop;
           const iconVariant = resolveIconVariant(loopIndex, currentLoop, variant);
           const iconConfig = HOURGLASS_VARIANTS[iconVariant];
-          return (
+          const iconElement = (
             <HourglassBadgeIcon
-              key={index}
               active={isActive}
               layers={layers}
               activeLayerIndex={activeLayerIndex}
@@ -957,6 +971,16 @@ export function HourglassBadge({
               config={iconConfig}
             />
           );
+          // active バッジには測定用の wrapper View を被せて ref を forward する。
+          // 非 active 側は従来どおり直接配置し、レイアウト差分を最小化する。
+          if (isActive && activeIconRef) {
+            return (
+              <View key={index} ref={activeIconRef} collapsable={false}>
+                {iconElement}
+              </View>
+            );
+          }
+          return <Fragment key={index}>{iconElement}</Fragment>;
         })}
       </View>
     </View>
