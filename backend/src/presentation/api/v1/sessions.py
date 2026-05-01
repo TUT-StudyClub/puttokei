@@ -8,7 +8,7 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Path, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Path, Request, status
 from fastapi.responses import JSONResponse
 
 from src.application.dto.judgment_dto import JudgmentPendingView
@@ -135,10 +135,16 @@ async def update_session(
 async def submit_output(
     body: SubmitOutputRequest,
     request: Request,
+    background_tasks: BackgroundTasks,
     session_id: UUID = Path(...),  # noqa: B008
     current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> SubmitOutputResponse:
-    """アウトプット本文を保存し、判定待ち状態に進める。"""
+    """アウトプット本文を保存し、判定待ち状態に進める。
+
+    `local_judgment_enabled` が有効な環境では LLM 判定を BackgroundTasks に登録し、
+    レスポンス送信後に fire-and-forget で実行する。production など Cloud Tasks に
+    寄せる構成では `run_local_judgment` が None なので、ここでは何も登録しない。
+    """
     container = get_presentation_container(request)
     command = SubmitOutputCommand(
         session_id=session_id,
@@ -161,6 +167,14 @@ async def submit_output(
             title="Invalid Session State",
             detail=str(exc),
         ) from exc
+
+    run_local_judgment = container.run_local_judgment
+    if run_local_judgment is not None:
+        background_tasks.add_task(
+            run_local_judgment.execute,
+            session_id=session_id,
+        )
+
     return to_submit_output_response(view)
 
 

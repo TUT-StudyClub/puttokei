@@ -11,7 +11,6 @@ from src.domain.entities.session import Session
 from src.domain.entities.user import User
 from src.domain.value_objects.auth_provider import AuthProvider
 from src.domain.value_objects.session_status import SessionStatus
-from src.infrastructure.llm.local_judge_service import LocalJudgeService
 from tests.fakes.fake_judgment_repository import FakeJudgmentRepository
 from tests.fakes.fake_output_repository import FakeOutputRepository
 from tests.fakes.fake_session_repository import FakeSessionRepository
@@ -50,7 +49,8 @@ def _make_session(user: User) -> Session:
 
 
 @pytest.mark.asyncio
-async def test_submit_output_can_save_local_judgment_for_development():
+async def test_submit_output_advances_session_to_judging():
+    """output 保存後 session は JUDGING に遷移し、判定はこの use case 内では走らない。"""
     user = _make_user()
     session = _make_session(user)
     sessions = FakeSessionRepository()
@@ -63,8 +63,6 @@ async def test_submit_output_can_save_local_judgment_for_development():
             outputs=outputs,
             judgments=judgments,
         ),
-        local_judgment_enabled=True,
-        judge_service=LocalJudgeService(),
     )
 
     view = await use_case.execute(
@@ -78,8 +76,8 @@ async def test_submit_output_can_save_local_judgment_for_development():
 
     saved_session = await sessions.find_by_id(session.id)
     saved_judgment = await judgments.find_by_session_id(session.id)
-    assert view.status is SessionStatus.JUDGED
+    assert view.status is SessionStatus.JUDGING
     assert saved_session is not None
-    assert saved_session.status is SessionStatus.JUDGED
-    assert saved_judgment is not None
-    assert saved_judgment.score > 0
+    assert saved_session.status is SessionStatus.JUDGING
+    # 判定は別 use case (RunLocalJudgment) の責務になったため、ここでは保存されない
+    assert saved_judgment is None

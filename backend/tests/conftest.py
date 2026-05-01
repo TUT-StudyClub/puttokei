@@ -110,6 +110,7 @@ def container(
         create_session=CreateSession(unit_of_work_factory=unit_of_work_factory),
         update_session_status=UpdateSessionStatus(unit_of_work_factory=unit_of_work_factory),
         submit_output=SubmitOutput(unit_of_work_factory=unit_of_work_factory),
+        run_local_judgment=None,
         get_judgment=GetJudgment(unit_of_work_factory=unit_of_work_factory),
         list_today_outputs=ListTodayOutputs(unit_of_work_factory=unit_of_work_factory),
         get_weekly_report=GetWeeklyReport(unit_of_work_factory=unit_of_work_factory),
