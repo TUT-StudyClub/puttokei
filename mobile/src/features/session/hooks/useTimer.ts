@@ -49,9 +49,9 @@ export type UseTimerResult = {
  * running 中の残り秒数を小数込みで補間し、円形プログレスを滑らかに描画するために使う。
  * 表示用の状態機械は整数秒のままにして、UI だけを `requestAnimationFrame` で補完する。
  */
-export function useSmoothRemainingSeconds(): number {
-  const status = useTimerStore((s) => s.status);
-  const remainingSeconds = useTimerStore((s) => s.remainingSeconds);
+export function useSmoothRemainingSeconds(enabled = true): number {
+  const status = useTimerStore((s) => (enabled ? s.status : 'idle'));
+  const remainingSeconds = useTimerStore((s) => (enabled ? s.remainingSeconds : 0));
   const [smoothRemainingSeconds, setSmoothRemainingSeconds] = useState(remainingSeconds);
 
   const anchorRemainingRef = useRef(remainingSeconds);
@@ -68,7 +68,7 @@ export function useSmoothRemainingSeconds(): number {
     // 自己スケジュールを繰り返して `advanceTimersByTime` を埋め尽くし、
     // CI でテストがタイムアウトする。テストでは補間をスキップし、
     // store の整数秒をそのまま表示値にする。
-    if (status !== 'running' || process.env.NODE_ENV === 'test') {
+    if (!enabled || status !== 'running' || process.env.NODE_ENV === 'test') {
       setSmoothRemainingSeconds(remainingSeconds);
       return;
     }
@@ -86,7 +86,7 @@ export function useSmoothRemainingSeconds(): number {
     return () => {
       cancelAnimationFrame(frameId);
     };
-  }, [remainingSeconds, status]);
+  }, [enabled, remainingSeconds, status]);
 
   return smoothRemainingSeconds;
 }
@@ -98,9 +98,9 @@ export function useSmoothRemainingSeconds(): number {
  * 対しては、毎フレーム更新すると JS スレッドが詰まってアニメーションが止まって見える。
  * 体感は十分滑らか（>= 10fps）に保ちつつ、再描画回数を抑えるためにこの hook を使う。
  */
-export function useThrottledRemainingSeconds(intervalMs: number): number {
-  const status = useTimerStore((s) => s.status);
-  const remainingSeconds = useTimerStore((s) => s.remainingSeconds);
+export function useThrottledRemainingSeconds(intervalMs: number, enabled = true): number {
+  const status = useTimerStore((s) => (enabled ? s.status : 'idle'));
+  const remainingSeconds = useTimerStore((s) => (enabled ? s.remainingSeconds : 0));
   const [throttledRemainingSeconds, setThrottledRemainingSeconds] = useState(remainingSeconds);
 
   const anchorRemainingRef = useRef(remainingSeconds);
@@ -115,7 +115,7 @@ export function useThrottledRemainingSeconds(intervalMs: number): number {
   useEffect(() => {
     // テスト環境では setInterval が fake timers と競合するため、
     // store の整数秒をそのまま反映する（`useSmoothRemainingSeconds` と同方針）。
-    if (status !== 'running' || process.env.NODE_ENV === 'test') {
+    if (!enabled || status !== 'running' || process.env.NODE_ENV === 'test') {
       setThrottledRemainingSeconds(remainingSeconds);
       return;
     }
@@ -128,7 +128,7 @@ export function useThrottledRemainingSeconds(intervalMs: number): number {
     }, intervalMs);
 
     return () => clearInterval(id);
-  }, [remainingSeconds, status, intervalMs]);
+  }, [enabled, remainingSeconds, status, intervalMs]);
 
   return throttledRemainingSeconds;
 }

@@ -6,10 +6,12 @@ from src.application.use_cases.authenticate_user import AuthenticateUser
 from src.application.use_cases.create_session import CreateSession
 from src.application.use_cases.delete_account import DeleteAccount
 from src.application.use_cases.get_judgment import GetJudgment
+from src.application.use_cases.get_judgment_progress import GetJudgmentProgress
 from src.application.use_cases.get_user_profile import GetUserProfile
 from src.application.use_cases.get_user_settings import GetUserSettings
 from src.application.use_cases.get_weekly_report import GetWeeklyReport
 from src.application.use_cases.list_today_outputs import ListTodayOutputs
+from src.application.use_cases.run_local_judgment import RunLocalJudgment
 from src.application.use_cases.submit_output import SubmitOutput
 from src.application.use_cases.update_push_token import UpdatePushToken
 from src.application.use_cases.update_session_status import UpdateSessionStatus
@@ -42,7 +44,12 @@ class Container(BaseModel):
     create_session: CreateSession
     update_session_status: UpdateSessionStatus
     submit_output: SubmitOutput
+    # `local_judgment_enabled=False` の環境（= production など）では未注入。
+    # 未注入時は router 側で BackgroundTasks 登録をスキップし、
+    # Cloud Tasks 実装（Epic #4）に処理を委ねる前提。
+    run_local_judgment: RunLocalJudgment | None
     get_judgment: GetJudgment
+    get_judgment_progress: GetJudgmentProgress
     list_today_outputs: ListTodayOutputs
     get_weekly_report: GetWeeklyReport
 
@@ -55,7 +62,13 @@ def build_container(settings: Settings) -> Container:
         return SqlAlchemyUnitOfWork(database=database)
 
     local_judgment_enabled = settings.local_judgment_enabled or settings.app_env == "development"
-    judge_service = build_llm_judge_service(settings) if local_judgment_enabled else None
+    run_local_judgment: RunLocalJudgment | None = None
+    if local_judgment_enabled:
+        judge_service = build_llm_judge_service(settings)
+        run_local_judgment = RunLocalJudgment(
+            unit_of_work_factory=unit_of_work_factory,
+            judge_service=judge_service,
+        )
 
     return Container(
         settings=settings,
@@ -73,12 +86,10 @@ def build_container(settings: Settings) -> Container:
         delete_account=DeleteAccount(unit_of_work_factory=unit_of_work_factory),
         create_session=CreateSession(unit_of_work_factory=unit_of_work_factory),
         update_session_status=UpdateSessionStatus(unit_of_work_factory=unit_of_work_factory),
-        submit_output=SubmitOutput(
-            unit_of_work_factory=unit_of_work_factory,
-            local_judgment_enabled=local_judgment_enabled,
-            judge_service=judge_service,
-        ),
+        submit_output=SubmitOutput(unit_of_work_factory=unit_of_work_factory),
+        run_local_judgment=run_local_judgment,
         get_judgment=GetJudgment(unit_of_work_factory=unit_of_work_factory),
+        get_judgment_progress=GetJudgmentProgress(unit_of_work_factory=unit_of_work_factory),
         list_today_outputs=ListTodayOutputs(unit_of_work_factory=unit_of_work_factory),
         get_weekly_report=GetWeeklyReport(unit_of_work_factory=unit_of_work_factory),
     )

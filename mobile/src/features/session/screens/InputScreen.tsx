@@ -299,7 +299,7 @@ export function InputScreen() {
   // 砂時計の砂量を 1 秒刻みではなく細かく変えるための補間値。
   // SvgXml が砂進捗の更新ごとに重い XML を再パースするため、毎フレーム (60fps) ではなく
   // 100ms 間隔 (10fps) に間引いて、視覚的な滑らかさを保ちつつ JS スレッドの負荷を抑える。
-  const smoothRemainingSeconds = useThrottledRemainingSeconds(100);
+  const smoothRemainingSeconds = useThrottledRemainingSeconds(100, isFocused);
   const todayOutputsQuery = useTodayOutputs(isFocused);
   const todayOutputItems = todayOutputsQuery.data?.items;
   const todayOutputs = useMemo(() => todayOutputItems ?? [], [todayOutputItems]);
@@ -429,7 +429,7 @@ export function InputScreen() {
               marginBottom={24}
               sandLayers={hourglassSandLayers}
               activeLayerIndex={0}
-              showSandStream={timerStatus === 'running'}
+              showSandStream={isFocused && timerStatus === 'running'}
               variant="blue"
             />
           </>
@@ -449,6 +449,7 @@ export function InputScreen() {
             trackColor={BORDER_COLOR}
             testID="input-circular-timer"
             compact={hasOutputReview}
+            enabled={isFocused}
           />
           {isDetailVisible ? null : (
             <SizableText style={styles.timerCaption} testID="input-timer-caption">

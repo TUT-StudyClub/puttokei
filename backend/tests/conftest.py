@@ -18,6 +18,7 @@ from src.application.use_cases.authenticate_user import AuthenticateUser
 from src.application.use_cases.create_session import CreateSession
 from src.application.use_cases.delete_account import DeleteAccount
 from src.application.use_cases.get_judgment import GetJudgment
+from src.application.use_cases.get_judgment_progress import GetJudgmentProgress
 from src.application.use_cases.get_user_profile import GetUserProfile
 from src.application.use_cases.get_user_settings import GetUserSettings
 from src.application.use_cases.get_weekly_report import GetWeeklyReport
@@ -32,6 +33,7 @@ from src.container import Container
 from src.infrastructure.persistence.database import Database
 from src.main import create_app
 from tests.fakes.fake_auth_verifier import FakeAuthVerifier
+from tests.fakes.fake_judgment_progress_repository import FakeJudgmentProgressRepository
 from tests.fakes.fake_judgment_repository import FakeJudgmentRepository
 from tests.fakes.fake_notification_service import FakeNotificationService
 from tests.fakes.fake_output_repository import FakeOutputRepository
@@ -73,6 +75,11 @@ def fake_judgment_repository() -> FakeJudgmentRepository:
 
 
 @pytest.fixture
+def fake_judgment_progress_repository() -> FakeJudgmentProgressRepository:
+    return FakeJudgmentProgressRepository()
+
+
+@pytest.fixture
 def fake_auth_verifier() -> FakeAuthVerifier:
     return FakeAuthVerifier()
 
@@ -89,6 +96,7 @@ def container(
     fake_session_repository: FakeSessionRepository,
     fake_output_repository: FakeOutputRepository,
     fake_judgment_repository: FakeJudgmentRepository,
+    fake_judgment_progress_repository: FakeJudgmentProgressRepository,
     fake_auth_verifier: FakeAuthVerifier,
     fake_notification_service: FakeNotificationService,
 ) -> Container:
@@ -101,6 +109,7 @@ def container(
             sessions=fake_session_repository,
             outputs=fake_output_repository,
             judgments=fake_judgment_repository,
+            judgment_progresses=fake_judgment_progress_repository,
         )
 
     return Container(
@@ -120,7 +129,9 @@ def container(
         create_session=CreateSession(unit_of_work_factory=unit_of_work_factory),
         update_session_status=UpdateSessionStatus(unit_of_work_factory=unit_of_work_factory),
         submit_output=SubmitOutput(unit_of_work_factory=unit_of_work_factory),
+        run_local_judgment=None,
         get_judgment=GetJudgment(unit_of_work_factory=unit_of_work_factory),
+        get_judgment_progress=GetJudgmentProgress(unit_of_work_factory=unit_of_work_factory),
         list_today_outputs=ListTodayOutputs(unit_of_work_factory=unit_of_work_factory),
         get_weekly_report=GetWeeklyReport(unit_of_work_factory=unit_of_work_factory),
     )

@@ -64,6 +64,7 @@ let mockRouteParams = {
   output: '1',
   break: '5',
 };
+let mockIsFocused = true;
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ replace: mockReplace, push: jest.fn() }),
@@ -71,7 +72,7 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@react-navigation/native', () => ({
-  useIsFocused: () => true,
+  useIsFocused: () => mockIsFocused,
 }));
 
 jest.mock('expo-image-picker', () => ({
@@ -154,6 +155,7 @@ describe('OutputScreen', () => {
     mockRequireOptionalNativeModule.mockReturnValue(mockSpeechRecognitionModule);
     mockSpeechRecognitionListeners.clear();
     resetRouteParams();
+    mockIsFocused = true;
     keyboardListeners.clear();
     jest.spyOn(Keyboard, 'addListener').mockImplementation((eventName, listener) => {
       keyboardListeners.set(eventName, listener);
@@ -194,6 +196,18 @@ describe('OutputScreen', () => {
     ).toBe('#B9DFFF');
     expect(useTimerStore.getState().phase).toBe('output');
     expect(useTimerStore.getState().totalSeconds).toBe(60);
+  });
+
+  it('非フォーカス時はキーボード listener を登録しない', () => {
+    mockIsFocused = false;
+
+    renderWithProviders(<OutputScreen />);
+
+    const keyboardEvents = (Keyboard.addListener as jest.Mock).mock.calls.map(([event]) => event);
+    expect(keyboardEvents).not.toContain('keyboardWillShow');
+    expect(keyboardEvents).not.toContain('keyboardWillHide');
+    expect(keyboardEvents).not.toContain('keyboardDidShow');
+    expect(keyboardEvents).not.toContain('keyboardDidHide');
   });
 
   it('キーボード表示時も全体レイアウトを維持しつつ入力欄が利用できる', () => {

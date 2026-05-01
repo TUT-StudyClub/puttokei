@@ -88,7 +88,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/typography-black.png",
+          "image": "./assets/images/logos/typography_black.png",
           "backgroundColor": "#ffffff",
           "imageWidth": 280,
           "resizeMode": "contain"

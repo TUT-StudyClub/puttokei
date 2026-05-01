@@ -6,7 +6,7 @@ from typing import Any
 import httpx
 from pydantic import ValidationError
 
-from src.domain.services.llm_judge_service import LLMJudgeService
+from src.domain.services.llm_judge_service import LLMJudgeService, LLMProgressCallback
 from src.domain.value_objects.judgment_result import JudgmentResult
 from src.infrastructure.llm.prompts.v1 import (
     build_judgment_prompt,
@@ -40,7 +40,15 @@ class GeminiProvider(LLMJudgeService):
         self.thinking_level = _normalize_thinking_level(thinking_level)
         self.transport = transport
 
-    async def judge(self, prompt_input: str, user_output: str) -> JudgmentResult:
+    async def judge(
+        self,
+        prompt_input: str,
+        user_output: str,
+        progress_callback: LLMProgressCallback | None = None,
+    ) -> JudgmentResult:
+        # Gemini の streaming chunk には text を持たないイベントが混ざることがある。
+        # 判定失敗や過剰な進捗 DB 更新を避けるため、Gemini は安定した通常 API を使う。
+        del progress_callback
         payload = self._build_payload(topic=prompt_input, user_output=user_output)
         url = f"{_API_BASE_URL}/{self.model}:generateContent"
 

@@ -45,7 +45,7 @@ const baseURL =
 
 const DEFAULT_TIMEOUT_MS = 15_000;
 
-function buildUrl(path: string): string {
+export function buildApiUrl(path: string): string {
   const normalizedBaseUrl = baseURL.endsWith('/') ? baseURL.slice(0, -1) : baseURL;
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
 
@@ -178,7 +178,7 @@ class ApiClient {
 
     try {
       const headers = await buildHeaders(init.headers, overrideToken);
-      return await fetch(buildUrl(path), {
+      return await fetch(buildApiUrl(path), {
         ...init,
         headers,
         signal: controller.signal,
