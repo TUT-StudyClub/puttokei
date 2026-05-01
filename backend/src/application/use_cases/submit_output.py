@@ -1,12 +1,18 @@
 """アウトプット送信のユースケース。"""
 
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from src.application.dto.session_dto import SubmitOutputCommand, SubmitOutputView
 from src.application.mappers.session_mapper import to_output_view
 from src.application.unit_of_work import UnitOfWorkFactory
+from src.domain.entities.judgment_progress import JudgmentProgress
 from src.domain.entities.output import Output
 from src.domain.entities.user import User
+from src.domain.value_objects.judgment_progress import (
+    JudgmentProgressStage,
+    JudgmentProgressStatus,
+)
 
 
 class SessionNotFoundError(Exception):
@@ -49,6 +55,22 @@ class SubmitOutput:
                 await uow.sessions.update(updated_session)
             else:
                 updated_session = session
+
+            now = datetime.now(UTC)
+            await uow.judgment_progresses.upsert(
+                JudgmentProgress(
+                    session_id=session.id,
+                    status=JudgmentProgressStatus.QUEUED,
+                    stage=JudgmentProgressStage.QUEUED,
+                    percent=5,
+                    message="判定をキューに登録しました。",
+                    event_seq=1,
+                    started_at=now,
+                    updated_at=now,
+                    completed_at=None,
+                    error_code=None,
+                )
+            )
 
             await uow.commit()
 

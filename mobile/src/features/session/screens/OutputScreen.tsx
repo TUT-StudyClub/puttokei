@@ -485,7 +485,7 @@ export function OutputScreen() {
   // 砂時計バッジ用のタイマー進捗。SvgXml 再パースが重いので 100ms に間引く (InputScreen と同方針)。
   const timerStatus = useTimerStore((s) => s.status);
   const totalSeconds = useTimerStore((s) => s.totalSeconds);
-  const smoothRemainingSeconds = useThrottledRemainingSeconds(100);
+  const smoothRemainingSeconds = useThrottledRemainingSeconds(100, isFocused);
   const hourglassSandProgress =
     totalSeconds > 0 ? Math.min(1, Math.max(0, smoothRemainingSeconds / totalSeconds)) : 1;
   // 下から 青(input/完了済み) → ピンク(output/動く) → 白(break/未開始) の 3 層。
@@ -728,6 +728,11 @@ export function OutputScreen() {
   }, [outputMinutes, reset, resetSubmit, resetVoiceRecognition, sessionId, start]);
 
   useEffect(() => {
+    if (!isFocused) {
+      setIsKeyboardVisible(false);
+      return;
+    }
+
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
@@ -748,7 +753,7 @@ export function OutputScreen() {
       showSubscription.remove();
       hideSubscription.remove();
     };
-  }, []);
+  }, [isFocused]);
 
   const submitErrorMessage =
     localErrorMessage ??
@@ -834,6 +839,7 @@ export function OutputScreen() {
                   trackColor={PRIMARY_SOFT_COLOR}
                   testID="output-circular-timer"
                   compact={isKeyboardVisible || isImageMethod}
+                  enabled={isFocused}
                 />
                 {isKeyboardVisible || isImageMethod ? null : (
                   <SizableText style={styles.timerCaption} testID="output-timer-caption">

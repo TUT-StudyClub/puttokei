@@ -77,6 +77,64 @@ async def test_gemini_provider_parses_structured_output_and_builds_request():
 
 
 @pytest.mark.asyncio
+async def test_gemini_provider_uses_stable_generate_content_when_progress_callback_is_passed():
+    captured_request: dict[str, object] = {}
+    progress_chunks: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured_request["url"] = str(request.url)
+        captured_request["body"] = json.loads(request.content.decode("utf-8"))
+        return httpx.Response(
+            status_code=200,
+            json={
+                "candidates": [
+                    {
+                        "content": {
+                            "parts": [
+                                {
+                                    "text": json.dumps(
+                                        {
+                                            "verdict": "correct",
+                                            "score": 90,
+                                            "advice": "よくできています。",
+                                            "corrections": [],
+                                        },
+                                        ensure_ascii=False,
+                                    )
+                                }
+                            ]
+                        }
+                    }
+                ]
+            },
+        )
+
+    async def report_progress(chunk_count: int) -> None:
+        progress_chunks.append(chunk_count)
+
+    provider = GeminiProvider(
+        api_key="test-api-key",
+        model="gemini-3-flash-preview",
+        temperature=0.2,
+        timeout_seconds=30,
+        transport=httpx.MockTransport(handler),
+    )
+
+    result = await provider.judge(
+        prompt_input="足し算",
+        user_output="1+1=2",
+        progress_callback=report_progress,
+    )
+
+    assert result.verdict.value == "correct"
+    assert result.score == 90
+    assert progress_chunks == []
+    request_url = captured_request["url"]
+    assert isinstance(request_url, str)
+    assert request_url.endswith("/models/gemini-3-flash-preview:generateContent")
+
+
+@pytest.mark.asyncio
 async def test_gemini_provider_raises_error_when_response_is_not_valid_judgment_result():
     def handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(

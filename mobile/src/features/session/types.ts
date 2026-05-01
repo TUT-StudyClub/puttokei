@@ -85,6 +85,31 @@ export type JudgmentFetchResult =
   | { kind: 'ready'; judgment: Judgment }
   | { kind: 'pending'; pending: JudgmentPending };
 
+export const JUDGMENT_PROGRESS_STATUSES = ['queued', 'running', 'completed', 'failed'] as const;
+export type JudgmentProgressStatus = (typeof JUDGMENT_PROGRESS_STATUSES)[number];
+
+export const JUDGMENT_PROGRESS_STAGES = [
+  'queued',
+  'preparing_prompt',
+  'requesting_llm',
+  'receiving_llm',
+  'validating_response',
+  'saving_result',
+  'completed',
+  'failed',
+] as const;
+export type JudgmentProgressStage = (typeof JUDGMENT_PROGRESS_STAGES)[number];
+
+export type JudgmentProgress = {
+  status: JudgmentProgressStatus;
+  stage: JudgmentProgressStage;
+  percent: number;
+  message: string;
+  updated_at: string;
+  completed_at: string | null;
+  error_code: string | null;
+};
+
 export type OutputReviewItem = {
   session_id: string;
   output: Output;

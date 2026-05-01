@@ -5,6 +5,10 @@ from typing import Literal
 from uuid import UUID
 
 from src.common.models import FrozenModel
+from src.domain.value_objects.judgment_progress import (
+    JudgmentProgressStage,
+    JudgmentProgressStatus,
+)
 from src.domain.value_objects.verdict import Verdict
 
 
@@ -35,3 +39,15 @@ class JudgmentPendingResponse(FrozenModel):
     detail: str
     retry_after_seconds: int
     estimated_ready_at: datetime
+
+
+class JudgmentProgressResponse(FrozenModel):
+    """判定進捗レスポンス。"""
+
+    status: JudgmentProgressStatus
+    stage: JudgmentProgressStage
+    percent: int
+    message: str
+    updated_at: datetime
+    completed_at: datetime | None
+    error_code: str | None

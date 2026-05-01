@@ -10,7 +10,12 @@ from src.application.use_cases.submit_output import SubmitOutput
 from src.domain.entities.session import Session
 from src.domain.entities.user import User
 from src.domain.value_objects.auth_provider import AuthProvider
+from src.domain.value_objects.judgment_progress import (
+    JudgmentProgressStage,
+    JudgmentProgressStatus,
+)
 from src.domain.value_objects.session_status import SessionStatus
+from tests.fakes.fake_judgment_progress_repository import FakeJudgmentProgressRepository
 from tests.fakes.fake_judgment_repository import FakeJudgmentRepository
 from tests.fakes.fake_output_repository import FakeOutputRepository
 from tests.fakes.fake_session_repository import FakeSessionRepository
@@ -56,12 +61,14 @@ async def test_submit_output_advances_session_to_judging():
     sessions = FakeSessionRepository()
     outputs = FakeOutputRepository()
     judgments = FakeJudgmentRepository()
+    judgment_progresses = FakeJudgmentProgressRepository()
     await sessions.add(session)
     use_case = SubmitOutput(
         unit_of_work_factory=lambda: FakeUnitOfWork(
             sessions=sessions,
             outputs=outputs,
             judgments=judgments,
+            judgment_progresses=judgment_progresses,
         ),
     )
 
@@ -76,8 +83,13 @@ async def test_submit_output_advances_session_to_judging():
 
     saved_session = await sessions.find_by_id(session.id)
     saved_judgment = await judgments.find_by_session_id(session.id)
+    saved_progress = await judgment_progresses.find_by_session_id(session.id)
     assert view.status is SessionStatus.JUDGING
     assert saved_session is not None
     assert saved_session.status is SessionStatus.JUDGING
     # 判定は別 use case (RunLocalJudgment) の責務になったため、ここでは保存されない
     assert saved_judgment is None
+    assert saved_progress is not None
+    assert saved_progress.status is JudgmentProgressStatus.QUEUED
+    assert saved_progress.stage is JudgmentProgressStage.QUEUED
+    assert saved_progress.percent == 5

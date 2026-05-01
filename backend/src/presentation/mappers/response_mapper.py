@@ -1,6 +1,10 @@
 """Application DTO を HTTP response schema に変換する。"""
 
-from src.application.dto.judgment_dto import JudgmentPendingView, JudgmentView
+from src.application.dto.judgment_dto import (
+    JudgmentPendingView,
+    JudgmentProgressView,
+    JudgmentView,
+)
 from src.application.dto.session_dto import (
     OutputView,
     SessionView,
@@ -13,6 +17,7 @@ from src.application.dto.user_settings_dto import UserSettingsView
 from src.presentation.schemas.judgment_schema import (
     JudgmentCorrectionResponse,
     JudgmentPendingResponse,
+    JudgmentProgressResponse,
     JudgmentResponse,
 )
 from src.presentation.schemas.session_schema import (
@@ -153,6 +158,18 @@ def to_judgment_pending_response(view: JudgmentPendingView) -> JudgmentPendingRe
         detail=view.detail,
         retry_after_seconds=view.retry_after_seconds,
         estimated_ready_at=view.estimated_ready_at,
+    )
+
+
+def to_judgment_progress_response(view: JudgmentProgressView) -> JudgmentProgressResponse:
+    return JudgmentProgressResponse(
+        status=view.status,
+        stage=view.stage,
+        percent=view.percent,
+        message=view.message,
+        updated_at=view.updated_at,
+        completed_at=view.completed_at,
+        error_code=view.error_code,
     )
 
 

@@ -130,6 +130,8 @@
 | --- | --- | --- | --- | --- |
 | POST | /api/v1/sessions/{id}/output | アウトプットテキスト送信。セッションを judging に進め、開発環境ではローカル判定も可能 | 必須 | { output, status } |
 | GET | /api/v1/sessions/{id}/judgment | 判定結果取得。未完了なら202を返却 | 必須 | { judgment } or 202 |
+| GET | /api/v1/sessions/{id}/judgment/progress | 判定進捗の現在値取得 | 必須 | { status, stage, percent, message, updated_at, completed_at, error_code } |
+| GET | /api/v1/sessions/{id}/judgment/progress/stream | 判定進捗を Server-Sent Events で配信。terminal 状態で終了 | 必須 | event: progress |
 
 **3.2.4. 判定履歴（予定）**
 
@@ -236,6 +238,24 @@ GET `/api/v1/sessions/{id}/judgment`
   "judged_at": "2026-04-10T15:30:15+09:00"
 }
 ```
+
+**3.3.4. 判定進捗レスポンス**
+
+GET `/api/v1/sessions/{id}/judgment/progress`
+
+```basic
+{
+  "status": "running",
+  "stage": "receiving_llm",
+  "percent": 65,
+  "message": "AI から判定内容を受信しています。",
+  "updated_at": "2026-04-10T15:29:45+09:00",
+  "completed_at": null,
+  "error_code": null
+}
+```
+
+`status` は `queued` / `running` / `completed` / `failed`。`stage` は backend が観測できる `queued` / `preparing_prompt` / `requesting_llm` / `receiving_llm` / `validating_response` / `saving_result` / `completed` / `failed` を返す。SSE 版は同じ JSON を `event: progress` として配信し、`id` には内部の `event_seq` を使う。
 
 #### 3.4. エラーレスポンス形式
 

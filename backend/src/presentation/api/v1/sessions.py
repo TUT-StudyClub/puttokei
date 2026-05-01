@@ -6,12 +6,15 @@
 - GET /api/v1/sessions/{id}/judgment: 判定結果取得（Issue #51）
 """
 
+import asyncio
+from collections.abc import AsyncGenerator
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Path, Request, status
 from fastapi.responses import JSONResponse
+from starlette.responses import StreamingResponse
 
-from src.application.dto.judgment_dto import JudgmentPendingView
+from src.application.dto.judgment_dto import JudgmentPendingView, JudgmentProgressView
 from src.application.dto.session_dto import (
     CreateSessionCommand,
     SubmitOutputCommand,
@@ -23,6 +26,12 @@ from src.application.use_cases.get_judgment import (
 )
 from src.application.use_cases.get_judgment import (
     SessionNotFoundError as JudgmentSessionNotFoundError,
+)
+from src.application.use_cases.get_judgment_progress import (
+    JudgmentProgressNotAvailableError,
+)
+from src.application.use_cases.get_judgment_progress import (
+    SessionNotFoundError as JudgmentProgressSessionNotFoundError,
 )
 from src.application.use_cases.submit_output import (
     InvalidSessionStatusError as SubmitOutputInvalidSessionStatusError,
@@ -38,6 +47,7 @@ from src.domain.entities.user import User
 from src.presentation.container_access import get_presentation_container
 from src.presentation.mappers.response_mapper import (
     to_judgment_pending_response,
+    to_judgment_progress_response,
     to_judgment_response,
     to_session_response,
     to_submit_output_response,
@@ -47,6 +57,7 @@ from src.presentation.middleware.auth_middleware import get_current_user
 from src.presentation.problem_details import ProblemDetailsError
 from src.presentation.schemas.judgment_schema import (
     JudgmentPendingResponse,
+    JudgmentProgressResponse,
     JudgmentResponse,
 )
 from src.presentation.schemas.session_schema import (
@@ -59,6 +70,8 @@ from src.presentation.schemas.session_schema import (
 )
 
 sessions_router = APIRouter(prefix="/sessions", tags=["sessions"])
+_PROGRESS_STREAM_POLL_SECONDS = 1
+_TERMINAL_PROGRESS_STATUSES = {"completed", "failed"}
 
 
 @sessions_router.post(
@@ -179,6 +192,91 @@ async def submit_output(
 
 
 @sessions_router.get(
+    "/{session_id}/judgment/progress",
+    response_model=JudgmentProgressResponse,
+)
+async def get_judgment_progress(
+    request: Request,
+    session_id: UUID = Path(...),  # noqa: B008
+    current_user: User = Depends(get_current_user),  # noqa: B008
+) -> JudgmentProgressResponse:
+    """判定進捗の現在値を取得する。"""
+    container = get_presentation_container(request)
+    try:
+        view = await container.get_judgment_progress.execute(current_user, session_id)
+    except JudgmentProgressSessionNotFoundError as exc:
+        raise ProblemDetailsError(
+            status_code=status.HTTP_404_NOT_FOUND,
+            problem_type="session_not_found",
+            title="Session Not Found",
+            detail="指定されたセッションが見つかりません。",
+        ) from exc
+    except JudgmentProgressNotAvailableError as exc:
+        raise ProblemDetailsError(
+            status_code=status.HTTP_409_CONFLICT,
+            problem_type="judgment_progress_not_available",
+            title="Judgment Progress Not Available",
+            detail=str(exc),
+        ) from exc
+
+    return to_judgment_progress_response(view)
+
+
+@sessions_router.get("/{session_id}/judgment/progress/stream")
+async def stream_judgment_progress(
+    request: Request,
+    session_id: UUID = Path(...),  # noqa: B008
+    current_user: User = Depends(get_current_user),  # noqa: B008
+) -> StreamingResponse:
+    """判定進捗を Server-Sent Events で配信する。"""
+    container = get_presentation_container(request)
+    try:
+        initial_view = await container.get_judgment_progress.execute(current_user, session_id)
+    except JudgmentProgressSessionNotFoundError as exc:
+        raise ProblemDetailsError(
+            status_code=status.HTTP_404_NOT_FOUND,
+            problem_type="session_not_found",
+            title="Session Not Found",
+            detail="指定されたセッションが見つかりません。",
+        ) from exc
+    except JudgmentProgressNotAvailableError as exc:
+        raise ProblemDetailsError(
+            status_code=status.HTTP_409_CONFLICT,
+            problem_type="judgment_progress_not_available",
+            title="Judgment Progress Not Available",
+            detail=str(exc),
+        ) from exc
+
+    async def event_stream() -> AsyncGenerator[str, None]:
+        last_event_seq = 0
+        view = initial_view
+
+        while True:
+            if view.event_seq != last_event_seq:
+                last_event_seq = view.event_seq
+                yield _format_progress_event(view)
+
+            if view.status.value in _TERMINAL_PROGRESS_STATUSES:
+                break
+
+            if await request.is_disconnected():
+                break
+
+            await asyncio.sleep(_PROGRESS_STREAM_POLL_SECONDS)
+            view = await container.get_judgment_progress.execute(current_user, session_id)
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@sessions_router.get(
     "/{session_id}/judgment",
     response_model=JudgmentResponse | JudgmentPendingResponse,
 )
@@ -222,3 +320,8 @@ async def get_judgment(
         )
 
     return to_judgment_response(view)
+
+
+def _format_progress_event(view: JudgmentProgressView) -> str:
+    payload = to_judgment_progress_response(view).model_dump_json()
+    return f"id: {view.event_seq}\nevent: progress\ndata: {payload}\n\n"

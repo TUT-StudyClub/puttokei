@@ -10,6 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.unit_of_work import ApplicationUnitOfWork
 from src.infrastructure.persistence.database import Database
+from src.infrastructure.persistence.repositories.pg_judgment_progress_repository import (
+    PgJudgmentProgressRepository,
+)
 from src.infrastructure.persistence.repositories.pg_judgment_repository import (
     PgJudgmentRepository,
 )
@@ -32,6 +35,7 @@ class SqlAlchemyUnitOfWork(ApplicationUnitOfWork):
         self.sessions: PgSessionRepository
         self.outputs: PgOutputRepository
         self.judgments: PgJudgmentRepository
+        self.judgment_progresses: PgJudgmentProgressRepository
 
     async def __aenter__(self) -> Self:
         self._session_context = self._database.session()
@@ -41,6 +45,7 @@ class SqlAlchemyUnitOfWork(ApplicationUnitOfWork):
         self.sessions = PgSessionRepository(self._session)
         self.outputs = PgOutputRepository(self._session)
         self.judgments = PgJudgmentRepository(self._session)
+        self.judgment_progresses = PgJudgmentProgressRepository(self._session)
         return self
 
     async def __aexit__(

@@ -10,7 +10,13 @@ import pytest
 from httpx import AsyncClient
 
 from src.domain.entities.judgment import Judgment, JudgmentCorrection
+from src.domain.entities.judgment_progress import JudgmentProgress
+from src.domain.value_objects.judgment_progress import (
+    JudgmentProgressStage,
+    JudgmentProgressStatus,
+)
 from src.domain.value_objects.verdict import Verdict
+from tests.fakes.fake_judgment_progress_repository import FakeJudgmentProgressRepository
 from tests.fakes.fake_judgment_repository import FakeJudgmentRepository
 
 
@@ -570,6 +576,136 @@ async def test_get_judgment_returns_202_for_past_submission_without_saved_judgme
     assert body["status"] == "pending"
     assert body["retry_after_seconds"] >= 1
     assert response.headers["Retry-After"]
+
+
+@pytest.mark.asyncio
+async def test_get_judgment_returns_409_when_progress_failed(
+    client: AsyncClient,
+    fake_judgment_progress_repository: FakeJudgmentProgressRepository,
+):
+    auth_uid = "judgment-user-failed-progress"
+    created = await _create_session(client, auth_uid)
+    session_id = created["id"]
+    await _advance_status(client, auth_uid, session_id, "output")
+    await _submit_output(
+        client,
+        auth_uid,
+        session_id,
+        content="関係代名詞について説明しました。",
+        submitted_at="2020-04-10T15:25:00Z",
+    )
+    now = datetime.now(UTC)
+    await fake_judgment_progress_repository.upsert(
+        JudgmentProgress(
+            session_id=UUID(session_id),
+            status=JudgmentProgressStatus.FAILED,
+            stage=JudgmentProgressStage.FAILED,
+            percent=100,
+            message="判定に失敗しました。時間をおいて再確認してください。",
+            event_seq=3,
+            started_at=now,
+            updated_at=now,
+            completed_at=now,
+            error_code="GeminiProviderError",
+        )
+    )
+
+    response = await client.get(
+        f"/api/v1/sessions/{session_id}/judgment",
+        headers={"Authorization": f"Bearer {auth_uid}"},
+    )
+
+    assert response.status_code == 409
+    body = response.json()
+    _assert_problem_details(
+        body,
+        expected_status=409,
+        expected_type="judgment_not_available",
+    )
+    assert body["detail"] == "判定に失敗しました。時間をおいて再確認してください。"
+
+
+@pytest.mark.asyncio
+async def test_get_judgment_progress_returns_queued_after_submit(client: AsyncClient):
+    auth_uid = "judgment-progress-user-001"
+    created = await _create_session(client, auth_uid)
+    session_id = created["id"]
+    await _advance_status(client, auth_uid, session_id, "output")
+    await _submit_output(client, auth_uid, session_id)
+
+    response = await client.get(
+        f"/api/v1/sessions/{session_id}/judgment/progress",
+        headers={"Authorization": f"Bearer {auth_uid}"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "queued"
+    assert body["stage"] == "queued"
+    assert body["percent"] == 5
+    assert body["completed_at"] is None
+    assert body["error_code"] is None
+
+
+@pytest.mark.asyncio
+async def test_get_judgment_progress_returns_404_for_other_user(client: AsyncClient):
+    auth_uid = "judgment-progress-owner"
+    created = await _create_session(client, auth_uid)
+    session_id = created["id"]
+    await _advance_status(client, auth_uid, session_id, "output")
+    await _submit_output(client, auth_uid, session_id)
+
+    response = await client.get(
+        f"/api/v1/sessions/{session_id}/judgment/progress",
+        headers={"Authorization": "Bearer judgment-progress-other"},
+    )
+
+    assert response.status_code == 404
+    _assert_problem_details(
+        response.json(),
+        expected_status=404,
+        expected_type="session_not_found",
+    )
+
+
+@pytest.mark.asyncio
+async def test_stream_judgment_progress_returns_latest_terminal_event(
+    client: AsyncClient,
+    fake_judgment_progress_repository: FakeJudgmentProgressRepository,
+):
+    auth_uid = "judgment-progress-stream"
+    created = await _create_session(client, auth_uid)
+    session_id = created["id"]
+    await _advance_status(client, auth_uid, session_id, "output")
+    await _advance_status(client, auth_uid, session_id, "judging")
+    now = datetime.now(UTC)
+    await fake_judgment_progress_repository.upsert(
+        JudgmentProgress(
+            session_id=UUID(session_id),
+            status=JudgmentProgressStatus.COMPLETED,
+            stage=JudgmentProgressStage.COMPLETED,
+            percent=100,
+            message="採点が完了しました。",
+            event_seq=7,
+            started_at=now,
+            updated_at=now,
+            completed_at=now,
+            error_code=None,
+        )
+    )
+
+    response = await client.get(
+        f"/api/v1/sessions/{session_id}/judgment/progress/stream",
+        headers={"Authorization": f"Bearer {auth_uid}"},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    body = response.text
+    assert "id: 7" in body
+    assert "event: progress" in body
+    assert '"status":"completed"' in body
+    assert '"percent":100' in body
 
 
 @pytest.mark.asyncio

@@ -6,6 +6,7 @@ from src.application.use_cases.authenticate_user import AuthenticateUser
 from src.application.use_cases.create_session import CreateSession
 from src.application.use_cases.delete_account import DeleteAccount
 from src.application.use_cases.get_judgment import GetJudgment
+from src.application.use_cases.get_judgment_progress import GetJudgmentProgress
 from src.application.use_cases.get_user_profile import GetUserProfile
 from src.application.use_cases.get_user_settings import GetUserSettings
 from src.application.use_cases.get_weekly_report import GetWeeklyReport
@@ -43,6 +44,7 @@ class Container(BaseModel):
     # Cloud Tasks 実装（Epic #4）に処理を委ねる前提。
     run_local_judgment: RunLocalJudgment | None
     get_judgment: GetJudgment
+    get_judgment_progress: GetJudgmentProgress
     list_today_outputs: ListTodayOutputs
     get_weekly_report: GetWeeklyReport
 
@@ -80,6 +82,7 @@ def build_container(settings: Settings) -> Container:
         submit_output=SubmitOutput(unit_of_work_factory=unit_of_work_factory),
         run_local_judgment=run_local_judgment,
         get_judgment=GetJudgment(unit_of_work_factory=unit_of_work_factory),
+        get_judgment_progress=GetJudgmentProgress(unit_of_work_factory=unit_of_work_factory),
         list_today_outputs=ListTodayOutputs(unit_of_work_factory=unit_of_work_factory),
         get_weekly_report=GetWeeklyReport(unit_of_work_factory=unit_of_work_factory),
     )

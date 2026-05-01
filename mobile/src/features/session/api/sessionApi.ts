@@ -7,6 +7,7 @@ import type {
   Judgment,
   JudgmentFetchResult,
   JudgmentPending,
+  JudgmentProgress,
   Session,
   SessionStatus,
   SubmitOutputInput,
@@ -53,6 +54,14 @@ export async function getJudgment(sessionId: string): Promise<JudgmentFetchResul
   }
 
   return { kind: 'ready', judgment: response.data as Judgment };
+}
+
+/**
+ * 判定進捗の現在値を取得する。
+ */
+export async function getJudgmentProgress(sessionId: string): Promise<JudgmentProgress> {
+  const { data } = await api.get<JudgmentProgress>(`/sessions/${sessionId}/judgment/progress`);
+  return data;
 }
 
 export async function listTodayOutputs(): Promise<TodayOutputsResponse> {

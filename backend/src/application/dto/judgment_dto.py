@@ -5,6 +5,10 @@ from typing import Literal
 from uuid import UUID
 
 from src.common.models import FrozenModel
+from src.domain.value_objects.judgment_progress import (
+    JudgmentProgressStage,
+    JudgmentProgressStatus,
+)
 from src.domain.value_objects.verdict import Verdict
 
 
@@ -35,3 +39,17 @@ class JudgmentPendingView(FrozenModel):
     detail: str
     retry_after_seconds: int
     estimated_ready_at: datetime
+
+
+class JudgmentProgressView(FrozenModel):
+    """判定進捗の現在値。"""
+
+    session_id: UUID
+    status: JudgmentProgressStatus
+    stage: JudgmentProgressStage
+    percent: int
+    message: str
+    event_seq: int
+    updated_at: datetime
+    completed_at: datetime | None
+    error_code: str | None
