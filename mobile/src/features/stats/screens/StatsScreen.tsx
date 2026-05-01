@@ -13,6 +13,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useQueries } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 import {
+  Image,
   ImageBackground,
   Pressable,
   SafeAreaView,
@@ -43,6 +44,8 @@ import { useAuthStore } from '@/shared/stores/authStore';
 
 const HIGHLIGHT_BACKGROUND = require('../../../../assets/images/backgrounds/highlight_weekly.png');
 const MONTHLY_HIGHLIGHT_BACKGROUND = require('../../../../assets/images/backgrounds/highlight_monthly.png');
+const CALENDAR_MONTH_ICON = require('../../../../assets/images/icons/icon_calendar_month.png');
+const CALENDAR_DATE_ICON = require('../../../../assets/images/icons/icon_calendar_date.png');
 
 const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'] as const;
 
@@ -60,15 +63,12 @@ const submittedAtFormatter = new Intl.DateTimeFormat('ja-JP', {
   minute: '2-digit',
 });
 
-function CalendarIcon() {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M7 4 V7" stroke="#5367FF" strokeWidth={2.2} strokeLinecap="round" />
-      <Path d="M17 4 V7" stroke="#5367FF" strokeWidth={2.2} strokeLinecap="round" />
-      <Path d="M5 8 H19 V20 H5 Z" stroke="#5367FF" strokeWidth={2.2} strokeLinejoin="round" />
-      <Path d="M5 12 H19" stroke="#5367FF" strokeWidth={2.2} strokeLinecap="round" />
-    </Svg>
-  );
+function CalendarMonthIcon() {
+  return <Image source={CALENDAR_MONTH_ICON} style={styles.calendarToggleIcon} />;
+}
+
+function CalendarDateIcon() {
+  return <Image source={CALENDAR_DATE_ICON} style={styles.calendarToggleIcon} />;
 }
 
 function ArrowIcon({ direction }: { direction: 'left' | 'right' }) {
@@ -729,7 +729,7 @@ export function StatsScreen() {
               style={styles.calendarButton}
               testID="stats-calendar-toggle"
             >
-              <CalendarIcon />
+              <CalendarMonthIcon />
             </Pressable>
           </View>
           {monthlyBody}
@@ -751,7 +751,7 @@ export function StatsScreen() {
             style={styles.calendarButton}
             testID="stats-calendar-toggle"
           >
-            <CalendarIcon />
+            <CalendarDateIcon />
           </Pressable>
         </View>
         <WeekDateStrip
@@ -805,6 +805,11 @@ const styles = StyleSheet.create({
     height: 30,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  calendarToggleIcon: {
+    width: 22,
+    height: 22,
+    resizeMode: 'contain',
   },
   monthText: {
     color: '#333333',
