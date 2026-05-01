@@ -66,3 +66,17 @@ export type WeeklyReportResponse = {
   points: WeeklyReportPoint[];
   output_history: OutputReviewItem[];
 };
+
+export type DailyReportSummary = {
+  input_minutes: number;
+  output_minutes: number;
+  break_minutes: number;
+  total_study_minutes: number;
+  total_sessions: number;
+};
+
+export type DailyReportResponse = {
+  date: string;
+  summary: DailyReportSummary;
+  output_history: OutputReviewItem[];
+};

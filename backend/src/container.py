@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict
 from src.application.use_cases.authenticate_user import AuthenticateUser
 from src.application.use_cases.create_session import CreateSession
 from src.application.use_cases.delete_account import DeleteAccount
+from src.application.use_cases.get_daily_report import GetDailyReport
 from src.application.use_cases.get_judgment import GetJudgment
 from src.application.use_cases.get_judgment_progress import GetJudgmentProgress
 from src.application.use_cases.get_user_profile import GetUserProfile
@@ -47,6 +48,7 @@ class Container(BaseModel):
     get_judgment_progress: GetJudgmentProgress
     list_today_outputs: ListTodayOutputs
     get_weekly_report: GetWeeklyReport
+    get_daily_report: GetDailyReport
 
 
 def build_container(settings: Settings) -> Container:
@@ -85,4 +87,5 @@ def build_container(settings: Settings) -> Container:
         get_judgment_progress=GetJudgmentProgress(unit_of_work_factory=unit_of_work_factory),
         list_today_outputs=ListTodayOutputs(unit_of_work_factory=unit_of_work_factory),
         get_weekly_report=GetWeeklyReport(unit_of_work_factory=unit_of_work_factory),
+        get_daily_report=GetDailyReport(unit_of_work_factory=unit_of_work_factory),
     )

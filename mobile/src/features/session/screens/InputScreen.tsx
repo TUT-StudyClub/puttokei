@@ -30,6 +30,7 @@ import { useTodayOutputs } from '@/features/session/hooks/useTodayOutputs';
 import { useThrottledRemainingSeconds, useTimer } from '@/features/session/hooks/useTimer';
 import { useUpdateSessionStatus } from '@/features/session/hooks/useUpdateSessionStatus';
 import type { OutputReviewItem } from '@/features/session/types';
+import { OUTPUT_HISTORY_ROW_HEIGHT, OutputHistoryRow } from '@/shared/components/OutputHistoryRow';
 import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
@@ -38,9 +39,8 @@ const SETTINGS_ROUTE = '/(tabs)/settings' as unknown as Href;
 const CURRENT_PHASE: SessionPhase = 'input';
 const EXTEND_MINUTES = 5;
 
-// 「今日のアウトプット」一覧で、スクロールせずに見せる最大行数と 1 行の高さ。
-// `todayOutputRow.minHeight` と揃え、4 件目以降は一覧内だけがスクロールするようにする。
-const TODAY_OUTPUT_ROW_HEIGHT = 40;
+// 「今日のアウトプット」一覧で、スクロールせずに見せる最大行数。
+// 4 件目以降は一覧内だけがスクロールするようにする。
 const TODAY_OUTPUT_VISIBLE_ROWS = 3;
 
 const PRIMARY_COLOR = '#4B5CFF';
@@ -117,12 +117,6 @@ function MicIcon({ color = TEXT_INACTIVE, size = 25 }: { color?: string; size?: 
   );
 }
 
-function buildOutputPreview(content: string): string {
-  const normalized = content.replace(/\s+/g, ' ').trim();
-  if (normalized.length <= 15) return normalized;
-  return `${normalized.slice(0, 15)}...`;
-}
-
 type TodayOutputListProps = {
   items: OutputReviewItem[];
   onSelect: (item: OutputReviewItem) => void;
@@ -145,25 +139,13 @@ function TodayOutputList({ items, onSelect }: TodayOutputListProps) {
           testID="today-outputs-scroll"
         >
           {items.map((item, index) => (
-            <Pressable
+            <OutputHistoryRow
               key={item.output.id}
-              accessibilityRole="button"
-              onPress={() => onSelect(item)}
-              style={({ pressed }) => [
-                styles.todayOutputRow,
-                index < items.length - 1 ? styles.todayOutputRowBorder : null,
-                pressed ? styles.buttonPressed : null,
-              ]}
+              item={item}
+              onPress={onSelect}
+              isLast={index === items.length - 1}
               testID={`today-output-row-${item.output.id}`}
-            >
-              <View style={styles.todayOutputIcon}>
-                <PencilIcon size={16} />
-              </View>
-              <SizableText style={styles.todayOutputText} numberOfLines={1}>
-                {buildOutputPreview(item.output.content)}
-              </SizableText>
-              <SizableText style={styles.todayOutputCycle}>サイクル{item.cycle_index}</SizableText>
-            </Pressable>
+            />
           ))}
         </ScrollView>
       </View>
@@ -546,34 +528,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   todayOutputsScroll: {
-    maxHeight: TODAY_OUTPUT_ROW_HEIGHT * TODAY_OUTPUT_VISIBLE_ROWS,
-  },
-  todayOutputRow: {
-    minHeight: 40,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  todayOutputRowBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: PANEL_BORDER_COLOR,
-  },
-  todayOutputIcon: {
-    width: 20,
-    alignItems: 'center',
-  },
-  todayOutputText: {
-    flex: 1,
-    color: '#111111',
-    fontSize: 13,
-    fontWeight: '500',
-    lineHeight: 18,
-  },
-  todayOutputCycle: {
-    color: REVIEW_TEXT_MUTED,
-    fontSize: 12,
-    fontWeight: '500',
-    lineHeight: 16,
+    maxHeight: OUTPUT_HISTORY_ROW_HEIGHT * TODAY_OUTPUT_VISIBLE_ROWS,
   },
   outputDetailSheet: {
     borderTopLeftRadius: 34,
