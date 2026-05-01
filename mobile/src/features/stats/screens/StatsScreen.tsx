@@ -501,39 +501,47 @@ function MonthlyHighlightCard({
   );
 }
 
+const WEEKLY_CHART_SECTIONS = 5;
+
+function formatHourLabel(hours: number): string {
+  if (!Number.isFinite(hours) || hours === 0) return '';
+  if (Number.isInteger(hours)) return String(hours);
+  return hours.toFixed(1).replace(/\.0$/, '');
+}
+
 function WeeklyBarChart({ points }: { points: WeeklyReportPoint[] }) {
   const { width } = useWindowDimensions();
   const chartWidth = Math.max(260, width - 72);
-  const maxHours = Math.max(
-    1,
-    Math.ceil(Math.max(...points.map((point) => point.study_minutes), 0) / 60),
-  );
-  const stepValue = maxHours <= 5 ? 1 : Math.ceil(maxHours / 5);
-  const noOfSections = Math.max(1, Math.ceil(maxHours / stepValue));
-  const yAxisMax = stepValue * noOfSections;
+  const maxStudyMinutes = Math.max(...points.map((point) => point.study_minutes), 0);
+  const maxHours = maxStudyMinutes / 60;
+  const stepValue = maxHours <= 1 ? 0.2 : Math.max(1, Math.ceil(maxHours / WEEKLY_CHART_SECTIONS));
+  const yAxisMax = stepValue * WEEKLY_CHART_SECTIONS;
   const barData = useMemo(
     () =>
       points.map((point) => ({
-        value: Number((point.study_minutes / 60).toFixed(2)),
+        value: point.study_minutes / 60,
       })),
     [points],
   );
   const yAxisLabelTexts = useMemo(
-    () => Array.from({ length: noOfSections + 1 }, (_value, index) => `${stepValue * index}h`),
-    [noOfSections, stepValue],
+    () =>
+      Array.from({ length: WEEKLY_CHART_SECTIONS + 1 }, (_value, index) =>
+        formatHourLabel(stepValue * index),
+      ),
+    [stepValue],
   );
 
   return (
     <View style={styles.weeklyChartWrap} testID="stats-weekly-chart">
-      <SizableText style={styles.weeklyChartYAxisLabel}>時間(h)</SizableText>
       <BarChart
         data={barData}
         width={chartWidth}
         height={200}
         maxValue={yAxisMax}
-        noOfSections={noOfSections}
+        noOfSections={WEEKLY_CHART_SECTIONS}
         stepValue={stepValue}
         yAxisLabelTexts={yAxisLabelTexts}
+        formatYLabel={(label) => formatHourLabel(Number(label))}
         barWidth={22}
         spacing={17}
         initialSpacing={12}
@@ -541,8 +549,12 @@ function WeeklyBarChart({ points }: { points: WeeklyReportPoint[] }) {
         yAxisThickness={0}
         xAxisThickness={1}
         xAxisColor="#D6D6D6"
-        rulesColor="#ECECEC"
+        rulesColor="#D6D6D6"
+        rulesThickness={1}
         hideRules={false}
+        showVerticalLines
+        verticalLinesColor="#ECECEC"
+        verticalLinesThickness={1}
         barBorderTopLeftRadius={4}
         barBorderTopRightRadius={4}
       />
@@ -1410,15 +1422,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingTop: 4,
     paddingBottom: 8,
-  },
-  weeklyChartYAxisLabel: {
-    alignSelf: 'flex-start',
-    color: '#777777',
-    fontSize: 11,
-    fontWeight: '700',
-    lineHeight: 14,
-    marginBottom: 6,
-    marginLeft: 4,
   },
   weeklyHighlightCard: {
     marginTop: 16,
