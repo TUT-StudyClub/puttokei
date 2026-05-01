@@ -3,7 +3,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Text, Uuid, func
+from sqlalchemy import DateTime, ForeignKey, String, Text, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.infrastructure.persistence.models.base import Base
@@ -22,7 +22,9 @@ class OutputModel(Base):
         unique=True,
         index=True,
     )
-    content: Mapped[str] = mapped_column(Text(), nullable=False)
+    kind: Mapped[str] = mapped_column(String(length=16), nullable=False)
+    content: Mapped[str | None] = mapped_column(Text(), nullable=True)
+    image_storage_path: Mapped[str | None] = mapped_column(Text(), nullable=True)
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
