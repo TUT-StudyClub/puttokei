@@ -58,7 +58,9 @@ function makeWeeklyResponse(overrides: Partial<WeeklyReportResponse> = {}): Week
         output: {
           id: 'out-1',
           session_id: 'ses-1',
+          kind: 'text',
           content: '関係代名詞は先行詞を修飾する表現です。',
+          image_url: null,
           submitted_at: '2026-04-26T01:00:00Z',
         },
         cycle_index: 1,

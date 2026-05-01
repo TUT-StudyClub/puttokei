@@ -12,7 +12,15 @@ import { useIsFocused } from '@react-navigation/native';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  Alert,
+  Image,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { Path, Svg } from 'react-native-svg';
 import { SizableText } from 'tamagui';
 
@@ -117,7 +125,8 @@ function MicIcon({ color = TEXT_INACTIVE, size = 25 }: { color?: string; size?: 
   );
 }
 
-function buildOutputPreview(content: string): string {
+function buildOutputPreview(content: string | null | undefined): string {
+  if (!content) return '';
   const normalized = content.replace(/\s+/g, ' ').trim();
   if (normalized.length <= 15) return normalized;
   return `${normalized.slice(0, 15)}...`;
@@ -160,7 +169,9 @@ function TodayOutputList({ items, onSelect }: TodayOutputListProps) {
                 <PencilIcon size={16} />
               </View>
               <SizableText style={styles.todayOutputText} numberOfLines={1}>
-                {buildOutputPreview(item.output.content)}
+                {item.output.kind === 'image'
+                  ? '画像で提出したアウトプット'
+                  : buildOutputPreview(item.output.content)}
               </SizableText>
               <SizableText style={styles.todayOutputCycle}>サイクル{item.cycle_index}</SizableText>
             </Pressable>
@@ -213,13 +224,31 @@ function OutputDetailCard({ item, onBack }: OutputDetailCardProps) {
 
       <View style={styles.outputPreviewFrame}>
         <View style={styles.outputModeTabs}>
-          <View style={styles.outputModeTabActive}>
-            <PencilIcon color={TEXT_ACTIVE} />
-            <SizableText style={styles.outputModeTabTextActive}>テキスト</SizableText>
+          <View style={item.output.kind === 'text' ? styles.outputModeTabActive : styles.outputModeTab}>
+            <PencilIcon color={item.output.kind === 'text' ? TEXT_ACTIVE : REVIEW_TEXT_MUTED} />
+            <SizableText
+              style={
+                item.output.kind === 'text'
+                  ? styles.outputModeTabTextActive
+                  : styles.outputModeTabText
+              }
+            >
+              テキスト
+            </SizableText>
           </View>
-          <View style={styles.outputModeTab}>
-            <ImageIcon color={REVIEW_TEXT_MUTED} />
-            <SizableText style={styles.outputModeTabText}>画像</SizableText>
+          <View
+            style={item.output.kind === 'image' ? styles.outputModeTabActive : styles.outputModeTab}
+          >
+            <ImageIcon color={item.output.kind === 'image' ? TEXT_ACTIVE : REVIEW_TEXT_MUTED} />
+            <SizableText
+              style={
+                item.output.kind === 'image'
+                  ? styles.outputModeTabTextActive
+                  : styles.outputModeTabText
+              }
+            >
+              画像
+            </SizableText>
           </View>
           <View style={styles.outputModeTab}>
             <MicIcon color={REVIEW_TEXT_MUTED} />
@@ -228,16 +257,26 @@ function OutputDetailCard({ item, onBack }: OutputDetailCardProps) {
         </View>
 
         <View style={styles.outputContentBox}>
-          <ScrollView nestedScrollEnabled contentContainerStyle={styles.outputContentScroll}>
-            <AnnotatedOutputText
-              content={item.output.content}
-              corrections={corrections}
-              selectedCorrectionIndex={selectedCorrectionIndex}
-              onSelectCorrection={handleSelectCorrection}
-              textStyle={styles.outputContentText}
-              testID="output-review-annotated-text"
+          {item.output.kind === 'image' && item.output.image_url ? (
+            <Image
+              accessibilityLabel="提出した学習ノート画像"
+              resizeMode="contain"
+              source={{ uri: item.output.image_url }}
+              style={styles.outputImage}
+              testID="output-review-image"
             />
-          </ScrollView>
+          ) : (
+            <ScrollView nestedScrollEnabled contentContainerStyle={styles.outputContentScroll}>
+              <AnnotatedOutputText
+                content={item.output.content ?? ''}
+                corrections={corrections}
+                selectedCorrectionIndex={selectedCorrectionIndex}
+                onSelectCorrection={handleSelectCorrection}
+                textStyle={styles.outputContentText}
+                testID="output-review-annotated-text"
+              />
+            </ScrollView>
+          )}
 
           {selectedCorrection ? (
             <Pressable
@@ -685,6 +724,10 @@ const styles = StyleSheet.create({
     color: TEXT_ACTIVE,
     fontSize: 16,
     lineHeight: 24,
+  },
+  outputImage: {
+    width: '100%',
+    height: 320,
   },
   feedbackPopover: {
     position: 'absolute',

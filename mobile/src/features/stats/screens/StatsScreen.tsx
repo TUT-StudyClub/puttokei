@@ -530,7 +530,8 @@ function SubjectChart({ points }: { points: WeeklyReportPoint[] }) {
   );
 }
 
-function buildOutputPreview(content: string): string {
+function buildOutputPreview(content: string | null | undefined): string {
+  if (!content) return '';
   const compact = content.replace(/\s+/g, ' ').trim();
   if (compact.length <= 44) return compact;
   return `${compact.slice(0, 44)}…`;
@@ -589,7 +590,9 @@ function OutputHistory({ items }: { items: OutputReviewItem[] }) {
                     </SizableText>
                   </View>
                   <SizableText style={styles.historyPreview} numberOfLines={1}>
-                    {buildOutputPreview(item.output.content)}
+                    {item.output.kind === 'image'
+                      ? '画像で提出したアウトプット'
+                      : buildOutputPreview(item.output.content)}
                   </SizableText>
                   <View style={styles.historyFooterRow}>
                     <SizableText style={styles.historyDate}>
