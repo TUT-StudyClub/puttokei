@@ -19,11 +19,10 @@ import { SizableText } from 'tamagui';
 import { AnnotatedOutputText } from '@/features/session/components/AnnotatedOutputText';
 import {
   CircularPhaseTimer,
-  HourglassBadge,
   type HourglassSandLayer,
-  PhaseTabs,
+  SESSION_TOP_CHROME_CONTENT_TOP,
   type SessionPhase,
-  SessionSettingsButton,
+  SessionTopChrome,
 } from '@/features/session/components/SessionPhaseChrome';
 import { DEFAULT_TIMER } from '@/features/session/config';
 import { useTodayOutputs } from '@/features/session/hooks/useTodayOutputs';
@@ -388,91 +387,85 @@ export function InputScreen() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
       <View style={styles.container} testID="input-root">
-        {isDetailVisible ? null : (
-          <>
-            <SessionSettingsButton
-              onPress={() => router.push(SETTINGS_ROUTE)}
-              testID="input-settings-button"
-            />
-
-            <HourglassBadge
-              currentLoop={currentLoop}
-              testIDPrefix="input"
-              borderColor={BORDER_COLOR}
-              marginBottom={24}
-              sandLayers={hourglassSandLayers}
-              activeLayerIndex={0}
-              showSandStream={isFocused && timerStatus === 'running'}
-              variant="blue"
-            />
-          </>
-        )}
-
-        <PhaseTabs
-          activePhase={CURRENT_PHASE}
+        <SessionTopChrome
           testIDPrefix="input"
-          activeDotColor={PRIMARY_COLOR}
-          inactiveDotColor={DOT_INACTIVE}
+          showHeader={!isDetailVisible}
+          onSettingsPress={() => router.push(SETTINGS_ROUTE)}
+          hourglass={{
+            currentLoop,
+            borderColor: BORDER_COLOR,
+            sandLayers: hourglassSandLayers,
+            activeLayerIndex: 0,
+            showSandStream: isFocused && timerStatus === 'running',
+            variant: 'blue',
+          }}
+          phaseTabs={{
+            activePhase: CURRENT_PHASE,
+            activeDotColor: PRIMARY_COLOR,
+            inactiveDotColor: DOT_INACTIVE,
+          }}
         />
 
-        <View style={[styles.timerStage, isDetailVisible ? styles.timerStageDetail : null]}>
-          <CircularPhaseTimer
-            phase={CURRENT_PHASE}
-            primaryColor={PRIMARY_COLOR}
-            trackColor={BORDER_COLOR}
-            testID="input-circular-timer"
-            compact={hasOutputReview}
-            enabled={isFocused}
-          />
-          {isDetailVisible ? null : (
-            <SizableText style={styles.timerCaption} testID="input-timer-caption">
-              終了後{outputMinutes}分間でアウトプットです{'\n'}アウトプットへは自動で切り替わります
-            </SizableText>
+        <View style={styles.contentArea}>
+          <View style={[styles.timerStage, isDetailVisible ? styles.timerStageDetail : null]}>
+            <CircularPhaseTimer
+              phase={CURRENT_PHASE}
+              primaryColor={PRIMARY_COLOR}
+              trackColor={BORDER_COLOR}
+              testID="input-circular-timer"
+              compact={hasOutputReview}
+              enabled={isFocused}
+            />
+            {isDetailVisible ? null : (
+              <SizableText style={styles.timerCaption} testID="input-timer-caption">
+                終了後{outputMinutes}分間でアウトプットです{'\n'}アウトプットへは自動で切り替わります
+              </SizableText>
+            )}
+          </View>
+
+          {selectedOutput ? (
+            <OutputDetailCard item={selectedOutput} onBack={() => setSelectedOutputId(null)} />
+          ) : (
+            <TodayOutputList
+              items={todayOutputs}
+              onSelect={(item) => setSelectedOutputId(item.output.id)}
+            />
           )}
-        </View>
 
-        {selectedOutput ? (
-          <OutputDetailCard item={selectedOutput} onBack={() => setSelectedOutputId(null)} />
-        ) : (
-          <TodayOutputList
-            items={todayOutputs}
-            onSelect={(item) => setSelectedOutputId(item.output.id)}
-          />
-        )}
+          {hasError ? (
+            <SizableText style={styles.errorText} size="$3" testID="input-screen-error">
+              通信エラーが発生しました。時間をおいて再度お試しください。
+            </SizableText>
+          ) : null}
 
-        {hasError ? (
-          <SizableText style={styles.errorText} size="$3" testID="input-screen-error">
-            通信エラーが発生しました。時間をおいて再度お試しください。
-          </SizableText>
-        ) : null}
-
-        <View style={styles.actionArea}>
-          <Pressable
-            accessibilityRole="button"
-            disabled={cancelMutation.isPending}
-            onPress={handleCancel}
-            style={({ pressed }) => [
-              styles.cancelButton,
-              pressed ? styles.buttonPressed : null,
-              cancelMutation.isPending ? styles.buttonDisabled : null,
-            ]}
-            testID="input-cancel-button"
-          >
-            <SizableText style={styles.cancelButtonText}>中断する</SizableText>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            disabled={extendDisabled}
-            onPress={handleExtend}
-            style={({ pressed }) => [
-              styles.extendButton,
-              pressed ? styles.buttonPressed : null,
-              extendDisabled ? styles.buttonDisabled : null,
-            ]}
-            testID="input-extend-button"
-          >
-            <SizableText style={styles.extendButtonText}>{EXTEND_MINUTES}分延長</SizableText>
-          </Pressable>
+          <View style={styles.actionArea}>
+            <Pressable
+              accessibilityRole="button"
+              disabled={cancelMutation.isPending}
+              onPress={handleCancel}
+              style={({ pressed }) => [
+                styles.cancelButton,
+                pressed ? styles.buttonPressed : null,
+                cancelMutation.isPending ? styles.buttonDisabled : null,
+              ]}
+              testID="input-cancel-button"
+            >
+              <SizableText style={styles.cancelButtonText}>中断する</SizableText>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              disabled={extendDisabled}
+              onPress={handleExtend}
+              style={({ pressed }) => [
+                styles.extendButton,
+                pressed ? styles.buttonPressed : null,
+                extendDisabled ? styles.buttonDisabled : null,
+              ]}
+              testID="input-extend-button"
+            >
+              <SizableText style={styles.extendButtonText}>{EXTEND_MINUTES}分延長</SizableText>
+            </Pressable>
+          </View>
         </View>
       </View>
     </SafeAreaView>
@@ -486,10 +479,15 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingTop: 12,
-    paddingRight: 24,
+  },
+  contentArea: {
+    position: 'absolute',
+    top: SESSION_TOP_CHROME_CONTENT_TOP,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 24,
     paddingBottom: 32,
-    paddingLeft: 24,
   },
   timerStage: {
     flex: 1,
