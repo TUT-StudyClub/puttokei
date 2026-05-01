@@ -46,6 +46,7 @@ import type {
   WeeklyReportSummary,
 } from '@/features/stats/types';
 import type { OutputReviewItem } from '@/features/session/types';
+import { OutputHistoryRow } from '@/shared/components/OutputHistoryRow';
 import { isApiError } from '@/shared/lib/api';
 import { useAuthStore } from '@/shared/stores/authStore';
 
@@ -61,14 +62,6 @@ type ReportViewMode = 'daily' | 'weekly' | 'monthly';
 const MONTH_DAY_SLOT_HEIGHT = 38;
 const MONTH_DAY_ROW_GAP = 2;
 const MONTH_CALENDAR_ARROW_HEIGHT = 58;
-
-const submittedAtFormatter = new Intl.DateTimeFormat('ja-JP', {
-  timeZone: 'Asia/Tokyo',
-  month: 'numeric',
-  day: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-});
 
 function CalendarMonthIcon() {
   return <Image source={CALENDAR_MONTH_ICON} style={styles.calendarToggleIcon} />;
@@ -105,15 +98,6 @@ function ExternalIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-    </Svg>
-  );
-}
-
-function PencilIcon() {
-  return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M5 19 L6.2 14.7 L15.4 5.5 L18.5 8.6 L9.3 17.8 Z" fill="#333333" />
-      <Path d="M14.5 6.4 L17.6 9.5" stroke="#FFFFFF" strokeWidth={1.4} />
     </Svg>
   );
 }
@@ -581,16 +565,6 @@ function WeeklyHighlightCard({ summary }: { summary: WeeklyReportSummary }) {
   );
 }
 
-function buildOutputPreview(content: string): string {
-  const compact = content.replace(/\s+/g, ' ').trim();
-  if (compact.length <= 44) return compact;
-  return `${compact.slice(0, 44)}…`;
-}
-
-function formatSubmittedAt(value: string): string {
-  return submittedAtFormatter.format(new Date(value));
-}
-
 function OutputHistory({ items }: { items: OutputReviewItem[] }) {
   const router = useRouter();
 
@@ -605,57 +579,25 @@ function OutputHistory({ items }: { items: OutputReviewItem[] }) {
   return (
     <View style={styles.historySection} testID="stats-output-history">
       <SizableText style={styles.sectionTitle}>アウトプット履歴</SizableText>
-      {items.length === 0 ? (
-        <View style={styles.emptyHistory} testID="stats-output-history-empty">
-          <SizableText style={styles.emptyHistoryText}>
-            この日のアウトプットはまだありません。
-          </SizableText>
-        </View>
-      ) : (
-        <View style={styles.historyList}>
-          {items.map((item) => {
-            const isPressable = item.judgment !== null;
-            return (
-              <Pressable
-                key={item.output.id}
-                accessibilityRole={isPressable ? 'button' : undefined}
-                disabled={!isPressable}
-                onPress={() => handlePress(item)}
-                style={({ pressed }) => [
-                  styles.historyItem,
-                  pressed && isPressable ? styles.historyItemPressed : null,
-                ]}
-                testID={`stats-output-history-item-${item.output.id}`}
-              >
-                <View style={styles.historyIcon}>
-                  <PencilIcon />
-                </View>
-                <View style={styles.historyContent}>
-                  <View style={styles.historyMetaRow}>
-                    <SizableText style={styles.historySubject}>
-                      {item.subject} {item.topic}
-                    </SizableText>
-                    <SizableText style={styles.historyCycle}>
-                      サイクル{item.cycle_index}
-                    </SizableText>
-                  </View>
-                  <SizableText style={styles.historyPreview} numberOfLines={1}>
-                    {buildOutputPreview(item.output.content)}
-                  </SizableText>
-                  <View style={styles.historyFooterRow}>
-                    <SizableText style={styles.historyDate}>
-                      {formatSubmittedAt(item.output.submitted_at)}
-                    </SizableText>
-                    <SizableText style={styles.historyStatus}>
-                      {item.judgment === null ? '判定待ち' : '詳細'}
-                    </SizableText>
-                  </View>
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
+      <View style={styles.historyCard}>
+        {items.length === 0 ? (
+          <View style={styles.emptyHistory} testID="stats-output-history-empty">
+            <SizableText style={styles.emptyHistoryText}>
+              この日のアウトプットはまだありません。
+            </SizableText>
+          </View>
+        ) : (
+          items.map((item, index) => (
+            <OutputHistoryRow
+              key={item.output.id}
+              item={item}
+              onPress={item.judgment !== null ? handlePress : undefined}
+              isLast={index === items.length - 1}
+              testID={`stats-output-history-item-${item.output.id}`}
+            />
+          ))
+        )}
+      </View>
     </View>
   );
 }
@@ -1320,88 +1262,20 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   historySection: {
-    gap: 14,
+    gap: 8,
     marginTop: 4,
   },
-  historyList: {
-    gap: 10,
-  },
-  historyItem: {
-    minHeight: 72,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderRadius: 16,
+  historyCard: {
     borderWidth: 1,
-    borderColor: '#DADADA',
-    backgroundColor: '#FFFFFF',
+    borderColor: '#D0D0D0',
+    borderRadius: 16,
     paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  historyItemPressed: {
-    opacity: 0.72,
-  },
-  historyIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F4F4F4',
-  },
-  historyContent: {
-    flex: 1,
-    gap: 4,
-  },
-  historyMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  historySubject: {
-    flex: 1,
-    color: '#333333',
-    fontSize: 12,
-    fontWeight: '800',
-    lineHeight: 16,
-  },
-  historyCycle: {
-    color: '#777777',
-    fontSize: 11,
-    fontWeight: '700',
-    lineHeight: 14,
-  },
-  historyPreview: {
-    color: '#333333',
-    fontSize: 13,
-    fontWeight: '500',
-    lineHeight: 18,
-  },
-  historyFooterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  historyDate: {
-    color: '#999999',
-    fontSize: 11,
-    fontWeight: '600',
-    lineHeight: 14,
-  },
-  historyStatus: {
-    color: '#5367FF',
-    fontSize: 11,
-    fontWeight: '800',
-    lineHeight: 14,
+    paddingVertical: 4,
+    backgroundColor: '#FFFFFF',
   },
   emptyHistory: {
-    minHeight: 72,
+    minHeight: 40,
     justifyContent: 'center',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    paddingHorizontal: 16,
   },
   emptyHistoryText: {
     color: '#777777',
