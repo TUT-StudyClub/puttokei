@@ -21,6 +21,7 @@ def build_llm_judge_service(settings: Settings) -> LLMJudgeService:
             temperature=settings.llm_gemini_temperature,
             timeout_seconds=settings.llm_timeout_seconds,
             thinking_level=settings.llm_gemini_thinking_level,
+            image_media_resolution=settings.llm_gemini_image_media_resolution,
         )
 
     raise ValueError(f"unsupported llm provider: {settings.llm_provider}")
