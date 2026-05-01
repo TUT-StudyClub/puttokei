@@ -418,7 +418,8 @@ export function InputScreen() {
             />
             {isDetailVisible ? null : (
               <SizableText style={styles.timerCaption} testID="input-timer-caption">
-                終了後{outputMinutes}分間でアウトプットです{'\n'}アウトプットへは自動で切り替わります
+                終了後{outputMinutes}分間でアウトプットです{'\n'}
+                アウトプットへは自動で切り替わります
               </SizableText>
             )}
           </View>
