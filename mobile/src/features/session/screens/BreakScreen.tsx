@@ -57,7 +57,7 @@ import type { CreateSessionInput, Session } from '@/features/session/types';
 import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
-const BREAK_COMPLETE_CARD_IMAGE = require('../../../../assets/images/break_complete.png');
+const BREAK_COMPLETE_CARD_IMAGE = require('../../../../assets/images/illustrations/break_complete.png');
 // 画像本体 (1329x1857) のアスペクト比。card 全体をこの比率で配置する。
 const BREAK_COMPLETE_CARD_ASPECT_RATIO = 1329 / 1857;
 
@@ -183,7 +183,12 @@ function BreakCompletedView({ currentLoop, onNextCycle }: BreakCompletedViewProp
           source={BREAK_COMPLETE_CARD_IMAGE}
           style={[
             styles.completedCard,
-            { width: cardWidth, height: cardHeight, paddingTop: topInset, paddingBottom: bottomInset },
+            {
+              width: cardWidth,
+              height: cardHeight,
+              paddingTop: topInset,
+              paddingBottom: bottomInset,
+            },
           ]}
           imageStyle={styles.completedCardImage}
           resizeMode="stretch"
@@ -211,10 +216,7 @@ function BreakCompletedView({ currentLoop, onNextCycle }: BreakCompletedViewProp
           <Pressable
             accessibilityRole="button"
             onPress={onNextCycle}
-            style={({ pressed }) => [
-              styles.nextCycleButton,
-              pressed ? styles.buttonPressed : null,
-            ]}
+            style={({ pressed }) => [styles.nextCycleButton, pressed ? styles.buttonPressed : null]}
             testID="break-next-cycle-button"
           >
             <SizableText
