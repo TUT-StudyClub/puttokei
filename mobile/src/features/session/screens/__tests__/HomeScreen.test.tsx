@@ -51,7 +51,9 @@ describe('HomeScreen', () => {
   });
 
   it('初期表示はインプットの時間を表示する', () => {
-    const { getByTestId } = renderWithProviders(<HomeScreen />);
+    const { getByLabelText, getByTestId } = renderWithProviders(<HomeScreen />);
+    expect(getByLabelText('設定')).toBeTruthy();
+    expect(getByTestId('home-settings-button')).toBeTruthy();
     expect(getByTestId('home-timer-text').props.children).toBe(
       `${String(DEFAULT_TIMER.input_minutes).padStart(2, '0')}:00`,
     );
