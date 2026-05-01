@@ -42,6 +42,7 @@ import { DEFAULT_TIMER } from '@/features/session/config';
 import { useThrottledRemainingSeconds, useTimer } from '@/features/session/hooks/useTimer';
 import { useSubmitOutput } from '@/features/session/hooks/useSubmitOutput';
 import { useVoiceRecognition } from '@/features/session/hooks/useVoiceRecognition';
+import { uploadOutputImage } from '@/features/session/lib/uploadOutputImage';
 import { isApiError } from '@/shared/lib/api';
 import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
@@ -65,7 +66,6 @@ const DOT_INACTIVE = '#D9D9D9';
 const BORDER_COLOR = '#E5E7EB';
 const CAPTION_COLOR = '#777777';
 const ERROR_COLOR = '#D92D20';
-const MAX_OUTPUT_CONTENT_LENGTH = 2000;
 
 const INPUT_METHODS = ['text', 'image', 'voice'] as const;
 type InputMethod = (typeof INPUT_METHODS)[number];
@@ -93,16 +93,6 @@ function hasNativeImagePickerModule() {
   return Boolean(
     expoModules?.ExponentImagePicker || legacyExpoModules?.exportedMethods?.ExponentImagePicker,
   );
-}
-
-function buildImageOutputContent(imageUris: string[]) {
-  const header = `画像でアウトプットしました。撮影した学習内容の画像を提出しました。（${imageUris.length}枚）`;
-  const lines = imageUris.map((uri, index) => `画像${index + 1}: ${uri}`);
-  const content = [header, ...lines].join('\n');
-
-  return content.length > MAX_OUTPUT_CONTENT_LENGTH
-    ? content.slice(0, MAX_OUTPUT_CONTENT_LENGTH)
-    : content;
 }
 
 function appendTranscriptToContent(currentContent: string, transcript: string) {
@@ -259,7 +249,7 @@ function AddImageIcon({ color = METHOD_ACTIVE_COLOR }: { color?: string }) {
 }
 
 type ImageOutputPanelProps = {
-  imageUris: string[];
+  imageUri: string | null;
   isMenuOpen: boolean;
   onToggleMenu: () => void;
   onPickFromLibrary: () => void;
@@ -267,7 +257,7 @@ type ImageOutputPanelProps = {
 };
 
 function ImageOutputPanel({
-  imageUris,
+  imageUri,
   isMenuOpen,
   onToggleMenu,
   onPickFromLibrary,
@@ -280,16 +270,15 @@ function ImageOutputPanel({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.imageGrid}
       >
-        {imageUris.map((uri, index) => (
+        {imageUri ? (
           <Image
-            key={`${uri}-${index}`}
-            accessibilityLabel={`撮影済み画像${index + 1}`}
+            accessibilityLabel="撮影済み画像"
             resizeMode="cover"
-            source={{ uri }}
+            source={{ uri: imageUri }}
             style={styles.imageThumbnail}
-            testID={`output-image-thumbnail-${index}`}
+            testID="output-image-thumbnail"
           />
-        ))}
+        ) : null}
         <View style={styles.imageAddColumn}>
           <Pressable
             accessibilityRole="button"
@@ -518,7 +507,8 @@ export function OutputScreen() {
   const [content, setContent] = useState('');
   const [localErrorMessage, setLocalErrorMessage] = useState<string | null>(null);
   const [inputMethod, setInputMethod] = useState<InputMethod>('text');
-  const [imageUris, setImageUris] = useState<string[]>([]);
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [isImageMenuOpen, setIsImageMenuOpen] = useState(false);
 
@@ -565,7 +555,7 @@ export function OutputScreen() {
       setLocalErrorMessage(null);
       resetSubmit();
       submitOutputMutate(
-        { sessionId, content: nextContent, submitted_at },
+        { kind: 'text', sessionId, content: nextContent, submitted_at },
         {
           onSuccess: navigateToBreak,
         },
@@ -589,27 +579,46 @@ export function OutputScreen() {
     [isSubmitError, isVoiceRecognizing, resetSubmit, stopListening],
   );
 
-  const handleImageSubmit = useCallback(() => {
-    if (isSubmitPending) return;
+  const handleImageSubmit = useCallback(async () => {
+    if (isSubmitPending || isUploadingImage) return;
 
-    if (imageUris.length === 0) {
-      setLocalErrorMessage('画像を1枚以上追加してから提出してください。');
+    if (!imageUri) {
+      setLocalErrorMessage('画像を追加してから提出してください。');
       return;
     }
 
     setLocalErrorMessage(null);
     resetSubmit();
-    submitOutputMutate(
-      {
-        sessionId,
-        content: buildImageOutputContent(imageUris),
-        submitted_at: new Date().toISOString(),
-      },
-      {
-        onSuccess: navigateToBreak,
-      },
-    );
-  }, [imageUris, isSubmitPending, navigateToBreak, resetSubmit, sessionId, submitOutputMutate]);
+    setIsUploadingImage(true);
+    try {
+      const { storagePath } = await uploadOutputImage(sessionId, imageUri);
+      submitOutputMutate(
+        {
+          kind: 'image',
+          sessionId,
+          image_storage_path: storagePath,
+          submitted_at: new Date().toISOString(),
+        },
+        {
+          onSuccess: navigateToBreak,
+        },
+      );
+    } catch {
+      setLocalErrorMessage(
+        '画像のアップロードに失敗しました。通信状況を確認して再度お試しください。',
+      );
+    } finally {
+      setIsUploadingImage(false);
+    }
+  }, [
+    imageUri,
+    isSubmitPending,
+    isUploadingImage,
+    navigateToBreak,
+    resetSubmit,
+    sessionId,
+    submitOutputMutate,
+  ]);
 
   const handleToggleImageMenu = useCallback(() => {
     setLocalErrorMessage(null);
@@ -645,7 +654,7 @@ export function OutputScreen() {
 
       const uri = result.assets[0]?.uri;
       if (uri) {
-        setImageUris((current) => [...current, uri]);
+        setImageUri(uri);
       }
     } catch {
       setLocalErrorMessage('写真アルバムを開けませんでした。時間をおいて再度お試しください。');
@@ -684,7 +693,7 @@ export function OutputScreen() {
 
       const uri = result.assets[0]?.uri;
       if (uri) {
-        setImageUris((current) => [...current, uri]);
+        setImageUri(uri);
       }
     } catch {
       setLocalErrorMessage('カメラを起動できませんでした。時間をおいて再度お試しください。');
@@ -715,7 +724,8 @@ export function OutputScreen() {
   useEffect(() => {
     setContent('');
     setInputMethod('text');
-    setImageUris([]);
+    setImageUri(null);
+    setIsUploadingImage(false);
     setLocalErrorMessage(null);
     setIsImageMenuOpen(false);
     resetVoiceRecognition();
@@ -857,7 +867,7 @@ export function OutputScreen() {
                 <View style={styles.editorArea}>
                   {isImageMethod ? (
                     <ImageOutputPanel
-                      imageUris={imageUris}
+                      imageUri={imageUri}
                       isMenuOpen={isImageMenuOpen}
                       onToggleMenu={handleToggleImageMenu}
                       onPickFromLibrary={handlePickFromLibrary}
@@ -904,7 +914,7 @@ export function OutputScreen() {
               {isImageMethod ? (
                 <ImageSubmissionFooter
                   errorMessage={submitErrorMessage}
-                  isSubmitting={isSubmitPending}
+                  isSubmitting={isSubmitPending || isUploadingImage}
                   onSubmit={handleImageSubmit}
                 />
               ) : null}
