@@ -11,12 +11,15 @@ from src.application.use_cases.get_user_settings import GetUserSettings
 from src.application.use_cases.get_weekly_report import GetWeeklyReport
 from src.application.use_cases.list_today_outputs import ListTodayOutputs
 from src.application.use_cases.submit_output import SubmitOutput
+from src.application.use_cases.update_push_token import UpdatePushToken
 from src.application.use_cases.update_session_status import UpdateSessionStatus
 from src.application.use_cases.update_user_profile import UpdateUserProfile
 from src.application.use_cases.update_user_settings import UpdateUserSettings
 from src.config import Settings
+from src.domain.services.notification_service import NotificationService
 from src.infrastructure.auth.firebase_auth import FirebaseAuthVerifier
 from src.infrastructure.llm.factory import build_llm_judge_service
+from src.infrastructure.notification.fcm_notification import FcmNotificationService
 from src.infrastructure.persistence.database import Database
 from src.infrastructure.persistence.unit_of_work import SqlAlchemyUnitOfWork
 
@@ -28,9 +31,11 @@ class Container(BaseModel):
 
     settings: Settings
     database: Database
+    notification_service: NotificationService
     authenticate_user: AuthenticateUser
     get_user_profile: GetUserProfile
     update_user_profile: UpdateUserProfile
+    update_push_token: UpdatePushToken
     get_user_settings: GetUserSettings
     update_user_settings: UpdateUserSettings
     delete_account: DeleteAccount
@@ -55,12 +60,14 @@ def build_container(settings: Settings) -> Container:
     return Container(
         settings=settings,
         database=database,
+        notification_service=FcmNotificationService(settings=settings),
         authenticate_user=AuthenticateUser(
             auth_verifier=FirebaseAuthVerifier(settings=settings),
             unit_of_work_factory=unit_of_work_factory,
         ),
         get_user_profile=GetUserProfile(),
         update_user_profile=UpdateUserProfile(unit_of_work_factory=unit_of_work_factory),
+        update_push_token=UpdatePushToken(unit_of_work_factory=unit_of_work_factory),
         get_user_settings=GetUserSettings(unit_of_work_factory=unit_of_work_factory),
         update_user_settings=UpdateUserSettings(unit_of_work_factory=unit_of_work_factory),
         delete_account=DeleteAccount(unit_of_work_factory=unit_of_work_factory),

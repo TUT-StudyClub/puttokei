@@ -26,10 +26,12 @@ import {
   SessionSettingsButton,
 } from '@/features/session/components/SessionPhaseChrome';
 import { DEFAULT_TIMER } from '@/features/session/config';
+import { useScheduleSessionPhaseNotification } from '@/features/session/hooks/useScheduleSessionPhaseNotification';
 import { useTodayOutputs } from '@/features/session/hooks/useTodayOutputs';
 import { useThrottledRemainingSeconds, useTimer } from '@/features/session/hooks/useTimer';
 import { useUpdateSessionStatus } from '@/features/session/hooks/useUpdateSessionStatus';
 import type { OutputReviewItem } from '@/features/session/types';
+import { useSettings } from '@/features/settings/hooks/useSettings';
 import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
@@ -357,6 +359,13 @@ export function InputScreen() {
         },
       );
     },
+  });
+
+  const settingsQuery = useSettings();
+  const notificationEnabled = settingsQuery.data?.notification_enabled ?? false;
+  useScheduleSessionPhaseNotification({
+    kind: 'input',
+    enabled: isFocused && timerStatus === 'running' && notificationEnabled,
   });
 
   useEffect(() => {

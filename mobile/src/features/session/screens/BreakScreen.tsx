@@ -56,12 +56,14 @@ import {
 } from '@/features/session/components/SessionPhaseChrome';
 import { DEFAULT_TIMER } from '@/features/session/config';
 import { useJudgment } from '@/features/session/hooks/useJudgment';
+import { useScheduleSessionPhaseNotification } from '@/features/session/hooks/useScheduleSessionPhaseNotification';
 import {
   useSmoothRemainingSeconds,
   useThrottledRemainingSeconds,
   useTimer,
 } from '@/features/session/hooks/useTimer';
 import type { CreateSessionInput, Session } from '@/features/session/types';
+import { useSettings } from '@/features/settings/hooks/useSettings';
 import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
@@ -1122,6 +1124,14 @@ export function BreakScreen() {
     onComplete: () => {
       setScreenMode('completed');
     },
+  });
+
+  const settingsQuery = useSettings();
+  const notificationEnabled = settingsQuery.data?.notification_enabled ?? false;
+  useScheduleSessionPhaseNotification({
+    kind: 'break',
+    enabled:
+      isFocused && screenMode === 'resting' && timerStatus === 'running' && notificationEnabled,
   });
 
   const createNextCycle = useMutation<Session, Error, CreateSessionInput>({

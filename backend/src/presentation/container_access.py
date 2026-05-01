@@ -14,6 +14,7 @@ from src.application.use_cases.get_user_settings import GetUserSettings
 from src.application.use_cases.get_weekly_report import GetWeeklyReport
 from src.application.use_cases.list_today_outputs import ListTodayOutputs
 from src.application.use_cases.submit_output import SubmitOutput
+from src.application.use_cases.update_push_token import UpdatePushToken
 from src.application.use_cases.update_session_status import UpdateSessionStatus
 from src.application.use_cases.update_user_profile import UpdateUserProfile
 from src.application.use_cases.update_user_settings import UpdateUserSettings
@@ -34,6 +35,7 @@ class PresentationContainer(ABC):
     authenticate_user: AuthenticateUser
     get_user_profile: GetUserProfile
     update_user_profile: UpdateUserProfile
+    update_push_token: UpdatePushToken
     get_user_settings: GetUserSettings
     update_user_settings: UpdateUserSettings
     delete_account: DeleteAccount

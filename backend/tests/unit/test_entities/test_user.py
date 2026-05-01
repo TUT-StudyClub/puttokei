@@ -95,3 +95,23 @@ def test_with_deleted_at_preserves_other_fields():
     assert deleted.age_group is AgeGroup.TWENTIES
     assert deleted.onboarding_completed is True
     assert deleted.created_at == user.created_at
+
+
+def test_with_fcm_token_sets_token_and_updated_at():
+    user = _make_user()
+    ts = datetime.now(UTC)
+
+    updated = user.with_fcm_token(fcm_token="new-token", updated_at=ts)  # noqa: S106
+
+    assert updated.fcm_token == "new-token"  # noqa: S105
+    assert updated.updated_at == ts
+
+
+def test_with_fcm_token_clears_when_none():
+    user = _make_user().model_copy(update={"fcm_token": "existing"})
+    ts = datetime.now(UTC)
+
+    updated = user.with_fcm_token(fcm_token=None, updated_at=ts)
+
+    assert updated.fcm_token is None
+    assert updated.updated_at == ts

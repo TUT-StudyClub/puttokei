@@ -9,7 +9,7 @@
 
 from fastapi import APIRouter, Depends, Request, Response, status
 
-from src.application.dto.user_dto import UpdateUserProfileCommand
+from src.application.dto.user_dto import UpdatePushTokenCommand, UpdateUserProfileCommand
 from src.application.dto.user_settings_dto import UpdateUserSettingsCommand
 from src.application.use_cases.get_user_settings import UserSettingsNotFoundError
 from src.domain.entities.user import User
@@ -21,6 +21,7 @@ from src.presentation.mappers.response_mapper import (
 from src.presentation.middleware.auth_middleware import get_current_user
 from src.presentation.problem_details import ProblemDetailsError
 from src.presentation.schemas.user_schema import (
+    UpdatePushTokenRequest,
     UpdateUserProfileRequest,
     UserProfileResponse,
 )
@@ -109,6 +110,23 @@ async def update_my_settings(
             detail="ユーザー設定が見つかりません。",
         ) from exc
     return to_user_settings_response(view)
+
+
+@users_router.put(
+    "/me/push-token",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
+async def update_my_push_token(
+    body: UpdatePushTokenRequest,
+    request: Request,
+    current_user: User = Depends(get_current_user),  # noqa: B008
+) -> Response:
+    """FCM プッシュトークンを置き換える。null を送るとトークンをクリアする。"""
+    container = get_presentation_container(request)
+    command = UpdatePushTokenCommand(fcm_token=body.fcm_token)
+    await container.update_push_token.execute(current_user, command)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @users_router.delete(

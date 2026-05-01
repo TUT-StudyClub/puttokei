@@ -1,7 +1,10 @@
 """/api/v1/users 系の Pydantic スキーマ。"""
 
 from datetime import datetime
+from typing import Annotated
 from uuid import UUID
+
+from pydantic import StringConstraints
 
 from src.common.models import FrozenModel, StrictRequestModel
 from src.domain.value_objects.age_group import AgeGroup
@@ -30,3 +33,12 @@ class UpdateUserProfileRequest(StrictRequestModel):
 
     display_name: str | None = None
     age_group: AgeGroup | None = None
+
+
+class UpdatePushTokenRequest(StrictRequestModel):
+    """PUT /users/me/push-token の body。
+
+    `fcm_token` に null を渡すとトークンをクリアする。空文字や 512 文字超は 422。
+    """
+
+    fcm_token: Annotated[str, StringConstraints(min_length=1, max_length=512)] | None

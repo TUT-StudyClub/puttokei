@@ -39,9 +39,11 @@ import {
   SessionSettingsButton,
 } from '@/features/session/components/SessionPhaseChrome';
 import { DEFAULT_TIMER } from '@/features/session/config';
+import { useScheduleSessionPhaseNotification } from '@/features/session/hooks/useScheduleSessionPhaseNotification';
 import { useThrottledRemainingSeconds, useTimer } from '@/features/session/hooks/useTimer';
 import { useSubmitOutput } from '@/features/session/hooks/useSubmitOutput';
 import { useVoiceRecognition } from '@/features/session/hooks/useVoiceRecognition';
+import { useSettings } from '@/features/settings/hooks/useSettings';
 import { isApiError } from '@/shared/lib/api';
 import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
@@ -710,6 +712,13 @@ export function OutputScreen() {
       }
       setLocalErrorMessage('時間になりました。内容を確認して送信してください。');
     },
+  });
+
+  const settingsQuery = useSettings();
+  const notificationEnabled = settingsQuery.data?.notification_enabled ?? false;
+  useScheduleSessionPhaseNotification({
+    kind: 'output',
+    enabled: isFocused && timerStatus === 'running' && notificationEnabled,
   });
 
   useEffect(() => {

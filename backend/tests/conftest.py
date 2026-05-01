@@ -23,6 +23,7 @@ from src.application.use_cases.get_user_settings import GetUserSettings
 from src.application.use_cases.get_weekly_report import GetWeeklyReport
 from src.application.use_cases.list_today_outputs import ListTodayOutputs
 from src.application.use_cases.submit_output import SubmitOutput
+from src.application.use_cases.update_push_token import UpdatePushToken
 from src.application.use_cases.update_session_status import UpdateSessionStatus
 from src.application.use_cases.update_user_profile import UpdateUserProfile
 from src.application.use_cases.update_user_settings import UpdateUserSettings
@@ -32,6 +33,7 @@ from src.infrastructure.persistence.database import Database
 from src.main import create_app
 from tests.fakes.fake_auth_verifier import FakeAuthVerifier
 from tests.fakes.fake_judgment_repository import FakeJudgmentRepository
+from tests.fakes.fake_notification_service import FakeNotificationService
 from tests.fakes.fake_output_repository import FakeOutputRepository
 from tests.fakes.fake_session_repository import FakeSessionRepository
 from tests.fakes.fake_unit_of_work import FakeUnitOfWork
@@ -76,6 +78,11 @@ def fake_auth_verifier() -> FakeAuthVerifier:
 
 
 @pytest.fixture
+def fake_notification_service() -> FakeNotificationService:
+    return FakeNotificationService()
+
+
+@pytest.fixture
 def container(
     settings: Settings,
     fake_user_repository: FakeUserRepository,
@@ -83,6 +90,7 @@ def container(
     fake_output_repository: FakeOutputRepository,
     fake_judgment_repository: FakeJudgmentRepository,
     fake_auth_verifier: FakeAuthVerifier,
+    fake_notification_service: FakeNotificationService,
 ) -> Container:
     """fake 実装を差し込んだ Container。"""
     database = Database(database_url=settings.database_url)
@@ -98,12 +106,14 @@ def container(
     return Container(
         settings=settings,
         database=database,
+        notification_service=fake_notification_service,
         authenticate_user=AuthenticateUser(
             auth_verifier=fake_auth_verifier,
             unit_of_work_factory=unit_of_work_factory,
         ),
         get_user_profile=GetUserProfile(),
         update_user_profile=UpdateUserProfile(unit_of_work_factory=unit_of_work_factory),
+        update_push_token=UpdatePushToken(unit_of_work_factory=unit_of_work_factory),
         get_user_settings=GetUserSettings(unit_of_work_factory=unit_of_work_factory),
         update_user_settings=UpdateUserSettings(unit_of_work_factory=unit_of_work_factory),
         delete_account=DeleteAccount(unit_of_work_factory=unit_of_work_factory),

@@ -60,3 +60,15 @@ class User(FrozenModel):
                 "updated_at": deleted_at,
             }
         )
+
+    def with_fcm_token(self, *, fcm_token: str | None, updated_at: datetime) -> "User":
+        """FCM トークンを差し替えた新しい User を返す。
+
+        fcm_token に None を渡すとトークンをクリアする。
+        """
+        return self.model_copy(
+            update={
+                "fcm_token": fcm_token,
+                "updated_at": updated_at,
+            }
+        )
