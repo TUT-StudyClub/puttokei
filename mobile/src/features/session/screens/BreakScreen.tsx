@@ -1096,7 +1096,6 @@ export function BreakScreen() {
       <View style={styles.container} testID="break-root">
         <SessionTopChrome
           testIDPrefix="break"
-          showSettingsButton={false}
           hourglassWrapperRef={badgeStackRef}
           onHourglassWrapperLayout={handleBadgeStackLayout}
           hourglass={{

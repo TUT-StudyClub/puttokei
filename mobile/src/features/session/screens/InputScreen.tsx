@@ -388,7 +388,6 @@ export function InputScreen() {
         <SessionTopChrome
           testIDPrefix="input"
           showHeader={!isDetailVisible}
-          showSettingsButton={false}
           hourglass={{
             currentLoop,
             borderColor: BORDER_COLOR,

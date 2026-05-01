@@ -15,6 +15,7 @@ import { SizableText, Spinner } from 'tamagui';
 
 import {
   type SessionPhase,
+  SessionSettingsButton,
   SessionTopChrome,
 } from '@/features/session/components/SessionPhaseChrome';
 import { DEFAULT_TIMER } from '@/features/session/config';
@@ -64,9 +65,12 @@ export function HomeScreen() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
       <View style={styles.container} testID="home-root">
+        <SessionSettingsButton
+          onPress={() => router.push(SETTINGS_ROUTE)}
+          testID="home-settings-button"
+        />
         <SessionTopChrome
           testIDPrefix="home"
-          onSettingsPress={() => router.push(SETTINGS_ROUTE)}
           hourglass={{ currentLoop }}
           phaseTabs={{
             activePhase: phase,

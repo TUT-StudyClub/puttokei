@@ -771,7 +771,6 @@ export function OutputScreen() {
       {showSessionChrome ? (
         <SessionTopChrome
           testIDPrefix="output"
-          showSettingsButton={false}
           hourglass={{
             currentLoop,
             borderColor: BORDER_COLOR,
