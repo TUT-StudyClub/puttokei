@@ -4,7 +4,7 @@
 import { Image } from 'react-native';
 import { Paragraph, Spinner, YStack } from 'tamagui';
 
-const BOOT_LOGO = require('../../../assets/images/typography-black.png');
+const BOOT_LOGO = require('../../../assets/images/logos/typography_black.png');
 
 export const BOOT_SCREEN_MIN_DURATION_MS = 2000;
 

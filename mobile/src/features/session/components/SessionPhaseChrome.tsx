@@ -73,7 +73,7 @@ type HourglassVariantConfig = {
 };
 
 const HOURGLASS_GRAY_CONFIG: HourglassVariantConfig = {
-  asset: require('../../../../assets/images/hourglass_gray.svg'),
+  asset: require('../../../../assets/images/icons/hourglass_gray.svg'),
   baseWidth: 18,
   baseHeight: 31,
   viewBoxWidth: 18,
@@ -108,7 +108,7 @@ const HOURGLASS_GRAY_CONFIG: HourglassVariantConfig = {
 };
 
 const HOURGLASS_BLUE_CONFIG: HourglassVariantConfig = {
-  asset: require('../../../../assets/images/hourglass_blue.svg'),
+  asset: require('../../../../assets/images/icons/hourglass_blue.svg'),
   baseWidth: 24,
   baseHeight: 41,
   viewBoxWidth: 24,
@@ -146,7 +146,7 @@ const HOURGLASS_BLUE_CONFIG: HourglassVariantConfig = {
 // 砂関連の座標は blue を流用する。
 const HOURGLASS_PURPLE_CONFIG: HourglassVariantConfig = {
   ...HOURGLASS_BLUE_CONFIG,
-  asset: require('../../../../assets/images/hourglass_purple.svg'),
+  asset: require('../../../../assets/images/icons/hourglass_purple.svg'),
   upperClipId: 'hourglassBadgePurpleUpperSandClip',
   lowerClipId: 'hourglassBadgePurpleLowerSandClip',
   fallbackInnerColor: '#BA64E8',

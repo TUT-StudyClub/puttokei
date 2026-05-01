@@ -14,8 +14,8 @@ import {
   TUTORIAL_ROUTE_TRANSITION_DELAY_MS,
 } from '@/features/auth/screens/tutorialConfig';
 
-const OVERVIEW_BACKGROUND = require('../../../../assets/images/overview-screen-background.jpg');
-const TYPOGRAPHY_WHITE = require('../../../../assets/images/typography_white.png');
+const OVERVIEW_BACKGROUND = require('../../../../assets/images/backgrounds/overview.jpg');
+const TYPOGRAPHY_WHITE = require('../../../../assets/images/logos/typography_white.png');
 
 const TUTORIAL_STEP_ONE_ROUTE = '/(auth)/tutorial-step-one' as unknown as Href;
 
