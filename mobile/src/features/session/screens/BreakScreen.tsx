@@ -57,10 +57,7 @@ import {
 import { DEFAULT_TIMER } from '@/features/session/config';
 import { useJudgment } from '@/features/session/hooks/useJudgment';
 import { useJudgmentProgress } from '@/features/session/hooks/useJudgmentProgress';
-import {
-  useThrottledRemainingSeconds,
-  useTimer,
-} from '@/features/session/hooks/useTimer';
+import { useThrottledRemainingSeconds, useTimer } from '@/features/session/hooks/useTimer';
 import type { CreateSessionInput, JudgmentProgressStatus, Session } from '@/features/session/types';
 import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
@@ -1273,11 +1270,11 @@ export function BreakScreen() {
             <View style={styles.timerStage}>
               <CircularPhaseTimer
                 phase={CURRENT_PHASE}
-            primaryColor={BREAK_COLOR}
-            trackColor={BORDER_COLOR}
-            testID="break-circular-timer"
-            enabled={isFocused && screenMode === 'resting'}
-          />
+                primaryColor={BREAK_COLOR}
+                trackColor={BORDER_COLOR}
+                testID="break-circular-timer"
+                enabled={isFocused && screenMode === 'resting'}
+              />
               <SizableText style={styles.timerCaption} testID="break-timer-caption">
                 {captionText}
               </SizableText>

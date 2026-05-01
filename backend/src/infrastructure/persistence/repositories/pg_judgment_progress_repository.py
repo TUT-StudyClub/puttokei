@@ -67,9 +67,7 @@ class PgJudgmentProgressRepository(JudgmentProgressRepository):
         await self._session.flush()
 
     async def find_by_session_id(self, session_id: UUID) -> JudgmentProgress | None:
-        stmt = select(JudgmentProgressModel).where(
-            JudgmentProgressModel.session_id == session_id
-        )
+        stmt = select(JudgmentProgressModel).where(JudgmentProgressModel.session_id == session_id)
         result = await self._session.execute(stmt)
         model = result.scalar_one_or_none()
         return _to_progress(model) if model is not None else None

@@ -15,7 +15,7 @@ jest.mock('react-native-sse', () => {
 
     url: string;
     options: Record<string, unknown>;
-  listeners: Record<string, ((event: unknown) => void)[]>;
+    listeners: Record<string, ((event: unknown) => void)[]>;
     close: jest.Mock;
     removeAllEventListeners: jest.Mock;
 

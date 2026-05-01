@@ -182,9 +182,7 @@ class RunLocalJudgment:
             completed_at=judged_at,
         )
 
-    async def _load_target(
-        self, session_id: UUID
-    ) -> tuple[Session | None, Output | None, bool]:
+    async def _load_target(self, session_id: UUID) -> tuple[Session | None, Output | None, bool]:
         async with self.unit_of_work_factory() as uow:
             session = await uow.sessions.find_by_id(session_id)
             if session is None:

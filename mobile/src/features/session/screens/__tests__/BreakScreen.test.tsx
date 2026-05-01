@@ -160,7 +160,9 @@ describe('BreakScreen', () => {
       expect(getByTestId('break-progress-status')).toBeTruthy();
     });
     expect(getByTestId('break-progress-status').props.children).toBe('採点中');
-    expect(getByTestId('break-progress-message').props.children).toBe('AI に判定を依頼しています。');
+    expect(getByTestId('break-progress-message').props.children).toBe(
+      'AI に判定を依頼しています。',
+    );
     expect(getByText('42%')).toBeTruthy();
   });
 
