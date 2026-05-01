@@ -25,6 +25,13 @@ jest.mock('expo-router', () => ({
   }),
 }));
 
+jest.mock('react-native-gifted-charts', () => ({
+  BarChart: () => {
+    const { View } = require('react-native');
+    return <View testID="mock-bar-chart" />;
+  },
+}));
+
 function makeDailyResponse(overrides: Partial<DailyReportResponse> = {}): DailyReportResponse {
   const base: DailyReportResponse = {
     date: '2026-04-29',
@@ -292,6 +299,63 @@ describe('StatsScreen', () => {
       expect(getByTestId('stats-error-message').props.children).toBe('一時的な障害です');
     });
     expect(getByTestId('stats-retry')).toBeTruthy();
+  });
+
+  it('選択中の日をもう一度タップすると週別カレンダーに切り替わり週次レポートを取得する', async () => {
+    (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(makeDailyResponse());
+    (statsApi.fetchWeeklyReport as jest.Mock).mockResolvedValue(
+      makeWeeklyResponseForDates('2026-04-26', { '2026-04-29': 60 }),
+    );
+
+    const { getByTestId, getByText, queryByText } = renderWithProviders(<StatsScreen />);
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(statsApi.fetchDailyReport).toHaveBeenCalledWith('2026-04-29');
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('week-date-2026-04-29'));
+    });
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(statsApi.fetchWeeklyReport).toHaveBeenCalledWith('2026-04-26');
+    });
+    expect(getByTestId('stats-weekly-chart')).toBeTruthy();
+    expect(getByTestId('stats-weekly-highlight-card')).toBeTruthy();
+    expect(getByText('今週のハイライト')).toBeTruthy();
+    expect(queryByText('4月29日のハイライト')).toBeNull();
+  });
+
+  it('週別カレンダー中に別の日付セルをタップすると日別カレンダーに戻る', async () => {
+    (statsApi.fetchDailyReport as jest.Mock).mockImplementation((date: string) =>
+      Promise.resolve(makeDailyResponse({ date })),
+    );
+    (statsApi.fetchWeeklyReport as jest.Mock).mockResolvedValue(
+      makeWeeklyResponseForDates('2026-04-26', {}),
+    );
+
+    const { getByTestId, getByText } = renderWithProviders(<StatsScreen />);
+    await flushAsyncUpdates();
+
+    await act(async () => {
+      fireEvent.press(getByTestId('week-date-2026-04-29'));
+    });
+    await flushAsyncUpdates();
+    await waitFor(() => {
+      expect(getByTestId('stats-weekly-chart')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('week-date-2026-04-27'));
+    });
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(statsApi.fetchDailyReport).toHaveBeenCalledWith('2026-04-27');
+    });
+    expect(getByText('4月27日のハイライト')).toBeTruthy();
   });
 
   it('選択日のアウトプット履歴が空の場合は empty メッセージが表示される', async () => {

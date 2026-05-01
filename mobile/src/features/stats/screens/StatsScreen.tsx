@@ -19,15 +19,17 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
+  useWindowDimensions,
   View,
 } from 'react-native';
+import { BarChart } from 'react-native-gifted-charts';
 import { Path, Svg } from 'react-native-svg';
 import { Button, Paragraph, SizableText, Spinner } from 'tamagui';
 
 import { WeekDateStrip } from '@/features/stats/components/WeekDateStrip';
 import { fetchWeeklyReport } from '@/features/stats/api/statsApi';
 import { useDailyReport } from '@/features/stats/hooks/useDailyReport';
-import { WEEKLY_REPORT_QUERY_KEY } from '@/features/stats/hooks/useWeeklyReport';
+import { WEEKLY_REPORT_QUERY_KEY, useWeeklyReport } from '@/features/stats/hooks/useWeeklyReport';
 import {
   addDaysToDateKey,
   getDateNumberLabel,
@@ -37,7 +39,12 @@ import {
   parseDateKey,
   toDateKey,
 } from '@/features/stats/lib/week';
-import type { DailyReportSummary, WeeklyReportResponse } from '@/features/stats/types';
+import type {
+  DailyReportSummary,
+  WeeklyReportPoint,
+  WeeklyReportResponse,
+  WeeklyReportSummary,
+} from '@/features/stats/types';
 import type { OutputReviewItem } from '@/features/session/types';
 import { isApiError } from '@/shared/lib/api';
 import { useAuthStore } from '@/shared/stores/authStore';
@@ -49,7 +56,7 @@ const CALENDAR_DATE_ICON = require('../../../../assets/images/icons/icon_calenda
 
 const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'] as const;
 
-type ReportViewMode = 'weekly' | 'monthly';
+type ReportViewMode = 'daily' | 'weekly' | 'monthly';
 
 const MONTH_DAY_SLOT_HEIGHT = 38;
 const MONTH_DAY_ROW_GAP = 2;
@@ -494,6 +501,74 @@ function MonthlyHighlightCard({
   );
 }
 
+function WeeklyBarChart({ points }: { points: WeeklyReportPoint[] }) {
+  const { width } = useWindowDimensions();
+  const chartWidth = Math.max(260, width - 72);
+  const maxHours = Math.max(
+    1,
+    Math.ceil(Math.max(...points.map((point) => point.study_minutes), 0) / 60),
+  );
+  const stepValue = maxHours <= 5 ? 1 : Math.ceil(maxHours / 5);
+  const noOfSections = Math.max(1, Math.ceil(maxHours / stepValue));
+  const yAxisMax = stepValue * noOfSections;
+  const barData = useMemo(
+    () =>
+      points.map((point) => ({
+        value: Number((point.study_minutes / 60).toFixed(2)),
+      })),
+    [points],
+  );
+  const yAxisLabelTexts = useMemo(
+    () => Array.from({ length: noOfSections + 1 }, (_value, index) => `${stepValue * index}h`),
+    [noOfSections, stepValue],
+  );
+
+  return (
+    <View style={styles.weeklyChartWrap} testID="stats-weekly-chart">
+      <SizableText style={styles.weeklyChartYAxisLabel}>時間(h)</SizableText>
+      <BarChart
+        data={barData}
+        width={chartWidth}
+        height={200}
+        maxValue={yAxisMax}
+        noOfSections={noOfSections}
+        stepValue={stepValue}
+        yAxisLabelTexts={yAxisLabelTexts}
+        barWidth={22}
+        spacing={17}
+        initialSpacing={12}
+        frontColor="#D6D6D6"
+        yAxisThickness={0}
+        xAxisThickness={1}
+        xAxisColor="#D6D6D6"
+        rulesColor="#ECECEC"
+        hideRules={false}
+        barBorderTopLeftRadius={4}
+        barBorderTopRightRadius={4}
+      />
+    </View>
+  );
+}
+
+function WeeklyHighlightCard({ summary }: { summary: WeeklyReportSummary }) {
+  const total = splitMinutes(summary.total_study_minutes);
+  return (
+    <View style={styles.weeklyHighlightCard} testID="stats-weekly-highlight-card">
+      <SizableText style={styles.weeklyHighlightCaption}>勉強時間合計</SizableText>
+      <View style={styles.weeklyTotalRow}>
+        {total.hours > 0 ? (
+          <>
+            <SizableText style={styles.weeklyTotalNumber}>{total.hours}</SizableText>
+            <SizableText style={styles.weeklyTotalUnit}>時間</SizableText>
+          </>
+        ) : null}
+        <SizableText style={styles.weeklyTotalNumber}>{total.minutes}</SizableText>
+        <SizableText style={styles.weeklyTotalUnit}>分</SizableText>
+      </View>
+    </View>
+  );
+}
+
 function buildOutputPreview(content: string): string {
   const compact = content.replace(/\s+/g, ' ').trim();
   if (compact.length <= 44) return compact;
@@ -592,13 +667,19 @@ export function StatsScreen() {
     () => getSundayWeekStartKey(parseDateKey(selectedDateKey)),
     [selectedDateKey],
   );
-  const [reportViewMode, setReportViewMode] = useState<ReportViewMode>('weekly');
+  const [reportViewMode, setReportViewMode] = useState<ReportViewMode>('daily');
   const [calendarMonthStart, setCalendarMonthStart] = useState(() => getMonthStartKey(weekStart));
   const dailyReportQuery = useDailyReport(selectedDateKey);
+  const weeklyReportQuery = useWeeklyReport(weekStart, {
+    enabled: reportViewMode === 'weekly',
+  });
   const monthlyReports = useMonthlyWeeklyReports(calendarMonthStart, reportViewMode === 'monthly');
   const handleDailyRetry = useCallback(() => {
     void dailyReportQuery.refetch();
   }, [dailyReportQuery]);
+  const handleWeeklyRetry = useCallback(() => {
+    void weeklyReportQuery.refetch();
+  }, [weeklyReportQuery]);
   const handleMonthlyRetry = useCallback(() => {
     monthlyReports.refetch();
   }, [monthlyReports]);
@@ -607,7 +688,7 @@ export function StatsScreen() {
     setReportViewMode('monthly');
   }, [weekStart]);
   const handleCloseMonthlyCalendar = useCallback(() => {
-    setReportViewMode('weekly');
+    setReportViewMode('daily');
   }, []);
   const handleWeekChange = useCallback(
     (newWeekStart: string) => {
@@ -615,6 +696,19 @@ export function StatsScreen() {
       setSelectedDateKey((current) => addDaysToDateKey(current, offsetDays));
     },
     [weekStart],
+  );
+  const handleSelectDate = useCallback(
+    (dateKey: string) => {
+      if (reportViewMode === 'daily' && dateKey === selectedDateKey) {
+        setReportViewMode('weekly');
+        return;
+      }
+      if (reportViewMode === 'weekly') {
+        setReportViewMode('daily');
+      }
+      setSelectedDateKey(dateKey);
+    },
+    [reportViewMode, selectedDateKey],
   );
 
   if (uid === null) {
@@ -630,6 +724,9 @@ export function StatsScreen() {
 
   const dailyErrorMessage = dailyReportQuery.isError
     ? getReportErrorMessage(dailyReportQuery.error)
+    : null;
+  const weeklyErrorMessage = weeklyReportQuery.isError
+    ? getReportErrorMessage(weeklyReportQuery.error)
     : null;
   const monthlyErrorMessage = monthlyReports.isError
     ? getReportErrorMessage(monthlyReports.error)
@@ -679,7 +776,7 @@ export function StatsScreen() {
     );
   })();
 
-  const body = (() => {
+  const dailyBody = (() => {
     if (dailyReportQuery.isPending) {
       return (
         <View style={styles.messageBody}>
@@ -703,6 +800,43 @@ export function StatsScreen() {
         <OutputHistory items={dailyReportQuery.data.output_history} />
         {dailyReportQuery.isFetching ? (
           <SizableText style={styles.refetchingText} testID="stats-refetching">
+            最新データを取得中…
+          </SizableText>
+        ) : null}
+      </>
+    );
+  })();
+
+  const weeklyBody = (() => {
+    if (weeklyReportQuery.isPending) {
+      return (
+        <View style={styles.messageBody}>
+          <Spinner testID="stats-weekly-loading" />
+          <Paragraph>レポートを読み込んでいます。</Paragraph>
+        </View>
+      );
+    }
+
+    if (weeklyReportQuery.isError || weeklyReportQuery.data === undefined) {
+      return (
+        <ErrorBody
+          message={weeklyErrorMessage ?? 'レポートの取得に失敗しました。'}
+          onRetry={handleWeeklyRetry}
+        />
+      );
+    }
+
+    return (
+      <>
+        <WeeklyBarChart points={weeklyReportQuery.data.points} />
+        <View style={styles.highlightTitleRow}>
+          <SizableText style={styles.highlightTitle}>今週のハイライト</SizableText>
+          <ExternalIcon />
+        </View>
+        <WeeklyHighlightCard summary={weeklyReportQuery.data.summary} />
+        <OutputHistory items={weeklyReportQuery.data.output_history} />
+        {weeklyReportQuery.isFetching ? (
+          <SizableText style={styles.refetchingText} testID="stats-weekly-refetching">
             最新データを取得中…
           </SizableText>
         ) : null}
@@ -738,6 +872,43 @@ export function StatsScreen() {
     );
   }
 
+  if (reportViewMode === 'weekly') {
+    return (
+      <SafeAreaView style={styles.safeArea} testID="stats-root">
+        <StatusBar style="dark" />
+        <View style={styles.fixedHeader}>
+          <View style={styles.monthRow}>
+            <SizableText style={styles.monthText}>{getMonthLabel(weekStart)}</SizableText>
+            <Pressable
+              accessibilityRole="button"
+              hitSlop={10}
+              onPress={handleOpenMonthlyCalendar}
+              style={styles.calendarButton}
+              testID="stats-calendar-toggle"
+            >
+              <CalendarDateIcon />
+            </Pressable>
+          </View>
+          <WeekDateStrip
+            weekStart={weekStart}
+            onWeekChange={handleWeekChange}
+            selectedDateKey={selectedDateKey}
+            onSelectDate={handleSelectDate}
+          />
+        </View>
+        <View style={styles.scrollBoundary} />
+        <ScrollView
+          style={styles.scrollArea}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          testID="stats-weekly-content"
+        >
+          {weeklyBody}
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} testID="stats-root">
       <StatusBar style="dark" />
@@ -758,7 +929,7 @@ export function StatsScreen() {
           weekStart={weekStart}
           onWeekChange={handleWeekChange}
           selectedDateKey={selectedDateKey}
-          onSelectDate={setSelectedDateKey}
+          onSelectDate={handleSelectDate}
         />
         <View style={styles.highlightTitleRow}>
           <SizableText style={styles.highlightTitle}>{highlightTitle}</SizableText>
@@ -777,7 +948,7 @@ export function StatsScreen() {
         showsVerticalScrollIndicator={false}
         testID="stats-scroll-content"
       >
-        {body}
+        {dailyBody}
       </ScrollView>
     </SafeAreaView>
   );
@@ -822,7 +993,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   monthlyContent: {
-    paddingHorizontal: 28,
+    paddingHorizontal: 24,
     paddingTop: 12,
     paddingBottom: 32,
   },
@@ -1232,5 +1403,56 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 16,
     marginTop: 16,
+  },
+  weeklyChartWrap: {
+    minHeight: 240,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 4,
+    paddingBottom: 8,
+  },
+  weeklyChartYAxisLabel: {
+    alignSelf: 'flex-start',
+    color: '#777777',
+    fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 14,
+    marginBottom: 6,
+    marginLeft: 4,
+  },
+  weeklyHighlightCard: {
+    marginTop: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#DADADA',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+  },
+  weeklyHighlightCaption: {
+    color: '#333333',
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 18,
+  },
+  weeklyTotalRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    gap: 4,
+    marginTop: 6,
+  },
+  weeklyTotalNumber: {
+    color: '#333333',
+    fontSize: 32,
+    fontWeight: '900',
+    lineHeight: 38,
+  },
+  weeklyTotalUnit: {
+    color: '#333333',
+    fontSize: 16,
+    fontWeight: '800',
+    lineHeight: 28,
   },
 });
