@@ -32,11 +32,11 @@ import { OutputEditor } from '@/features/session/components/OutputEditor';
 import type { OutputEditorSubmitPayload } from '@/features/session/components/OutputEditor';
 import {
   CircularPhaseTimer,
-  HourglassBadge,
   type HourglassSandLayer,
   PhaseTabs,
+  SESSION_TOP_CHROME_CONTENT_TOP,
   type SessionPhase,
-  SessionSettingsButton,
+  SessionTopChrome,
 } from '@/features/session/components/SessionPhaseChrome';
 import { DEFAULT_TIMER } from '@/features/session/config';
 import { useThrottledRemainingSeconds, useTimer } from '@/features/session/hooks/useTimer';
@@ -768,8 +768,31 @@ export function OutputScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
+      {showSessionChrome ? (
+        <SessionTopChrome
+          testIDPrefix="output"
+          onSettingsPress={() => router.push('/(tabs)/settings')}
+          hourglass={{
+            currentLoop,
+            borderColor: BORDER_COLOR,
+            sandLayers: hourglassSandLayers,
+            activeLayerIndex: 1,
+            showSandStream: timerStatus === 'running',
+            variant: 'blue',
+          }}
+          phaseTabs={{
+            activePhase: CURRENT_PHASE,
+            activeDotColor: PRIMARY_COLOR,
+            inactiveDotColor: DOT_INACTIVE,
+            inactiveDotColors: { input: INPUT_PHASE_SOFT_COLOR },
+            activeTextColor: PRIMARY_COLOR,
+            inactiveTextColors: { input: INPUT_PHASE_SOFT_COLOR },
+            inactiveDotFilledPhases: { input: true },
+          }}
+        />
+      ) : null}
       <KeyboardAvoidingView
-        style={styles.flex}
+        style={showSessionChrome ? styles.belowChrome : styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
       >
@@ -783,41 +806,25 @@ export function OutputScreen() {
           <View
             style={[
               styles.container,
+              showSessionChrome ? styles.containerWithFixedChrome : null,
               isKeyboardVisible ? styles.containerKeyboardVisible : null,
               isImageMethod ? styles.containerImageMethod : null,
             ]}
             testID="output-root"
           >
-            {showSessionChrome ? (
-              <>
-                <SessionSettingsButton
-                  onPress={() => router.push('/(tabs)/settings')}
-                  testID="output-settings-button"
-                />
-
-                <HourglassBadge
-                  currentLoop={currentLoop}
-                  testIDPrefix="output"
-                  borderColor={BORDER_COLOR}
-                  sandLayers={hourglassSandLayers}
-                  activeLayerIndex={1}
-                  showSandStream={timerStatus === 'running'}
-                  variant="blue"
-                />
-              </>
-            ) : null}
-
-            <PhaseTabs
-              activePhase={CURRENT_PHASE}
-              testIDPrefix="output"
-              activeDotColor={PRIMARY_COLOR}
-              inactiveDotColor={DOT_INACTIVE}
-              inactiveDotColors={{ input: INPUT_PHASE_SOFT_COLOR }}
-              activeTextColor={PRIMARY_COLOR}
-              inactiveTextColors={{ input: INPUT_PHASE_SOFT_COLOR }}
-              inactiveDotFilledPhases={{ input: true }}
-              marginBottom={isImageMethod ? 10 : 24}
-            />
+            {showSessionChrome ? null : (
+              <PhaseTabs
+                activePhase={CURRENT_PHASE}
+                testIDPrefix="output"
+                activeDotColor={PRIMARY_COLOR}
+                inactiveDotColor={DOT_INACTIVE}
+                inactiveDotColors={{ input: INPUT_PHASE_SOFT_COLOR }}
+                activeTextColor={PRIMARY_COLOR}
+                inactiveTextColors={{ input: INPUT_PHASE_SOFT_COLOR }}
+                inactiveDotFilledPhases={{ input: true }}
+                marginBottom={isImageMethod ? 10 : 24}
+              />
+            )}
 
             <View
               style={[
@@ -927,12 +934,22 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
   },
+  belowChrome: {
+    position: 'absolute',
+    top: SESSION_TOP_CHROME_CONTENT_TOP,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   container: {
     flex: 1,
     paddingTop: 12,
     paddingRight: 24,
     paddingBottom: 32,
     paddingLeft: 24,
+  },
+  containerWithFixedChrome: {
+    paddingTop: 0,
   },
   containerKeyboardVisible: {
     paddingBottom: 12,

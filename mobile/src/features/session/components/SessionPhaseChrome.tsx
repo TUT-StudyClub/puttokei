@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import type { StyleProp, ViewStyle } from 'react-native';
+import type { LayoutChangeEvent, StyleProp, ViewStyle } from 'react-native';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   cancelAnimation,
@@ -904,6 +904,13 @@ type HourglassBadgeProps = {
   /** バッジ画像のバリアント。ホーム画面は `gray`、セッション系画面は `blue` を指定する。 */
   variant?: HourglassBadgeVariant;
   /**
+   * variant の `baseWidth` を上書きする。`SessionTopChrome` 配下では Home の gray に揃えるため
+   * 全画面で同じ値を渡し、バッジ全体の高さを統一する。指定がなければ variant の baseWidth を使う。
+   */
+  iconBaseWidth?: number;
+  /** variant の `baseHeight` を上書きする。`iconBaseWidth` と対で使う。 */
+  iconBaseHeight?: number;
+  /**
    * `currentLoop` 番目（= 進行中サイクル）の砂時計を覆う Wrapper View に当てる ref。
    * バッジ列の中で active バッジだけの位置を `measureInWindow` 等で取得したいときに使う。
    */
@@ -943,6 +950,8 @@ export function HourglassBadge({
   activeLayerIndex = 0,
   showSandStream = false,
   variant = DEFAULT_HOURGLASS_VARIANT,
+  iconBaseWidth,
+  iconBaseHeight,
   activeIconRef,
 }: HourglassBadgeProps) {
   const grayXml = useHourglassBadgeXml(HOURGLASS_VARIANTS.gray.asset);
@@ -974,6 +983,10 @@ export function HourglassBadge({
           const isActive = loopIndex === currentLoop;
           const iconVariant = resolveIconVariant(loopIndex, currentLoop, variant);
           const iconConfig = HOURGLASS_VARIANTS[iconVariant];
+          const baseWidth = iconBaseWidth ?? iconConfig.baseWidth;
+          const baseHeight = iconBaseHeight ?? iconConfig.baseHeight;
+          const iconWidth = isActive ? baseWidth * HOURGLASS_BADGE_ACTIVE_SCALE : baseWidth;
+          const iconHeight = isActive ? baseHeight * HOURGLASS_BADGE_ACTIVE_SCALE : baseHeight;
           const iconElement = (
             <HourglassBadgeIcon
               active={isActive}
@@ -983,20 +996,20 @@ export function HourglassBadge({
               xml={xmlByVariant[iconVariant]}
               testID={`${testIDPrefix}-hourglass-badge-icon-${index + 1}`}
               config={iconConfig}
+              width={iconWidth}
+              height={iconHeight}
             />
           );
           // active バッジには測定用の wrapper View を被せて ref を forward する。
           // wrapper には明示サイズを当てて、flex の暗黙縮小や collapse による 0 サイズ化を防ぐ
           // (= measureInWindow で確実にバッジ中心を取れるようにする)。
           if (isActive && activeIconRef) {
-            const activeWidth = iconConfig.baseWidth * HOURGLASS_BADGE_ACTIVE_SCALE;
-            const activeHeight = iconConfig.baseHeight * HOURGLASS_BADGE_ACTIVE_SCALE;
             return (
               <View
                 key={index}
                 ref={activeIconRef}
                 collapsable={false}
-                style={{ width: activeWidth, height: activeHeight }}
+                style={{ width: iconWidth, height: iconHeight }}
               >
                 {iconElement}
               </View>
@@ -1140,6 +1153,71 @@ export function PhaseTabs({
         );
       })}
     </View>
+  );
+}
+
+/**
+ * 4 画面 (Home / Input / Output / Break) で共通利用する画面上部の固定 chrome。
+ *
+ * Home の絶対配置座標 (`top: 7.9%` / `top: 18.6%`) を 4 画面で揃えるための wrapper。
+ * 設定ボタン・砂時計バッジ・PhaseTabs を SafeAreaView 配下の親 View に対して
+ * 絶対配置する想定。`showHeader` が `false` のときは設定ボタンと砂時計バッジを
+ * 非表示にし、PhaseTabs だけ常に表示する。
+ *
+ * 画面側のメインコンテンツは `SESSION_TOP_CHROME_CONTENT_TOP` を `top` に当てた
+ * 絶対配置 View でラップして、chrome と重ならない位置から始める。
+ */
+export const SESSION_TOP_CHROME_CONTENT_TOP = '26.1%' as const;
+
+type SessionTopChromeProps = {
+  testIDPrefix: string;
+  /** 設定ボタンと砂時計バッジを表示するか。`false` でも PhaseTabs は表示される。 */
+  showHeader?: boolean;
+  onSettingsPress: () => void;
+  hourglass: Omit<HourglassBadgeProps, 'testIDPrefix' | 'rowStyle' | 'marginBottom'>;
+  phaseTabs: Omit<PhaseTabsProps, 'testIDPrefix' | 'marginBottom'>;
+  /** 砂時計バッジ wrapper の View ref。Break 画面のエントランスアニメ用。 */
+  hourglassWrapperRef?: React.Ref<View>;
+  onHourglassWrapperLayout?: (event: LayoutChangeEvent) => void;
+};
+
+export function SessionTopChrome({
+  testIDPrefix,
+  showHeader = true,
+  onSettingsPress,
+  hourglass,
+  phaseTabs,
+  hourglassWrapperRef,
+  onHourglassWrapperLayout,
+}: SessionTopChromeProps) {
+  return (
+    <>
+      {showHeader ? (
+        <SessionSettingsButton
+          onPress={onSettingsPress}
+          testID={`${testIDPrefix}-settings-button`}
+        />
+      ) : null}
+      {showHeader ? (
+        <View
+          ref={hourglassWrapperRef}
+          onLayout={onHourglassWrapperLayout}
+          style={styles.topChromeHourglassWrapper}
+        >
+          <HourglassBadge
+            {...hourglass}
+            testIDPrefix={testIDPrefix}
+            marginBottom={0}
+            rowStyle={styles.topChromeHourglassRow}
+            iconBaseWidth={HOURGLASS_VARIANTS.gray.baseWidth}
+            iconBaseHeight={HOURGLASS_VARIANTS.gray.baseHeight}
+          />
+        </View>
+      ) : null}
+      <View style={styles.topChromePhaseTabsWrapper}>
+        <PhaseTabs {...phaseTabs} testIDPrefix={testIDPrefix} marginBottom={0} />
+      </View>
+    </>
   );
 }
 
@@ -1289,6 +1367,22 @@ const styles = StyleSheet.create({
     height: 1.5,
     borderRadius: 999,
     marginHorizontal: 6,
+  },
+  topChromeHourglassWrapper: {
+    position: 'absolute',
+    top: '7.9%',
+    left: '13.18%',
+    right: '12.94%',
+    alignItems: 'flex-start',
+  },
+  topChromeHourglassRow: {
+    marginTop: 0,
+  },
+  topChromePhaseTabsWrapper: {
+    position: 'absolute',
+    top: '18.6%',
+    left: '13.18%',
+    right: 0,
   },
   timerWrap: {
     alignItems: 'center',

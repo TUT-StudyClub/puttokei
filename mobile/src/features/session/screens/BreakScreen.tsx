@@ -37,13 +37,12 @@ import {
   CircularPhaseTimer,
   HOURGLASS_BADGE_ACTIVE_SCALE,
   HOURGLASS_VARIANTS,
-  HourglassBadge,
   HourglassBadgeIcon,
   HourglassBadgeSandOverlay,
   type HourglassSandLayer,
-  PhaseTabs,
+  SESSION_TOP_CHROME_CONTENT_TOP,
   type SessionPhase,
-  SessionSettingsButton,
+  SessionTopChrome,
   useHourglassBadgeXml,
 } from '@/features/session/components/SessionPhaseChrome';
 import { DEFAULT_TIMER } from '@/features/session/config';
@@ -1096,70 +1095,66 @@ export function BreakScreen() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
       <View style={styles.container} testID="break-root">
-        <SessionSettingsButton
-          onPress={() => router.push(SETTINGS_ROUTE)}
-          testID="break-settings-button"
-        />
-
-        <View ref={badgeStackRef} style={styles.badgeStack} onLayout={handleBadgeStackLayout}>
-          <HourglassBadge
-            currentLoop={displayedLoop}
-            testIDPrefix="break"
-            borderColor={BORDER_COLOR}
-            marginBottom={0}
-            variant="blue"
-            sandLayers={effectiveSandLayers}
-            activeLayerIndex={2}
-            showSandStream={showSandStream}
-            activeIconRef={activeBadgeIconRef}
-          />
-        </View>
-
-        <PhaseTabs
-          activePhase={displayedPhase}
+        <SessionTopChrome
           testIDPrefix="break"
-          activeDotColor={phaseActiveColor}
-          activeTextColor={TEXT_ACTIVE}
-          inactiveDotFilled={usesCompletedPhasePalette}
-          inactiveDotColor={DOT_INACTIVE}
-          inactiveDotColors={completedPhaseColors}
-          inactiveTextColors={completedPhaseColors}
-          marginBottom={isNextCycleMode ? 18 : 20}
+          onSettingsPress={() => router.push(SETTINGS_ROUTE)}
+          hourglassWrapperRef={badgeStackRef}
+          onHourglassWrapperLayout={handleBadgeStackLayout}
+          hourglass={{
+            currentLoop: displayedLoop,
+            borderColor: BORDER_COLOR,
+            variant: 'blue',
+            sandLayers: effectiveSandLayers,
+            activeLayerIndex: 2,
+            showSandStream,
+            activeIconRef: activeBadgeIconRef,
+          }}
+          phaseTabs={{
+            activePhase: displayedPhase,
+            activeDotColor: phaseActiveColor,
+            activeTextColor: TEXT_ACTIVE,
+            inactiveDotFilled: usesCompletedPhasePalette,
+            inactiveDotColor: DOT_INACTIVE,
+            inactiveDotColors: completedPhaseColors,
+            inactiveTextColors: completedPhaseColors,
+          }}
         />
 
-        {screenMode === 'resting' ? (
-          <>
-            <View style={styles.timerStage}>
-              <CircularPhaseTimer
-                phase={CURRENT_PHASE}
-                primaryColor={BREAK_COLOR}
-                trackColor={BORDER_COLOR}
-                testID="break-circular-timer"
-                enabled={isFocused && screenMode === 'resting'}
-              />
-              <SizableText style={styles.timerCaption} testID="break-timer-caption">
-                {captionText}
-              </SizableText>
-            </View>
+        <View style={styles.contentArea}>
+          {screenMode === 'resting' ? (
+            <>
+              <View style={styles.timerStage}>
+                <CircularPhaseTimer
+                  phase={CURRENT_PHASE}
+                  primaryColor={BREAK_COLOR}
+                  trackColor={BORDER_COLOR}
+                  testID="break-circular-timer"
+                  enabled={isFocused && screenMode === 'resting'}
+                />
+                <SizableText style={styles.timerCaption} testID="break-timer-caption">
+                  {captionText}
+                </SizableText>
+              </View>
 
-            <JudgingProgressCard
-              progressPercent={progressPercent}
-              progressMessage={progressMessage}
-              progressStatus={progressStatus}
-              isReady={isJudgmentReady}
+              <JudgingProgressCard
+                progressPercent={progressPercent}
+                progressMessage={progressMessage}
+                progressStatus={progressStatus}
+                isReady={isJudgmentReady}
+              />
+            </>
+          ) : screenMode === 'completed' ? (
+            <BreakCompletedView currentLoop={currentLoop} onNextCycle={handleEnterNextCycle} />
+          ) : (
+            <NextCycleReadyView
+              isStarting={createNextCycle.isPending}
+              hasStartError={createNextCycle.isError}
+              onStart={handleStartNextCycle}
+              onCancel={handleCancelNextCycle}
+              entranceOrigin={entranceOrigin}
             />
-          </>
-        ) : screenMode === 'completed' ? (
-          <BreakCompletedView currentLoop={currentLoop} onNextCycle={handleEnterNextCycle} />
-        ) : (
-          <NextCycleReadyView
-            isStarting={createNextCycle.isPending}
-            hasStartError={createNextCycle.isError}
-            onStart={handleStartNextCycle}
-            onCancel={handleCancelNextCycle}
-            entranceOrigin={entranceOrigin}
-          />
-        )}
+          )}
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -1172,16 +1167,15 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingTop: 12,
-    paddingRight: 24,
-    paddingBottom: 32,
-    paddingLeft: 24,
   },
-  badgeStack: {
-    alignSelf: 'center',
-    alignItems: 'center',
-    width: 300,
-    marginBottom: 20,
+  contentArea: {
+    position: 'absolute',
+    top: SESSION_TOP_CHROME_CONTENT_TOP,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 24,
+    paddingBottom: 32,
   },
   timerStage: {
     flex: 1,
