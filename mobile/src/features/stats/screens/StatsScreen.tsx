@@ -41,8 +41,8 @@ import type { OutputReviewItem } from '@/features/session/types';
 import { isApiError } from '@/shared/lib/api';
 import { useAuthStore } from '@/shared/stores/authStore';
 
-const HIGHLIGHT_BACKGROUND = require('../../../../assets/images/hilight-background-1.png');
-const MONTHLY_HIGHLIGHT_BACKGROUND = require('../../../../assets/images/hilight-background-2.png');
+const HIGHLIGHT_BACKGROUND = require('../../../../assets/images/backgrounds/highlight_weekly.png');
+const MONTHLY_HIGHLIGHT_BACKGROUND = require('../../../../assets/images/backgrounds/highlight_monthly.png');
 
 const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'] as const;
 
