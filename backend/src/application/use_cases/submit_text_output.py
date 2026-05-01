@@ -1,9 +1,9 @@
-"""アウトプット送信のユースケース。"""
+"""テキストアウトプット送信のユースケース。"""
 
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from src.application.dto.session_dto import SubmitOutputCommand, SubmitOutputView
+from src.application.dto.session_dto import SubmitOutputView, SubmitTextOutputCommand
 from src.application.mappers.session_mapper import to_output_view
 from src.application.unit_of_work import UnitOfWorkFactory
 from src.domain.entities.judgment_progress import JudgmentProgress
@@ -13,6 +13,7 @@ from src.domain.value_objects.judgment_progress import (
     JudgmentProgressStage,
     JudgmentProgressStatus,
 )
+from src.domain.value_objects.output_kind import OutputKind
 
 
 class SessionNotFoundError(Exception):
@@ -23,13 +24,17 @@ class InvalidSessionStatusError(Exception):
     """アウトプット送信が許可されていないセッション状態。"""
 
 
-class SubmitOutput:
-    """アウトプット本文を保存し、セッションを judging に進める。"""
+class SubmitTextOutput:
+    """テキストアウトプット本文を保存し、セッションを judging に進める。"""
 
     def __init__(self, unit_of_work_factory: UnitOfWorkFactory) -> None:
         self.unit_of_work_factory = unit_of_work_factory
 
-    async def execute(self, current_user: User, command: SubmitOutputCommand) -> SubmitOutputView:
+    async def execute(
+        self,
+        current_user: User,
+        command: SubmitTextOutputCommand,
+    ) -> SubmitOutputView:
         async with self.unit_of_work_factory() as uow:
             session = await uow.sessions.find_by_id(command.session_id)
             if session is None or session.user_id != current_user.id:
@@ -44,7 +49,9 @@ class SubmitOutput:
             output = Output(
                 id=existing_output.id if existing_output is not None else uuid4(),
                 session_id=session.id,
+                kind=OutputKind.TEXT,
                 content=command.content,
+                image_storage_path=None,
                 submitted_at=command.submitted_at,
             )
             await uow.outputs.upsert(output)

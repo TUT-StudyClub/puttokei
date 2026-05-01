@@ -2,7 +2,7 @@
 
 CQRS 的な命名で役割を明示する。
 - `CreateSessionCommand`: セッション作成の意図を表すコマンド
-- `SubmitOutputCommand`: アウトプット送信の意図を表すコマンド
+- `SubmitTextOutputCommand` / `SubmitImageOutputCommand`: アウトプット送信の意図を表すコマンド
 - `SessionView`: クライアントに返却する読み出し用ビュー
 """
 
@@ -11,6 +11,7 @@ from uuid import UUID
 
 from src.application.dto.judgment_dto import JudgmentView
 from src.common.models import FrozenModel
+from src.domain.value_objects.output_kind import OutputKind
 from src.domain.value_objects.session_status import SessionStatus
 
 
@@ -31,12 +32,35 @@ class UpdateSessionStatusCommand(FrozenModel):
     new_status: SessionStatus
 
 
-class SubmitOutputCommand(FrozenModel):
-    """POST /sessions/{id}/output の入力コマンド。"""
+class SubmitTextOutputCommand(FrozenModel):
+    """POST /sessions/{id}/outputs/text の入力コマンド。"""
 
     session_id: UUID
     content: str
     submitted_at: datetime
+
+
+class SubmitImageOutputCommand(FrozenModel):
+    """POST /sessions/{id}/outputs/image の入力コマンド。"""
+
+    session_id: UUID
+    image_storage_path: str
+    submitted_at: datetime
+
+
+class IssueOutputImageUploadUrlCommand(FrozenModel):
+    """POST /sessions/{id}/outputs/image/upload-url の入力コマンド。"""
+
+    session_id: UUID
+    mime_type: str
+
+
+class IssueOutputImageUploadUrlView(FrozenModel):
+    """アップロード URL 発行結果。"""
+
+    upload_url: str
+    storage_path: str
+    expires_at: datetime
 
 
 class SessionView(FrozenModel):
@@ -60,7 +84,10 @@ class OutputView(FrozenModel):
 
     id: UUID
     session_id: UUID
-    content: str
+    kind: OutputKind
+    content: str | None
+    image_storage_path: str | None
+    image_url: str | None
     submitted_at: datetime
 
 
