@@ -8,6 +8,8 @@ export const SESSION_STATUSES = ['input', 'output', 'judging', 'judged', 'cancel
 export type SessionStatus = (typeof SESSION_STATUSES)[number];
 export const JUDGMENT_VERDICTS = ['correct', 'partial', 'incorrect', 'rejected'] as const;
 export type JudgmentVerdict = (typeof JUDGMENT_VERDICTS)[number];
+export const OUTPUT_KINDS = ['text', 'image'] as const;
+export type OutputKind = (typeof OUTPUT_KINDS)[number];
 
 export type Session = {
   id: string;
@@ -34,7 +36,9 @@ export type CreateSessionInput = {
 export type Output = {
   id: string;
   session_id: string;
-  content: string;
+  kind: OutputKind;
+  content: string | null;
+  image_url: string | null;
   submitted_at: string;
 };
 
@@ -44,14 +48,40 @@ export type SubmitOutputResponse = {
 };
 
 /**
- * アウトプット送信リクエスト。
- * backend の `POST /api/v1/sessions/{id}/output` と対応する。
+ * テキストアウトプット送信リクエスト。
+ * backend の `POST /api/v1/sessions/{id}/outputs/text` に対応する。
  * `submitted_at` は ISO8601 (JST) のタイムスタンプ文字列。
  */
-export type SubmitOutputInput = {
+export type SubmitTextOutputInput = {
   content: string;
   submitted_at: string;
 };
+
+/**
+ * 画像アウトプット送信リクエスト。
+ * backend の `POST /api/v1/sessions/{id}/outputs/image` に対応する。
+ * `image_storage_path` はアップロード URL 発行時に backend から渡される値。
+ */
+export type SubmitImageOutputInput = {
+  image_storage_path: string;
+  submitted_at: string;
+};
+
+/**
+ * 画像アップロード URL 発行レスポンス。
+ * `upload_url` は GCS への直接 PUT を許可する短期 signed URL。
+ */
+export type IssueOutputImageUploadUrlResponse = {
+  upload_url: string;
+  storage_path: string;
+  expires_at: string;
+};
+
+/**
+ * 画像アップロード URL 発行で許可される MIME type。backend と揃える。
+ */
+export const OUTPUT_IMAGE_MIME_TYPES = ['image/jpeg', 'image/png'] as const;
+export type OutputImageMimeType = (typeof OUTPUT_IMAGE_MIME_TYPES)[number];
 
 /**
  * アウトプット中の誤りに対する指摘。
@@ -90,6 +120,8 @@ export type JudgmentProgressStatus = (typeof JUDGMENT_PROGRESS_STATUSES)[number]
 
 export const JUDGMENT_PROGRESS_STAGES = [
   'queued',
+  'downloading_image',
+  'encoding_image',
   'preparing_prompt',
   'requesting_llm',
   'receiving_llm',

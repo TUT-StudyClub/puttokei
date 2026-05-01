@@ -4,14 +4,17 @@
 import { api } from '@/shared/lib/api';
 import type {
   CreateSessionInput,
+  IssueOutputImageUploadUrlResponse,
   Judgment,
   JudgmentFetchResult,
   JudgmentPending,
   JudgmentProgress,
+  OutputImageMimeType,
   Session,
   SessionStatus,
-  SubmitOutputInput,
+  SubmitImageOutputInput,
   SubmitOutputResponse,
+  SubmitTextOutputInput,
   TodayOutputsResponse,
 } from '@/features/session/types';
 
@@ -33,13 +36,44 @@ export async function updateSessionStatus(
 }
 
 /**
- * アウトプット本文と送信時刻を backend に送る。
+ * テキストアウトプットを backend に送る。
  */
-export async function submitOutput(
+export async function submitTextOutput(
   sessionId: string,
-  input: SubmitOutputInput,
+  input: SubmitTextOutputInput,
 ): Promise<SubmitOutputResponse> {
-  const { data } = await api.post<SubmitOutputResponse>(`/sessions/${sessionId}/output`, input);
+  const { data } = await api.post<SubmitOutputResponse>(
+    `/sessions/${sessionId}/outputs/text`,
+    input,
+  );
+  return data;
+}
+
+/**
+ * GCS へアップロード済みの画像 path を backend に submit する。
+ */
+export async function submitImageOutput(
+  sessionId: string,
+  input: SubmitImageOutputInput,
+): Promise<SubmitOutputResponse> {
+  const { data } = await api.post<SubmitOutputResponse>(
+    `/sessions/${sessionId}/outputs/image`,
+    input,
+  );
+  return data;
+}
+
+/**
+ * 画像アウトプット用に GCS への直接アップロード URL を発行してもらう。
+ */
+export async function issueOutputImageUploadUrl(
+  sessionId: string,
+  mimeType: OutputImageMimeType,
+): Promise<IssueOutputImageUploadUrlResponse> {
+  const { data } = await api.post<IssueOutputImageUploadUrlResponse>(
+    `/sessions/${sessionId}/outputs/image/upload-url`,
+    { mime_type: mimeType },
+  );
   return data;
 }
 
