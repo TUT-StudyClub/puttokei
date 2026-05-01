@@ -9,7 +9,7 @@
  * 「5分延長」の 2 ボタンを配置する。
  */
 import { useIsFocused } from '@react-navigation/native';
-import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
@@ -23,7 +23,6 @@ import {
   type HourglassSandLayer,
   PhaseTabs,
   type SessionPhase,
-  SessionSettingsButton,
 } from '@/features/session/components/SessionPhaseChrome';
 import { DEFAULT_TIMER } from '@/features/session/config';
 import { useTodayOutputs } from '@/features/session/hooks/useTodayOutputs';
@@ -33,8 +32,6 @@ import type { OutputReviewItem } from '@/features/session/types';
 import { OUTPUT_HISTORY_ROW_HEIGHT, OutputHistoryRow } from '@/shared/components/OutputHistoryRow';
 import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
-
-const SETTINGS_ROUTE = '/(tabs)/settings' as unknown as Href;
 
 const CURRENT_PHASE: SessionPhase = 'input';
 const EXTEND_MINUTES = 5;
@@ -390,11 +387,6 @@ export function InputScreen() {
       <View style={styles.container} testID="input-root">
         {isDetailVisible ? null : (
           <>
-            <SessionSettingsButton
-              onPress={() => router.push(SETTINGS_ROUTE)}
-              testID="input-settings-button"
-            />
-
             <HourglassBadge
               currentLoop={currentLoop}
               testIDPrefix="input"

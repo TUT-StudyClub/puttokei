@@ -36,7 +36,6 @@ import {
   type HourglassSandLayer,
   PhaseTabs,
   type SessionPhase,
-  SessionSettingsButton,
 } from '@/features/session/components/SessionPhaseChrome';
 import { DEFAULT_TIMER } from '@/features/session/config';
 import { useThrottledRemainingSeconds, useTimer } from '@/features/session/hooks/useTimer';
@@ -790,11 +789,6 @@ export function OutputScreen() {
           >
             {showSessionChrome ? (
               <>
-                <SessionSettingsButton
-                  onPress={() => router.push('/(tabs)/settings')}
-                  testID="output-settings-button"
-                />
-
                 <HourglassBadge
                   currentLoop={currentLoop}
                   testIDPrefix="output"
