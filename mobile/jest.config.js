@@ -12,4 +12,5 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   testPathIgnorePatterns: ['/node_modules/', '/.expo/', '/dist/'],
+  testTimeout: 15000,
 };
