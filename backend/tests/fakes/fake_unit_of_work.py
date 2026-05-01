@@ -6,6 +6,7 @@ from types import TracebackType
 from typing import Self
 
 from src.application.unit_of_work import ApplicationUnitOfWork
+from tests.fakes.fake_judgment_progress_repository import FakeJudgmentProgressRepository
 from tests.fakes.fake_judgment_repository import FakeJudgmentRepository
 from tests.fakes.fake_output_repository import FakeOutputRepository
 from tests.fakes.fake_session_repository import FakeSessionRepository
@@ -22,11 +23,13 @@ class FakeUnitOfWork(ApplicationUnitOfWork):
         sessions: FakeSessionRepository | None = None,
         outputs: FakeOutputRepository | None = None,
         judgments: FakeJudgmentRepository | None = None,
+        judgment_progresses: FakeJudgmentProgressRepository | None = None,
     ) -> None:
         self.users = users or FakeUserRepository()
         self.sessions = sessions or FakeSessionRepository()
         self.outputs = outputs or FakeOutputRepository()
         self.judgments = judgments or FakeJudgmentRepository()
+        self.judgment_progresses = judgment_progresses or FakeJudgmentProgressRepository()
         self.commit_count = 0
         self.rollback_count = 0
         self.enter_count = 0

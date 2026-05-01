@@ -1,6 +1,6 @@
 """ローカル開発用の同期判定サービス。"""
 
-from src.domain.services.llm_judge_service import LLMJudgeService
+from src.domain.services.llm_judge_service import LLMJudgeService, LLMProgressCallback
 from src.domain.value_objects.judgment_result import JudgmentCorrection, JudgmentResult
 from src.domain.value_objects.verdict import Verdict
 
@@ -22,7 +22,15 @@ def _preview(content: str) -> str:
 class LocalJudgeService(LLMJudgeService):
     """Cloud Tasks 導入前にローカルで判定表示を確認するための軽量実装。"""
 
-    async def judge(self, prompt_input: str, user_output: str) -> JudgmentResult:
+    async def judge(
+        self,
+        prompt_input: str,
+        user_output: str,
+        progress_callback: LLMProgressCallback | None = None,
+    ) -> JudgmentResult:
+        if progress_callback is not None:
+            await progress_callback(1)
+
         content = user_output.strip()
 
         if len(content) < _MIN_REJECTED_LENGTH:

@@ -1149,6 +1149,7 @@ type CircularPhaseTimerProps = {
   trackColor: string;
   testID: string;
   compact?: boolean;
+  enabled?: boolean;
   textTestID?: string;
 };
 
@@ -1158,9 +1159,10 @@ export function CircularPhaseTimer({
   trackColor,
   testID,
   compact = false,
+  enabled = true,
   textTestID = 'timer-display',
 }: CircularPhaseTimerProps) {
-  const smoothRemainingSeconds = useSmoothRemainingSeconds();
+  const smoothRemainingSeconds = useSmoothRemainingSeconds(enabled);
   const totalSeconds = useTimerStore((s) => s.totalSeconds);
 
   const size = compact ? 156 : 260;

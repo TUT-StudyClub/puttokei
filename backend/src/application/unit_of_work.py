@@ -7,6 +7,9 @@ from collections.abc import Callable
 from types import TracebackType
 from typing import Self
 
+from src.domain.repositories.judgment_progress_repository import (
+    JudgmentProgressRepository,
+)
 from src.domain.repositories.judgment_repository import JudgmentRepository
 from src.domain.repositories.output_repository import OutputRepository
 from src.domain.repositories.session_repository import SessionRepository
@@ -20,6 +23,7 @@ class ApplicationUnitOfWork(ABC):
     sessions: SessionRepository
     outputs: OutputRepository
     judgments: JudgmentRepository
+    judgment_progresses: JudgmentProgressRepository
 
     @abstractmethod
     async def __aenter__(self) -> Self:

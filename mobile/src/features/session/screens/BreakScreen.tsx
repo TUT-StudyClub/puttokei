@@ -48,12 +48,9 @@ import {
 } from '@/features/session/components/SessionPhaseChrome';
 import { DEFAULT_TIMER } from '@/features/session/config';
 import { useJudgment } from '@/features/session/hooks/useJudgment';
-import {
-  useSmoothRemainingSeconds,
-  useThrottledRemainingSeconds,
-  useTimer,
-} from '@/features/session/hooks/useTimer';
-import type { CreateSessionInput, Session } from '@/features/session/types';
+import { useJudgmentProgress } from '@/features/session/hooks/useJudgmentProgress';
+import { useThrottledRemainingSeconds, useTimer } from '@/features/session/hooks/useTimer';
+import type { CreateSessionInput, JudgmentProgressStatus, Session } from '@/features/session/types';
 import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
@@ -115,10 +112,14 @@ const PROGRESS_CARD_TEXT = '#FFFFFF';
 const PROGRESS_CARD_SUBTEXT = '#B5B7BC';
 const PROGRESS_TRACK_COLOR = '#4A4A50';
 const PROGRESS_FILL_COLOR = '#4B5CFF';
+const PROGRESS_STATUS_ERROR = '#FF6B6B';
 
-// 採点進捗の下限 / 上限。ready になるまでは 90% で頭打ちにする。
-const PROGRESS_PENDING_MIN = 12;
-const PROGRESS_PENDING_MAX = 90;
+const PROGRESS_STATUS_LABELS: Record<JudgmentProgressStatus, string> = {
+  queued: '判定待機中',
+  running: '採点中',
+  completed: '採点完了',
+  failed: '採点エラー',
+};
 
 type BreakScreenMode = 'resting' | 'completed' | 'nextCycle';
 
@@ -130,16 +131,25 @@ const COMPLETED_PHASE_COLORS: Record<SessionPhase, string> = {
 
 type JudgingProgressCardProps = {
   progressPercent: number;
+  progressMessage: string;
+  progressStatus: JudgmentProgressStatus;
   isReady: boolean;
 };
 
-function JudgingProgressCard({ progressPercent, isReady }: JudgingProgressCardProps) {
+function JudgingProgressCard({
+  progressPercent,
+  progressMessage,
+  progressStatus,
+  isReady,
+}: JudgingProgressCardProps) {
   const clamped = Math.min(100, Math.max(0, Math.round(progressPercent)));
+  const label = PROGRESS_STATUS_LABELS[progressStatus];
+  const isFailed = progressStatus === 'failed';
   return (
     <View style={styles.progressCard} testID="break-progress-card">
       <View style={styles.progressHeaderRow}>
-        <SizableText style={styles.progressHeaderLabel}>
-          {isReady ? ' ' : 'テキストの解析...'}
+        <SizableText style={styles.progressHeaderLabel} testID="break-progress-status">
+          {label}
         </SizableText>
         <SizableText style={styles.progressHeaderPercent} testID="break-progress-percent">
           {clamped}%
@@ -148,6 +158,12 @@ function JudgingProgressCard({ progressPercent, isReady }: JudgingProgressCardPr
       <View style={styles.progressTrack}>
         <View style={[styles.progressFill, { width: `${clamped}%` }]} />
       </View>
+      <SizableText
+        style={[styles.progressMessage, isFailed ? styles.progressMessageFailed : null]}
+        testID="break-progress-message"
+      >
+        {progressMessage}
+      </SizableText>
       {isReady ? (
         <View style={styles.progressReadyBlock} testID="break-progress-ready">
           <SizableText style={styles.progressReadyTitle}>✓ 採点完了</SizableText>
@@ -936,20 +952,26 @@ export function BreakScreen() {
   const badgeOriginRef = useRef<{ x: number; y: number } | null>(null);
   const [entranceOrigin, setEntranceOrigin] = useState<{ x: number; y: number } | null>(null);
 
-  const judgmentQuery = useJudgment(sessionId);
+  const shouldObserveProgress = isFocused && screenMode === 'resting';
+  const judgmentProgressQuery = useJudgmentProgress(sessionId, shouldObserveProgress);
+  const shouldObserveJudgment =
+    shouldObserveProgress && judgmentProgressQuery.data?.status !== 'failed';
+  const judgmentQuery = useJudgment(sessionId, shouldObserveJudgment);
   const isJudgmentReady = judgmentQuery.data?.kind === 'ready';
-
-  const smoothRemainingSeconds = useSmoothRemainingSeconds();
-  const totalSeconds = useTimerStore((s) => s.totalSeconds);
-  const elapsedRatio =
-    totalSeconds > 0 ? Math.min(1, Math.max(0, 1 - smoothRemainingSeconds / totalSeconds)) : 0;
-  const pendingProgress = Math.round(
-    PROGRESS_PENDING_MIN + elapsedRatio * (PROGRESS_PENDING_MAX - PROGRESS_PENDING_MIN),
-  );
-  const progressPercent = isJudgmentReady ? 100 : pendingProgress;
+  const progressPercent = isJudgmentReady ? 100 : (judgmentProgressQuery.data?.percent ?? 0);
+  const progressStatus: JudgmentProgressStatus = isJudgmentReady
+    ? 'completed'
+    : (judgmentProgressQuery.data?.status ?? 'running');
+  const progressMessage = isJudgmentReady
+    ? (judgmentProgressQuery.data?.message ?? '採点が完了しました。')
+    : (judgmentProgressQuery.data?.message ?? 'AI が採点を進めています。');
 
   const timerStatus = useTimerStore((s) => s.status);
-  const throttledRemainingSeconds = useThrottledRemainingSeconds(100);
+  const totalSeconds = useTimerStore((s) => s.totalSeconds);
+  const throttledRemainingSeconds = useThrottledRemainingSeconds(
+    100,
+    isFocused && screenMode === 'resting',
+  );
 
   // 休憩中だけ白の残量を反映する。完了 / 次サイクル準備中は 0 として扱い、白も下に積もりきった見た目にする。
   const hourglassSandProgress =
@@ -991,7 +1013,7 @@ export function BreakScreen() {
     onSuccess: (session) => {
       reset();
       incrementLoop();
-      router.push({
+      router.replace({
         pathname: '/session/[id]/input',
         params: {
           id: session.id,
@@ -1113,13 +1135,19 @@ export function BreakScreen() {
                 primaryColor={BREAK_COLOR}
                 trackColor={BORDER_COLOR}
                 testID="break-circular-timer"
+                enabled={isFocused && screenMode === 'resting'}
               />
               <SizableText style={styles.timerCaption} testID="break-timer-caption">
                 {captionText}
               </SizableText>
             </View>
 
-            <JudgingProgressCard progressPercent={progressPercent} isReady={isJudgmentReady} />
+            <JudgingProgressCard
+              progressPercent={progressPercent}
+              progressMessage={progressMessage}
+              progressStatus={progressStatus}
+              isReady={isJudgmentReady}
+            />
           </>
         ) : screenMode === 'completed' ? (
           <BreakCompletedView currentLoop={currentLoop} onNextCycle={handleEnterNextCycle} />
@@ -1199,6 +1227,14 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 4,
     backgroundColor: PROGRESS_FILL_COLOR,
+  },
+  progressMessage: {
+    color: PROGRESS_CARD_SUBTEXT,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  progressMessageFailed: {
+    color: PROGRESS_STATUS_ERROR,
   },
   progressReadyBlock: {
     alignItems: 'center',

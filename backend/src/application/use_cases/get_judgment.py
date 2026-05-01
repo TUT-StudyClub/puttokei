@@ -8,6 +8,7 @@ from src.application.dto.judgment_dto import JudgmentPendingView, JudgmentView
 from src.application.mappers.judgment_mapper import to_judgment_view
 from src.application.unit_of_work import UnitOfWorkFactory
 from src.domain.entities.user import User
+from src.domain.value_objects.judgment_progress import JudgmentProgressStatus
 from src.domain.value_objects.session_status import SessionStatus
 
 _PENDING_BUFFER_SECONDS = 10
@@ -58,6 +59,10 @@ class GetJudgment:
             output = await uow.outputs.find_by_session_id(session.id)
             if output is None:
                 raise OutputNotSubmittedError("output not submitted")
+
+            progress = await uow.judgment_progresses.find_by_session_id(session.id)
+            if progress is not None and progress.status is JudgmentProgressStatus.FAILED:
+                raise JudgmentNotAvailableError(progress.message)
 
             if session.status is not SessionStatus.JUDGING:
                 raise JudgmentNotAvailableError("judgment result has not been saved")

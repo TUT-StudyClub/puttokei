@@ -10,6 +10,7 @@ import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../../tamagui.config';
 import * as sessionApi from '@/features/session/api/sessionApi';
+import * as useJudgmentProgressHook from '@/features/session/hooks/useJudgmentProgress';
 import { BreakScreen } from '@/features/session/screens/BreakScreen';
 import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
@@ -31,6 +32,7 @@ jest.mock('@react-navigation/native', () => ({
 }));
 
 jest.mock('@/features/session/api/sessionApi');
+jest.mock('@/features/session/hooks/useJudgmentProgress');
 
 function renderWithProviders(ui: ReactNode) {
   const queryClient = new QueryClient({
@@ -86,6 +88,18 @@ function createDeferred<T>() {
 describe('BreakScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (useJudgmentProgressHook.useJudgmentProgress as jest.Mock).mockReturnValue({
+      data: {
+        status: 'running',
+        stage: 'requesting_llm',
+        percent: 42,
+        message: 'AI に判定を依頼しています。',
+        updated_at: '2026-04-10T15:24:30.000Z',
+        completed_at: null,
+        error_code: null,
+      },
+      isPollingFallback: false,
+    });
     (sessionApi.getJudgment as jest.Mock).mockResolvedValue({
       kind: 'ready',
       judgment: {
@@ -127,6 +141,39 @@ describe('BreakScreen', () => {
     expect(getByTestId('break-progress-card')).toBeTruthy();
     expect(useTimerStore.getState().phase).toBe('break');
     expect(useTimerStore.getState().totalSeconds).toBe(60);
+  });
+
+  it('判定進捗カードに progress API の status / message / percent を表示する', async () => {
+    (sessionApi.getJudgment as jest.Mock).mockResolvedValue({
+      kind: 'pending',
+      pending: {
+        status: 'pending',
+        detail: '判定結果を準備しています。',
+        retry_after_seconds: 5,
+        estimated_ready_at: '2026-04-10T15:30:00.000Z',
+      },
+    });
+
+    const { getByTestId, getByText } = renderWithProviders(<BreakScreen />);
+
+    await waitFor(() => {
+      expect(getByTestId('break-progress-status')).toBeTruthy();
+    });
+    expect(getByTestId('break-progress-status').props.children).toBe('採点中');
+    expect(getByTestId('break-progress-message').props.children).toBe(
+      'AI に判定を依頼しています。',
+    );
+    expect(getByText('42%')).toBeTruthy();
+  });
+
+  it('useJudgment が ready のときは進捗を 100% で表示する', async () => {
+    const { getByTestId, getByText } = renderWithProviders(<BreakScreen />);
+
+    await waitFor(() => {
+      expect(getByTestId('break-progress-ready')).toBeTruthy();
+    });
+    expect(getByText('100%')).toBeTruthy();
+    expect(getByTestId('break-progress-status').props.children).toBe('採点完了');
   });
 
   it('休憩中の砂時計は上部が白のみ・下部に青/ピンク/白が積もり、ストリームは白色', () => {
@@ -314,7 +361,7 @@ describe('BreakScreen', () => {
     });
 
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith({
+      expect(mockReplace).toHaveBeenCalledWith({
         pathname: '/session/[id]/input',
         params: {
           id: 'ses-next',
@@ -324,6 +371,7 @@ describe('BreakScreen', () => {
         },
       });
     });
+    expect(mockPush).not.toHaveBeenCalled();
     expect(useLoopStore.getState().currentLoop).toBe(2);
   });
 
