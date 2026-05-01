@@ -14,10 +14,8 @@ import { Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
 import { SizableText, Spinner } from 'tamagui';
 
 import {
-  HourglassBadge,
-  PhaseTabs,
   type SessionPhase,
-  SessionSettingsButton,
+  SessionTopChrome,
 } from '@/features/session/components/SessionPhaseChrome';
 import { DEFAULT_TIMER } from '@/features/session/config';
 import { useCreateSession } from '@/features/session/hooks/useCreateSession';
@@ -66,33 +64,20 @@ export function HomeScreen() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
       <View style={styles.container} testID="home-root">
-        <SessionSettingsButton
-          onPress={() => router.push(SETTINGS_ROUTE)}
-          testID="home-settings-button"
+        <SessionTopChrome
+          testIDPrefix="home"
+          onSettingsPress={() => router.push(SETTINGS_ROUTE)}
+          hourglass={{ currentLoop }}
+          phaseTabs={{
+            activePhase: phase,
+            activeDotColor: HOURGLASS_BADGE_COLOR,
+            activeDotFilled: false,
+            activeTextColor: '#9D9D9D',
+            inactiveTextColor: '#CDCDCD',
+            inactiveDotColor: DOT_INACTIVE,
+            onChange: setPhase,
+          }}
         />
-
-        <View style={styles.badgeWrapper}>
-          <HourglassBadge
-            currentLoop={currentLoop}
-            testIDPrefix="home"
-            marginBottom={0}
-            rowStyle={styles.badgeRowOverride}
-          />
-        </View>
-
-        <View style={styles.phaseTabsWrapper}>
-          <PhaseTabs
-            activePhase={phase}
-            testIDPrefix="home"
-            activeDotColor={HOURGLASS_BADGE_COLOR}
-            activeDotFilled={false}
-            activeTextColor="#9D9D9D"
-            inactiveTextColor="#CDCDCD"
-            inactiveDotColor={DOT_INACTIVE}
-            marginBottom={0}
-            onChange={setPhase}
-          />
-        </View>
 
         <View style={styles.timerCircle} testID="home-timer-circle">
           <SizableText style={styles.timerText} testID="home-timer-text">
@@ -140,22 +125,6 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-  },
-  badgeWrapper: {
-    position: 'absolute',
-    top: '7.9%',
-    left: '13.18%',
-    right: '12.94%',
-    alignItems: 'flex-start',
-  },
-  badgeRowOverride: {
-    marginTop: 0,
-  },
-  phaseTabsWrapper: {
-    position: 'absolute',
-    top: '18.6%',
-    left: '13.18%',
-    right: 0,
   },
   timerCircle: {
     position: 'absolute',
