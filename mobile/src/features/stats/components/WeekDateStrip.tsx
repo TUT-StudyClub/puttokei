@@ -24,6 +24,8 @@ const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'] as cons
 type Props = {
   weekStart: string;
   onWeekChange: (weekStart: string) => void;
+  selectedDateKey: string;
+  onSelectDate: (dateKey: string) => void;
 };
 
 function ArrowIcon({ direction }: { direction: 'left' | 'right' }) {
@@ -41,7 +43,7 @@ function ArrowIcon({ direction }: { direction: 'left' | 'right' }) {
   );
 }
 
-export function WeekDateStrip({ weekStart, onWeekChange }: Props) {
+export function WeekDateStrip({ weekStart, onWeekChange, selectedDateKey, onSelectDate }: Props) {
   const scrollRef = useRef<ScrollView | null>(null);
   const { width } = useWindowDimensions();
   const pageWidth = Math.max(252, width - 96);
@@ -105,20 +107,39 @@ export function WeekDateStrip({ weekStart, onWeekChange }: Props) {
             {getWeekDateKeys(pageStart).map((dateKey) => {
               const date = parseDateKey(dateKey);
               const isToday = dateKey === todayKey;
+              const isSelected = dateKey === selectedDateKey;
               const weekdayLabel = WEEKDAY_LABELS[date.getDay()] ?? '';
               return (
-                <View
+                <Pressable
                   key={dateKey}
-                  style={[styles.dayCell, isToday ? styles.dayCellActive : null]}
+                  accessibilityRole="button"
+                  onPress={() => onSelectDate(dateKey)}
+                  style={[
+                    styles.dayCell,
+                    isSelected ? styles.dayCellSelected : null,
+                    isToday && !isSelected ? styles.dayCellToday : null,
+                  ]}
                   testID={`week-date-${dateKey}`}
                 >
-                  <SizableText style={[styles.dayNumber, isToday ? styles.dayTextActive : null]}>
+                  <SizableText
+                    style={[
+                      styles.dayNumber,
+                      isSelected ? styles.dayTextSelected : null,
+                      isToday && !isSelected ? styles.dayTextToday : null,
+                    ]}
+                  >
                     {getDateNumberLabel(dateKey)}
                   </SizableText>
-                  <SizableText style={[styles.weekday, isToday ? styles.dayTextActive : null]}>
+                  <SizableText
+                    style={[
+                      styles.weekday,
+                      isSelected ? styles.dayTextSelected : null,
+                      isToday && !isSelected ? styles.dayTextToday : null,
+                    ]}
+                  >
                     {weekdayLabel}
                   </SizableText>
-                </View>
+                </Pressable>
               );
             })}
           </View>
@@ -163,7 +184,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 2,
   },
-  dayCellActive: {
+  dayCellSelected: {
+    backgroundColor: '#4B5CFF',
+    borderColor: '#4B5CFF',
+    borderWidth: 1.5,
+  },
+  dayCellToday: {
     backgroundColor: '#DDE5FF',
     borderColor: '#4B5CFF',
     borderWidth: 1.5,
@@ -180,7 +206,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 16,
   },
-  dayTextActive: {
+  dayTextSelected: {
+    color: '#FFFFFF',
+  },
+  dayTextToday: {
     color: '#4B5CFF',
   },
 });

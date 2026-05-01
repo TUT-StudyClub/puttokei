@@ -221,3 +221,94 @@ async def test_get_weekly_report_returns_zero_filled_empty_week(client: AsyncCli
     assert len(body["points"]) == 7
     assert all(point["study_minutes"] == 0 for point in body["points"])
     assert body["output_history"] == []
+
+
+@pytest.mark.asyncio
+async def test_get_daily_report_returns_only_target_date_outputs(
+    client: AsyncClient,
+    fake_judgment_repository: FakeJudgmentRepository,
+):
+    auth_uid = "daily-report-user"
+    target = await _create_session_with_output(
+        client,
+        auth_uid,
+        subject="英語",
+        topic="関係代名詞",
+        input_minutes=20,
+        output_minutes=5,
+        break_minutes=5,
+        content="当日のアウトプットです。",
+        submitted_at="2026-04-29T01:00:00Z",
+    )
+    await _create_session_with_output(
+        client,
+        auth_uid,
+        subject="国語",
+        topic="随筆",
+        input_minutes=30,
+        output_minutes=15,
+        break_minutes=10,
+        content="前日のアウトプットです。",
+        submitted_at="2026-04-28T14:59:59Z",
+    )
+    await _create_session_with_output(
+        client,
+        "daily-report-other-user",
+        subject="数学",
+        topic="二次関数",
+        input_minutes=40,
+        output_minutes=10,
+        break_minutes=5,
+        content="別ユーザーのアウトプットです。",
+        submitted_at="2026-04-29T03:00:00Z",
+    )
+    await fake_judgment_repository.add(
+        Judgment(
+            id=uuid4(),
+            session_id=UUID(str(target["id"])),
+            verdict=Verdict.PARTIAL,
+            score=72,
+            advice="もう少し具体例を加えてみましょう。",
+            corrections=[],
+            judged_at=datetime.now(UTC),
+        )
+    )
+
+    response = await client.get(
+        "/api/v1/stats/daily?date=2026-04-29",
+        headers={"Authorization": f"Bearer {auth_uid}"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["date"] == "2026-04-29"
+    assert body["summary"] == {
+        "input_minutes": 20,
+        "output_minutes": 5,
+        "break_minutes": 5,
+        "total_study_minutes": 25,
+        "total_sessions": 1,
+    }
+    assert [item["output"]["content"] for item in body["output_history"]] == [
+        "当日のアウトプットです。",
+    ]
+    assert body["output_history"][0]["judgment"]["score"] == 72
+
+
+@pytest.mark.asyncio
+async def test_get_daily_report_returns_zero_filled_empty_day(client: AsyncClient):
+    response = await client.get(
+        "/api/v1/stats/daily?date=2026-04-29",
+        headers={"Authorization": "Bearer empty-day-user"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["summary"] == {
+        "input_minutes": 0,
+        "output_minutes": 0,
+        "break_minutes": 0,
+        "total_study_minutes": 0,
+        "total_sessions": 0,
+    }
+    assert body["output_history"] == []

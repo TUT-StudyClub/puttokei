@@ -33,3 +33,21 @@ class WeeklyReportResponse(FrozenModel):
     summary: WeeklyReportSummaryResponse
     points: list[WeeklyReportPointResponse]
     output_history: list[OutputReviewItemResponse]
+
+
+class DailyReportSummaryResponse(FrozenModel):
+    """日単位レポートのサマリー。"""
+
+    input_minutes: int
+    output_minutes: int
+    break_minutes: int
+    total_study_minutes: int
+    total_sessions: int
+
+
+class DailyReportResponse(FrozenModel):
+    """日単位レポート画面用レスポンス。"""
+
+    date: date
+    summary: DailyReportSummaryResponse
+    output_history: list[OutputReviewItemResponse]

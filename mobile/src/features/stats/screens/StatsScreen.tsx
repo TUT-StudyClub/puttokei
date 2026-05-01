@@ -1,8 +1,9 @@
 /**
- * 週単位のレポート画面。
+ * 日単位のレポート画面。
  *
- * 上部の週ナビゲーションとハイライトは固定し、その下から教科グラフと
- * アウトプット履歴をスクロールできる構成にする。
+ * 上部の週ナビゲーションでは「表示週」と「選択日」を扱い、ハイライトカードと
+ * アウトプット履歴は選択日のものを表示する。月単位の集計とカレンダーは
+ * カレンダーボタンから切り替える。
  *
  * 未認証ユーザーはこの画面のデータを取得できないため、`/(auth)/sign-in` に誘導する。
  * サインイン成功後に戻ってこられるよう `returnTo` を渡している。
@@ -17,16 +18,15 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
-  useWindowDimensions,
   View,
 } from 'react-native';
-import { BarChart } from 'react-native-gifted-charts';
 import { Path, Svg } from 'react-native-svg';
 import { Button, Paragraph, SizableText, Spinner } from 'tamagui';
 
 import { WeekDateStrip } from '@/features/stats/components/WeekDateStrip';
 import { fetchWeeklyReport } from '@/features/stats/api/statsApi';
-import { WEEKLY_REPORT_QUERY_KEY, useWeeklyReport } from '@/features/stats/hooks/useWeeklyReport';
+import { useDailyReport } from '@/features/stats/hooks/useDailyReport';
+import { WEEKLY_REPORT_QUERY_KEY } from '@/features/stats/hooks/useWeeklyReport';
 import {
   addDaysToDateKey,
   getDateNumberLabel,
@@ -36,7 +36,7 @@ import {
   parseDateKey,
   toDateKey,
 } from '@/features/stats/lib/week';
-import type { WeeklyReportPoint, WeeklyReportResponse } from '@/features/stats/types';
+import type { DailyReportSummary, WeeklyReportResponse } from '@/features/stats/types';
 import type { OutputReviewItem } from '@/features/session/types';
 import { isApiError } from '@/shared/lib/api';
 import { useAuthStore } from '@/shared/stores/authStore';
@@ -115,6 +115,18 @@ function getMonthStartKey(dateKey: string): string {
   const date = parseDateKey(dateKey);
   date.setDate(1);
   return toDateKey(date);
+}
+
+function daysBetweenDateKeys(targetKey: string, baseKey: string): number {
+  const msPerDay = 24 * 60 * 60 * 1000;
+  return Math.round(
+    (parseDateKey(targetKey).getTime() - parseDateKey(baseKey).getTime()) / msPerDay,
+  );
+}
+
+function getMonthDayLabel(dateKey: string): string {
+  const date = parseDateKey(dateKey);
+  return `${date.getMonth() + 1}月${date.getDate()}日`;
 }
 
 function addMonthsToMonthStartKey(monthStartKey: string, months: number): string {
@@ -267,8 +279,8 @@ function MetricLine({ label, minutes }: { label: string; minutes: number }) {
   );
 }
 
-function HighlightCard({ data }: { data: WeeklyReportResponse }) {
-  const total = splitMinutes(data.summary.total_study_minutes);
+function HighlightCard({ summary }: { summary: DailyReportSummary }) {
+  const total = splitMinutes(summary.total_study_minutes);
   return (
     <ImageBackground
       source={HIGHLIGHT_BACKGROUND}
@@ -278,7 +290,7 @@ function HighlightCard({ data }: { data: WeeklyReportResponse }) {
       testID="stats-highlight-card"
     >
       <View pointerEvents="none" style={styles.sessionBadge} testID="stats-session-badge">
-        <SizableText style={styles.sessionBadgeText}>×{data.summary.total_sessions}</SizableText>
+        <SizableText style={styles.sessionBadgeText}>×{summary.total_sessions}</SizableText>
       </View>
       <View style={styles.highlightContent}>
         <SizableText style={styles.highlightCaption}>勉強時間合計</SizableText>
@@ -291,12 +303,10 @@ function HighlightCard({ data }: { data: WeeklyReportResponse }) {
 
         <View style={styles.highlightBody}>
           <View style={styles.highlightMetrics}>
-            <MetricLine label="インプット" minutes={data.summary.input_minutes} />
-            <MetricLine label="アウトプット" minutes={data.summary.output_minutes} />
+            <MetricLine label="インプット" minutes={summary.input_minutes} />
+            <MetricLine label="アウトプット" minutes={summary.output_minutes} />
             <View style={styles.breakPill}>
-              <SizableText style={styles.breakPillText}>
-                休憩{data.summary.break_minutes}分
-              </SizableText>
+              <SizableText style={styles.breakPillText}>休憩{summary.break_minutes}分</SizableText>
             </View>
           </View>
         </View>
@@ -484,52 +494,6 @@ function MonthlyHighlightCard({
   );
 }
 
-function SubjectChart({ points }: { points: WeeklyReportPoint[] }) {
-  const { width } = useWindowDimensions();
-  const chartWidth = Math.max(260, width - 72);
-  const maxHours = Math.max(
-    1,
-    Math.ceil(Math.max(...points.map((point) => point.study_minutes), 0) / 60),
-  );
-  const barData = useMemo(
-    () =>
-      points.map((point) => ({
-        value: Number((point.study_minutes / 60).toFixed(2)),
-        label: point.label,
-      })),
-    [points],
-  );
-
-  return (
-    <View style={styles.subjectSection} testID="stats-subject-section">
-      <SizableText style={styles.sectionTitle}>教科</SizableText>
-      <View style={styles.chartWrap} testID="stats-weekly-chart">
-        <SizableText style={styles.yAxisLabel}>時間(h)</SizableText>
-        <BarChart
-          data={barData}
-          width={chartWidth}
-          height={178}
-          maxValue={maxHours}
-          noOfSections={4}
-          barWidth={22}
-          spacing={17}
-          initialSpacing={12}
-          frontColor="#5367FF"
-          yAxisThickness={0}
-          xAxisThickness={1}
-          xAxisColor="#D6D6D6"
-          rulesColor="#ECECEC"
-          yAxisLabelSuffix="h"
-          hideRules={false}
-          barBorderTopLeftRadius={4}
-          barBorderTopRightRadius={4}
-        />
-        <SizableText style={styles.xAxisLabel}>日にち</SizableText>
-      </View>
-    </View>
-  );
-}
-
 function buildOutputPreview(content: string): string {
   const compact = content.replace(/\s+/g, ' ').trim();
   if (compact.length <= 44) return compact;
@@ -557,7 +521,7 @@ function OutputHistory({ items }: { items: OutputReviewItem[] }) {
       {items.length === 0 ? (
         <View style={styles.emptyHistory} testID="stats-output-history-empty">
           <SizableText style={styles.emptyHistoryText}>
-            この週のアウトプットはまだありません。
+            この日のアウトプットはまだありません。
           </SizableText>
         </View>
       ) : (
@@ -622,14 +586,19 @@ function ErrorBody({ message, onRetry }: { message: string; onRetry: () => void 
 
 export function StatsScreen() {
   const uid = useAuthStore((s) => s.uid);
-  const [weekStart, setWeekStart] = useState(() => getSundayWeekStartKey());
+  const todayKey = getTokyoDateKey();
+  const [selectedDateKey, setSelectedDateKey] = useState(() => todayKey);
+  const weekStart = useMemo(
+    () => getSundayWeekStartKey(parseDateKey(selectedDateKey)),
+    [selectedDateKey],
+  );
   const [reportViewMode, setReportViewMode] = useState<ReportViewMode>('weekly');
   const [calendarMonthStart, setCalendarMonthStart] = useState(() => getMonthStartKey(weekStart));
-  const weeklyReportQuery = useWeeklyReport(weekStart);
+  const dailyReportQuery = useDailyReport(selectedDateKey);
   const monthlyReports = useMonthlyWeeklyReports(calendarMonthStart, reportViewMode === 'monthly');
-  const handleWeeklyRetry = useCallback(() => {
-    void weeklyReportQuery.refetch();
-  }, [weeklyReportQuery]);
+  const handleDailyRetry = useCallback(() => {
+    void dailyReportQuery.refetch();
+  }, [dailyReportQuery]);
   const handleMonthlyRetry = useCallback(() => {
     monthlyReports.refetch();
   }, [monthlyReports]);
@@ -640,6 +609,13 @@ export function StatsScreen() {
   const handleCloseMonthlyCalendar = useCallback(() => {
     setReportViewMode('weekly');
   }, []);
+  const handleWeekChange = useCallback(
+    (newWeekStart: string) => {
+      const offsetDays = daysBetweenDateKeys(newWeekStart, weekStart);
+      setSelectedDateKey((current) => addDaysToDateKey(current, offsetDays));
+    },
+    [weekStart],
+  );
 
   if (uid === null) {
     return (
@@ -652,12 +628,16 @@ export function StatsScreen() {
     );
   }
 
-  const weeklyErrorMessage = weeklyReportQuery.isError
-    ? getReportErrorMessage(weeklyReportQuery.error)
+  const dailyErrorMessage = dailyReportQuery.isError
+    ? getReportErrorMessage(dailyReportQuery.error)
     : null;
   const monthlyErrorMessage = monthlyReports.isError
     ? getReportErrorMessage(monthlyReports.error)
     : null;
+  const highlightTitle =
+    selectedDateKey === todayKey
+      ? '今日のハイライト'
+      : `${getMonthDayLabel(selectedDateKey)}のハイライト`;
 
   const monthlyBody = (() => {
     if (monthlyReports.isPending) {
@@ -700,7 +680,7 @@ export function StatsScreen() {
   })();
 
   const body = (() => {
-    if (weeklyReportQuery.isPending) {
+    if (dailyReportQuery.isPending) {
       return (
         <View style={styles.messageBody}>
           <Spinner testID="stats-loading" />
@@ -709,20 +689,19 @@ export function StatsScreen() {
       );
     }
 
-    if (weeklyReportQuery.isError || weeklyReportQuery.data === undefined) {
+    if (dailyReportQuery.isError || dailyReportQuery.data === undefined) {
       return (
         <ErrorBody
-          message={weeklyErrorMessage ?? 'レポートの取得に失敗しました。'}
-          onRetry={handleWeeklyRetry}
+          message={dailyErrorMessage ?? 'レポートの取得に失敗しました。'}
+          onRetry={handleDailyRetry}
         />
       );
     }
 
     return (
       <>
-        <SubjectChart points={weeklyReportQuery.data.points} />
-        <OutputHistory items={weeklyReportQuery.data.output_history} />
-        {weeklyReportQuery.isFetching ? (
+        <OutputHistory items={dailyReportQuery.data.output_history} />
+        {dailyReportQuery.isFetching ? (
           <SizableText style={styles.refetchingText} testID="stats-refetching">
             最新データを取得中…
           </SizableText>
@@ -775,13 +754,18 @@ export function StatsScreen() {
             <CalendarIcon />
           </Pressable>
         </View>
-        <WeekDateStrip weekStart={weekStart} onWeekChange={setWeekStart} />
+        <WeekDateStrip
+          weekStart={weekStart}
+          onWeekChange={handleWeekChange}
+          selectedDateKey={selectedDateKey}
+          onSelectDate={setSelectedDateKey}
+        />
         <View style={styles.highlightTitleRow}>
-          <SizableText style={styles.highlightTitle}>今日のハイライト</SizableText>
+          <SizableText style={styles.highlightTitle}>{highlightTitle}</SizableText>
           <ExternalIcon />
         </View>
-        {weeklyReportQuery.data ? (
-          <HighlightCard data={weeklyReportQuery.data} />
+        {dailyReportQuery.data ? (
+          <HighlightCard summary={dailyReportQuery.data.summary} />
         ) : (
           <HighlightPlaceholder />
         )}
@@ -1141,40 +1125,15 @@ const styles = StyleSheet.create({
     gap: 14,
     paddingHorizontal: 16,
   },
-  subjectSection: {
-    gap: 14,
-  },
   sectionTitle: {
     color: '#333333',
     fontSize: 18,
     fontWeight: '800',
     lineHeight: 24,
   },
-  chartWrap: {
-    minHeight: 220,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 10,
-  },
-  yAxisLabel: {
-    alignSelf: 'flex-start',
-    color: '#777777',
-    fontSize: 11,
-    fontWeight: '700',
-    lineHeight: 14,
-    marginBottom: 4,
-    marginLeft: 8,
-  },
-  xAxisLabel: {
-    color: '#777777',
-    fontSize: 11,
-    fontWeight: '700',
-    lineHeight: 14,
-    marginTop: 4,
-  },
   historySection: {
     gap: 14,
-    marginTop: 24,
+    marginTop: 4,
   },
   historyList: {
     gap: 10,

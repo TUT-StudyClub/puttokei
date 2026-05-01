@@ -8,6 +8,7 @@ from fastapi import Request
 from src.application.use_cases.authenticate_user import AuthenticateUser
 from src.application.use_cases.create_session import CreateSession
 from src.application.use_cases.delete_account import DeleteAccount
+from src.application.use_cases.get_daily_report import GetDailyReport
 from src.application.use_cases.get_judgment import GetJudgment
 from src.application.use_cases.get_judgment_progress import GetJudgmentProgress
 from src.application.use_cases.get_user_profile import GetUserProfile
@@ -47,6 +48,7 @@ class PresentationContainer(ABC):
     get_judgment_progress: GetJudgmentProgress
     list_today_outputs: ListTodayOutputs
     get_weekly_report: GetWeeklyReport
+    get_daily_report: GetDailyReport
 
 
 def get_presentation_container(request: Request) -> PresentationContainer:
