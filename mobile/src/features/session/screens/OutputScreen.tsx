@@ -463,6 +463,8 @@ type SessionRouteParams = {
   input?: string;
   output?: string;
   break?: string;
+  /** 通知タップ起動時に "1"。タイマー再起動を抑止し「時間になりました」だけ案内する。 */
+  done?: string;
 };
 
 export function OutputScreen() {
@@ -471,6 +473,7 @@ export function OutputScreen() {
   const inputMinutes = Number(params.input) || DEFAULT_TIMER.input_minutes;
   const outputMinutes = Number(params.output) || DEFAULT_TIMER.output_minutes;
   const breakMinutes = Number(params.break) || DEFAULT_TIMER.break_minutes;
+  const arrivedFromNotification = params.done === '1';
 
   const router = useRouter();
   const isFocused = useIsFocused();
@@ -719,22 +722,43 @@ export function OutputScreen() {
   useScheduleSessionPhaseNotification({
     kind: 'output',
     enabled: isFocused && timerStatus === 'running' && notificationEnabled,
+    sessionId,
+    inputMinutes,
+    outputMinutes,
+    breakMinutes,
   });
 
   useEffect(() => {
     setContent('');
     setInputMethod('text');
     setImageUris([]);
-    setLocalErrorMessage(null);
-    setIsImageMenuOpen(false);
     resetVoiceRecognition();
     resetSubmit();
-    start('output', outputMinutes * 60);
+    if (arrivedFromNotification) {
+      // 通知タップ起動: タイマーを再開せず「時間になった」状態として案内する。
+      // JS が background で停止していた間に残った中途半端な秒数で再開しないよう、
+      // 明示的に completed 状態へジャンプさせる。complete() は既に completed なら no-op。
+      useTimerStore.getState().complete();
+      setIsImageMenuOpen(false);
+      setLocalErrorMessage('時間になりました。内容を確認して送信してください。');
+    } else {
+      setLocalErrorMessage(null);
+      setIsImageMenuOpen(false);
+      start('output', outputMinutes * 60);
+    }
     return () => {
       resetVoiceRecognition();
       reset();
     };
-  }, [outputMinutes, reset, resetSubmit, resetVoiceRecognition, sessionId, start]);
+  }, [
+    arrivedFromNotification,
+    outputMinutes,
+    reset,
+    resetSubmit,
+    resetVoiceRecognition,
+    sessionId,
+    start,
+  ]);
 
   useEffect(() => {
     if (!isFocused) {

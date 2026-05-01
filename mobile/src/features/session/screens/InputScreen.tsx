@@ -366,6 +366,10 @@ export function InputScreen() {
   useScheduleSessionPhaseNotification({
     kind: 'input',
     enabled: isFocused && timerStatus === 'running' && notificationEnabled,
+    sessionId,
+    inputMinutes,
+    outputMinutes,
+    breakMinutes,
   });
 
   useEffect(() => {

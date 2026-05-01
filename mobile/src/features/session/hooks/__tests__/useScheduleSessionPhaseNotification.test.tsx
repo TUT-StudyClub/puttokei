@@ -1,6 +1,7 @@
 /**
  * useScheduleSessionPhaseNotification の振る舞いを検証する。
  * - enabled の立ち上がりで scheduleSessionPhaseNotification を呼ぶ
+ * - 通知 data に乗せる route 情報（sessionId / minutes）が渡る
  * - unmount / enabled=false で予約をキャンセルする
  * - remainingSeconds=0 のときは何もしない
  */
@@ -17,6 +18,13 @@ jest.mock('@/shared/lib/notifications', () => ({
 
 const scheduleMock = notifications.scheduleSessionPhaseNotification as jest.Mock;
 const cancelMock = notifications.cancelScheduledNotification as jest.Mock;
+
+const defaultRoute = {
+  sessionId: 'sess-1',
+  inputMinutes: 20,
+  outputMinutes: 5,
+  breakMinutes: 5,
+};
 
 describe('useScheduleSessionPhaseNotification', () => {
   beforeEach(() => {
@@ -38,10 +46,12 @@ describe('useScheduleSessionPhaseNotification', () => {
     useTimerStore.setState({ remainingSeconds: 1200 });
     scheduleMock.mockResolvedValue('id-1');
 
-    renderHook(() => useScheduleSessionPhaseNotification({ kind: 'input', enabled: true }));
+    renderHook(() =>
+      useScheduleSessionPhaseNotification({ kind: 'input', enabled: true, ...defaultRoute }),
+    );
 
     await waitFor(() => {
-      expect(scheduleMock).toHaveBeenCalledWith('input', 1200);
+      expect(scheduleMock).toHaveBeenCalledWith('input', defaultRoute, 1200);
     });
     expect(cancelMock).not.toHaveBeenCalled();
   });
@@ -49,7 +59,26 @@ describe('useScheduleSessionPhaseNotification', () => {
   it('enabled=false では予約しない', () => {
     useTimerStore.setState({ remainingSeconds: 1200 });
 
-    renderHook(() => useScheduleSessionPhaseNotification({ kind: 'input', enabled: false }));
+    renderHook(() =>
+      useScheduleSessionPhaseNotification({ kind: 'input', enabled: false, ...defaultRoute }),
+    );
+
+    expect(scheduleMock).not.toHaveBeenCalled();
+  });
+
+  it('sessionId が空文字のときは予約しない', () => {
+    useTimerStore.setState({ remainingSeconds: 1200 });
+
+    renderHook(() =>
+      useScheduleSessionPhaseNotification({
+        kind: 'input',
+        enabled: true,
+        sessionId: '',
+        inputMinutes: 20,
+        outputMinutes: 5,
+        breakMinutes: 5,
+      }),
+    );
 
     expect(scheduleMock).not.toHaveBeenCalled();
   });
@@ -57,7 +86,9 @@ describe('useScheduleSessionPhaseNotification', () => {
   it('残秒数が 0 のときは予約しない', () => {
     useTimerStore.setState({ remainingSeconds: 0 });
 
-    renderHook(() => useScheduleSessionPhaseNotification({ kind: 'input', enabled: true }));
+    renderHook(() =>
+      useScheduleSessionPhaseNotification({ kind: 'input', enabled: true, ...defaultRoute }),
+    );
 
     expect(scheduleMock).not.toHaveBeenCalled();
   });
@@ -67,7 +98,7 @@ describe('useScheduleSessionPhaseNotification', () => {
     scheduleMock.mockResolvedValue('id-2');
 
     const { unmount } = renderHook(() =>
-      useScheduleSessionPhaseNotification({ kind: 'output', enabled: true }),
+      useScheduleSessionPhaseNotification({ kind: 'output', enabled: true, ...defaultRoute }),
     );
 
     await waitFor(() => {
@@ -85,7 +116,7 @@ describe('useScheduleSessionPhaseNotification', () => {
 
     const { rerender } = renderHook(
       ({ enabled }: { enabled: boolean }) =>
-        useScheduleSessionPhaseNotification({ kind: 'break', enabled }),
+        useScheduleSessionPhaseNotification({ kind: 'break', enabled, ...defaultRoute }),
       { initialProps: { enabled: true } },
     );
 

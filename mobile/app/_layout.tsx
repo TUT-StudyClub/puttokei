@@ -14,6 +14,7 @@ import { TamaguiProvider } from 'tamagui';
 
 import config from '../tamagui.config';
 import { configureGoogleSignIn } from '@/features/auth/lib/signInWithGoogle';
+import { SessionNotificationResponder } from '@/features/session/components/SessionNotificationResponder';
 import { PushTokenRegistrar } from '@/features/settings/components/PushTokenRegistrar';
 import { AuthGate } from '@/shared/components/AuthGate';
 import { refreshIdToken, subscribeIdTokenChanged } from '@/shared/lib/firebase';
@@ -58,6 +59,7 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <AuthGate>
           <PushTokenRegistrar />
+          <SessionNotificationResponder />
           <Stack screenOptions={{ headerShown: false, animation: 'none' }} />
         </AuthGate>
       </QueryClientProvider>

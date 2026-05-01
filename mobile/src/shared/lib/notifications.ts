@@ -16,6 +16,17 @@ import { Platform } from 'react-native';
 
 export type SessionPhaseNotificationKind = 'input' | 'output' | 'break';
 
+/**
+ * 通知 data に乗せる route 情報。タップして開かれた時に
+ * `SessionNotificationResponder` がこれを読み、適切な画面へ router.replace する。
+ */
+export type SessionPhaseNotificationRoute = {
+  sessionId: string;
+  inputMinutes: number;
+  outputMinutes: number;
+  breakMinutes: number;
+};
+
 const NOTIFICATION_CONTENT: Record<
   SessionPhaseNotificationKind,
   { title: string; body: string }
@@ -98,9 +109,13 @@ export function subscribeFcmTokenRefresh(listener: (token: string) => void): () 
 /**
  * フェーズ完了通知を delaySeconds 後に予約する。返り値は通知 id。
  * delaySeconds が 1 未満のときは 1 にクランプする。
+ *
+ * data に sessionId と各フェーズの minutes を埋めるため、ユーザーが通知をタップ
+ * して開いたときに、フォアグラウンド側で次の画面へ router.replace できる。
  */
 export async function scheduleSessionPhaseNotification(
   kind: SessionPhaseNotificationKind,
+  route: SessionPhaseNotificationRoute,
   delaySeconds: number,
 ): Promise<string> {
   const content = NOTIFICATION_CONTENT[kind];
@@ -110,7 +125,15 @@ export async function scheduleSessionPhaseNotification(
       title: content.title,
       body: content.body,
       sound: 'default',
-      data: { kind },
+      data: {
+        kind,
+        sessionId: route.sessionId,
+        // expo-notifications の data はプリミティブを保存できるが、
+        // OS によって数値が文字列化されるため最初から string で送って解釈ブレを避ける
+        inputMinutes: String(route.inputMinutes),
+        outputMinutes: String(route.outputMinutes),
+        breakMinutes: String(route.breakMinutes),
+      },
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
