@@ -6,7 +6,7 @@
  */
 import { useIsFocused } from '@react-navigation/native';
 import { useMutation } from '@tanstack/react-query';
-import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -57,7 +57,6 @@ const BREAK_COMPLETE_CARD_IMAGE = require('../../../../assets/images/illustratio
 // 画像本体 (1329x1857) のアスペクト比。card 全体をこの比率で配置する。
 const BREAK_COMPLETE_CARD_ASPECT_RATIO = 1329 / 1857;
 
-const SETTINGS_ROUTE = '/(tabs)/settings' as unknown as Href;
 // 中央表示用の砂時計は青枠 SVG を blue variant の baseHeight/baseWidth から比率を求める。
 const NEXT_CYCLE_HOURGLASS_ASPECT_RATIO =
   HOURGLASS_VARIANTS.blue.baseHeight / HOURGLASS_VARIANTS.blue.baseWidth;
@@ -1097,7 +1096,7 @@ export function BreakScreen() {
       <View style={styles.container} testID="break-root">
         <SessionTopChrome
           testIDPrefix="break"
-          onSettingsPress={() => router.push(SETTINGS_ROUTE)}
+          showSettingsButton={false}
           hourglassWrapperRef={badgeStackRef}
           onHourglassWrapperLayout={handleBadgeStackLayout}
           hourglass={{

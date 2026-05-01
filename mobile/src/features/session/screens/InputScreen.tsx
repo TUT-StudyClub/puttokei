@@ -9,7 +9,7 @@
  * 「5分延長」の 2 ボタンを配置する。
  */
 import { useIsFocused } from '@react-navigation/native';
-import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
@@ -32,8 +32,6 @@ import type { OutputReviewItem } from '@/features/session/types';
 import { OUTPUT_HISTORY_ROW_HEIGHT, OutputHistoryRow } from '@/shared/components/OutputHistoryRow';
 import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
-
-const SETTINGS_ROUTE = '/(tabs)/settings' as unknown as Href;
 
 const CURRENT_PHASE: SessionPhase = 'input';
 const EXTEND_MINUTES = 5;
@@ -390,7 +388,7 @@ export function InputScreen() {
         <SessionTopChrome
           testIDPrefix="input"
           showHeader={!isDetailVisible}
-          onSettingsPress={() => router.push(SETTINGS_ROUTE)}
+          showSettingsButton={false}
           hourglass={{
             currentLoop,
             borderColor: BORDER_COLOR,

@@ -1162,7 +1162,8 @@ export function PhaseTabs({
  * Home の絶対配置座標 (`top: 7.9%` / `top: 18.6%`) を 4 画面で揃えるための wrapper。
  * 設定ボタン・砂時計バッジ・PhaseTabs を SafeAreaView 配下の親 View に対して
  * 絶対配置する想定。`showHeader` が `false` のときは設定ボタンと砂時計バッジを
- * 非表示にし、PhaseTabs だけ常に表示する。
+ * 非表示にし、PhaseTabs だけ常に表示する。`showSettingsButton` はヘッダーを維持したまま
+ * 設定ボタンだけを消したい画面で使う。
  *
  * 画面側のメインコンテンツは `SESSION_TOP_CHROME_CONTENT_TOP` を `top` に当てた
  * 絶対配置 View でラップして、chrome と重ならない位置から始める。
@@ -1173,7 +1174,9 @@ type SessionTopChromeProps = {
   testIDPrefix: string;
   /** 設定ボタンと砂時計バッジを表示するか。`false` でも PhaseTabs は表示される。 */
   showHeader?: boolean;
-  onSettingsPress: () => void;
+  /** 設定ボタンを表示するか。 */
+  showSettingsButton?: boolean;
+  onSettingsPress?: () => void;
   hourglass: Omit<HourglassBadgeProps, 'testIDPrefix' | 'rowStyle' | 'marginBottom'>;
   phaseTabs: Omit<PhaseTabsProps, 'testIDPrefix' | 'marginBottom'>;
   /** 砂時計バッジ wrapper の View ref。Break 画面のエントランスアニメ用。 */
@@ -1184,6 +1187,7 @@ type SessionTopChromeProps = {
 export function SessionTopChrome({
   testIDPrefix,
   showHeader = true,
+  showSettingsButton = true,
   onSettingsPress,
   hourglass,
   phaseTabs,
@@ -1192,7 +1196,7 @@ export function SessionTopChrome({
 }: SessionTopChromeProps) {
   return (
     <>
-      {showHeader ? (
+      {showHeader && showSettingsButton && onSettingsPress ? (
         <SessionSettingsButton
           onPress={onSettingsPress}
           testID={`${testIDPrefix}-settings-button`}

@@ -771,7 +771,7 @@ export function OutputScreen() {
       {showSessionChrome ? (
         <SessionTopChrome
           testIDPrefix="output"
-          onSettingsPress={() => router.push('/(tabs)/settings')}
+          showSettingsButton={false}
           hourglass={{
             currentLoop,
             borderColor: BORDER_COLOR,
