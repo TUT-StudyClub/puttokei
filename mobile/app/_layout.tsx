@@ -24,7 +24,7 @@ import { getAuthIdToken, useAuthStore } from '@/shared/stores/authStore';
 
 // 開発ビルド (__DEV__) では Firebase Auth の代わりに dev mock を使い、サインイン画面を
 // 経由せずに固定 UID で API を叩く。バックエンドの DEV_MOCK_AUTH_ENABLED=true と対応。
-const USE_DEV_MOCK_AUTH = __DEV__;
+const USE_DEV_MOCK_AUTH = false;
 
 export default function RootLayout() {
   useEffect(() => {
