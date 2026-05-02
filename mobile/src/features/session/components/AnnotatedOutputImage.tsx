@@ -12,6 +12,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Image,
   Pressable,
+  StyleSheet,
   View,
   type LayoutChangeEvent,
   type StyleProp,
@@ -31,7 +32,9 @@ type AnnotatedOutputImageProps = {
 };
 
 const HIGHLIGHT_COLOR = '#D92D20';
+const HIGHLIGHT_BG_SELECTED = 'rgba(217, 45, 32, 0.15)';
 const UNDERLINE_THICKNESS = 3;
+const UNDERLINE_THICKNESS_SELECTED = UNDERLINE_THICKNESS + 1;
 const TAP_PADDING = 6;
 
 export function AnnotatedOutputImage({
@@ -91,14 +94,14 @@ export function AnnotatedOutputImage({
   return (
     <View
       onLayout={handleLayout}
-      style={[{ width: '100%', height: imageHeight }, containerStyle]}
+      style={[styles.container, { height: imageHeight }, containerStyle]}
       testID={testID}
     >
       <Image
         accessibilityLabel="提出した学習ノート画像"
         resizeMode="contain"
         source={{ uri: imageUrl }}
-        style={{ width: '100%', height: '100%' }}
+        style={styles.image}
         onLoad={handleImageLoad}
       />
       {renderArea
@@ -117,25 +120,22 @@ export function AnnotatedOutputImage({
                 accessibilityLabel={`誤り箇所 ${index + 1}`}
                 onPress={() => onSelectCorrection(index)}
                 hitSlop={TAP_PADDING}
-                style={{
-                  position: 'absolute',
-                  left: left - TAP_PADDING,
-                  top: top - TAP_PADDING,
-                  width: width + TAP_PADDING * 2,
-                  height: height + TAP_PADDING * 2,
-                  paddingTop: TAP_PADDING,
-                  paddingLeft: TAP_PADDING,
-                }}
+                style={[
+                  styles.tapArea,
+                  {
+                    left: left - TAP_PADDING,
+                    top: top - TAP_PADDING,
+                    width: width + TAP_PADDING * 2,
+                    height: height + TAP_PADDING * 2,
+                  },
+                ]}
                 testID={`correction-bbox-${index}`}
               >
                 <View
-                  style={{
-                    width,
-                    height,
-                    borderBottomColor: HIGHLIGHT_COLOR,
-                    borderBottomWidth: selected ? UNDERLINE_THICKNESS + 1 : UNDERLINE_THICKNESS,
-                    backgroundColor: selected ? 'rgba(217, 45, 32, 0.15)' : 'transparent',
-                  }}
+                  style={[
+                    selected ? styles.underlineSelected : styles.underline,
+                    { width, height },
+                  ]}
                 />
               </Pressable>
             );
@@ -144,6 +144,31 @@ export function AnnotatedOutputImage({
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    width: '100%',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+  tapArea: {
+    position: 'absolute',
+    paddingTop: TAP_PADDING,
+    paddingLeft: TAP_PADDING,
+  },
+  underline: {
+    borderBottomColor: HIGHLIGHT_COLOR,
+    borderBottomWidth: UNDERLINE_THICKNESS,
+    backgroundColor: 'transparent',
+  },
+  underlineSelected: {
+    borderBottomColor: HIGHLIGHT_COLOR,
+    borderBottomWidth: UNDERLINE_THICKNESS_SELECTED,
+    backgroundColor: HIGHLIGHT_BG_SELECTED,
+  },
+});
 
 type RenderArea = {
   offsetX: number;
@@ -155,8 +180,11 @@ type RenderArea = {
 /**
  * resizeMode='contain' の Image が container の中で実際にどの領域を占めるかを求める。
  * letterbox（黒帯）の余白分を offsetX / offsetY に詰める。
+ *
+ * テストから直接呼べるよう export している（純粋関数なので component を render
+ * しなくても挙動を確認できる）。
  */
-function computeRenderArea(
+export function computeRenderArea(
   container: { width: number; height: number } | null,
   natural: { width: number; height: number } | null,
 ): RenderArea | null {
