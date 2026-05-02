@@ -54,13 +54,7 @@ function ReportTabIcon({ color, size = 24 }: { color: string; size?: number }) {
   );
 }
 
-function ReportBlockedDialog({
-  visible,
-  onDismiss,
-}: {
-  visible: boolean;
-  onDismiss: () => void;
-}) {
+function ReportBlockedDialog({ visible, onDismiss }: { visible: boolean; onDismiss: () => void }) {
   return (
     <Modal
       animationType="fade"
