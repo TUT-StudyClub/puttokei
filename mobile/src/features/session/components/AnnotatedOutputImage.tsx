@@ -8,7 +8,7 @@
  * 画像は `resizeMode='contain'` で描画される前提で、コンテナ幅と画像のアスペクト比から
  * 実描画領域 (letterbox を除いた範囲) を算出して bbox 座標を絶対位置に変換する。
  */
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -62,6 +62,29 @@ export function AnnotatedOutputImage({
     },
     [],
   );
+
+  // Android では <Image onLoad> の event.source に寸法が含まれないことがあるため、
+  // imageUrl が変わった時に Image.getSize を非同期で呼び、natural size を補完取得する。
+  // onLoad が先に setNaturalSize した場合は二重設定になるが値は同じなので無害。
+  useEffect(() => {
+    if (!imageUrl) return;
+    let cancelled = false;
+    Image.getSize(
+      imageUrl,
+      (width, height) => {
+        if (cancelled) return;
+        if (width > 0 && height > 0) {
+          setNaturalSize((current) => current ?? { width, height });
+        }
+      },
+      () => {
+        // 取得失敗は onLoad のフォールバックに任せる。
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [imageUrl]);
 
   const renderArea = computeRenderArea(containerSize, naturalSize);
 
