@@ -2,8 +2,14 @@ import { Tabs } from 'expo-router';
 import { Text } from 'react-native';
 import { Path, Svg } from 'react-native-svg';
 
+import { useTimerStore, type TimerPhase } from '@/shared/stores/timerStore';
+
 const ACTIVE_COLOR = '#4B5CFF';
 const INACTIVE_COLOR = '#9CA3AF';
+
+export function isReportTabNavigationBlocked(phase: TimerPhase) {
+  return phase === 'input' || phase === 'output' || phase === 'break';
+}
 
 function TimerTabIcon({ color, size = 24 }: { color: string; size?: number }) {
   return (
@@ -44,6 +50,9 @@ function ReportTabIcon({ color, size = 24 }: { color: string; size?: number }) {
 }
 
 export default function TabsLayout() {
+  const timerPhase = useTimerStore((s) => s.phase);
+  const shouldBlockReportTab = isReportTabNavigationBlocked(timerPhase);
+
   return (
     <Tabs
       screenOptions={{
@@ -71,6 +80,13 @@ export default function TabsLayout() {
             <Text style={{ color: '#676767', fontSize: 14, fontWeight: '600' }}>レポート</Text>
           ),
           tabBarIcon: ({ color }) => <ReportTabIcon color={color} size={39} />,
+        }}
+        listeners={{
+          tabPress: (event) => {
+            if (shouldBlockReportTab) {
+              event.preventDefault();
+            }
+          },
         }}
       />
       <Tabs.Screen name="history" options={{ href: null }} />
