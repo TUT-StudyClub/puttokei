@@ -1,5 +1,5 @@
 import type { StyleProp, ViewStyle } from 'react-native';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Circle, ClipPath, Defs, Path, Rect, Svg } from 'react-native-svg';
 import { SizableText } from 'tamagui';
 
@@ -178,6 +178,13 @@ function PhaseTabDot({
         backgroundColor: filled ? color : 'transparent',
         borderColor: color,
         borderWidth: 0,
+        ...(filled && {
+          shadowColor: color,
+          shadowOpacity: 0.5,
+          shadowRadius: 6,
+          shadowOffset: { width: 0, height: 2 },
+          elevation: 4,
+        }),
       }}
     >
       {!filled && (
@@ -295,6 +302,9 @@ type CircularPhaseTimerProps = {
   testID: string;
   compact?: boolean;
   textTestID?: string;
+  leftPercent?: number;
+  rightPercent?: number;
+  strokeWidth?: number;
 };
 
 export function CircularPhaseTimer({
@@ -304,12 +314,21 @@ export function CircularPhaseTimer({
   testID,
   compact = false,
   textTestID = 'timer-display',
+  leftPercent,
+  rightPercent,
+  strokeWidth: strokeWidthProp,
 }: CircularPhaseTimerProps) {
+  const { width: windowWidth } = useWindowDimensions();
   const smoothRemainingSeconds = useSmoothRemainingSeconds();
   const totalSeconds = useTimerStore((s) => s.totalSeconds);
 
-  const size = compact ? 156 : 260;
-  const strokeWidth = compact ? 10 : 14;
+  const size =
+    leftPercent != null && rightPercent != null
+      ? windowWidth * (1 - leftPercent - rightPercent)
+      : compact
+        ? 156
+        : 260;
+  const strokeWidth = strokeWidthProp ?? (compact ? 10 : 14);
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const displayRemainingSeconds = Math.max(0, Math.ceil(smoothRemainingSeconds));
@@ -420,7 +439,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     paddingVertical: 8,
-    paddingHorizontal: 4,
+    paddingHorizontal: 2,
   },
   phaseTabLabel: {
     fontFamily: 'HiraginoSans-W6',
@@ -431,7 +450,7 @@ const styles = StyleSheet.create({
     width: 16,
     height: 1.5,
     borderRadius: 999,
-    marginHorizontal: 6,
+    marginHorizontal: 2,
   },
   timerWrap: {
     alignItems: 'center',
@@ -447,8 +466,9 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   timerPhaseLabel: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 17,
+    fontWeight: '600',
     lineHeight: 22,
   },
   timerPhaseLabelCompact: {
@@ -456,8 +476,9 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   timerText: {
-    fontSize: 56,
-    fontWeight: '900',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 58,
+    fontWeight: '600',
     lineHeight: 64,
   },
   timerTextCompact: {
