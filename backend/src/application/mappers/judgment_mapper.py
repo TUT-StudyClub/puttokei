@@ -17,6 +17,7 @@ def to_judgment_view(judgment: Judgment) -> JudgmentView:
                 target_text=correction.target_text,
                 correct_text=correction.correct_text,
                 explanation=correction.explanation,
+                bbox=correction.bbox,
             )
             for correction in judgment.corrections
         ],

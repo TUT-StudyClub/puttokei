@@ -1,12 +1,12 @@
-"""SubmitOutput UseCase の振る舞い。"""
+"""SubmitTextOutput UseCase の振る舞い。"""
 
 from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
 
-from src.application.dto.session_dto import SubmitOutputCommand
-from src.application.use_cases.submit_output import SubmitOutput
+from src.application.dto.session_dto import SubmitTextOutputCommand
+from src.application.use_cases.submit_text_output import SubmitTextOutput
 from src.domain.entities.session import Session
 from src.domain.entities.user import User
 from src.domain.value_objects.auth_provider import AuthProvider
@@ -63,7 +63,7 @@ async def test_submit_output_advances_session_to_judging():
     judgments = FakeJudgmentRepository()
     judgment_progresses = FakeJudgmentProgressRepository()
     await sessions.add(session)
-    use_case = SubmitOutput(
+    use_case = SubmitTextOutput(
         unit_of_work_factory=lambda: FakeUnitOfWork(
             sessions=sessions,
             outputs=outputs,
@@ -74,7 +74,7 @@ async def test_submit_output_advances_session_to_judging():
 
     view = await use_case.execute(
         user,
-        SubmitOutputCommand(
+        SubmitTextOutputCommand(
             session_id=session.id,
             content="明智光秀が織田信長を本能寺で討った出来事について説明しました。",
             submitted_at=datetime.now(UTC),
@@ -87,7 +87,6 @@ async def test_submit_output_advances_session_to_judging():
     assert view.status is SessionStatus.JUDGING
     assert saved_session is not None
     assert saved_session.status is SessionStatus.JUDGING
-    # 判定は別 use case (RunLocalJudgment) の責務になったため、ここでは保存されない
     assert saved_judgment is None
     assert saved_progress is not None
     assert saved_progress.status is JudgmentProgressStatus.QUEUED

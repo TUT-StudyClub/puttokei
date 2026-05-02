@@ -67,7 +67,7 @@ async def _submit_output(
     submitted_at: str = "2026-04-10T15:25:00Z",
 ):
     return await client.post(
-        f"/api/v1/sessions/{session_id}/output",
+        f"/api/v1/sessions/{session_id}/outputs/text",
         headers={"Authorization": f"Bearer {auth_uid}"},
         json={"content": content, "submitted_at": submitted_at},
     )
@@ -342,7 +342,7 @@ async def test_update_session_rejects_extra_fields(client: AsyncClient):
     assert response.status_code == 422
 
 
-# --- POST /sessions/{id}/output (Issue #51) ---
+# --- POST /sessions/{id}/outputs/text (Issue #51) ---
 
 
 @pytest.mark.asyncio
@@ -351,7 +351,7 @@ async def test_submit_output_requires_authorization_header(client: AsyncClient):
     await _advance_status(client, "submit-user-001", created["id"], "output")
 
     response = await client.post(
-        f"/api/v1/sessions/{created['id']}/output",
+        f"/api/v1/sessions/{created['id']}/outputs/text",
         json={
             "content": "本文です",
             "submitted_at": "2026-04-10T15:25:00Z",
@@ -506,7 +506,7 @@ async def test_submit_output_rejects_blank_content_with_problem_details(client: 
     await _advance_status(client, auth_uid, created["id"], "output")
 
     response = await client.post(
-        f"/api/v1/sessions/{created['id']}/output",
+        f"/api/v1/sessions/{created['id']}/outputs/text",
         headers={"Authorization": f"Bearer {auth_uid}"},
         json={
             "content": "   ",

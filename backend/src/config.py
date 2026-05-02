@@ -70,6 +70,45 @@ class Settings(BaseSettings):
         gt=0,
         description="LLM API 呼び出しのタイムアウト秒。",
     )
+    llm_gemini_image_media_resolution: Literal["low", "medium", "high"] = Field(
+        default="high",
+        description="Gemini multimodal で画像に割り当てるトークン解像度。",
+    )
+    gcs_project_id: str | None = Field(
+        default=None,
+        description="GCS bucket を所有する GCP プロジェクト ID。未指定時は ADC を使う。",
+    )
+    gcs_output_image_bucket: str | None = Field(
+        default=None,
+        description="アウトプット画像を保存する GCS バケット名。",
+    )
+    gcs_credentials_path: str | None = Field(
+        default=None,
+        description=(
+            "GCS 認証用サービスアカウント鍵 JSON のパス。"
+            "未指定時は ADC を使う（その場合 signed URL 発行に private key が必要なので"
+            "Cloud Run 等の workload identity 環境では別途対応が必要）。"
+        ),
+    )
+    gcs_signed_upload_url_ttl_seconds: int = Field(
+        default=600,
+        gt=0,
+        description="アップロード用 signed URL の有効期限（秒）。",
+    )
+    gcs_signed_download_url_ttl_seconds: int = Field(
+        default=900,
+        gt=0,
+        description="閲覧用 signed URL の有効期限（秒）。",
+    )
+    output_image_max_bytes: int = Field(
+        default=5 * 1024 * 1024,
+        gt=0,
+        description="アウトプット画像の最大バイト数。",
+    )
+    output_image_allowed_mime_types: tuple[str, ...] = Field(
+        default=("image/jpeg", "image/png"),
+        description="許可するアウトプット画像の MIME type。",
+    )
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(
         default="INFO",
         description="ログレベル",

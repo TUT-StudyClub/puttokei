@@ -71,7 +71,7 @@ async def _submit_output(
     submitted_at: str,
 ) -> None:
     response = await client.post(
-        f"/api/v1/sessions/{session_id}/output",
+        f"/api/v1/sessions/{session_id}/outputs/text",
         headers={"Authorization": f"Bearer {auth_uid}"},
         json={"content": content, "submitted_at": submitted_at},
     )

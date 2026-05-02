@@ -22,7 +22,19 @@ def _preview(content: str) -> str:
 class LocalJudgeService(LLMJudgeService):
     """Cloud Tasks 導入前にローカルで判定表示を確認するための軽量実装。"""
 
-    async def judge(
+    async def judge_image(
+        self,
+        prompt_input: str,
+        image_bytes: bytes,
+        image_mime_type: str,
+        progress_callback: LLMProgressCallback | None = None,
+    ) -> JudgmentResult:
+        del prompt_input, image_bytes, image_mime_type, progress_callback
+        raise NotImplementedError(
+            "LocalJudgeService は画像判定に対応していません。LLM_PROVIDER=gemini を使ってください。"
+        )
+
+    async def judge_text(
         self,
         prompt_input: str,
         user_output: str,

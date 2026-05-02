@@ -8,4 +8,11 @@
 // （SvgXml の中で Reanimated のフックを使っても、テストではただの値で評価される）
 require('react-native-reanimated/mock');
 
+// expo-image-manipulator は内部で native module を要求するため、
+// jest 環境ではダミーに差し替えて読み込みエラーを避ける。
+jest.mock('expo-image-manipulator', () => ({
+  manipulateAsync: jest.fn(async (uri: string) => ({ uri, width: 1600, height: 1200 })),
+  SaveFormat: { JPEG: 'jpeg', PNG: 'png' },
+}));
+
 export {};

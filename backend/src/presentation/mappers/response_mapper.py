@@ -79,12 +79,7 @@ def to_session_response(view: SessionView) -> SessionResponse:
 
 def to_submit_output_response(view: SubmitOutputView) -> SubmitOutputResponse:
     return SubmitOutputResponse(
-        output=OutputResponse(
-            id=view.output.id,
-            session_id=view.output.session_id,
-            content=view.output.content,
-            submitted_at=view.output.submitted_at,
-        ),
+        output=_to_output_response(view.output),
         status=view.status,
     )
 
@@ -93,7 +88,9 @@ def _to_output_response(view: OutputView) -> OutputResponse:
     return OutputResponse(
         id=view.id,
         session_id=view.session_id,
+        kind=view.kind,
         content=view.content,
+        image_url=view.image_url,
         submitted_at=view.submitted_at,
     )
 
@@ -211,6 +208,7 @@ def to_judgment_response(view: JudgmentView) -> JudgmentResponse:
                 target_text=correction.target_text,
                 correct_text=correction.correct_text,
                 explanation=correction.explanation,
+                bbox=correction.bbox,
             )
             for correction in view.corrections
         ],

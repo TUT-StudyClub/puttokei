@@ -24,7 +24,8 @@ from src.application.use_cases.get_user_profile import GetUserProfile
 from src.application.use_cases.get_user_settings import GetUserSettings
 from src.application.use_cases.get_weekly_report import GetWeeklyReport
 from src.application.use_cases.list_today_outputs import ListTodayOutputs
-from src.application.use_cases.submit_output import SubmitOutput
+from src.application.use_cases.submit_image_output import SubmitImageOutput
+from src.application.use_cases.submit_text_output import SubmitTextOutput
 from src.application.use_cases.update_session_status import UpdateSessionStatus
 from src.application.use_cases.update_user_profile import UpdateUserProfile
 from src.application.use_cases.update_user_settings import UpdateUserSettings
@@ -119,8 +120,11 @@ def container(
         delete_account=DeleteAccount(unit_of_work_factory=unit_of_work_factory),
         create_session=CreateSession(unit_of_work_factory=unit_of_work_factory),
         update_session_status=UpdateSessionStatus(unit_of_work_factory=unit_of_work_factory),
-        submit_output=SubmitOutput(unit_of_work_factory=unit_of_work_factory),
-        run_local_judgment=None,
+        submit_text_output=SubmitTextOutput(unit_of_work_factory=unit_of_work_factory),
+        submit_image_output=SubmitImageOutput(unit_of_work_factory=unit_of_work_factory),
+        issue_output_image_upload_url=None,
+        run_text_judgment=None,
+        run_image_judgment=None,
         get_judgment=GetJudgment(unit_of_work_factory=unit_of_work_factory),
         get_judgment_progress=GetJudgmentProgress(unit_of_work_factory=unit_of_work_factory),
         list_today_outputs=ListTodayOutputs(unit_of_work_factory=unit_of_work_factory),

@@ -48,7 +48,9 @@ function makeDailyResponse(overrides: Partial<DailyReportResponse> = {}): DailyR
         output: {
           id: 'out-1',
           session_id: 'ses-1',
+          kind: 'text',
           content: '関係代名詞は先行詞を修飾する表現です。',
+          image_url: null,
           submitted_at: '2026-04-29T01:00:00Z',
         },
         cycle_index: 1,

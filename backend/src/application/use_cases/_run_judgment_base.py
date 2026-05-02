@@ -1,9 +1,13 @@
-"""ローカル LLM 判定を非同期に実行するユースケース。
+"""text / image 判定の共通フロー。
 
-`SubmitOutput` で output を保存した後、レスポンス送信から切り離して
-fire-and-forget で起動する。Cloud Tasks による本実装が完了するまでの暫定的な
-判定実行経路で、`presentation/api/v1/sessions.py` の `BackgroundTasks` 経由で
-呼び出す想定。
+`RunTextJudgment` と `RunImageJudgment` から継承して、判定本体 (`_judge_and_save`)
+だけを差し替える形で使う。共通ロジックは progress 更新、対象 session/output の取得、
+判定結果の保存。
+
+`presentation/api/v1/sessions.py` の `BackgroundTasks` 経由で呼ばれる前提のため、
+例外はトップレベルで握りつぶしてログに残す。リクエスト本体（output 保存）は既に
+コミット済みで、判定失敗してもユーザーはセッションを進められる。リトライは将来の
+Cloud Tasks 実装で担保する。
 """
 
 import logging
@@ -17,7 +21,6 @@ from src.domain.entities.judgment import Judgment, JudgmentCorrection
 from src.domain.entities.judgment_progress import JudgmentProgress
 from src.domain.entities.output import Output
 from src.domain.entities.session import Session
-from src.domain.services.llm_judge_service import LLMJudgeService
 from src.domain.value_objects.judgment_progress import (
     JudgmentProgressStage,
     JudgmentProgressStatus,
@@ -29,8 +32,10 @@ logger = logging.getLogger(__name__)
 
 type SaveResultStatus = Literal["saved", "already_done", "stale_output", "cancelled"]
 
-_PROGRESS_MESSAGES: dict[JudgmentProgressStage, str] = {
+PROGRESS_MESSAGES: dict[JudgmentProgressStage, str] = {
     JudgmentProgressStage.QUEUED: "判定をキューに登録しました。",
+    JudgmentProgressStage.DOWNLOADING_IMAGE: "提出された画像を取得しています。",
+    JudgmentProgressStage.ENCODING_IMAGE: "画像を AI に渡せる形式に変換しています。",
     JudgmentProgressStage.PREPARING_PROMPT: "判定用のプロンプトを準備しています。",
     JudgmentProgressStage.REQUESTING_LLM: "AI に判定を依頼しています。",
     JudgmentProgressStage.RECEIVING_LLM: "AI から判定内容を受信しています。",
@@ -41,29 +46,21 @@ _PROGRESS_MESSAGES: dict[JudgmentProgressStage, str] = {
 }
 
 
-class RunLocalJudgment:
-    """LLM 判定を実行し、Judgment 保存と session→JUDGED 遷移を行う。"""
+class RunJudgmentBase:
+    """text / image 判定 UseCase の共通基底。"""
 
-    def __init__(
-        self,
-        unit_of_work_factory: UnitOfWorkFactory,
-        judge_service: LLMJudgeService,
-    ) -> None:
+    log_name: str = "RunJudgment"
+
+    def __init__(self, unit_of_work_factory: UnitOfWorkFactory) -> None:
         self.unit_of_work_factory = unit_of_work_factory
-        self.judge_service = judge_service
 
     async def execute(self, session_id: UUID) -> None:
-        """指定 session の output を判定し、結果を保存する。
-
-        BackgroundTasks 経由で呼ばれる前提のため、例外はここで握りつぶしてログに残す。
-        リクエスト本体（output 保存）は既にコミット済みで、判定失敗してもユーザーは
-        セッションを進められる。リトライは将来 Cloud Tasks 実装で担保する。
-        """
         try:
             await self._run(session_id)
         except Exception:
             logger.exception(
-                "RunLocalJudgment failed for session_id=%s. judgment progress was marked failed.",
+                "%s failed for session_id=%s. judgment progress was marked failed.",
+                self.log_name,
                 session_id,
             )
 
@@ -72,7 +69,7 @@ class RunLocalJudgment:
         if no_work_needed:
             return
         if session is None:
-            logger.warning("RunLocalJudgment: session not found id=%s", session_id)
+            logger.warning("%s: session not found id=%s", self.log_name, session_id)
             return
         if output is None:
             await self._update_progress(
@@ -95,92 +92,21 @@ class RunLocalJudgment:
                     status=JudgmentProgressStatus.FAILED,
                     stage=JudgmentProgressStage.FAILED,
                     percent=100,
-                    message=_PROGRESS_MESSAGES[JudgmentProgressStage.FAILED],
+                    message=PROGRESS_MESSAGES[JudgmentProgressStage.FAILED],
                     completed_at=datetime.now(UTC),
                     error_code=exc.__class__.__name__,
                     expected_output=output,
                 )
             raise
 
-    async def _judge_and_save(self, *, session_id: UUID, session: Session, output: Output) -> None:
-        await self._update_progress(
-            session_id=session_id,
-            status=JudgmentProgressStatus.RUNNING,
-            stage=JudgmentProgressStage.PREPARING_PROMPT,
-            percent=15,
-            message=_PROGRESS_MESSAGES[JudgmentProgressStage.PREPARING_PROMPT],
-            expected_output=output,
-        )
-        await self._update_progress(
-            session_id=session_id,
-            status=JudgmentProgressStatus.RUNNING,
-            stage=JudgmentProgressStage.REQUESTING_LLM,
-            percent=35,
-            message=_PROGRESS_MESSAGES[JudgmentProgressStage.REQUESTING_LLM],
-            expected_output=output,
-        )
-
-        async def report_receiving(chunk_count: int) -> None:
-            await self._update_progress(
-                session_id=session_id,
-                status=JudgmentProgressStatus.RUNNING,
-                stage=JudgmentProgressStage.RECEIVING_LLM,
-                percent=min(80, 45 + chunk_count * 5),
-                message=_PROGRESS_MESSAGES[JudgmentProgressStage.RECEIVING_LLM],
-                expected_output=output,
-            )
-
-        result = await self.judge_service.judge(
-            prompt_input=session.topic,
-            user_output=output.content,
-            progress_callback=report_receiving,
-        )
-
-        await self._update_progress(
-            session_id=session_id,
-            status=JudgmentProgressStatus.RUNNING,
-            stage=JudgmentProgressStage.VALIDATING_RESPONSE,
-            percent=85,
-            message=_PROGRESS_MESSAGES[JudgmentProgressStage.VALIDATING_RESPONSE],
-            expected_output=output,
-        )
-        await self._update_progress(
-            session_id=session_id,
-            status=JudgmentProgressStatus.RUNNING,
-            stage=JudgmentProgressStage.SAVING_RESULT,
-            percent=92,
-            message=_PROGRESS_MESSAGES[JudgmentProgressStage.SAVING_RESULT],
-            expected_output=output,
-        )
-
-        judged_at = datetime.now(UTC)
-        save_status = await self._save_result(
-            session=session,
-            output=output,
-            result=result,
-            judged_at=judged_at,
-        )
-        if save_status == "stale_output":
-            return
-        if save_status == "cancelled":
-            await self._update_progress(
-                session_id=session_id,
-                status=JudgmentProgressStatus.FAILED,
-                stage=JudgmentProgressStage.FAILED,
-                percent=100,
-                message="セッションが中断されたため判定を終了しました。",
-                completed_at=judged_at,
-                error_code="session_cancelled",
-            )
-            return
-        await self._update_progress(
-            session_id=session_id,
-            status=JudgmentProgressStatus.COMPLETED,
-            stage=JudgmentProgressStage.COMPLETED,
-            percent=100,
-            message=_PROGRESS_MESSAGES[JudgmentProgressStage.COMPLETED],
-            completed_at=judged_at,
-        )
+    async def _judge_and_save(
+        self,
+        *,
+        session_id: UUID,
+        session: Session,
+        output: Output,
+    ) -> None:
+        raise NotImplementedError
 
     async def _load_target(self, session_id: UUID) -> tuple[Session | None, Output | None, bool]:
         async with self.unit_of_work_factory() as uow:
@@ -189,26 +115,24 @@ class RunLocalJudgment:
                 return None, None, False
 
             if session.status is SessionStatus.JUDGED:
-                # 既に判定済み（再投入時のレース等）。冪等に no-op。
                 await self._update_progress(
                     session_id=session.id,
                     status=JudgmentProgressStatus.COMPLETED,
                     stage=JudgmentProgressStage.COMPLETED,
                     percent=100,
-                    message=_PROGRESS_MESSAGES[JudgmentProgressStage.COMPLETED],
+                    message=PROGRESS_MESSAGES[JudgmentProgressStage.COMPLETED],
                     completed_at=session.completed_at or datetime.now(UTC),
                 )
                 return None, None, True
 
             existing_judgment = await uow.judgments.find_by_session_id(session.id)
             if existing_judgment is not None:
-                # 何らかの経路で既に保存済み。冪等に no-op。
                 await self._update_progress(
                     session_id=session.id,
                     status=JudgmentProgressStatus.COMPLETED,
                     stage=JudgmentProgressStage.COMPLETED,
                     percent=100,
-                    message=_PROGRESS_MESSAGES[JudgmentProgressStage.COMPLETED],
+                    message=PROGRESS_MESSAGES[JudgmentProgressStage.COMPLETED],
                     completed_at=existing_judgment.judged_at,
                 )
                 return None, None, True
@@ -227,7 +151,7 @@ class RunLocalJudgment:
         async with self.unit_of_work_factory() as uow:
             current_session = await uow.sessions.find_by_id(session.id)
             if current_session is None:
-                logger.warning("RunLocalJudgment: session not found id=%s", session.id)
+                logger.warning("%s: session not found id=%s", self.log_name, session.id)
                 return "cancelled"
 
             if current_session.status is SessionStatus.CANCELLED:
@@ -238,7 +162,7 @@ class RunLocalJudgment:
                 return "already_done"
 
             current_output = await uow.outputs.find_by_session_id(session.id)
-            if current_output is None or not _is_same_output(current_output, output):
+            if current_output is None or not is_same_output(current_output, output):
                 return "stale_output"
 
             await uow.judgments.add(
@@ -253,6 +177,7 @@ class RunLocalJudgment:
                             target_text=correction.target_text,
                             correct_text=correction.correct_text,
                             explanation=correction.explanation,
+                            bbox=correction.bbox,
                         )
                         for correction in result.corrections
                     ],
@@ -285,7 +210,7 @@ class RunLocalJudgment:
         async with self.unit_of_work_factory() as uow:
             if expected_output is not None:
                 current_output = await uow.outputs.find_by_session_id(session_id)
-                if current_output is None or not _is_same_output(current_output, expected_output):
+                if current_output is None or not is_same_output(current_output, expected_output):
                     return
 
             await uow.judgment_progresses.upsert(
@@ -305,9 +230,11 @@ class RunLocalJudgment:
             await uow.commit()
 
 
-def _is_same_output(current: Output, expected: Output) -> bool:
+def is_same_output(current: Output, expected: Output) -> bool:
     return (
         current.id == expected.id
         and current.submitted_at == expected.submitted_at
         and current.content == expected.content
+        and current.image_storage_path == expected.image_storage_path
+        and current.kind == expected.kind
     )
