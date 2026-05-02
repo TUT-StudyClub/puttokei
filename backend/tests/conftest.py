@@ -17,6 +17,7 @@ from httpx import ASGITransport, AsyncClient
 from src.application.use_cases.authenticate_user import AuthenticateUser
 from src.application.use_cases.create_session import CreateSession
 from src.application.use_cases.delete_account import DeleteAccount
+from src.application.use_cases.get_daily_report import GetDailyReport
 from src.application.use_cases.get_judgment import GetJudgment
 from src.application.use_cases.get_judgment_progress import GetJudgmentProgress
 from src.application.use_cases.get_user_profile import GetUserProfile
@@ -128,6 +129,7 @@ def container(
         get_judgment_progress=GetJudgmentProgress(unit_of_work_factory=unit_of_work_factory),
         list_today_outputs=ListTodayOutputs(unit_of_work_factory=unit_of_work_factory),
         get_weekly_report=GetWeeklyReport(unit_of_work_factory=unit_of_work_factory),
+        get_daily_report=GetDailyReport(unit_of_work_factory=unit_of_work_factory),
     )
 
 

@@ -186,10 +186,13 @@ describe('OutputScreen', () => {
   });
 
   it('マウントで phase=output のタイマーが開始され、主要 UI が表示される', () => {
-    const { getByTestId, getAllByText } = renderWithProviders(<OutputScreen />);
+    const { getByTestId, getAllByText, queryByLabelText, queryByTestId } = renderWithProviders(
+      <OutputScreen />,
+    );
     // 画面タイトル・フェーズタブ・タイマー中央のラベルで複数回「アウトプット」が出現する
     expect(getAllByText('アウトプット').length).toBeGreaterThan(0);
-    expect(getByTestId('output-settings-button')).toBeTruthy();
+    expect(queryByTestId('output-settings-button')).toBeNull();
+    expect(queryByLabelText('設定')).toBeNull();
     expect(getByTestId('output-composer-card')).toBeTruthy();
     expect(
       StyleSheet.flatten(getByTestId('output-phase-tab-input-dot').props.style).backgroundColor,

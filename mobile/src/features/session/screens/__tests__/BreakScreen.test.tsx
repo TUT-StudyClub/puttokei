@@ -134,10 +134,13 @@ describe('BreakScreen', () => {
   });
 
   it('マウントで phase=break のタイマーが開始され、主要 UI が表示される', () => {
-    const { getAllByText, getByTestId } = renderWithProviders(<BreakScreen />);
+    const { getAllByText, getByTestId, queryByLabelText, queryByTestId } = renderWithProviders(
+      <BreakScreen />,
+    );
     // 画面タイトル / フェーズタブ / タイマー中央ラベルで複数回「休憩」が出現する
     expect(getAllByText('休憩').length).toBeGreaterThan(0);
-    expect(getByTestId('break-settings-button')).toBeTruthy();
+    expect(queryByTestId('break-settings-button')).toBeNull();
+    expect(queryByLabelText('設定')).toBeNull();
     expect(getByTestId('break-progress-card')).toBeTruthy();
     expect(useTimerStore.getState().phase).toBe('break');
     expect(useTimerStore.getState().totalSeconds).toBe(60);

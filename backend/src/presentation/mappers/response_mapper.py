@@ -11,7 +11,7 @@ from src.application.dto.session_dto import (
     SubmitOutputView,
     TodayOutputsView,
 )
-from src.application.dto.stats_dto import WeeklyReportView
+from src.application.dto.stats_dto import DailyReportView, WeeklyReportView
 from src.application.dto.user_dto import UserProfileView
 from src.application.dto.user_settings_dto import UserSettingsView
 from src.presentation.schemas.judgment_schema import (
@@ -28,6 +28,8 @@ from src.presentation.schemas.session_schema import (
     TodayOutputsResponse,
 )
 from src.presentation.schemas.stats_schema import (
+    DailyReportResponse,
+    DailyReportSummaryResponse,
     WeeklyReportPointResponse,
     WeeklyReportResponse,
     WeeklyReportSummaryResponse,
@@ -129,6 +131,30 @@ def to_weekly_report_response(view: WeeklyReportView) -> WeeklyReportResponse:
             )
             for point in view.points
         ],
+        output_history=[
+            OutputReviewItemResponse(
+                session_id=item.session_id,
+                output=_to_output_response(item.output),
+                cycle_index=item.cycle_index,
+                subject=item.subject,
+                topic=item.topic,
+                judgment=_to_optional_judgment_response(item.judgment),
+            )
+            for item in view.output_history
+        ],
+    )
+
+
+def to_daily_report_response(view: DailyReportView) -> DailyReportResponse:
+    return DailyReportResponse(
+        date=view.date,
+        summary=DailyReportSummaryResponse(
+            input_minutes=view.summary.input_minutes,
+            output_minutes=view.summary.output_minutes,
+            break_minutes=view.summary.break_minutes,
+            total_study_minutes=view.summary.total_study_minutes,
+            total_sessions=view.summary.total_sessions,
+        ),
         output_history=[
             OutputReviewItemResponse(
                 session_id=item.session_id,

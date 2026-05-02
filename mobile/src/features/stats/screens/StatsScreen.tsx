@@ -1,8 +1,9 @@
 /**
- * 週単位のレポート画面。
+ * 日単位のレポート画面。
  *
- * 上部の週ナビゲーションとハイライトは固定し、その下から教科グラフと
- * アウトプット履歴をスクロールできる構成にする。
+ * 上部の週ナビゲーションでは「表示週」と「選択日」を扱い、ハイライトカードと
+ * アウトプット履歴は選択日のものを表示する。月単位の集計とカレンダーは
+ * カレンダーボタンから切り替える。
  *
  * 未認証ユーザーはこの画面のデータを取得できないため、`/(auth)/sign-in` に誘導する。
  * サインイン成功後に戻ってこられるよう `returnTo` を渡している。
@@ -12,6 +13,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useQueries } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 import {
+  Image,
   ImageBackground,
   Pressable,
   SafeAreaView,
@@ -26,6 +28,7 @@ import { Button, Paragraph, SizableText, Spinner } from 'tamagui';
 
 import { WeekDateStrip } from '@/features/stats/components/WeekDateStrip';
 import { fetchWeeklyReport } from '@/features/stats/api/statsApi';
+import { useDailyReport } from '@/features/stats/hooks/useDailyReport';
 import { WEEKLY_REPORT_QUERY_KEY, useWeeklyReport } from '@/features/stats/hooks/useWeeklyReport';
 import {
   addDaysToDateKey,
@@ -36,39 +39,36 @@ import {
   parseDateKey,
   toDateKey,
 } from '@/features/stats/lib/week';
-import type { WeeklyReportPoint, WeeklyReportResponse } from '@/features/stats/types';
+import type {
+  DailyReportSummary,
+  WeeklyReportPoint,
+  WeeklyReportResponse,
+  WeeklyReportSummary,
+} from '@/features/stats/types';
 import type { OutputReviewItem } from '@/features/session/types';
+import { OutputHistoryRow } from '@/shared/components/OutputHistoryRow';
 import { isApiError } from '@/shared/lib/api';
 import { useAuthStore } from '@/shared/stores/authStore';
 
 const HIGHLIGHT_BACKGROUND = require('../../../../assets/images/backgrounds/highlight_weekly.png');
 const MONTHLY_HIGHLIGHT_BACKGROUND = require('../../../../assets/images/backgrounds/highlight_monthly.png');
+const CALENDAR_MONTH_ICON = require('../../../../assets/images/icons/icon_calendar_month.png');
+const CALENDAR_DATE_ICON = require('../../../../assets/images/icons/icon_calendar_date.png');
 
 const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'] as const;
 
-type ReportViewMode = 'weekly' | 'monthly';
+type ReportViewMode = 'daily' | 'weekly' | 'monthly';
 
 const MONTH_DAY_SLOT_HEIGHT = 38;
 const MONTH_DAY_ROW_GAP = 2;
 const MONTH_CALENDAR_ARROW_HEIGHT = 58;
 
-const submittedAtFormatter = new Intl.DateTimeFormat('ja-JP', {
-  timeZone: 'Asia/Tokyo',
-  month: 'numeric',
-  day: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-});
+function CalendarMonthIcon() {
+  return <Image source={CALENDAR_MONTH_ICON} style={styles.calendarToggleIcon} />;
+}
 
-function CalendarIcon() {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M7 4 V7" stroke="#5367FF" strokeWidth={2.2} strokeLinecap="round" />
-      <Path d="M17 4 V7" stroke="#5367FF" strokeWidth={2.2} strokeLinecap="round" />
-      <Path d="M5 8 H19 V20 H5 Z" stroke="#5367FF" strokeWidth={2.2} strokeLinejoin="round" />
-      <Path d="M5 12 H19" stroke="#5367FF" strokeWidth={2.2} strokeLinecap="round" />
-    </Svg>
-  );
+function CalendarDateIcon() {
+  return <Image source={CALENDAR_DATE_ICON} style={styles.calendarToggleIcon} />;
 }
 
 function ArrowIcon({ direction }: { direction: 'left' | 'right' }) {
@@ -102,19 +102,22 @@ function ExternalIcon() {
   );
 }
 
-function PencilIcon() {
-  return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M5 19 L6.2 14.7 L15.4 5.5 L18.5 8.6 L9.3 17.8 Z" fill="#333333" />
-      <Path d="M14.5 6.4 L17.6 9.5" stroke="#FFFFFF" strokeWidth={1.4} />
-    </Svg>
-  );
-}
-
 function getMonthStartKey(dateKey: string): string {
   const date = parseDateKey(dateKey);
   date.setDate(1);
   return toDateKey(date);
+}
+
+function daysBetweenDateKeys(targetKey: string, baseKey: string): number {
+  const msPerDay = 24 * 60 * 60 * 1000;
+  return Math.round(
+    (parseDateKey(targetKey).getTime() - parseDateKey(baseKey).getTime()) / msPerDay,
+  );
+}
+
+function getMonthDayLabel(dateKey: string): string {
+  const date = parseDateKey(dateKey);
+  return `${date.getMonth() + 1}月${date.getDate()}日`;
 }
 
 function addMonthsToMonthStartKey(monthStartKey: string, months: number): string {
@@ -267,8 +270,8 @@ function MetricLine({ label, minutes }: { label: string; minutes: number }) {
   );
 }
 
-function HighlightCard({ data }: { data: WeeklyReportResponse }) {
-  const total = splitMinutes(data.summary.total_study_minutes);
+function HighlightCard({ summary }: { summary: DailyReportSummary }) {
+  const total = splitMinutes(summary.total_study_minutes);
   return (
     <ImageBackground
       source={HIGHLIGHT_BACKGROUND}
@@ -278,7 +281,7 @@ function HighlightCard({ data }: { data: WeeklyReportResponse }) {
       testID="stats-highlight-card"
     >
       <View pointerEvents="none" style={styles.sessionBadge} testID="stats-session-badge">
-        <SizableText style={styles.sessionBadgeText}>×{data.summary.total_sessions}</SizableText>
+        <SizableText style={styles.sessionBadgeText}>×{summary.total_sessions}</SizableText>
       </View>
       <View style={styles.highlightContent}>
         <SizableText style={styles.highlightCaption}>勉強時間合計</SizableText>
@@ -291,12 +294,10 @@ function HighlightCard({ data }: { data: WeeklyReportResponse }) {
 
         <View style={styles.highlightBody}>
           <View style={styles.highlightMetrics}>
-            <MetricLine label="インプット" minutes={data.summary.input_minutes} />
-            <MetricLine label="アウトプット" minutes={data.summary.output_minutes} />
+            <MetricLine label="インプット" minutes={summary.input_minutes} />
+            <MetricLine label="アウトプット" minutes={summary.output_minutes} />
             <View style={styles.breakPill}>
-              <SizableText style={styles.breakPillText}>
-                休憩{data.summary.break_minutes}分
-              </SizableText>
+              <SizableText style={styles.breakPillText}>休憩{summary.break_minutes}分</SizableText>
             </View>
           </View>
         </View>
@@ -484,61 +485,84 @@ function MonthlyHighlightCard({
   );
 }
 
-function SubjectChart({ points }: { points: WeeklyReportPoint[] }) {
+const WEEKLY_CHART_SECTIONS = 5;
+
+function formatHourLabel(hours: number): string {
+  if (!Number.isFinite(hours) || hours === 0) return '';
+  if (Number.isInteger(hours)) return String(hours);
+  return hours.toFixed(1).replace(/\.0$/, '');
+}
+
+function WeeklyBarChart({ points }: { points: WeeklyReportPoint[] }) {
   const { width } = useWindowDimensions();
   const chartWidth = Math.max(260, width - 72);
-  const maxHours = Math.max(
-    1,
-    Math.ceil(Math.max(...points.map((point) => point.study_minutes), 0) / 60),
-  );
+  const maxStudyMinutes = Math.max(...points.map((point) => point.study_minutes), 0);
+  const maxHours = maxStudyMinutes / 60;
+  const stepValue = maxHours <= 1 ? 0.2 : Math.max(1, Math.ceil(maxHours / WEEKLY_CHART_SECTIONS));
+  const yAxisMax = stepValue * WEEKLY_CHART_SECTIONS;
   const barData = useMemo(
     () =>
       points.map((point) => ({
-        value: Number((point.study_minutes / 60).toFixed(2)),
-        label: point.label,
+        value: point.study_minutes / 60,
       })),
     [points],
   );
+  const yAxisLabelTexts = useMemo(
+    () =>
+      Array.from({ length: WEEKLY_CHART_SECTIONS + 1 }, (_value, index) =>
+        formatHourLabel(stepValue * index),
+      ),
+    [stepValue],
+  );
 
   return (
-    <View style={styles.subjectSection} testID="stats-subject-section">
-      <SizableText style={styles.sectionTitle}>教科</SizableText>
-      <View style={styles.chartWrap} testID="stats-weekly-chart">
-        <SizableText style={styles.yAxisLabel}>時間(h)</SizableText>
-        <BarChart
-          data={barData}
-          width={chartWidth}
-          height={178}
-          maxValue={maxHours}
-          noOfSections={4}
-          barWidth={22}
-          spacing={17}
-          initialSpacing={12}
-          frontColor="#5367FF"
-          yAxisThickness={0}
-          xAxisThickness={1}
-          xAxisColor="#D6D6D6"
-          rulesColor="#ECECEC"
-          yAxisLabelSuffix="h"
-          hideRules={false}
-          barBorderTopLeftRadius={4}
-          barBorderTopRightRadius={4}
-        />
-        <SizableText style={styles.xAxisLabel}>日にち</SizableText>
-      </View>
+    <View style={styles.weeklyChartWrap} testID="stats-weekly-chart">
+      <BarChart
+        data={barData}
+        width={chartWidth}
+        height={200}
+        maxValue={yAxisMax}
+        noOfSections={WEEKLY_CHART_SECTIONS}
+        stepValue={stepValue}
+        yAxisLabelTexts={yAxisLabelTexts}
+        formatYLabel={(label) => formatHourLabel(Number(label))}
+        barWidth={22}
+        spacing={17}
+        initialSpacing={12}
+        frontColor="#D6D6D6"
+        yAxisThickness={0}
+        xAxisThickness={1}
+        xAxisColor="#D6D6D6"
+        rulesColor="#D6D6D6"
+        rulesThickness={1}
+        hideRules={false}
+        showVerticalLines
+        verticalLinesColor="#ECECEC"
+        verticalLinesThickness={1}
+        barBorderTopLeftRadius={4}
+        barBorderTopRightRadius={4}
+      />
     </View>
   );
 }
 
-function buildOutputPreview(content: string | null | undefined): string {
-  if (!content) return '';
-  const compact = content.replace(/\s+/g, ' ').trim();
-  if (compact.length <= 44) return compact;
-  return `${compact.slice(0, 44)}…`;
-}
-
-function formatSubmittedAt(value: string): string {
-  return submittedAtFormatter.format(new Date(value));
+function WeeklyHighlightCard({ summary }: { summary: WeeklyReportSummary }) {
+  const total = splitMinutes(summary.total_study_minutes);
+  return (
+    <View style={styles.weeklyHighlightCard} testID="stats-weekly-highlight-card">
+      <SizableText style={styles.weeklyHighlightCaption}>勉強時間合計</SizableText>
+      <View style={styles.weeklyTotalRow}>
+        {total.hours > 0 ? (
+          <>
+            <SizableText style={styles.weeklyTotalNumber}>{total.hours}</SizableText>
+            <SizableText style={styles.weeklyTotalUnit}>時間</SizableText>
+          </>
+        ) : null}
+        <SizableText style={styles.weeklyTotalNumber}>{total.minutes}</SizableText>
+        <SizableText style={styles.weeklyTotalUnit}>分</SizableText>
+      </View>
+    </View>
+  );
 }
 
 function OutputHistory({ items }: { items: OutputReviewItem[] }) {
@@ -555,59 +579,25 @@ function OutputHistory({ items }: { items: OutputReviewItem[] }) {
   return (
     <View style={styles.historySection} testID="stats-output-history">
       <SizableText style={styles.sectionTitle}>アウトプット履歴</SizableText>
-      {items.length === 0 ? (
-        <View style={styles.emptyHistory} testID="stats-output-history-empty">
-          <SizableText style={styles.emptyHistoryText}>
-            この週のアウトプットはまだありません。
-          </SizableText>
-        </View>
-      ) : (
-        <View style={styles.historyList}>
-          {items.map((item) => {
-            const isPressable = item.judgment !== null;
-            return (
-              <Pressable
-                key={item.output.id}
-                accessibilityRole={isPressable ? 'button' : undefined}
-                disabled={!isPressable}
-                onPress={() => handlePress(item)}
-                style={({ pressed }) => [
-                  styles.historyItem,
-                  pressed && isPressable ? styles.historyItemPressed : null,
-                ]}
-                testID={`stats-output-history-item-${item.output.id}`}
-              >
-                <View style={styles.historyIcon}>
-                  <PencilIcon />
-                </View>
-                <View style={styles.historyContent}>
-                  <View style={styles.historyMetaRow}>
-                    <SizableText style={styles.historySubject}>
-                      {item.subject} {item.topic}
-                    </SizableText>
-                    <SizableText style={styles.historyCycle}>
-                      サイクル{item.cycle_index}
-                    </SizableText>
-                  </View>
-                  <SizableText style={styles.historyPreview} numberOfLines={1}>
-                    {item.output.kind === 'image'
-                      ? '画像で提出したアウトプット'
-                      : buildOutputPreview(item.output.content)}
-                  </SizableText>
-                  <View style={styles.historyFooterRow}>
-                    <SizableText style={styles.historyDate}>
-                      {formatSubmittedAt(item.output.submitted_at)}
-                    </SizableText>
-                    <SizableText style={styles.historyStatus}>
-                      {item.judgment === null ? '判定待ち' : '詳細'}
-                    </SizableText>
-                  </View>
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
+      <View style={styles.historyCard}>
+        {items.length === 0 ? (
+          <View style={styles.emptyHistory} testID="stats-output-history-empty">
+            <SizableText style={styles.emptyHistoryText}>
+              この日のアウトプットはまだありません。
+            </SizableText>
+          </View>
+        ) : (
+          items.map((item, index) => (
+            <OutputHistoryRow
+              key={item.output.id}
+              item={item}
+              onPress={item.judgment !== null ? handlePress : undefined}
+              isLast={index === items.length - 1}
+              testID={`stats-output-history-item-${item.output.id}`}
+            />
+          ))
+        )}
+      </View>
     </View>
   );
 }
@@ -625,11 +615,22 @@ function ErrorBody({ message, onRetry }: { message: string; onRetry: () => void 
 
 export function StatsScreen() {
   const uid = useAuthStore((s) => s.uid);
-  const [weekStart, setWeekStart] = useState(() => getSundayWeekStartKey());
-  const [reportViewMode, setReportViewMode] = useState<ReportViewMode>('weekly');
+  const todayKey = getTokyoDateKey();
+  const [selectedDateKey, setSelectedDateKey] = useState(() => todayKey);
+  const weekStart = useMemo(
+    () => getSundayWeekStartKey(parseDateKey(selectedDateKey)),
+    [selectedDateKey],
+  );
+  const [reportViewMode, setReportViewMode] = useState<ReportViewMode>('daily');
   const [calendarMonthStart, setCalendarMonthStart] = useState(() => getMonthStartKey(weekStart));
-  const weeklyReportQuery = useWeeklyReport(weekStart);
+  const dailyReportQuery = useDailyReport(selectedDateKey);
+  const weeklyReportQuery = useWeeklyReport(weekStart, {
+    enabled: reportViewMode === 'weekly',
+  });
   const monthlyReports = useMonthlyWeeklyReports(calendarMonthStart, reportViewMode === 'monthly');
+  const handleDailyRetry = useCallback(() => {
+    void dailyReportQuery.refetch();
+  }, [dailyReportQuery]);
   const handleWeeklyRetry = useCallback(() => {
     void weeklyReportQuery.refetch();
   }, [weeklyReportQuery]);
@@ -641,8 +642,28 @@ export function StatsScreen() {
     setReportViewMode('monthly');
   }, [weekStart]);
   const handleCloseMonthlyCalendar = useCallback(() => {
-    setReportViewMode('weekly');
+    setReportViewMode('daily');
   }, []);
+  const handleWeekChange = useCallback(
+    (newWeekStart: string) => {
+      const offsetDays = daysBetweenDateKeys(newWeekStart, weekStart);
+      setSelectedDateKey((current) => addDaysToDateKey(current, offsetDays));
+    },
+    [weekStart],
+  );
+  const handleSelectDate = useCallback(
+    (dateKey: string) => {
+      if (reportViewMode === 'daily' && dateKey === selectedDateKey) {
+        setReportViewMode('weekly');
+        return;
+      }
+      if (reportViewMode === 'weekly') {
+        setReportViewMode('daily');
+      }
+      setSelectedDateKey(dateKey);
+    },
+    [reportViewMode, selectedDateKey],
+  );
 
   if (uid === null) {
     return (
@@ -655,12 +676,19 @@ export function StatsScreen() {
     );
   }
 
+  const dailyErrorMessage = dailyReportQuery.isError
+    ? getReportErrorMessage(dailyReportQuery.error)
+    : null;
   const weeklyErrorMessage = weeklyReportQuery.isError
     ? getReportErrorMessage(weeklyReportQuery.error)
     : null;
   const monthlyErrorMessage = monthlyReports.isError
     ? getReportErrorMessage(monthlyReports.error)
     : null;
+  const highlightTitle =
+    selectedDateKey === todayKey
+      ? '今日のハイライト'
+      : `${getMonthDayLabel(selectedDateKey)}のハイライト`;
 
   const monthlyBody = (() => {
     if (monthlyReports.isPending) {
@@ -702,11 +730,42 @@ export function StatsScreen() {
     );
   })();
 
-  const body = (() => {
-    if (weeklyReportQuery.isPending) {
+  const dailyBody = (() => {
+    if (dailyReportQuery.isPending) {
       return (
         <View style={styles.messageBody}>
           <Spinner testID="stats-loading" />
+          <Paragraph>レポートを読み込んでいます。</Paragraph>
+        </View>
+      );
+    }
+
+    if (dailyReportQuery.isError || dailyReportQuery.data === undefined) {
+      return (
+        <ErrorBody
+          message={dailyErrorMessage ?? 'レポートの取得に失敗しました。'}
+          onRetry={handleDailyRetry}
+        />
+      );
+    }
+
+    return (
+      <>
+        <OutputHistory items={dailyReportQuery.data.output_history} />
+        {dailyReportQuery.isFetching ? (
+          <SizableText style={styles.refetchingText} testID="stats-refetching">
+            最新データを取得中…
+          </SizableText>
+        ) : null}
+      </>
+    );
+  })();
+
+  const weeklyBody = (() => {
+    if (weeklyReportQuery.isPending) {
+      return (
+        <View style={styles.messageBody}>
+          <Spinner testID="stats-weekly-loading" />
           <Paragraph>レポートを読み込んでいます。</Paragraph>
         </View>
       );
@@ -723,10 +782,15 @@ export function StatsScreen() {
 
     return (
       <>
-        <SubjectChart points={weeklyReportQuery.data.points} />
+        <WeeklyBarChart points={weeklyReportQuery.data.points} />
+        <View style={styles.highlightTitleRow}>
+          <SizableText style={styles.highlightTitle}>今週のハイライト</SizableText>
+          <ExternalIcon />
+        </View>
+        <WeeklyHighlightCard summary={weeklyReportQuery.data.summary} />
         <OutputHistory items={weeklyReportQuery.data.output_history} />
         {weeklyReportQuery.isFetching ? (
-          <SizableText style={styles.refetchingText} testID="stats-refetching">
+          <SizableText style={styles.refetchingText} testID="stats-weekly-refetching">
             最新データを取得中…
           </SizableText>
         ) : null}
@@ -753,10 +817,47 @@ export function StatsScreen() {
               style={styles.calendarButton}
               testID="stats-calendar-toggle"
             >
-              <CalendarIcon />
+              <CalendarMonthIcon />
             </Pressable>
           </View>
           {monthlyBody}
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (reportViewMode === 'weekly') {
+    return (
+      <SafeAreaView style={styles.safeArea} testID="stats-root">
+        <StatusBar style="dark" />
+        <View style={styles.fixedHeader}>
+          <View style={styles.monthRow}>
+            <SizableText style={styles.monthText}>{getMonthLabel(weekStart)}</SizableText>
+            <Pressable
+              accessibilityRole="button"
+              hitSlop={10}
+              onPress={handleOpenMonthlyCalendar}
+              style={styles.calendarButton}
+              testID="stats-calendar-toggle"
+            >
+              <CalendarDateIcon />
+            </Pressable>
+          </View>
+          <WeekDateStrip
+            weekStart={weekStart}
+            onWeekChange={handleWeekChange}
+            selectedDateKey={selectedDateKey}
+            onSelectDate={handleSelectDate}
+          />
+        </View>
+        <View style={styles.scrollBoundary} />
+        <ScrollView
+          style={styles.scrollArea}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          testID="stats-weekly-content"
+        >
+          {weeklyBody}
         </ScrollView>
       </SafeAreaView>
     );
@@ -775,16 +876,21 @@ export function StatsScreen() {
             style={styles.calendarButton}
             testID="stats-calendar-toggle"
           >
-            <CalendarIcon />
+            <CalendarDateIcon />
           </Pressable>
         </View>
-        <WeekDateStrip weekStart={weekStart} onWeekChange={setWeekStart} />
+        <WeekDateStrip
+          weekStart={weekStart}
+          onWeekChange={handleWeekChange}
+          selectedDateKey={selectedDateKey}
+          onSelectDate={handleSelectDate}
+        />
         <View style={styles.highlightTitleRow}>
-          <SizableText style={styles.highlightTitle}>今日のハイライト</SizableText>
+          <SizableText style={styles.highlightTitle}>{highlightTitle}</SizableText>
           <ExternalIcon />
         </View>
-        {weeklyReportQuery.data ? (
-          <HighlightCard data={weeklyReportQuery.data} />
+        {dailyReportQuery.data ? (
+          <HighlightCard summary={dailyReportQuery.data.summary} />
         ) : (
           <HighlightPlaceholder />
         )}
@@ -796,7 +902,7 @@ export function StatsScreen() {
         showsVerticalScrollIndicator={false}
         testID="stats-scroll-content"
       >
-        {body}
+        {dailyBody}
       </ScrollView>
     </SafeAreaView>
   );
@@ -825,6 +931,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  calendarToggleIcon: {
+    width: 22,
+    height: 22,
+    resizeMode: 'contain',
+  },
   monthText: {
     color: '#333333',
     fontSize: 26,
@@ -836,7 +947,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   monthlyContent: {
-    paddingHorizontal: 28,
+    paddingHorizontal: 24,
     paddingTop: 12,
     paddingBottom: 32,
   },
@@ -1144,120 +1255,27 @@ const styles = StyleSheet.create({
     gap: 14,
     paddingHorizontal: 16,
   },
-  subjectSection: {
-    gap: 14,
-  },
   sectionTitle: {
     color: '#333333',
     fontSize: 18,
     fontWeight: '800',
     lineHeight: 24,
   },
-  chartWrap: {
-    minHeight: 220,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 10,
-  },
-  yAxisLabel: {
-    alignSelf: 'flex-start',
-    color: '#777777',
-    fontSize: 11,
-    fontWeight: '700',
-    lineHeight: 14,
-    marginBottom: 4,
-    marginLeft: 8,
-  },
-  xAxisLabel: {
-    color: '#777777',
-    fontSize: 11,
-    fontWeight: '700',
-    lineHeight: 14,
+  historySection: {
+    gap: 8,
     marginTop: 4,
   },
-  historySection: {
-    gap: 14,
-    marginTop: 24,
-  },
-  historyList: {
-    gap: 10,
-  },
-  historyItem: {
-    minHeight: 72,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderRadius: 16,
+  historyCard: {
     borderWidth: 1,
-    borderColor: '#DADADA',
-    backgroundColor: '#FFFFFF',
+    borderColor: '#D0D0D0',
+    borderRadius: 16,
     paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  historyItemPressed: {
-    opacity: 0.72,
-  },
-  historyIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F4F4F4',
-  },
-  historyContent: {
-    flex: 1,
-    gap: 4,
-  },
-  historyMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  historySubject: {
-    flex: 1,
-    color: '#333333',
-    fontSize: 12,
-    fontWeight: '800',
-    lineHeight: 16,
-  },
-  historyCycle: {
-    color: '#777777',
-    fontSize: 11,
-    fontWeight: '700',
-    lineHeight: 14,
-  },
-  historyPreview: {
-    color: '#333333',
-    fontSize: 13,
-    fontWeight: '500',
-    lineHeight: 18,
-  },
-  historyFooterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  historyDate: {
-    color: '#999999',
-    fontSize: 11,
-    fontWeight: '600',
-    lineHeight: 14,
-  },
-  historyStatus: {
-    color: '#5367FF',
-    fontSize: 11,
-    fontWeight: '800',
-    lineHeight: 14,
+    paddingVertical: 4,
+    backgroundColor: '#FFFFFF',
   },
   emptyHistory: {
-    minHeight: 72,
+    minHeight: 40,
     justifyContent: 'center',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    paddingHorizontal: 16,
   },
   emptyHistoryText: {
     color: '#777777',
@@ -1271,5 +1289,47 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 16,
     marginTop: 16,
+  },
+  weeklyChartWrap: {
+    minHeight: 240,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 4,
+    paddingBottom: 8,
+  },
+  weeklyHighlightCard: {
+    marginTop: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#DADADA',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+  },
+  weeklyHighlightCaption: {
+    color: '#333333',
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 18,
+  },
+  weeklyTotalRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    gap: 4,
+    marginTop: 6,
+  },
+  weeklyTotalNumber: {
+    color: '#333333',
+    fontSize: 32,
+    fontWeight: '900',
+    lineHeight: 38,
+  },
+  weeklyTotalUnit: {
+    color: '#333333',
+    fontSize: 16,
+    fontWeight: '800',
+    lineHeight: 28,
   },
 });

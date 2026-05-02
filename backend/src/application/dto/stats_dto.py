@@ -33,3 +33,21 @@ class WeeklyReportView(FrozenModel):
     summary: WeeklyReportSummaryView
     points: list[WeeklyReportPointView]
     output_history: list[OutputReviewItemView]
+
+
+class DailyReportSummaryView(FrozenModel):
+    """日単位レポートのサマリー。"""
+
+    input_minutes: int
+    output_minutes: int
+    break_minutes: int
+    total_study_minutes: int
+    total_sessions: int
+
+
+class DailyReportView(FrozenModel):
+    """日単位レポート画面で使う一括ビュー。"""
+
+    date: date
+    summary: DailyReportSummaryView
+    output_history: list[OutputReviewItemView]

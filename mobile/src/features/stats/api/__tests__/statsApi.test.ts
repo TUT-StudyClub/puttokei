@@ -6,6 +6,7 @@
  */
 import { api } from '@/shared/lib/api';
 import {
+  fetchDailyReport,
   fetchStatsByPeriod,
   fetchStatsSummary,
   fetchWeeklyReport,
@@ -80,5 +81,25 @@ describe('statsApi', () => {
 
     expect(getSpy).toHaveBeenCalledWith('/stats/weekly?week_start=2026-04-26');
     expect(result).toEqual(weeklyFixture);
+  });
+
+  it('fetchDailyReport は date 付きで /stats/daily を叩く', async () => {
+    const dailyFixture = {
+      date: '2026-04-29',
+      summary: {
+        input_minutes: 50,
+        output_minutes: 20,
+        break_minutes: 15,
+        total_study_minutes: 70,
+        total_sessions: 2,
+      },
+      output_history: [],
+    };
+    getSpy.mockResolvedValueOnce({ data: dailyFixture, status: 200 });
+
+    const result = await fetchDailyReport('2026-04-29');
+
+    expect(getSpy).toHaveBeenCalledWith('/stats/daily?date=2026-04-29');
+    expect(result).toEqual(dailyFixture);
   });
 });

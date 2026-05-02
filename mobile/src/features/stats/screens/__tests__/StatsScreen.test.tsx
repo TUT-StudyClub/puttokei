@@ -1,5 +1,5 @@
 /**
- * StatsScreen の週単位レポート表示を検証する。
+ * StatsScreen の日単位レポート表示を検証する。
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react-native';
@@ -9,7 +9,7 @@ import { TamaguiProvider } from 'tamagui';
 import config from '../../../../../tamagui.config';
 import * as statsApi from '@/features/stats/api/statsApi';
 import { StatsScreen } from '@/features/stats/screens/StatsScreen';
-import type { WeeklyReportResponse } from '@/features/stats/types';
+import type { DailyReportResponse, WeeklyReportResponse } from '@/features/stats/types';
 import { ApiError } from '@/shared/lib/api';
 import { useAuthStore } from '@/shared/stores/authStore';
 
@@ -32,10 +32,9 @@ jest.mock('react-native-gifted-charts', () => ({
   },
 }));
 
-function makeWeeklyResponse(overrides: Partial<WeeklyReportResponse> = {}): WeeklyReportResponse {
-  const base: WeeklyReportResponse = {
-    week_start: '2026-04-26',
-    week_end: '2026-05-02',
+function makeDailyResponse(overrides: Partial<DailyReportResponse> = {}): DailyReportResponse {
+  const base: DailyReportResponse = {
+    date: '2026-04-29',
     summary: {
       input_minutes: 100,
       output_minutes: 25,
@@ -43,15 +42,6 @@ function makeWeeklyResponse(overrides: Partial<WeeklyReportResponse> = {}): Week
       total_study_minutes: 125,
       total_sessions: 5,
     },
-    points: [
-      { bucket: '2026-04-26', label: '26', study_minutes: 25, sessions: 1 },
-      { bucket: '2026-04-27', label: '27', study_minutes: 50, sessions: 2 },
-      { bucket: '2026-04-28', label: '28', study_minutes: 50, sessions: 2 },
-      { bucket: '2026-04-29', label: '29', study_minutes: 0, sessions: 0 },
-      { bucket: '2026-04-30', label: '30', study_minutes: 0, sessions: 0 },
-      { bucket: '2026-05-01', label: '1', study_minutes: 0, sessions: 0 },
-      { bucket: '2026-05-02', label: '2', study_minutes: 0, sessions: 0 },
-    ],
     output_history: [
       {
         session_id: 'ses-1',
@@ -61,7 +51,7 @@ function makeWeeklyResponse(overrides: Partial<WeeklyReportResponse> = {}): Week
           kind: 'text',
           content: '関係代名詞は先行詞を修飾する表現です。',
           image_url: null,
-          submitted_at: '2026-04-26T01:00:00Z',
+          submitted_at: '2026-04-29T01:00:00Z',
         },
         cycle_index: 1,
         subject: '英語',
@@ -73,7 +63,7 @@ function makeWeeklyResponse(overrides: Partial<WeeklyReportResponse> = {}): Week
           score: 80,
           advice: '要点は整理できています。',
           corrections: [],
-          judged_at: '2026-04-26T01:05:00Z',
+          judged_at: '2026-04-29T01:05:00Z',
         },
       },
     ],
@@ -118,7 +108,7 @@ function makeWeeklyResponseForDates(
     };
   });
 
-  return makeWeeklyResponse({
+  return {
     week_start: weekStart,
     week_end: addDaysToDateKeyForTest(weekStart, 6),
     summary: {
@@ -130,7 +120,7 @@ function makeWeeklyResponseForDates(
     },
     points,
     output_history: [],
-  });
+  };
 }
 
 function renderWithProviders(ui: ReactNode) {
@@ -175,7 +165,7 @@ describe('StatsScreen', () => {
     jest.useRealTimers();
   });
 
-  it('未認証の場合はサインインへ遷移し、週次レポートを取得しない', () => {
+  it('未認証の場合はサインインへ遷移し、レポートを取得しない', () => {
     act(() => {
       useAuthStore.setState({ uid: null, idToken: null });
     });
@@ -188,30 +178,75 @@ describe('StatsScreen', () => {
         params: { returnTo: '/(tabs)/stats' },
       }),
     );
+    expect(statsApi.fetchDailyReport).not.toHaveBeenCalled();
     expect(statsApi.fetchWeeklyReport).not.toHaveBeenCalled();
   });
 
-  it('初期表示で現在週のレポートを取得し、ハイライト・グラフ・履歴を表示する', async () => {
-    (statsApi.fetchWeeklyReport as jest.Mock).mockResolvedValue(makeWeeklyResponse());
+  it('初期表示で当日の日次レポートを取得し、ハイライトと履歴を表示する', async () => {
+    (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(makeDailyResponse());
 
-    const { getByTestId, getByText, queryByTestId } = renderWithProviders(<StatsScreen />);
+    const { getByTestId, getByText, queryByText } = renderWithProviders(<StatsScreen />);
     await flushAsyncUpdates();
 
     await waitFor(() => {
-      expect(statsApi.fetchWeeklyReport).toHaveBeenCalledWith('2026-04-26');
+      expect(statsApi.fetchDailyReport).toHaveBeenCalledWith('2026-04-29');
     });
     await waitFor(() => {
       expect(getByTestId('stats-highlight-card')).toBeTruthy();
     });
-    expect(queryByTestId('stats-hourglass-asset')).toBeNull();
     expect(getByTestId('stats-session-badge').props.children.props.children).toEqual(['×', 5]);
-    expect(getByTestId('stats-weekly-chart')).toBeTruthy();
-    expect(getByTestId('mock-bar-chart')).toBeTruthy();
     expect(getByTestId('stats-output-history-item-out-1')).toBeTruthy();
-    expect(getByText('4月')).toBeTruthy();
+    expect(getByText('今日のハイライト')).toBeTruthy();
+    expect(queryByText('教科')).toBeNull();
+  });
+
+  it('別の日の日付セルをタップするとその日のレポートを取得しタイトルが切り替わる', async () => {
+    (statsApi.fetchDailyReport as jest.Mock).mockImplementation((date: string) =>
+      Promise.resolve(makeDailyResponse({ date })),
+    );
+
+    const { getByTestId, getByText } = renderWithProviders(<StatsScreen />);
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(statsApi.fetchDailyReport).toHaveBeenCalledWith('2026-04-29');
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('week-date-2026-04-27'));
+    });
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(statsApi.fetchDailyReport).toHaveBeenCalledWith('2026-04-27');
+    });
+    expect(getByText('4月27日のハイライト')).toBeTruthy();
+  });
+
+  it('右矢印押下で同曜日に追従して翌週の日次レポートを取得する', async () => {
+    (statsApi.fetchDailyReport as jest.Mock).mockImplementation((date: string) =>
+      Promise.resolve(makeDailyResponse({ date })),
+    );
+
+    const { getByTestId } = renderWithProviders(<StatsScreen />);
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(statsApi.fetchDailyReport).toHaveBeenCalledWith('2026-04-29');
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('week-date-next'));
+    });
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(statsApi.fetchDailyReport).toHaveBeenCalledWith('2026-05-06');
+    });
   });
 
   it('カレンダーアイコン押下で月間カレンダーと今月のハイライトを表示する', async () => {
+    (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(makeDailyResponse());
     const studiedMinutesByDate = {
       '2026-04-05': 30,
       '2026-04-08': 20,
@@ -223,11 +258,11 @@ describe('StatsScreen', () => {
       Promise.resolve(makeWeeklyResponseForDates(weekStart, studiedMinutesByDate)),
     );
 
-    const { getByTestId, getByText, queryByTestId } = renderWithProviders(<StatsScreen />);
+    const { getByTestId, getByText } = renderWithProviders(<StatsScreen />);
     await flushAsyncUpdates();
 
     await waitFor(() => {
-      expect(statsApi.fetchWeeklyReport).toHaveBeenCalledWith('2026-04-26');
+      expect(statsApi.fetchDailyReport).toHaveBeenCalledWith('2026-04-29');
     });
 
     await act(async () => {
@@ -238,7 +273,6 @@ describe('StatsScreen', () => {
     await waitFor(() => {
       expect(getByTestId('stats-month-calendar')).toBeTruthy();
     });
-    expect(queryByTestId('stats-weekly-chart')).toBeNull();
     expect(getByTestId('month-day-2026-04-05-single')).toBeTruthy();
     expect(getByTestId('month-day-2026-04-08-streak')).toBeTruthy();
     expect(getByTestId('month-day-2026-04-09-streak')).toBeTruthy();
@@ -250,30 +284,8 @@ describe('StatsScreen', () => {
     expect(getByText('最高連続日数')).toBeTruthy();
   });
 
-  it('右矢印押下で翌週のレポートを取得する', async () => {
-    (statsApi.fetchWeeklyReport as jest.Mock).mockImplementation((weekStart: string) =>
-      Promise.resolve(makeWeeklyResponse({ week_start: weekStart })),
-    );
-
-    const { getByTestId } = renderWithProviders(<StatsScreen />);
-    await flushAsyncUpdates();
-
-    await waitFor(() => {
-      expect(statsApi.fetchWeeklyReport).toHaveBeenCalledWith('2026-04-26');
-    });
-
-    await act(async () => {
-      fireEvent.press(getByTestId('week-date-next'));
-    });
-    await flushAsyncUpdates();
-
-    await waitFor(() => {
-      expect(statsApi.fetchWeeklyReport).toHaveBeenCalledWith('2026-05-03');
-    });
-  });
-
   it('取得失敗時は error メッセージと retry ボタンが表示される', async () => {
-    (statsApi.fetchWeeklyReport as jest.Mock).mockRejectedValue(
+    (statsApi.fetchDailyReport as jest.Mock).mockRejectedValue(
       new ApiError(500, {
         type: 'about:blank',
         title: 'Internal Server Error',
@@ -291,9 +303,66 @@ describe('StatsScreen', () => {
     expect(getByTestId('stats-retry')).toBeTruthy();
   });
 
-  it('一週間のアウトプット履歴が空の場合は empty メッセージが表示される', async () => {
+  it('選択中の日をもう一度タップすると週別カレンダーに切り替わり週次レポートを取得する', async () => {
+    (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(makeDailyResponse());
     (statsApi.fetchWeeklyReport as jest.Mock).mockResolvedValue(
-      makeWeeklyResponse({
+      makeWeeklyResponseForDates('2026-04-26', { '2026-04-29': 60 }),
+    );
+
+    const { getByTestId, getByText, queryByText } = renderWithProviders(<StatsScreen />);
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(statsApi.fetchDailyReport).toHaveBeenCalledWith('2026-04-29');
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('week-date-2026-04-29'));
+    });
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(statsApi.fetchWeeklyReport).toHaveBeenCalledWith('2026-04-26');
+    });
+    expect(getByTestId('stats-weekly-chart')).toBeTruthy();
+    expect(getByTestId('stats-weekly-highlight-card')).toBeTruthy();
+    expect(getByText('今週のハイライト')).toBeTruthy();
+    expect(queryByText('4月29日のハイライト')).toBeNull();
+  });
+
+  it('週別カレンダー中に別の日付セルをタップすると日別カレンダーに戻る', async () => {
+    (statsApi.fetchDailyReport as jest.Mock).mockImplementation((date: string) =>
+      Promise.resolve(makeDailyResponse({ date })),
+    );
+    (statsApi.fetchWeeklyReport as jest.Mock).mockResolvedValue(
+      makeWeeklyResponseForDates('2026-04-26', {}),
+    );
+
+    const { getByTestId, getByText } = renderWithProviders(<StatsScreen />);
+    await flushAsyncUpdates();
+
+    await act(async () => {
+      fireEvent.press(getByTestId('week-date-2026-04-29'));
+    });
+    await flushAsyncUpdates();
+    await waitFor(() => {
+      expect(getByTestId('stats-weekly-chart')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('week-date-2026-04-27'));
+    });
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(statsApi.fetchDailyReport).toHaveBeenCalledWith('2026-04-27');
+    });
+    expect(getByText('4月27日のハイライト')).toBeTruthy();
+  });
+
+  it('選択日のアウトプット履歴が空の場合は empty メッセージが表示される', async () => {
+    (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(
+      makeDailyResponse({
         summary: {
           input_minutes: 0,
           output_minutes: 0,
@@ -301,25 +370,16 @@ describe('StatsScreen', () => {
           total_study_minutes: 0,
           total_sessions: 0,
         },
-        points: [
-          { bucket: '2026-04-26', label: '26', study_minutes: 0, sessions: 0 },
-          { bucket: '2026-04-27', label: '27', study_minutes: 0, sessions: 0 },
-          { bucket: '2026-04-28', label: '28', study_minutes: 0, sessions: 0 },
-          { bucket: '2026-04-29', label: '29', study_minutes: 0, sessions: 0 },
-          { bucket: '2026-04-30', label: '30', study_minutes: 0, sessions: 0 },
-          { bucket: '2026-05-01', label: '1', study_minutes: 0, sessions: 0 },
-          { bucket: '2026-05-02', label: '2', study_minutes: 0, sessions: 0 },
-        ],
         output_history: [],
       }),
     );
 
-    const { getByTestId, queryByTestId } = renderWithProviders(<StatsScreen />);
+    const { getByTestId } = renderWithProviders(<StatsScreen />);
     await flushAsyncUpdates();
 
     await waitFor(() => {
       expect(getByTestId('stats-output-history-empty')).toBeTruthy();
     });
-    expect(queryByTestId('stats-session-badge')?.props.children.props.children).toEqual(['×', 0]);
+    expect(getByTestId('stats-session-badge').props.children.props.children).toEqual(['×', 0]);
   });
 });

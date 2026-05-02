@@ -87,13 +87,17 @@ describe('InputScreen', () => {
   });
 
   it('マウント時にタイマーが start され、フェーズ表記とタイマー表示がレンダリングされる', () => {
-    const { getAllByText, getByTestId } = renderWithProviders(<InputScreen />);
+    const { getAllByText, getByTestId, queryByLabelText, queryByTestId } = renderWithProviders(
+      <InputScreen />,
+    );
     // フェーズタブと円中央の 2 箇所に「インプット」が表示される。
     expect(getAllByText('インプット').length).toBeGreaterThanOrEqual(1);
     expect(getByTestId('timer-display')).toBeTruthy();
     expect(getByTestId('input-circular-timer')).toBeTruthy();
     expect(getByTestId('input-cancel-button')).toBeTruthy();
     expect(getByTestId('input-extend-button')).toBeTruthy();
+    expect(queryByTestId('input-settings-button')).toBeNull();
+    expect(queryByLabelText('設定')).toBeNull();
     expect(useTimerStore.getState().phase).toBe('input');
     expect(useTimerStore.getState().totalSeconds).toBe(60);
   });

@@ -8,12 +8,17 @@ import { useAuthStore } from '@/shared/stores/authStore';
 export const WEEKLY_REPORT_QUERY_KEY = (weekStart: string) =>
   ['stats', 'weekly-report', weekStart] as const;
 
-export function useWeeklyReport(weekStart: string) {
+type Options = {
+  enabled?: boolean;
+};
+
+export function useWeeklyReport(weekStart: string, options?: Options) {
   const idToken = useAuthStore((s) => s.idToken);
+  const callerEnabled = options?.enabled ?? true;
   return useQuery<WeeklyReportResponse, ApiError>({
     queryKey: WEEKLY_REPORT_QUERY_KEY(weekStart),
     queryFn: () => fetchWeeklyReport(weekStart),
-    enabled: idToken !== null,
+    enabled: idToken !== null && callerEnabled,
     staleTime: 5 * 60 * 1000,
     retry: false,
   });

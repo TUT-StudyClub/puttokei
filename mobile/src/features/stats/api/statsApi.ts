@@ -6,7 +6,13 @@
  */
 import { api } from '@/shared/lib/api';
 
-import type { Period, StatsPeriodResponse, StatsSummary, WeeklyReportResponse } from '../types';
+import type {
+  DailyReportResponse,
+  Period,
+  StatsPeriodResponse,
+  StatsSummary,
+  WeeklyReportResponse,
+} from '../types';
 
 /**
  * サマリー統計 (GET /api/v1/stats/summary)。
@@ -32,5 +38,14 @@ export async function fetchStatsByPeriod(period: Period): Promise<StatsPeriodRes
 export async function fetchWeeklyReport(weekStart: string): Promise<WeeklyReportResponse> {
   const query = encodeURIComponent(weekStart);
   const { data } = await api.get<WeeklyReportResponse>(`/stats/weekly?week_start=${query}`);
+  return data;
+}
+
+/**
+ * 日単位レポート (GET /api/v1/stats/daily?date=YYYY-MM-DD)。
+ */
+export async function fetchDailyReport(date: string): Promise<DailyReportResponse> {
+  const query = encodeURIComponent(date);
+  const { data } = await api.get<DailyReportResponse>(`/stats/daily?date=${query}`);
   return data;
 }
