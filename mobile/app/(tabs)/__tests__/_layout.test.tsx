@@ -2,7 +2,7 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 
 import { useTimerStore, type TimerPhase } from '@/shared/stores/timerStore';
 
-import TabsLayout, { isReportTabNavigationBlocked } from '../_layout';
+import TabsLayout, { isReportTabNavigationBlocked, isTimerTabIconHighlighted } from '../_layout';
 
 type TabPressEvent = {
   preventDefault: jest.Mock;
@@ -10,12 +10,16 @@ type TabPressEvent = {
 
 type MockScreenProps = {
   name?: string;
+  options?: {
+    tabBarIcon?: (props: { color: string }) => unknown;
+  };
   listeners?: {
     tabPress?: (event: TabPressEvent) => void;
   };
 };
 
 const mockTabScreens: MockScreenProps[] = [];
+let mockSegments: string[] = ['(tabs)'];
 
 jest.mock('expo-router', () => {
   const React = require('react');
@@ -29,7 +33,10 @@ jest.mock('expo-router', () => {
 
   Tabs.Screen = Screen;
 
-  return { Tabs };
+  return {
+    Tabs,
+    useSegments: () => mockSegments,
+  };
 });
 
 function renderStatsTabScreen() {
@@ -41,9 +48,19 @@ function renderStatsTabScreen() {
   return { ...result, statsTab };
 }
 
+function renderTimerTabScreen() {
+  const result = render(<TabsLayout />);
+  const timerTab = mockTabScreens.find((screen) => screen.name === 'index');
+  if (!timerTab) {
+    throw new Error('timer tab is not registered');
+  }
+  return { ...result, timerTab };
+}
+
 describe('TabsLayout', () => {
   beforeEach(() => {
     mockTabScreens.length = 0;
+    mockSegments = ['(tabs)'];
     useTimerStore.setState({
       phase: 'idle',
       status: 'idle',
@@ -121,5 +138,31 @@ describe('TabsLayout', () => {
     ['break', true],
   ] as const)('isReportTabNavigationBlocked(%s) は %s を返す', (phase, expected) => {
     expect(isReportTabNavigationBlocked(phase)).toBe(expected);
+  });
+
+  it.each([
+    [['(tabs)'], true],
+    [['(tabs)', 'index'], true],
+    [['(tabs)', 'session', '[id]', 'input'], true],
+    [['(tabs)', 'session', '[id]', 'output'], true],
+    [['(tabs)', 'session', '[id]', 'break'], true],
+    [['(tabs)', 'session', '[id]', 'result'], false],
+    [['(tabs)', 'stats'], false],
+  ] as const)('isTimerTabIconHighlighted(%j) は %s を返す', (segments, expected) => {
+    expect(isTimerTabIconHighlighted(segments)).toBe(expected);
+  });
+
+  it.each([
+    ['ホーム', ['(tabs)']],
+    ['インプット', ['(tabs)', 'session', '[id]', 'input']],
+    ['アウトプット', ['(tabs)', 'session', '[id]', 'output']],
+    ['休憩', ['(tabs)', 'session', '[id]', 'break']],
+  ] as const)('%s画面ではタイマーアイコンを青にする', (_screen, segments) => {
+    mockSegments = [...segments];
+    const { timerTab } = renderTimerTabScreen();
+
+    const icon = timerTab.options?.tabBarIcon?.({ color: '#9CA3AF' });
+
+    expect((icon as { props?: { color?: string } }).props?.color).toBe('#4B5CFF');
   });
 });
