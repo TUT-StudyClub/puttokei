@@ -27,7 +27,7 @@ def build_llm_judge_service(settings: Settings) -> LLMJudgeService:
             timeout_seconds=settings.llm_timeout_seconds,
             thinking_budget=settings.llm_vertex_thinking_budget,
             image_media_resolution=settings.llm_vertex_image_media_resolution,
-            credentials_path=settings.gcs_credentials_path,
+            credentials_path=settings.llm_vertex_credentials_path,
         )
 
     raise ValueError(f"unsupported llm provider: {settings.llm_provider}")

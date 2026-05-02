@@ -55,6 +55,13 @@ class Settings(BaseSettings):
             "未指定時は GCS_PROJECT_ID を fallback に使う（同じ GCP プロジェクトで運用する想定）。"
         ),
     )
+    llm_vertex_credentials_path: str | None = Field(
+    default=None,
+    description=(
+        "Vertex AI 認証用サービスアカウント鍵 JSON のパス。"
+        "未指定時は ADC を使う。GCS_CREDENTIALS_PATH とは分離する。"
+    ),
+    )
     llm_vertex_location: str = Field(
         default="global",
         description=(
