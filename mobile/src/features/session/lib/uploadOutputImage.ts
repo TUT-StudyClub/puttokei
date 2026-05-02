@@ -50,30 +50,33 @@ export async function uploadOutputImage(
  * 画像を JPEG に再エンコードしつつ、長辺が `MAX_LONG_EDGE_PX` を超える場合のみ
  * 縦横どちらか長い側を `MAX_LONG_EDGE_PX` にリサイズする。アップスケールしない。
  *
- * まず compress=1 で probe してオリジナル寸法を取得し、必要があれば resize 付きで
- * 再エンコードする。expo-image-manipulator の戻り値に画像寸法が含まれるため、
- * `Image.getSize` を使わない（テスト環境の fake timers との相性問題を避ける）。
+ * 1 回目の manipulateAsync を JPEG_QUALITY で実行し、長辺が閾値以下なら
+ * その結果をそのまま使う（1-pass）。閾値超過時のみ resize 付きで 2 回目を
+ * 走らせる（2-pass）。これにより通常サイズの画像での無駄な往復を省く。
+ *
+ * `Image.getSize` を使わず manipulateAsync の戻り値から寸法を取るのは、
+ * テスト環境の fake timers と相性が悪いため。
  */
 async function prepareUploadAsset(localUri: string): Promise<ImageManipulator.ImageResult> {
-  const probe = await ImageManipulator.manipulateAsync(localUri, [], {
-    compress: 1,
+  const reencoded = await ImageManipulator.manipulateAsync(localUri, [], {
+    compress: JPEG_QUALITY,
     format: ImageManipulator.SaveFormat.JPEG,
   });
 
-  const longEdge = Math.max(probe.width, probe.height);
+  if (reencoded.width === 0 || reencoded.height === 0) {
+    // 寸法が取れない (テスト等) ケースはそのまま返す。
+    return reencoded;
+  }
+
+  const longEdge = Math.max(reencoded.width, reencoded.height);
   if (longEdge <= MAX_LONG_EDGE_PX) {
-    if (probe.width === 0 || probe.height === 0) {
-      // 寸法が取れない (テスト等) ケースはそのまま probe を返す。
-      return probe;
-    }
-    return ImageManipulator.manipulateAsync(localUri, [], {
-      compress: JPEG_QUALITY,
-      format: ImageManipulator.SaveFormat.JPEG,
-    });
+    return reencoded;
   }
 
   const resize: { width: number } | { height: number } =
-    probe.width >= probe.height ? { width: MAX_LONG_EDGE_PX } : { height: MAX_LONG_EDGE_PX };
+    reencoded.width >= reencoded.height
+      ? { width: MAX_LONG_EDGE_PX }
+      : { height: MAX_LONG_EDGE_PX };
 
   return ImageManipulator.manipulateAsync(localUri, [{ resize }], {
     compress: JPEG_QUALITY,
