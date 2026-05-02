@@ -29,7 +29,8 @@ export const SESSION_PHASE_LABELS: Record<SessionPhase, string> = {
 const TEXT_ACTIVE = '#2F2F2F';
 const DOT_INACTIVE = '#D9D9D9';
 const BORDER_COLOR = '#E5E7EB';
-const SETTINGS_ICON_HEX_PATH = 'M12 3 L20 7.5 V16.5 L12 21 L4 16.5 V7.5 Z';
+const CYCLE_LABEL_HOME_COLOR = '#9D9D9D';
+const SETTINGS_ICON_ASSET = require('../../../../assets/images/icons/icon_setting.png');
 export const HOURGLASS_BADGE_ACTIVE_SCALE = 1.45;
 
 /**
@@ -538,31 +539,25 @@ export function useHourglassBadgeXml(asset: number) {
 
 type SettingsIconProps = {
   size?: number;
-  color?: string;
 };
 
-function SettingsIcon({ size = 24, color = TEXT_ACTIVE }: SettingsIconProps) {
+function SettingsIcon({ size = 24 }: SettingsIconProps) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d={SETTINGS_ICON_HEX_PATH} stroke={color} strokeWidth={2} fill="none" />
-      <Circle cx={12} cy={12} r={3} stroke={color} strokeWidth={2} fill="none" />
-    </Svg>
+    <Image
+      source={SETTINGS_ICON_ASSET}
+      resizeMode="contain"
+      style={[styles.settingsIcon, { width: size, height: size }]}
+    />
   );
 }
 
 type SessionSettingsButtonProps = {
   onPress: () => void;
   testID: string;
-  color?: string;
   rowStyle?: StyleProp<ViewStyle>;
 };
 
-export function SessionSettingsButton({
-  onPress,
-  testID,
-  color = TEXT_ACTIVE,
-  rowStyle,
-}: SessionSettingsButtonProps) {
+export function SessionSettingsButton({ onPress, testID, rowStyle }: SessionSettingsButtonProps) {
   return (
     <View style={[styles.settingsRow, rowStyle]}>
       <Pressable
@@ -573,7 +568,7 @@ export function SessionSettingsButton({
         hitSlop={8}
         testID={testID}
       >
-        <SettingsIcon color={color} />
+        <SettingsIcon />
       </Pressable>
     </View>
   );
@@ -1187,6 +1182,13 @@ export function SessionTopChrome({
   hourglassWrapperRef,
   onHourglassWrapperLayout,
 }: SessionTopChromeProps) {
+  const hourglassVariant = hourglass.variant ?? DEFAULT_HOURGLASS_VARIANT;
+  const isHomeBadge = hourglassVariant === 'gray';
+  const cycleLabelCount = isHomeBadge
+    ? Math.max(0, hourglass.currentLoop - 1)
+    : hourglass.currentLoop;
+  const cycleLabelColor = isHomeBadge ? CYCLE_LABEL_HOME_COLOR : TEXT_ACTIVE;
+
   return (
     <>
       {showHeader ? (
@@ -1195,11 +1197,18 @@ export function SessionTopChrome({
           onLayout={onHourglassWrapperLayout}
           style={styles.topChromeHourglassWrapper}
         >
+          <SizableText
+            style={[styles.topChromeCycleLabel, { color: cycleLabelColor }]}
+            testID={`${testIDPrefix}-cycle-label`}
+          >
+            {cycleLabelCount}サイクル
+          </SizableText>
           <HourglassBadge
             {...hourglass}
             testIDPrefix={testIDPrefix}
             marginBottom={0}
             rowStyle={styles.topChromeHourglassRow}
+            badgeStyle={[styles.topChromeHourglassBadge, hourglass.badgeStyle]}
             iconBaseWidth={HOURGLASS_VARIANTS.gray.baseWidth}
             iconBaseHeight={HOURGLASS_VARIANTS.gray.baseHeight}
           />
@@ -1298,14 +1307,18 @@ export function CircularPhaseTimer({
 const styles = StyleSheet.create({
   settingsRow: {
     position: 'absolute',
-    top: '1%',
-    right: '10%',
+    top: -4.5,
+    right: 38,
   },
   settingsButton: {
     width: 24,
     height: 24,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  settingsIcon: {
+    width: 24,
+    height: 24,
   },
   pressed: {
     opacity: 0.6,
@@ -1333,7 +1346,7 @@ const styles = StyleSheet.create({
   phaseTabs: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     marginBottom: 24,
     paddingLeft: 0,
   },
@@ -1344,36 +1357,51 @@ const styles = StyleSheet.create({
   phaseTab: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 2,
     paddingVertical: 8,
-    paddingHorizontal: 4,
+    paddingHorizontal: 2,
   },
   phaseTabLabel: {
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 12,
+    fontSize: 8,
     fontWeight: '600',
   },
   phaseTabSeparator: {
-    width: 16,
+    width: 14,
     height: 1.5,
     borderRadius: 999,
-    marginHorizontal: 6,
+    marginHorizontal: 2,
   },
   topChromeHourglassWrapper: {
     position: 'absolute',
-    top: '7.9%',
+    top: '3%',
     left: '13.18%',
     right: '12.94%',
     alignItems: 'flex-start',
   },
+  topChromeCycleLabel: {
+    marginBottom: 8,
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 10,
+    fontWeight: '700',
+    lineHeight: 14,
+    transform: [{ translateY: 16 }],
+  },
   topChromeHourglassRow: {
-    marginTop: 0,
+    marginTop: 20,
+    width: '100%',
+  },
+  topChromeHourglassBadge: {
+    width: '100%',
+    justifyContent: 'space-between',
+    gap: 0,
+    paddingVertical: 10,
   },
   topChromePhaseTabsWrapper: {
     position: 'absolute',
     top: '18.6%',
-    left: '13.18%',
-    right: 0,
+    left: '12.68%',
+    right: '13.44%',
   },
   timerWrap: {
     alignItems: 'center',
