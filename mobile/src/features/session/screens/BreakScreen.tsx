@@ -1077,7 +1077,7 @@ export function BreakScreen() {
 
   const captionText = isJudgmentReady
     ? '休憩後次のサイクルを回すか決めることができます。'
-    : 'AI採点中です。ゆっくり休憩してください。';
+    : 'お疲れ様でした。ゆっくり休憩してください。';
 
   const isNextCycleMode = screenMode === 'nextCycle';
   const usesCompletedPhasePalette = screenMode === 'completed' || isNextCycleMode;
