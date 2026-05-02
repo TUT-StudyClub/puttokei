@@ -70,14 +70,6 @@ class Settings(BaseSettings):
         gt=0,
         description="LLM API 呼び出しのタイムアウト秒。",
     )
-    llm_text_prompt_version: str = Field(
-        default="v1",
-        description="テキスト判定で使うプロンプトのバージョン。",
-    )
-    llm_image_prompt_version: str = Field(
-        default="v1",
-        description="画像判定で使うプロンプトのバージョン。",
-    )
     llm_gemini_image_media_resolution: Literal["low", "medium", "high"] = Field(
         default="high",
         description="Gemini multimodal で画像に割り当てるトークン解像度。",

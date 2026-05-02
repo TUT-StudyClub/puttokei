@@ -44,6 +44,10 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_constraint("ck_outputs_kind_payload", "outputs", type_="check")
+    # 旧スキーマは画像アウトプットを表現できない (content NOT NULL, kind/image_storage_path 列なし)。
+    # content を NOT NULL に戻す前に、image アウトプット行を削除してから列を落とす。
+    # 復元したい場合は事前にバックアップを取ってから downgrade すること。
+    op.execute(sa.text("DELETE FROM outputs WHERE kind = 'image'"))
     op.alter_column("outputs", "content", existing_type=sa.Text(), nullable=False)
     op.drop_column("outputs", "image_storage_path")
     op.drop_column("outputs", "kind")
