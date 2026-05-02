@@ -1363,7 +1363,7 @@ const styles = StyleSheet.create({
   },
   phaseTabLabel: {
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 8,
+    fontSize: 12,
     fontWeight: '600',
   },
   phaseTabSeparator: {

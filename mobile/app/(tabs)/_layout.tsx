@@ -1,4 +1,5 @@
 import { Tabs } from 'expo-router';
+import { Text } from 'react-native';
 import { Path, Svg } from 'react-native-svg';
 
 const ACTIVE_COLOR = '#4B5CFF';
@@ -66,6 +67,9 @@ export default function TabsLayout() {
         name="stats"
         options={{
           title: 'レポート',
+          tabBarLabel: () => (
+            <Text style={{ color: '#676767', fontSize: 14, fontWeight: '600' }}>レポート</Text>
+          ),
           tabBarIcon: ({ color }) => <ReportTabIcon color={color} size={39} />,
         }}
       />
