@@ -703,7 +703,10 @@ const styles = StyleSheet.create({
   feedbackPopoverScrollContent: {
     paddingHorizontal: 18,
     paddingTop: 36,
-    paddingBottom: 16,
+    // 画面下部のタブバーに popover の下端がかぶることがあるため、本文 ScrollView と
+    // 同じく paddingBottom を厚めに取り、最終行までスクロールしても本文が
+    // タブバーに隠れないようにする。
+    paddingBottom: 130,
   },
   feedbackPopoverClose: {
     position: 'absolute',
