@@ -1382,19 +1382,20 @@ const styles = StyleSheet.create({
   topChromeCycleLabel: {
     marginBottom: 16,
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '700',
-    lineHeight: 16,
-    transform: [{ translateY: 2 }],
+    lineHeight: 14,
+    transform: [{ translateY: 12 }],
   },
   topChromeHourglassRow: {
-    marginTop: 0,
+    marginTop: 10,
     width: '100%',
   },
   topChromeHourglassBadge: {
     width: '100%',
     justifyContent: 'space-between',
     gap: 0,
+    paddingVertical: 8,
   },
   topChromePhaseTabsWrapper: {
     position: 'absolute',
