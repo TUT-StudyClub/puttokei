@@ -1357,13 +1357,13 @@ const styles = StyleSheet.create({
   phaseTab: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 2,
     paddingVertical: 8,
     paddingHorizontal: 2,
   },
   phaseTabLabel: {
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 12,
+    fontSize: 8,
     fontWeight: '600',
   },
   phaseTabSeparator: {
