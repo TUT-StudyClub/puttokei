@@ -12,18 +12,11 @@ import { useIsFocused } from '@react-navigation/native';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  Alert,
-  Image,
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { Path, Svg } from 'react-native-svg';
 import { SizableText } from 'tamagui';
 
+import { AnnotatedOutputImage } from '@/features/session/components/AnnotatedOutputImage';
 import { AnnotatedOutputText } from '@/features/session/components/AnnotatedOutputText';
 import {
   CircularPhaseTimer,
@@ -224,7 +217,9 @@ function OutputDetailCard({ item, onBack }: OutputDetailCardProps) {
 
       <View style={styles.outputPreviewFrame}>
         <View style={styles.outputModeTabs}>
-          <View style={item.output.kind === 'text' ? styles.outputModeTabActive : styles.outputModeTab}>
+          <View
+            style={item.output.kind === 'text' ? styles.outputModeTabActive : styles.outputModeTab}
+          >
             <PencilIcon color={item.output.kind === 'text' ? TEXT_ACTIVE : REVIEW_TEXT_MUTED} />
             <SizableText
               style={
@@ -258,11 +253,12 @@ function OutputDetailCard({ item, onBack }: OutputDetailCardProps) {
 
         <View style={styles.outputContentBox}>
           {item.output.kind === 'image' && item.output.image_url ? (
-            <Image
-              accessibilityLabel="提出した学習ノート画像"
-              resizeMode="contain"
-              source={{ uri: item.output.image_url }}
-              style={styles.outputImage}
+            <AnnotatedOutputImage
+              imageUrl={item.output.image_url}
+              corrections={corrections}
+              selectedCorrectionIndex={selectedCorrectionIndex}
+              onSelectCorrection={handleSelectCorrection}
+              imageHeight={320}
               testID="output-review-image"
             />
           ) : (
@@ -279,39 +275,57 @@ function OutputDetailCard({ item, onBack }: OutputDetailCardProps) {
           )}
 
           {selectedCorrection ? (
-            <Pressable
-              onPress={() => setSelectedCorrectionIndex(null)}
-              style={styles.feedbackPopover}
-              testID="output-review-correction-popover"
-            >
-              <SizableText style={styles.feedbackHeading}>正解</SizableText>
-              <SizableText style={styles.feedbackCorrect}>
-                {selectedCorrection.correct_text}
-              </SizableText>
-              <SizableText style={styles.feedbackHeading}>解説</SizableText>
-              <SizableText style={styles.feedbackBody}>
-                {selectedCorrection.explanation}
-              </SizableText>
-            </Pressable>
-          ) : judgment ? (
-            <View style={styles.feedbackPopover} testID="output-review-feedback">
-              <SizableText style={styles.feedbackHeading}>フィードバック</SizableText>
-              <SizableText style={styles.feedbackBody}>{judgment.advice}</SizableText>
-              <SizableText style={styles.feedbackBody}>
-                {hasCorrections
-                  ? '赤い箇所をタップすると、正解と解説を確認できます。'
-                  : '今回の判定では、個別に直す箇所はありませんでした。'}
-              </SizableText>
+            <View style={styles.feedbackPopover} testID="output-review-correction-popover">
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="解説を閉じる"
+                hitSlop={8}
+                onPress={() => setSelectedCorrectionIndex(null)}
+                style={({ pressed }) => [
+                  styles.feedbackPopoverClose,
+                  pressed ? styles.feedbackPopoverClosePressed : null,
+                ]}
+                testID="output-review-correction-close"
+              >
+                <SizableText style={styles.feedbackPopoverCloseText}>✕</SizableText>
+              </Pressable>
+              <ScrollView
+                style={styles.feedbackPopoverScroll}
+                contentContainerStyle={styles.feedbackPopoverScrollContent}
+                nestedScrollEnabled
+                showsVerticalScrollIndicator
+              >
+                <SizableText style={styles.feedbackHeading}>正解</SizableText>
+                <SizableText style={styles.feedbackCorrect}>
+                  {selectedCorrection.correct_text}
+                </SizableText>
+                <SizableText style={styles.feedbackHeading}>解説</SizableText>
+                <SizableText style={styles.feedbackBody}>
+                  {selectedCorrection.explanation}
+                </SizableText>
+              </ScrollView>
             </View>
-          ) : (
-            <View style={styles.feedbackPopover} testID="output-review-feedback">
-              <SizableText style={styles.feedbackHeading}>判定待ち</SizableText>
-              <SizableText style={styles.feedbackBody}>
-                採点が完了すると、ここに判定と解説が表示されます。
-              </SizableText>
-            </View>
-          )}
+          ) : null}
         </View>
+
+        {judgment ? (
+          <View style={styles.feedbackCard} testID="output-review-feedback">
+            <SizableText style={styles.feedbackCardHeading}>フィードバック</SizableText>
+            <SizableText style={styles.feedbackCardBody}>{judgment.advice}</SizableText>
+            <SizableText style={styles.feedbackCardBody}>
+              {hasCorrections
+                ? '赤線をタップすると、正解と解説を確認できます。'
+                : '今回の判定では、個別に直す箇所はありませんでした。'}
+            </SizableText>
+          </View>
+        ) : (
+          <View style={styles.feedbackCard} testID="output-review-feedback">
+            <SizableText style={styles.feedbackCardHeading}>判定待ち</SizableText>
+            <SizableText style={styles.feedbackCardBody}>
+              採点が完了すると、ここに判定と解説が表示されます。
+            </SizableText>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -725,19 +739,43 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
   },
-  outputImage: {
-    width: '100%',
-    height: 320,
-  },
   feedbackPopover: {
     position: 'absolute',
     left: 30,
     right: 30,
     top: 58,
+    bottom: 16,
     borderRadius: 10,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
     backgroundColor: '#333333',
+    overflow: 'hidden',
+  },
+  feedbackPopoverScroll: {
+    flex: 1,
+  },
+  feedbackPopoverScrollContent: {
+    paddingHorizontal: 18,
+    paddingTop: 36,
+    paddingBottom: 16,
+  },
+  feedbackPopoverClose: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+    zIndex: 1,
+  },
+  feedbackPopoverClosePressed: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  feedbackPopoverCloseText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '600',
+    lineHeight: 22,
   },
   feedbackHeading: {
     color: '#FFFFFF',
@@ -757,6 +795,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     lineHeight: 22,
+    marginBottom: 4,
+  },
+  feedbackCard: {
+    marginTop: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: PANEL_BORDER_COLOR,
+    backgroundColor: '#FFFFFF',
+  },
+  feedbackCardHeading: {
+    color: TEXT_ACTIVE,
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 22,
+    marginBottom: 4,
+  },
+  feedbackCardBody: {
+    color: TEXT_ACTIVE,
+    fontSize: 13,
+    fontWeight: '500',
+    lineHeight: 20,
     marginBottom: 4,
   },
   errorText: {
