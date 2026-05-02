@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  LayoutChangeEvent,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Pressable,
@@ -20,6 +21,9 @@ import {
 } from '@/features/stats/lib/week';
 
 const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'] as const;
+const ARROW_BUTTON_WIDTH = 32;
+const DAY_CELL_MAX_WIDTH = 43;
+const DEFAULT_HORIZONTAL_INSET = 24;
 
 type Props = {
   weekStart: string;
@@ -46,7 +50,11 @@ function ArrowIcon({ direction }: { direction: 'left' | 'right' }) {
 export function WeekDateStrip({ weekStart, onWeekChange, selectedDateKey, onSelectDate }: Props) {
   const scrollRef = useRef<ScrollView | null>(null);
   const { width } = useWindowDimensions();
-  const pageWidth = Math.max(252, width - 96);
+  const [stripWidth, setStripWidth] = useState(0);
+  const fallbackStripWidth = Math.max(0, width - DEFAULT_HORIZONTAL_INSET * 2);
+  const resolvedStripWidth = stripWidth > 0 ? stripWidth : fallbackStripWidth;
+  const pageWidth = Math.max(0, resolvedStripWidth - ARROW_BUTTON_WIDTH * 2);
+  const dayCellWidth = Math.min(DAY_CELL_MAX_WIDTH, pageWidth / 7);
   const todayKey = getTokyoDateKey();
   const pages = useMemo(
     () => [addDaysToDateKey(weekStart, -7), weekStart, addDaysToDateKey(weekStart, 7)],
@@ -80,8 +88,12 @@ export function WeekDateStrip({ weekStart, onWeekChange, selectedDateKey, onSele
     [handleShiftWeek, pageWidth],
   );
 
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    setStripWidth(event.nativeEvent.layout.width);
+  }, []);
+
   return (
-    <View style={styles.root} testID="week-date-strip">
+    <View onLayout={handleLayout} style={styles.root} testID="week-date-strip">
       <Pressable
         accessibilityRole="button"
         onPress={() => handleShiftWeek(-7)}
@@ -116,6 +128,7 @@ export function WeekDateStrip({ weekStart, onWeekChange, selectedDateKey, onSele
                   onPress={() => onSelectDate(dateKey)}
                   style={[
                     styles.dayCell,
+                    { width: dayCellWidth },
                     isSelected ? styles.dayCellSelected : null,
                     isToday && !isSelected ? styles.dayCellToday : null,
                   ]}
@@ -163,7 +176,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   arrowButton: {
-    width: 32,
+    width: ARROW_BUTTON_WIDTH,
     height: 52,
     alignItems: 'center',
     justifyContent: 'center',
