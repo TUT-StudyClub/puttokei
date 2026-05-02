@@ -28,13 +28,13 @@ def to_output_view(output: Output, *, image_url: str | None = None) -> OutputVie
     """domain.Output を output view に変換する。
 
     画像アウトプットの場合、`image_url` には GET 用の signed URL を渡す。
+    内部 `storage_path` は OutputView に含めない（漏らさない方針）。
     """
     return OutputView(
         id=output.id,
         session_id=output.session_id,
         kind=output.kind,
         content=output.content,
-        image_storage_path=output.image_storage_path,
         image_url=image_url,
         submitted_at=output.submitted_at,
     )

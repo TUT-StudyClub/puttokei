@@ -80,13 +80,16 @@ class SessionView(FrozenModel):
 
 
 class OutputView(FrozenModel):
-    """送信済みアウトプットのビュー。"""
+    """送信済みアウトプットのビュー。
+
+    画像 output の場合、内部 storage_path はクライアントに漏らさず、
+    短期 signed URL である `image_url` のみを公開する。
+    """
 
     id: UUID
     session_id: UUID
     kind: OutputKind
     content: str | None
-    image_storage_path: str | None
     image_url: str | None
     submitted_at: datetime
 
