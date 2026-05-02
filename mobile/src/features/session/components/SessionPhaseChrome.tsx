@@ -1024,24 +1024,29 @@ function PhaseTabDot({
   color,
   filled,
   testID,
+  dotStyle,
 }: {
   color: string;
   filled: boolean;
   testID: string;
+  dotStyle?: StyleProp<ViewStyle>;
 }) {
   const r = PHASE_TAB_DOT_SIZE / 2 - PHASE_TAB_DOT_STROKE / 2;
   const c = PHASE_TAB_DOT_SIZE / 2;
   return (
     <View
       testID={testID}
-      style={{
-        width: PHASE_TAB_DOT_SIZE,
-        height: PHASE_TAB_DOT_SIZE,
-        borderRadius: PHASE_TAB_DOT_SIZE / 2,
-        backgroundColor: filled ? color : 'transparent',
-        borderColor: color,
-        borderWidth: 0,
-      }}
+      style={[
+        {
+          width: PHASE_TAB_DOT_SIZE,
+          height: PHASE_TAB_DOT_SIZE,
+          borderRadius: PHASE_TAB_DOT_SIZE / 2,
+          backgroundColor: filled ? color : 'transparent',
+          borderColor: color,
+          borderWidth: 0,
+        },
+        dotStyle,
+      ]}
     >
       {!filled && (
         <Svg width={PHASE_TAB_DOT_SIZE} height={PHASE_TAB_DOT_SIZE}>
@@ -1070,6 +1075,7 @@ type PhaseTabsProps = {
   inactiveDotFilledPhases?: Partial<Record<SessionPhase, boolean>>;
   inactiveDotColor?: string;
   inactiveDotColors?: Partial<Record<SessionPhase, string>>;
+  activeDotStyle?: StyleProp<ViewStyle>;
   activeTextColor?: string;
   inactiveTextColor?: string;
   inactiveTextColors?: Partial<Record<SessionPhase, string>>;
@@ -1087,6 +1093,7 @@ export function PhaseTabs({
   inactiveDotFilledPhases,
   inactiveDotColor = DOT_INACTIVE,
   inactiveDotColors,
+  activeDotStyle,
   activeTextColor = TEXT_ACTIVE,
   inactiveTextColor = DOT_INACTIVE,
   inactiveTextColors,
@@ -1108,6 +1115,7 @@ export function PhaseTabs({
               color={isActive ? activeDotColor : phaseInactiveDotColor}
               filled={isActive ? activeDotFilled : phaseInactiveDotFilled}
               testID={`${testIDPrefix}-phase-tab-${phase}-dot`}
+              dotStyle={isActive ? activeDotStyle : undefined}
             />
             <SizableText
               size="$3"
@@ -1162,6 +1170,7 @@ export function PhaseTabs({
  * 絶対配置 View でラップして、chrome と重ならない位置から始める。
  */
 export const SESSION_TOP_CHROME_CONTENT_TOP = '26.1%' as const;
+export const SESSION_TOP_CHROME_HOURGLASS_WIDTH_RATIO = 1 - 0.1318 - 0.1294;
 
 type SessionTopChromeProps = {
   testIDPrefix: string;
@@ -1229,6 +1238,8 @@ type CircularPhaseTimerProps = {
   compact?: boolean;
   enabled?: boolean;
   textTestID?: string;
+  size?: number;
+  strokeWidth?: number;
 };
 
 export function CircularPhaseTimer({
@@ -1239,12 +1250,14 @@ export function CircularPhaseTimer({
   compact = false,
   enabled = true,
   textTestID = 'timer-display',
+  size: customSize,
+  strokeWidth: customStrokeWidth,
 }: CircularPhaseTimerProps) {
   const smoothRemainingSeconds = useSmoothRemainingSeconds(enabled);
   const totalSeconds = useTimerStore((s) => s.totalSeconds);
 
-  const size = compact ? 156 : 260;
-  const strokeWidth = compact ? 10 : 14;
+  const size = customSize ?? (compact ? 156 : 260);
+  const strokeWidth = customStrokeWidth ?? (compact ? 10 : 14);
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const displayRemainingSeconds = Math.max(0, Math.ceil(smoothRemainingSeconds));

@@ -135,6 +135,17 @@ export default function TabsLayout() {
           name="index"
           options={{
             title: 'タイマー',
+            tabBarLabel: ({ color }) => (
+              <Text
+                style={{
+                  color: shouldHighlightTimerTabIcon ? ACTIVE_COLOR : color,
+                  fontSize: 12,
+                  fontWeight: '700',
+                }}
+              >
+                タイマー
+              </Text>
+            ),
             tabBarIcon: ({ color }) => (
               <TimerTabIcon color={shouldHighlightTimerTabIcon ? ACTIVE_COLOR : color} size={39} />
             ),

@@ -5,7 +5,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
-import { Path, Rect } from 'react-native-svg';
+import { StyleSheet } from 'react-native';
+import { Circle, Path, Rect } from 'react-native-svg';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../../tamagui.config';
@@ -15,8 +16,18 @@ import { BreakScreen } from '@/features/session/screens/BreakScreen';
 import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
+const HOME_TIMER_CIRCLE_WIDTH_RATIO = 1 - 0.13 - 0.13;
+const TIMER_STAGE_PADDING_TOP = 10;
+const TIMER_CAPTION_LINE_HEIGHT = 20;
+const PROGRESS_CARD_HEIGHT = 196;
+const PROGRESS_STATUS_TITLE_FONT_SIZE = 22;
+const PROGRESS_STATUS_TITLE_LINE_HEIGHT = 30;
+const PROGRESS_STATUS_SUB_FONT_SIZE = 16;
+const PROGRESS_STATUS_SUB_LINE_HEIGHT = 24;
+
 const mockReplace = jest.fn();
 const mockPush = jest.fn();
+const INPUT_PHASE_STATUS_COLOR = 'rgba(20, 139, 255, 0.3)';
 jest.mock('expo-router', () => ({
   useRouter: () => ({ replace: mockReplace, push: mockPush }),
   useLocalSearchParams: () => ({
@@ -134,14 +145,77 @@ describe('BreakScreen', () => {
   });
 
   it('マウントで phase=break のタイマーが開始され、主要 UI が表示される', () => {
-    const { getAllByText, getByTestId, queryByLabelText, queryByTestId } = renderWithProviders(
-      <BreakScreen />,
-    );
+    const {
+      UNSAFE_getAllByType,
+      getAllByText,
+      getByTestId,
+      getByText,
+      queryByLabelText,
+      queryByTestId,
+    } = renderWithProviders(<BreakScreen />);
     // 画面タイトル / フェーズタブ / タイマー中央ラベルで複数回「休憩」が出現する
     expect(getAllByText('休憩').length).toBeGreaterThan(0);
     expect(queryByTestId('break-settings-button')).toBeNull();
     expect(queryByLabelText('設定')).toBeNull();
     expect(getByTestId('break-progress-card')).toBeTruthy();
+    expect(
+      getAllByText('休憩').some((node) => StyleSheet.flatten(node.props.style).color === '#676767'),
+    ).toBe(true);
+    expect(StyleSheet.flatten(getByText('インプット').props.style).color).toBe(
+      INPUT_PHASE_STATUS_COLOR,
+    );
+    expect(StyleSheet.flatten(getByText('アウトプット').props.style).color).toBe('#FFE4EC');
+    const inputDotStyle = StyleSheet.flatten(getByTestId('break-phase-tab-input-dot').props.style);
+    const outputDotStyle = StyleSheet.flatten(
+      getByTestId('break-phase-tab-output-dot').props.style,
+    );
+    expect(inputDotStyle.borderColor).toBe(INPUT_PHASE_STATUS_COLOR);
+    expect(outputDotStyle.borderColor).toBe('#FFE4EC');
+    expect(inputDotStyle.backgroundColor).toBe(INPUT_PHASE_STATUS_COLOR);
+    expect(outputDotStyle.backgroundColor).toBe('#FFE4EC');
+    const breakDotStyle = StyleSheet.flatten(getByTestId('break-phase-tab-break-dot').props.style);
+    expect(breakDotStyle.backgroundColor).toBe('#9D9D9D');
+    expect(breakDotStyle.shadowColor).toBe('#000000');
+    expect(breakDotStyle.elevation).toBe(4);
+    expect(UNSAFE_getAllByType(Circle).some((circle) => circle.props.stroke === '#9D9D9D')).toBe(
+      true,
+    );
+    expect(UNSAFE_getAllByType(Circle).some((circle) => circle.props.stroke === '#EFEFEF')).toBe(
+      true,
+    );
+    const timerCaptionStyle = StyleSheet.flatten(getByTestId('break-timer-caption').props.style);
+    const timerCaptionSlotStyle = StyleSheet.flatten(
+      getByTestId('break-timer-caption-slot').props.style,
+    );
+    const circularTimerStyle = StyleSheet.flatten(getByTestId('break-circular-timer').props.style);
+    const progressCardStyle = StyleSheet.flatten(getByTestId('break-progress-card').props.style);
+    const timerStageStyle = StyleSheet.flatten(getByTestId('break-timer-stage').props.style);
+    const timerProgressCircle = UNSAFE_getAllByType(Circle).find(
+      (circle) => circle.props.stroke === '#9D9D9D' && circle.props.strokeDasharray,
+    );
+    const timerTrackCircle = UNSAFE_getAllByType(Circle).find(
+      (circle) => circle.props.stroke === '#EFEFEF' && !circle.props.strokeDasharray,
+    );
+    expect(timerCaptionStyle.color).toBe('#9D9D9D');
+    expect(timerCaptionSlotStyle.width).toBeGreaterThan(0);
+    expect(timerCaptionSlotStyle.width).toBeCloseTo(750 * HOME_TIMER_CIRCLE_WIDTH_RATIO, 5);
+    expect(timerCaptionSlotStyle.flex).toBe(1);
+    expect(timerCaptionSlotStyle.justifyContent).toBe('center');
+    expect(circularTimerStyle.width).toBe(timerCaptionSlotStyle.width);
+    expect(circularTimerStyle.height).toBe(timerCaptionSlotStyle.width);
+    expect(progressCardStyle.width).toBe(timerCaptionSlotStyle.width);
+    expect(progressCardStyle.alignSelf).toBe('center');
+    expect(timerProgressCircle?.props.strokeWidth).toBe(11);
+    expect(timerTrackCircle?.props.strokeWidth).toBe(11);
+    expect(timerStageStyle.justifyContent).toBe('flex-start');
+    expect(timerStageStyle.paddingTop).toBe(10);
+    expect(timerStageStyle.minHeight).toBeCloseTo(
+      750 * HOME_TIMER_CIRCLE_WIDTH_RATIO +
+        TIMER_STAGE_PADDING_TOP +
+        TIMER_CAPTION_LINE_HEIGHT,
+      5,
+    );
+    expect(getByTestId('break-timer-caption').props.numberOfLines).toBe(1);
     expect(useTimerStore.getState().phase).toBe('break');
     expect(useTimerStore.getState().totalSeconds).toBe(60);
   });
@@ -157,26 +231,70 @@ describe('BreakScreen', () => {
       },
     });
 
-    const { getByTestId, getByText } = renderWithProviders(<BreakScreen />);
+    const { getByTestId, getByText, queryByTestId } = renderWithProviders(<BreakScreen />);
 
     await waitFor(() => {
       expect(getByTestId('break-progress-status')).toBeTruthy();
     });
-    expect(getByTestId('break-progress-status').props.children).toBe('採点中');
-    expect(getByTestId('break-progress-message').props.children).toBe(
-      'AI に判定を依頼しています。',
+    const progressCardStyle = StyleSheet.flatten(getByTestId('break-progress-card').props.style);
+    expect(progressCardStyle.backgroundColor).toBe('#363636');
+    expect(progressCardStyle.height).toBe(PROGRESS_CARD_HEIGHT);
+    const progressBarOuterStyle = StyleSheet.flatten(
+      getByTestId('break-progress-bar-outer').props.style,
     );
+    const progressTrackStyle = StyleSheet.flatten(getByTestId('break-progress-track').props.style);
+    const progressFillStyle = StyleSheet.flatten(getByTestId('break-progress-fill').props.style);
+    expect(progressBarOuterStyle.backgroundColor).toBe('#EFEFEF');
+    expect(progressBarOuterStyle.shadowColor).toBe('#000000');
+    expect(progressBarOuterStyle.elevation).toBe(6);
+    expect(progressTrackStyle.backgroundColor).toBe('#CDCDCD');
+    expect(progressFillStyle.backgroundColor).toBe('#475FFF');
+    expect(getByTestId('break-progress-status').props.children).toBe('テキストの解析...');
+    expect(getByTestId('break-progress-processing-title').props.children).toBe('採点中...');
+    expect(getByTestId('break-progress-processing-sub').props.children).toEqual([
+      'あなたのアウトプットを',
+      '\n',
+      'AIが採点しています。',
+    ]);
+    expect(queryByTestId('break-progress-message')).toBeNull();
+    const processingTitleStyle = StyleSheet.flatten(
+      getByTestId('break-progress-processing-title').props.style,
+    );
+    const processingSubStyle = StyleSheet.flatten(
+      getByTestId('break-progress-processing-sub').props.style,
+    );
+    expect(processingTitleStyle.color).toBe('#FFFFFF');
+    expect(processingTitleStyle.fontSize).toBe(PROGRESS_STATUS_TITLE_FONT_SIZE);
+    expect(processingTitleStyle.lineHeight).toBe(PROGRESS_STATUS_TITLE_LINE_HEIGHT);
+    expect(processingSubStyle.fontSize).toBe(PROGRESS_STATUS_SUB_FONT_SIZE);
+    expect(processingSubStyle.lineHeight).toBe(PROGRESS_STATUS_SUB_LINE_HEIGHT);
     expect(getByText('42%')).toBeTruthy();
   });
 
-  it('useJudgment が ready のときは進捗を 100% で表示する', async () => {
-    const { getByTestId, getByText } = renderWithProviders(<BreakScreen />);
+  it('useJudgment が ready のときは進捗を 100% で表示し、上部 status / message を出さない', async () => {
+    const { getByTestId, getByText, queryByTestId } = renderWithProviders(<BreakScreen />);
 
     await waitFor(() => {
       expect(getByTestId('break-progress-ready')).toBeTruthy();
     });
+    expect(StyleSheet.flatten(getByTestId('break-progress-card').props.style).height).toBe(
+      PROGRESS_CARD_HEIGHT,
+    );
+    expect(StyleSheet.flatten(getByTestId('break-timer-caption').props.style).color).toBe(
+      '#9D9D9D',
+    );
     expect(getByText('100%')).toBeTruthy();
-    expect(getByTestId('break-progress-status').props.children).toBe('採点完了');
+    expect(queryByTestId('break-progress-status')).toBeNull();
+    expect(queryByTestId('break-progress-message')).toBeNull();
+    expect(getByTestId('break-progress-ready-check-icon')).toBeTruthy();
+    const readyTitleStyle = StyleSheet.flatten(getByText('採点完了').props.style);
+    const readySubStyle = StyleSheet.flatten(getByTestId('break-progress-ready-sub').props.style);
+    expect(readyTitleStyle.color).toBe('#FFFFFF');
+    expect(readyTitleStyle.fontSize).toBe(PROGRESS_STATUS_TITLE_FONT_SIZE);
+    expect(readyTitleStyle.lineHeight).toBe(PROGRESS_STATUS_TITLE_LINE_HEIGHT);
+    expect(readySubStyle.color).toBe('#EFEFEF');
+    expect(readySubStyle.fontSize).toBe(PROGRESS_STATUS_SUB_FONT_SIZE);
+    expect(readySubStyle.lineHeight).toBe(PROGRESS_STATUS_SUB_LINE_HEIGHT);
   });
 
   it('休憩中の砂時計は上部が白のみ・下部に青/ピンク/白が積もり、ストリームは白色', () => {
