@@ -52,6 +52,9 @@ from src.application.use_cases.submit_image_output import (
     InvalidSessionStatusError as SubmitImageOutputInvalidSessionStatusError,
 )
 from src.application.use_cases.submit_image_output import (
+    InvalidStoragePathError as SubmitImageOutputInvalidStoragePathError,
+)
+from src.application.use_cases.submit_image_output import (
     SessionNotFoundError as SubmitImageOutputSessionNotFoundError,
 )
 from src.application.use_cases.submit_text_output import (
@@ -228,6 +231,13 @@ async def submit_image_output(
     )
     try:
         view = await container.submit_image_output.execute(current_user, command)
+    except SubmitImageOutputInvalidStoragePathError as exc:
+        raise ProblemDetailsError(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            problem_type="invalid_storage_path",
+            title="Invalid Storage Path",
+            detail="image_storage_path がこのユーザーのアップロード先ではありません。",
+        ) from exc
     except SubmitImageOutputSessionNotFoundError as exc:
         raise ProblemDetailsError(
             status_code=status.HTTP_404_NOT_FOUND,
