@@ -72,6 +72,7 @@ def build_container(settings: Settings) -> Container:
         image_storage = GcsOutputImageStorage(
             project_id=settings.gcs_project_id,
             bucket_name=settings.gcs_output_image_bucket,
+            credentials_path=settings.gcs_credentials_path,
         )
 
     issue_output_image_upload_url: IssueOutputImageUploadUrl | None = None

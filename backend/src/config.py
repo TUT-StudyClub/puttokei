@@ -90,6 +90,14 @@ class Settings(BaseSettings):
         default=None,
         description="アウトプット画像を保存する GCS バケット名。",
     )
+    gcs_credentials_path: str | None = Field(
+        default=None,
+        description=(
+            "GCS 認証用サービスアカウント鍵 JSON のパス。"
+            "未指定時は ADC を使う（その場合 signed URL 発行に private key が必要なので"
+            "Cloud Run 等の workload identity 環境では別途対応が必要）。"
+        ),
+    )
     gcs_signed_upload_url_ttl_seconds: int = Field(
         default=600,
         gt=0,

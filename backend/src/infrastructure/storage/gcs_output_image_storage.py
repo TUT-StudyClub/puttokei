@@ -4,6 +4,7 @@ import asyncio
 from datetime import timedelta
 
 from google.cloud import storage
+from google.oauth2 import service_account
 
 from src.domain.services.output_image_storage import OutputImageStorage
 
@@ -11,15 +12,29 @@ from src.domain.services.output_image_storage import OutputImageStorage
 class GcsOutputImageStorage(OutputImageStorage):
     """GCS bucket にアウトプット画像を保管する。
 
-    認証はデフォルトで ADC (`GOOGLE_APPLICATION_CREDENTIALS` または
-    Cloud Run のサービスアカウント) を使う。Cloud Run では署名鍵を持たないため、
-    将来 IAM signBlob 経由の signed URL 発行に拡張する余地あり。
+    `credentials_path` が指定されていればサービスアカウント鍵 JSON から
+    認証情報を読み込む。未指定なら ADC（環境変数 / metadata server）に頼る。
+    Signed URL の発行には private key を持つ credentials が必要なので、
+    ローカル開発では `credentials_path` を指定する想定。Cloud Run 等の
+    workload identity 環境では IAM signBlob 経由の signed URL 発行に
+    拡張する余地あり。
     """
 
-    def __init__(self, *, project_id: str | None, bucket_name: str) -> None:
-        self._client = (
-            storage.Client(project=project_id) if project_id else storage.Client()
-        )
+    def __init__(
+        self,
+        *,
+        project_id: str | None,
+        bucket_name: str,
+        credentials_path: str | None = None,
+    ) -> None:
+        client_kwargs: dict[str, object] = {}
+        if project_id is not None:
+            client_kwargs["project"] = project_id
+        if credentials_path is not None:
+            client_kwargs["credentials"] = (
+                service_account.Credentials.from_service_account_file(credentials_path)
+            )
+        self._client = storage.Client(**client_kwargs)
         self._bucket = self._client.bucket(bucket_name)
 
     def issue_upload_url(
