@@ -499,21 +499,19 @@ describe('OutputScreen', () => {
         image_url: 'https://fake.storage/download/abc',
       },
     });
-    const fetchMock = jest
-      .spyOn(global, 'fetch')
-      .mockImplementation((async (
-        _input: string,
-        init?: { method?: string },
-      ): Promise<Response> => {
-        if (init?.method === 'PUT') {
-          return { ok: true, status: 200 } as Response;
-        }
-        return {
-          ok: true,
-          status: 200,
-          blob: async () => new Blob([]),
-        } as unknown as Response;
-      }) as unknown as typeof fetch);
+    const fetchMock = jest.spyOn(global, 'fetch').mockImplementation((async (
+      _input: string,
+      init?: { method?: string },
+    ): Promise<Response> => {
+      if (init?.method === 'PUT') {
+        return { ok: true, status: 200 } as Response;
+      }
+      return {
+        ok: true,
+        status: 200,
+        blob: async () => new Blob([]),
+      } as unknown as Response;
+    }) as unknown as typeof fetch);
     mockLaunchCameraAsync.mockResolvedValueOnce({
       canceled: false,
       assets: [{ uri: 'file:///output-first.jpg' }],

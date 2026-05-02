@@ -58,9 +58,7 @@ class RunImageJudgment(RunJudgmentBase):
             message=PROGRESS_MESSAGES[JudgmentProgressStage.DOWNLOADING_IMAGE],
             expected_output=output,
         )
-        image_bytes, mime_type = await self.storage.download(
-            storage_path=output.image_storage_path
-        )
+        image_bytes, mime_type = await self.storage.download(storage_path=output.image_storage_path)
 
         await self._update_progress(
             session_id=session_id,

@@ -94,8 +94,11 @@ root = "."
 # SQLAlchemy 2.0 の型スタブは複雑なオーバーロードを持つため、ty の alpha 実装では
 # `mapped_column(Uuid(), ...)` などが no-matching-overload 警告を誤検知する。
 # 実行時は問題ないため、アルパ版 ty が安定するまで該当ルールを抑止する。
+# google-cloud-storage は型スタブを提供しておらず、`google.cloud` 名前空間 package を
+# ty が解決できないため import エラーも抑止する（ランタイムでは正しく解決される）。
 [tool.ty.rules]
 no-matching-overload = "ignore"
+unresolved-import = "ignore"
 
 # クリーンアーキテクチャの依存方向:
 #   domain ← application ← infrastructure / presentation

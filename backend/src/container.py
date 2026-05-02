@@ -68,10 +68,11 @@ def build_container(settings: Settings) -> Container:
         return SqlAlchemyUnitOfWork(database=database)
 
     image_storage: OutputImageStorage | None = None
-    if settings.gcs_output_image_bucket:
+    bucket_name = settings.gcs_output_image_bucket
+    if bucket_name:
         image_storage = GcsOutputImageStorage(
             project_id=settings.gcs_project_id,
-            bucket_name=settings.gcs_output_image_bucket,
+            bucket_name=bucket_name,
             credentials_path=settings.gcs_credentials_path,
         )
 

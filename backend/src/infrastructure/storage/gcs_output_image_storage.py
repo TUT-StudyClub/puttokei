@@ -31,8 +31,8 @@ class GcsOutputImageStorage(OutputImageStorage):
         if project_id is not None:
             client_kwargs["project"] = project_id
         if credentials_path is not None:
-            client_kwargs["credentials"] = (
-                service_account.Credentials.from_service_account_file(credentials_path)
+            client_kwargs["credentials"] = service_account.Credentials.from_service_account_file(
+                credentials_path
             )
         self._client = storage.Client(**client_kwargs)
         self._bucket = self._client.bucket(bucket_name)

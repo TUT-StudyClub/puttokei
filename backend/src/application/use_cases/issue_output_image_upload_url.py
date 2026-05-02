@@ -51,9 +51,7 @@ class IssueOutputImageUploadUrl:
         command: IssueOutputImageUploadUrlCommand,
     ) -> IssueOutputImageUploadUrlView:
         if command.mime_type not in self.allowed_mime_types:
-            raise UnsupportedMimeTypeError(
-                f"mime type {command.mime_type} is not allowed"
-            )
+            raise UnsupportedMimeTypeError(f"mime type {command.mime_type} is not allowed")
 
         async with self.unit_of_work_factory() as uow:
             session = await uow.sessions.find_by_id(command.session_id)

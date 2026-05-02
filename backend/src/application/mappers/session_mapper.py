@@ -48,13 +48,10 @@ def resolve_output_view(
 ) -> OutputView:
     """画像 output には signed URL を発行した上で OutputView を返す。"""
     image_url: str | None = None
-    if (
-        output.kind is OutputKind.IMAGE
-        and output.image_storage_path is not None
-        and storage is not None
-    ):
+    storage_path = output.image_storage_path
+    if output.kind is OutputKind.IMAGE and storage_path is not None and storage is not None:
         image_url = storage.issue_download_url(
-            storage_path=output.image_storage_path,
+            storage_path=storage_path,
             ttl_seconds=download_url_ttl_seconds,
         )
     return to_output_view(output, image_url=image_url)

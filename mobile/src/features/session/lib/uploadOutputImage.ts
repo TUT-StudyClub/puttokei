@@ -34,10 +34,7 @@ export async function uploadOutputImage(
     },
   );
 
-  const { upload_url, storage_path } = await issueOutputImageUploadUrl(
-    sessionId,
-    UPLOAD_MIME_TYPE,
-  );
+  const { upload_url, storage_path } = await issueOutputImageUploadUrl(sessionId, UPLOAD_MIME_TYPE);
 
   const blob = await fetchAsBlob(manipulated.uri);
 
