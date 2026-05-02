@@ -1,4 +1,4 @@
-import { Tabs } from 'expo-router';
+import { Tabs, useSegments } from 'expo-router';
 import { Fragment, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Path, Svg } from 'react-native-svg';
@@ -7,6 +7,8 @@ import { useTimerStore, type TimerPhase } from '@/shared/stores/timerStore';
 
 const ACTIVE_COLOR = '#4B5CFF';
 const INACTIVE_COLOR = '#9CA3AF';
+const TABS_SEGMENT = '(tabs)';
+const TIMER_TAB_ACTIVE_SESSION_PHASES = new Set(['input', 'output', 'break']);
 const REPORT_BLOCKED_MESSAGE_LINES = [
   'タイマー起動中はレポート機能を見ることができ',
   'ません。休憩終了後に見ることができます。',
@@ -14,6 +16,19 @@ const REPORT_BLOCKED_MESSAGE_LINES = [
 
 export function isReportTabNavigationBlocked(phase: TimerPhase) {
   return phase === 'input' || phase === 'output' || phase === 'break';
+}
+
+export function isTimerTabIconHighlighted(segments: readonly string[]) {
+  const routeSegments = segments[0] === TABS_SEGMENT ? segments.slice(1) : segments;
+  const currentRouteSegment = routeSegments[0];
+
+  if (currentRouteSegment === undefined || currentRouteSegment === 'index') {
+    return true;
+  }
+
+  return (
+    currentRouteSegment === 'session' && TIMER_TAB_ACTIVE_SESSION_PHASES.has(routeSegments[2] ?? '')
+  );
 }
 
 function TimerTabIcon({ color, size = 24 }: { color: string; size?: number }) {
@@ -98,7 +113,9 @@ function ReportBlockedDialog({ visible, onDismiss }: { visible: boolean; onDismi
 
 export default function TabsLayout() {
   const timerPhase = useTimerStore((s) => s.phase);
+  const segments = useSegments() as string[];
   const shouldBlockReportTab = isReportTabNavigationBlocked(timerPhase);
+  const shouldHighlightTimerTabIcon = isTimerTabIconHighlighted(segments);
   const [isReportBlockedDialogVisible, setReportBlockedDialogVisible] = useState(false);
 
   return (
@@ -118,7 +135,9 @@ export default function TabsLayout() {
           name="index"
           options={{
             title: 'タイマー',
-            tabBarIcon: ({ color }) => <TimerTabIcon color={color} size={39} />,
+            tabBarIcon: ({ color }) => (
+              <TimerTabIcon color={shouldHighlightTimerTabIcon ? ACTIVE_COLOR : color} size={39} />
+            ),
           }}
         />
         <Tabs.Screen
