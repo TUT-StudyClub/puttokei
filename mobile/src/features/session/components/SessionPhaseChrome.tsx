@@ -29,6 +29,7 @@ export const SESSION_PHASE_LABELS: Record<SessionPhase, string> = {
 const TEXT_ACTIVE = '#2F2F2F';
 const DOT_INACTIVE = '#D9D9D9';
 const BORDER_COLOR = '#E5E7EB';
+const CYCLE_LABEL_HOME_COLOR = '#9D9D9D';
 const SETTINGS_ICON_ASSET = require('../../../../assets/images/icons/icon_setting.png');
 export const HOURGLASS_BADGE_ACTIVE_SCALE = 1.45;
 
@@ -1185,6 +1186,11 @@ export function SessionTopChrome({
   hourglassWrapperRef,
   onHourglassWrapperLayout,
 }: SessionTopChromeProps) {
+  const hourglassVariant = hourglass.variant ?? DEFAULT_HOURGLASS_VARIANT;
+  const isHomeBadge = hourglassVariant === 'gray';
+  const cycleLabelCount = isHomeBadge ? Math.max(0, hourglass.currentLoop - 1) : hourglass.currentLoop;
+  const cycleLabelColor = isHomeBadge ? CYCLE_LABEL_HOME_COLOR : TEXT_ACTIVE;
+
   return (
     <>
       {showHeader ? (
@@ -1193,6 +1199,12 @@ export function SessionTopChrome({
           onLayout={onHourglassWrapperLayout}
           style={styles.topChromeHourglassWrapper}
         >
+          <SizableText
+            style={[styles.topChromeCycleLabel, { color: cycleLabelColor }]}
+            testID={`${testIDPrefix}-cycle-label`}
+          >
+            {cycleLabelCount}サイクル
+          </SizableText>
           <HourglassBadge
             {...hourglass}
             testIDPrefix={testIDPrefix}
@@ -1364,10 +1376,18 @@ const styles = StyleSheet.create({
   },
   topChromeHourglassWrapper: {
     position: 'absolute',
-    top: '7.9%',
+    top: '2%',
     left: '13.18%',
     right: '12.94%',
     alignItems: 'flex-start',
+  },
+  topChromeCycleLabel: {
+    marginBottom: 16,
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 16,
+    transform: [{ translateY: 2 }],
   },
   topChromeHourglassRow: {
     marginTop: 0,
