@@ -118,7 +118,10 @@ def build_container(settings: Settings) -> Container:
         create_session=CreateSession(unit_of_work_factory=unit_of_work_factory),
         update_session_status=UpdateSessionStatus(unit_of_work_factory=unit_of_work_factory),
         submit_text_output=SubmitTextOutput(unit_of_work_factory=unit_of_work_factory),
-        submit_image_output=SubmitImageOutput(unit_of_work_factory=unit_of_work_factory),
+        submit_image_output=SubmitImageOutput(
+            unit_of_work_factory=unit_of_work_factory,
+            image_storage=image_storage,
+        ),
         issue_output_image_upload_url=issue_output_image_upload_url,
         run_text_judgment=run_text_judgment,
         run_image_judgment=run_image_judgment,

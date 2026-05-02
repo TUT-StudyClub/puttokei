@@ -74,3 +74,13 @@ class GcsOutputImageStorage(OutputImageStorage):
         blob.reload()
         data = blob.download_as_bytes()
         return data, blob.content_type or "application/octet-stream"
+
+    async def delete(self, *, storage_path: str) -> None:
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, self._delete_sync, storage_path)
+
+    def _delete_sync(self, storage_path: str) -> None:
+        # `if_generation_match=None` ではなく単純削除。既に無い場合 NotFound を吐くが
+        # best-effort なので呼び出し側で握りつぶす想定。ここでは raise させたまま返す。
+        blob = self._bucket.blob(storage_path)
+        blob.delete()

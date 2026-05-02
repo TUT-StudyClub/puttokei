@@ -32,3 +32,11 @@ class OutputImageStorage(ABC):
     @abstractmethod
     async def download(self, *, storage_path: str) -> tuple[bytes, str]:
         """指定 path の画像を読み出して (bytes, content_type) を返す。"""
+
+    @abstractmethod
+    async def delete(self, *, storage_path: str) -> None:
+        """指定 path のオブジェクトを削除する。
+
+        画像アウトプットを上書きしたときに旧 path をクリーンアップする用途。
+        既に存在しない場合は静かに成功扱いとする (best-effort)。
+        """

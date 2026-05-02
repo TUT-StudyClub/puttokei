@@ -11,6 +11,7 @@ class FakeOutputImageStorage(OutputImageStorage):
         self.upload_calls: list[tuple[str, str, int]] = []
         self.download_calls: list[str] = []
         self.download_url_calls: list[tuple[str, int]] = []
+        self.delete_calls: list[str] = []
 
     def issue_upload_url(
         self,
@@ -34,6 +35,10 @@ class FakeOutputImageStorage(OutputImageStorage):
     async def download(self, *, storage_path: str) -> tuple[bytes, str]:
         self.download_calls.append(storage_path)
         return self.objects.get(storage_path, (b"", "application/octet-stream"))
+
+    async def delete(self, *, storage_path: str) -> None:
+        self.delete_calls.append(storage_path)
+        self.objects.pop(storage_path, None)
 
     def put(self, storage_path: str, data: bytes, content_type: str) -> None:
         """テスト用に画像オブジェクトを直接登録する。"""
