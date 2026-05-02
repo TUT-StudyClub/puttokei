@@ -1367,7 +1367,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   phaseTabSeparator: {
-    width: 6,
+    width: 14,
     height: 1.5,
     borderRadius: 999,
     marginHorizontal: 2,
@@ -1400,8 +1400,8 @@ const styles = StyleSheet.create({
   topChromePhaseTabsWrapper: {
     position: 'absolute',
     top: '18.6%',
-    left: '13.18%',
-    right: '12.94%',
+    left: '12.68%',
+    right: '13.44%',
   },
   timerWrap: {
     alignItems: 'center',
