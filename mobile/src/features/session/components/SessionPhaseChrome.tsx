@@ -557,11 +557,7 @@ type SessionSettingsButtonProps = {
   rowStyle?: StyleProp<ViewStyle>;
 };
 
-export function SessionSettingsButton({
-  onPress,
-  testID,
-  rowStyle,
-}: SessionSettingsButtonProps) {
+export function SessionSettingsButton({ onPress, testID, rowStyle }: SessionSettingsButtonProps) {
   return (
     <View style={[styles.settingsRow, rowStyle]}>
       <Pressable
@@ -1188,7 +1184,9 @@ export function SessionTopChrome({
 }: SessionTopChromeProps) {
   const hourglassVariant = hourglass.variant ?? DEFAULT_HOURGLASS_VARIANT;
   const isHomeBadge = hourglassVariant === 'gray';
-  const cycleLabelCount = isHomeBadge ? Math.max(0, hourglass.currentLoop - 1) : hourglass.currentLoop;
+  const cycleLabelCount = isHomeBadge
+    ? Math.max(0, hourglass.currentLoop - 1)
+    : hourglass.currentLoop;
   const cycleLabelColor = isHomeBadge ? CYCLE_LABEL_HOME_COLOR : TEXT_ACTIVE;
 
   return (
