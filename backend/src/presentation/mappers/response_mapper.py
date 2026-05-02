@@ -182,6 +182,7 @@ def to_judgment_response(view: JudgmentView) -> JudgmentResponse:
                 target_text=correction.target_text,
                 correct_text=correction.correct_text,
                 explanation=correction.explanation,
+                bbox=correction.bbox,
             )
             for correction in view.corrections
         ],

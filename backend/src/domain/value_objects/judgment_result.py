@@ -8,6 +8,17 @@ from pydantic import BaseModel, ConfigDict, Field
 from src.domain.value_objects.verdict import Verdict
 
 
+class BoundingBox(BaseModel):
+    """画像内の領域を 0〜1 正規化座標で表す。"""
+
+    model_config = ConfigDict(frozen=True)
+
+    x: float = Field(ge=0, le=1)
+    y: float = Field(ge=0, le=1)
+    width: float = Field(ge=0, le=1)
+    height: float = Field(ge=0, le=1)
+
+
 class JudgmentCorrection(BaseModel):
     """アウトプット中の誤りに対する指摘の 1 件。"""
 
@@ -16,6 +27,7 @@ class JudgmentCorrection(BaseModel):
     target_text: str
     correct_text: str
     explanation: str
+    bbox: BoundingBox | None = None
 
 
 class JudgmentResult(BaseModel):

@@ -108,9 +108,7 @@ class RunJudgmentBase:
     ) -> None:
         raise NotImplementedError
 
-    async def _load_target(
-        self, session_id: UUID
-    ) -> tuple[Session | None, Output | None, bool]:
+    async def _load_target(self, session_id: UUID) -> tuple[Session | None, Output | None, bool]:
         async with self.unit_of_work_factory() as uow:
             session = await uow.sessions.find_by_id(session_id)
             if session is None:
@@ -179,6 +177,7 @@ class RunJudgmentBase:
                             target_text=correction.target_text,
                             correct_text=correction.correct_text,
                             explanation=correction.explanation,
+                            bbox=correction.bbox,
                         )
                         for correction in result.corrections
                     ],

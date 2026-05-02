@@ -4,7 +4,12 @@ from typing import Any
 
 
 def judgment_response_json_schema() -> dict[str, Any]:
-    """Gemini structured output 用の JSON Schema を返す。"""
+    """Gemini structured output 用の JSON Schema を返す。
+
+    `bbox` は画像判定でのみ意味を持つ。テキスト判定では prompt で言及しないため
+    Gemini は emit しない（optional 扱い）。画像判定では prompt で形式を指示し、
+    位置を特定できない correction では emit しない可能性があるため required に含めない。
+    """
     return {
         "type": "object",
         "additionalProperties": False,
@@ -47,6 +52,22 @@ def judgment_response_json_schema() -> dict[str, Any]:
                         "explanation": {
                             "type": "string",
                             "description": "誤りの理由と正しい内容の簡潔な解説。",
+                        },
+                        "bbox": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "description": (
+                                "画像判定時の誤り箇所の位置。"
+                                "画像左上を原点 (0, 0) とした 0〜1 の正規化座標。"
+                                "テキスト判定や位置特定不可の場合は省略する。"
+                            ),
+                            "properties": {
+                                "x": {"type": "number", "minimum": 0, "maximum": 1},
+                                "y": {"type": "number", "minimum": 0, "maximum": 1},
+                                "width": {"type": "number", "minimum": 0, "maximum": 1},
+                                "height": {"type": "number", "minimum": 0, "maximum": 1},
+                            },
+                            "required": ["x", "y", "width", "height"],
                         },
                     },
                     "required": ["target_text", "correct_text", "explanation"],
