@@ -87,8 +87,9 @@ describe('InputScreen', () => {
   });
 
   it('マウント時にタイマーが start され、フェーズ表記とタイマー表示がレンダリングされる', () => {
-    const { getAllByText, getByTestId, queryByLabelText, queryByTestId } =
-      renderWithProviders(<InputScreen />);
+    const { getAllByText, getByTestId, queryByLabelText, queryByTestId } = renderWithProviders(
+      <InputScreen />,
+    );
     // フェーズタブと円中央の 2 箇所に「インプット」が表示される。
     expect(getAllByText('インプット').length).toBeGreaterThanOrEqual(1);
     expect(getByTestId('timer-display')).toBeTruthy();
