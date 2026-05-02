@@ -29,7 +29,7 @@ export const SESSION_PHASE_LABELS: Record<SessionPhase, string> = {
 const TEXT_ACTIVE = '#2F2F2F';
 const DOT_INACTIVE = '#D9D9D9';
 const BORDER_COLOR = '#E5E7EB';
-const SETTINGS_ICON_HEX_PATH = 'M12 3 L20 7.5 V16.5 L12 21 L4 16.5 V7.5 Z';
+const SETTINGS_ICON_ASSET = require('../../../../assets/images/icons/icon_setting.png');
 export const HOURGLASS_BADGE_ACTIVE_SCALE = 1.45;
 
 /**
@@ -538,29 +538,27 @@ export function useHourglassBadgeXml(asset: number) {
 
 type SettingsIconProps = {
   size?: number;
-  color?: string;
 };
 
-function SettingsIcon({ size = 24, color = TEXT_ACTIVE }: SettingsIconProps) {
+function SettingsIcon({ size = 24 }: SettingsIconProps) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d={SETTINGS_ICON_HEX_PATH} stroke={color} strokeWidth={2} fill="none" />
-      <Circle cx={12} cy={12} r={3} stroke={color} strokeWidth={2} fill="none" />
-    </Svg>
+    <Image
+      source={SETTINGS_ICON_ASSET}
+      resizeMode="contain"
+      style={[styles.settingsIcon, { width: size, height: size }]}
+    />
   );
 }
 
 type SessionSettingsButtonProps = {
   onPress: () => void;
   testID: string;
-  color?: string;
   rowStyle?: StyleProp<ViewStyle>;
 };
 
 export function SessionSettingsButton({
   onPress,
   testID,
-  color = TEXT_ACTIVE,
   rowStyle,
 }: SessionSettingsButtonProps) {
   return (
@@ -573,7 +571,7 @@ export function SessionSettingsButton({
         hitSlop={8}
         testID={testID}
       >
-        <SettingsIcon color={color} />
+        <SettingsIcon />
       </Pressable>
     </View>
   );
@@ -1200,6 +1198,7 @@ export function SessionTopChrome({
             testIDPrefix={testIDPrefix}
             marginBottom={0}
             rowStyle={styles.topChromeHourglassRow}
+            badgeStyle={[styles.topChromeHourglassBadge, hourglass.badgeStyle]}
             iconBaseWidth={HOURGLASS_VARIANTS.gray.baseWidth}
             iconBaseHeight={HOURGLASS_VARIANTS.gray.baseHeight}
           />
@@ -1298,14 +1297,18 @@ export function CircularPhaseTimer({
 const styles = StyleSheet.create({
   settingsRow: {
     position: 'absolute',
-    top: '1%',
-    right: '10%',
+    top: -4.5,
+    right: 38,
   },
   settingsButton: {
     width: 24,
     height: 24,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  settingsIcon: {
+    width: 24,
+    height: 24,
   },
   pressed: {
     opacity: 0.6,
@@ -1368,6 +1371,12 @@ const styles = StyleSheet.create({
   },
   topChromeHourglassRow: {
     marginTop: 0,
+    width: '100%',
+  },
+  topChromeHourglassBadge: {
+    width: '100%',
+    justifyContent: 'space-between',
+    gap: 0,
   },
   topChromePhaseTabsWrapper: {
     position: 'absolute',
