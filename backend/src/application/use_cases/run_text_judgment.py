@@ -18,8 +18,13 @@ from src.domain.value_objects.judgment_progress import (
 from src.domain.value_objects.output_kind import OutputKind
 
 
-class UnsupportedOutputKindError(Exception):
-    """テキスト判定 UseCase に画像アウトプットが渡された等の整合性エラー。"""
+class OutputKindMismatchError(Exception):
+    """この UseCase が期待する Output kind と実際の kind が一致しない。
+
+    通常運用では到達しない invariant 違反。発生するのは:
+    - DI 設定ミス（API ハンドラが kind と異なる UseCase に dispatch した）
+    - DB 上の Output データが kind と payload で矛盾している（CHECK 制約バグ）
+    """
 
 
 class RunTextJudgment(RunJudgmentBase):
@@ -43,7 +48,7 @@ class RunTextJudgment(RunJudgmentBase):
         output: Output,
     ) -> None:
         if output.kind is not OutputKind.TEXT or output.content is None:
-            raise UnsupportedOutputKindError(
+            raise OutputKindMismatchError(
                 f"RunTextJudgment received non-text output kind={output.kind.value}"
             )
 
