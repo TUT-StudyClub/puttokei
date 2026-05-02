@@ -88,7 +88,16 @@ def _to_judgment(model: JudgmentModel) -> Judgment:
 
 def _jsonb_to_correction(payload: dict[str, Any]) -> JudgmentCorrection:
     bbox_payload = payload.get("bbox")
-    bbox = BoundingBox(**bbox_payload) if isinstance(bbox_payload, dict) else None
+    bbox = (
+        BoundingBox(
+            x=bbox_payload["x"],
+            y=bbox_payload["y"],
+            width=bbox_payload["width"],
+            height=bbox_payload["height"],
+        )
+        if isinstance(bbox_payload, dict)
+        else None
+    )
     return JudgmentCorrection(
         target_text=payload["target_text"],
         correct_text=payload["correct_text"],
