@@ -186,8 +186,9 @@ describe('OutputScreen', () => {
   });
 
   it('マウントで phase=output のタイマーが開始され、主要 UI が表示される', () => {
-    const { getByTestId, getAllByText, queryByLabelText, queryByTestId } =
-      renderWithProviders(<OutputScreen />);
+    const { getByTestId, getAllByText, queryByLabelText, queryByTestId } = renderWithProviders(
+      <OutputScreen />,
+    );
     // 画面タイトル・フェーズタブ・タイマー中央のラベルで複数回「アウトプット」が出現する
     expect(getAllByText('アウトプット').length).toBeGreaterThan(0);
     expect(queryByTestId('output-settings-button')).toBeNull();
