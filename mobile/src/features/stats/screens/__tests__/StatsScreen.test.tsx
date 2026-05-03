@@ -22,6 +22,7 @@ const TEXT_MODE_ICON_GRAY = require('../../../../../assets/images/icons/icon_pen
 const IMAGE_MODE_ICON_BLACK = require('../../../../../assets/images/icons/icon_pic_black..png');
 const IMAGE_MODE_ICON_GRAY = require('../../../../../assets/images/icons/icon_pic_gray..png');
 const VOICE_MODE_ICON_GRAY = require('../../../../../assets/images/icons/icon_mic_gray.png');
+const COLOR_PICKER_CHECK_ICON = require('../../../../../assets/images/icons/check.png');
 
 jest.mock('expo-router', () => ({
   Redirect: ({ href }: { href: unknown }) => {
@@ -422,7 +423,35 @@ describe('StatsScreen', () => {
       fireEvent.press(getByTestId('stats-history-sheet-subject-picker-new'));
     });
 
+    const newSubjectTitleStyle = StyleSheet.flatten(
+      getByTestId('stats-new-subject-title', { includeHiddenElements: true }).props.style,
+    );
+    const newSubjectColorRowStyle = StyleSheet.flatten(
+      getByTestId('stats-new-subject-color-row', { includeHiddenElements: true }).props.style,
+    );
+    const newSubjectSubjectLabelStyle = StyleSheet.flatten(
+      getByTestId('stats-new-subject-subject-label', { includeHiddenElements: true }).props.style,
+    );
+    const newSubjectColorLabelStyle = StyleSheet.flatten(
+      getByTestId('stats-new-subject-color-label', { includeHiddenElements: true }).props.style,
+    );
+    const newSubjectInputStyle = StyleSheet.flatten(
+      getByTestId('stats-new-subject-input', { includeHiddenElements: true }).props.style,
+    );
+    const newSubjectColorPreviewStyle = StyleSheet.flatten(
+      getByTestId('stats-new-subject-color', { includeHiddenElements: true }).props.style,
+    );
     expect(getByText('新規教科追加', { includeHiddenElements: true })).toBeTruthy();
+    expect(newSubjectTitleStyle.fontWeight).toBe('800');
+    expect(newSubjectColorRowStyle.borderBottomWidth).toBe(0);
+    expect(newSubjectSubjectLabelStyle.fontSize).toBe(16);
+    expect(newSubjectSubjectLabelStyle.lineHeight).toBe(22);
+    expect(newSubjectColorLabelStyle.fontSize).toBe(16);
+    expect(newSubjectColorLabelStyle.lineHeight).toBe(22);
+    expect(newSubjectInputStyle.fontSize).toBe(16);
+    expect(newSubjectColorPreviewStyle.width).toBe(14);
+    expect(newSubjectColorPreviewStyle.height).toBe(14);
+    expect(newSubjectColorPreviewStyle.borderRadius).toBe(7);
     expect(
       getByTestId('stats-new-subject-input', { includeHiddenElements: true }).props.placeholder,
     ).toBe('新規教科');
@@ -441,8 +470,64 @@ describe('StatsScreen', () => {
     const secondColorRow = getByTestId('stats-subject-color-row-1', {
       includeHiddenElements: true,
     });
+    const colorGridStyle = StyleSheet.flatten(
+      getByTestId('stats-subject-color-grid', { includeHiddenElements: true }).props.style,
+    );
+    const colorPickerTitleStyle = StyleSheet.flatten(
+      getByTestId('stats-subject-color-picker-title', { includeHiddenElements: true }).props.style,
+    );
+    const closeButtonStyle = StyleSheet.flatten(
+      getByTestId('stats-subject-color-picker-close', { includeHiddenElements: true }).props.style,
+    );
+    const closeTextStyle = StyleSheet.flatten(
+      getByTestId('stats-subject-color-picker-close-text', { includeHiddenElements: true }).props
+        .style,
+    );
+    const confirmButtonStyle = StyleSheet.flatten(
+      getByTestId('stats-subject-color-picker-confirm', { includeHiddenElements: true }).props
+        .style,
+    );
+    const checkIcon = getByTestId('stats-subject-color-picker-check-icon', {
+      includeHiddenElements: true,
+    });
+    const firstColorRowStyle = StyleSheet.flatten(firstColorRow.props.style);
+    const firstSwatchStyle = StyleSheet.flatten(
+      getByTestId('stats-subject-color-swatch-0', { includeHiddenElements: true }).props.style,
+    );
+    const selectedSwatchCheckStyle = StyleSheet.flatten(
+      getByTestId('stats-subject-color-swatch-check-1', { includeHiddenElements: true }).props
+        .style,
+    );
     expect(firstColorRow.children).toHaveLength(5);
     expect(secondColorRow.children).toHaveLength(5);
+    expect(colorGridStyle.alignItems).toBe('center');
+    expect(colorGridStyle.paddingHorizontal).toBe(19);
+    expect(colorGridStyle.paddingTop).toBe(22);
+    expect(colorGridStyle.gap).toBe(16);
+    expect(colorPickerTitleStyle.fontWeight).toBe('800');
+    expect(colorPickerTitleStyle.marginTop).toBe(7);
+    expect(closeButtonStyle.left).toBe(20);
+    expect(closeButtonStyle.top).toBe(18);
+    expect(closeButtonStyle.width).toBe(36);
+    expect(closeButtonStyle.height).toBe(36);
+    expect(closeTextStyle.fontSize).toBe(26);
+    expect(confirmButtonStyle.right).toBe(20);
+    expect(confirmButtonStyle.top).toBe(18);
+    expect(confirmButtonStyle.width).toBe(36);
+    expect(confirmButtonStyle.height).toBe(36);
+    expect(checkIcon.props.width).toBe(20);
+    expect(checkIcon.props.height).toBe(20);
+    expect(firstColorRowStyle.gap).toBe(14);
+    expect(firstSwatchStyle.width).toBe(50);
+    expect(firstSwatchStyle.height).toBe(50);
+    expect(firstSwatchStyle.alignItems).toBe('center');
+    expect(firstSwatchStyle.justifyContent).toBe('center');
+    expect(
+      getByTestId('stats-subject-color-swatch-check-1', { includeHiddenElements: true }).props
+        .source,
+    ).toBe(COLOR_PICKER_CHECK_ICON);
+    expect(selectedSwatchCheckStyle.width).toBe(24);
+    expect(selectedSwatchCheckStyle.height).toBe(19);
     [
       '#457DFF',
       '#2BAAF3',
@@ -464,13 +549,27 @@ describe('StatsScreen', () => {
     });
 
     await act(async () => {
+      fireEvent.press(getByTestId('stats-subject-color-swatch-1', { includeHiddenElements: true }));
+    });
+    expect(queryByTestId('stats-subject-color-swatch-check-1')).toBeNull();
+
+    await act(async () => {
       fireEvent.press(getByTestId('stats-subject-color-swatch-5', { includeHiddenElements: true }));
     });
+    expect(
+      getByTestId('stats-subject-color-swatch-check-5', { includeHiddenElements: true }).props
+        .source,
+    ).toBe(COLOR_PICKER_CHECK_ICON);
     await act(async () => {
       fireEvent.press(
         getByTestId('stats-subject-color-picker-confirm', { includeHiddenElements: true }),
       );
     });
+    expect(
+      StyleSheet.flatten(
+        getByTestId('stats-new-subject-color', { includeHiddenElements: true }).props.style,
+      ).backgroundColor,
+    ).toBe('#FF9147');
 
     await act(async () => {
       fireEvent.changeText(

@@ -19,6 +19,7 @@ import {
   Pressable,
   SafeAreaView,
   ScrollView,
+  Text,
   type StyleProp,
   StyleSheet,
   TextInput,
@@ -69,11 +70,13 @@ const IMAGE_MODE_ICON_BLACK = require('../../../../assets/images/icons/icon_pic_
 const IMAGE_MODE_ICON_GRAY = require('../../../../assets/images/icons/icon_pic_gray..png');
 const VOICE_MODE_ICON_BLACK = require('../../../../assets/images/icons/icon_mic_black.png');
 const VOICE_MODE_ICON_GRAY = require('../../../../assets/images/icons/icon_mic_gray.png');
+const COLOR_PICKER_CHECK_ICON = require('../../../../assets/images/icons/check.png');
 
 const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'] as const;
 const TOKYO_TIME_ZONE = 'Asia/Tokyo';
 const HISTORY_VISIBLE_ITEM_LIMIT = 3;
 const UNSET_SUBJECT_LABEL = '未設定';
+const UNSELECTED_SUBJECT_COLOR = '#D0D0D0';
 const SUBJECT_COLOR_PALETTE = [
   '#457DFF',
   '#2BAAF3',
@@ -95,6 +98,13 @@ const SUBJECT_COLOR_PICKER_ROWS = Array.from(
       (rowIndex + 1) * SUBJECT_COLOR_PICKER_COLUMN_COUNT,
     ),
 );
+const SUBJECT_COLOR_PICKER_SWATCH_SIZE = 50;
+const SUBJECT_COLOR_PICKER_COLUMN_GAP = 14;
+const SUBJECT_COLOR_PICKER_ROW_GAP = 16;
+const SUBJECT_COLOR_PICKER_HORIZONTAL_PADDING = 19;
+const SUBJECT_COLOR_PICKER_TOP_PADDING = 22;
+const SUBJECT_COLOR_PICKER_HEADER_BUTTON_TOP = 18;
+const SUBJECT_COLOR_PICKER_HEADER_TITLE_MARGIN_TOP = 7;
 const SUBJECT_PICKER_PADDING_TOP = 17;
 const SUBJECT_PICKER_PADDING_BOTTOM = 18;
 const SUBJECT_PICKER_HEADER_HEIGHT = 24;
@@ -208,9 +218,9 @@ function CloseIcon() {
   );
 }
 
-function CheckIcon() {
+function CheckIcon({ size = 18, testID }: { size?: number; testID?: string } = {}) {
   return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" testID={testID}>
       <Path
         d="M5 12.4 L9.4 16.8 L19 7.2"
         stroke="#5367FF"
@@ -893,14 +903,14 @@ function NewSubjectFormModal({
 }: {
   visible: boolean;
   subjectName: string;
-  color: string;
+  color: string | null;
   onChangeSubjectName: (value: string) => void;
-  onChangeColor: (value: string) => void;
+  onChangeColor: (value: string | null) => void;
   onClose: () => void;
   onSave: () => void;
 }) {
   const [isColorPickerVisible, setColorPickerVisible] = useState(false);
-  const [draftColor, setDraftColor] = useState(color);
+  const [draftColor, setDraftColor] = useState<string | null>(color);
 
   useEffect(() => {
     if (visible) {
@@ -933,12 +943,16 @@ function NewSubjectFormModal({
               />
             </Svg>
           </Pressable>
-          <SizableText style={styles.newSubjectTitle}>新規教科追加</SizableText>
+          <Text style={styles.newSubjectTitle} testID="stats-new-subject-title">
+            新規教科追加
+          </Text>
         </View>
 
         <View style={styles.newSubjectForm}>
           <View style={styles.newSubjectRow}>
-            <SizableText style={styles.newSubjectLabel}>教科</SizableText>
+            <SizableText style={styles.newSubjectLabel} testID="stats-new-subject-subject-label">
+              教科
+            </SizableText>
             <TextInput
               value={subjectName}
               onChangeText={onChangeSubjectName}
@@ -954,14 +968,16 @@ function NewSubjectFormModal({
               setDraftColor(color);
               setColorPickerVisible(true);
             }}
-            style={styles.newSubjectRow}
+            style={[styles.newSubjectRow, styles.newSubjectColorRow]}
             testID="stats-new-subject-color-row"
           >
-            <SizableText style={styles.newSubjectLabel}>色</SizableText>
+            <SizableText style={styles.newSubjectLabel} testID="stats-new-subject-color-label">
+              色
+            </SizableText>
             <View
               style={[
                 styles.newSubjectColorPreview,
-                subjectName.trim() ? { backgroundColor: color } : null,
+                color !== null ? { backgroundColor: color } : null,
               ]}
               testID="stats-new-subject-color"
             />
@@ -988,9 +1004,16 @@ function NewSubjectFormModal({
                 style={styles.colorPickerCloseButton}
                 testID="stats-subject-color-picker-close"
               >
-                <SizableText style={styles.colorPickerCloseText}>×</SizableText>
+                <SizableText
+                  style={styles.colorPickerCloseText}
+                  testID="stats-subject-color-picker-close-text"
+                >
+                  ×
+                </SizableText>
               </Pressable>
-              <SizableText style={styles.colorPickerTitle}>色の選択</SizableText>
+              <Text style={styles.colorPickerTitle} testID="stats-subject-color-picker-title">
+                色の選択
+              </Text>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="色を決定"
@@ -1002,10 +1025,10 @@ function NewSubjectFormModal({
                 style={styles.colorPickerConfirmButton}
                 testID="stats-subject-color-picker-confirm"
               >
-                <CheckIcon />
+                <CheckIcon size={20} testID="stats-subject-color-picker-check-icon" />
               </Pressable>
             </View>
-            <View style={styles.colorPickerGrid}>
+            <View style={styles.colorPickerGrid} testID="stats-subject-color-grid">
               {SUBJECT_COLOR_PICKER_ROWS.map((rowColors, rowIndex) => (
                 <View
                   key={rowColors.join('-')}
@@ -1020,14 +1043,22 @@ function NewSubjectFormModal({
                         key={paletteColor}
                         accessibilityRole="button"
                         accessibilityLabel={`色${index + 1}`}
-                        onPress={() => setDraftColor(paletteColor)}
-                        style={[
-                          styles.colorPickerSwatch,
-                          { backgroundColor: paletteColor },
-                          draftColor === paletteColor ? styles.colorPickerSwatchSelected : null,
-                        ]}
+                        onPress={() =>
+                          setDraftColor((currentColor) =>
+                            currentColor === paletteColor ? null : paletteColor,
+                          )
+                        }
+                        style={[styles.colorPickerSwatch, { backgroundColor: paletteColor }]}
                         testID={`stats-subject-color-swatch-${index}`}
-                      />
+                      >
+                        {draftColor === paletteColor ? (
+                          <Image
+                            source={COLOR_PICKER_CHECK_ICON}
+                            style={styles.colorPickerSwatchCheck}
+                            testID={`stats-subject-color-swatch-check-${index}`}
+                          />
+                        ) : null}
+                      </Pressable>
                     );
                   })}
                 </View>
@@ -1052,7 +1083,7 @@ function HistoryDetailSheet({
   const [isSubjectPickerVisible, setSubjectPickerVisible] = useState(false);
   const [isNewSubjectFormVisible, setNewSubjectFormVisible] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState('');
-  const [newSubjectColor, setNewSubjectColor] = useState<string>(SUBJECT_COLOR_PALETTE[0]);
+  const [newSubjectColor, setNewSubjectColor] = useState<string | null>(SUBJECT_COLOR_PALETTE[0]);
   const [localSubjectOptions, setLocalSubjectOptions] = useState<SubjectOption[]>([]);
 
   useEffect(() => {
@@ -1085,7 +1116,10 @@ function HistoryDetailSheet({
   const handleSaveNewSubject = () => {
     const label = newSubjectName.trim();
     if (label.length > 0 && !visibleSubjectOptions.some((subject) => subject.label === label)) {
-      setLocalSubjectOptions((current) => [...current, { label, color: newSubjectColor }]);
+      setLocalSubjectOptions((current) => [
+        ...current,
+        { label, color: newSubjectColor ?? UNSELECTED_SUBJECT_COLOR },
+      ]);
     }
     setNewSubjectFormVisible(false);
     setSubjectPickerVisible(true);
@@ -2512,7 +2546,7 @@ const styles = StyleSheet.create({
   newSubjectTitle: {
     color: '#111111',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
     lineHeight: 20,
   },
   newSubjectForm: {
@@ -2525,29 +2559,32 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#D9D9D9',
   },
+  newSubjectColorRow: {
+    borderBottomWidth: 0,
+  },
   newSubjectLabel: {
     width: 64,
     color: '#333333',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '400',
-    lineHeight: 20,
+    lineHeight: 22,
   },
   newSubjectInput: {
     flex: 1,
     height: 31,
     padding: 0,
     color: '#333333',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '400',
     textAlign: 'right',
   },
   newSubjectColorPreview: {
-    width: 12,
-    height: 12,
+    width: 14,
+    height: 14,
     marginLeft: 'auto',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: '#D0D0D0',
-    borderRadius: 6,
+    borderRadius: 7,
     backgroundColor: '#FFFFFF',
   },
   newSubjectSaveButton: {
@@ -2592,53 +2629,59 @@ const styles = StyleSheet.create({
   },
   colorPickerCloseButton: {
     position: 'absolute',
-    left: 14,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    left: 20,
+    top: SUBJECT_COLOR_PICKER_HEADER_BUTTON_TOP,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#F0F0F0',
   },
   colorPickerCloseText: {
     color: '#333333',
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '400',
-    lineHeight: 28,
+    lineHeight: 30,
   },
   colorPickerTitle: {
     color: '#111111',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
     lineHeight: 20,
+    marginTop: SUBJECT_COLOR_PICKER_HEADER_TITLE_MARGIN_TOP,
   },
   colorPickerConfirmButton: {
     position: 'absolute',
-    right: 14,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    right: 20,
+    top: SUBJECT_COLOR_PICKER_HEADER_BUTTON_TOP,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#E6EAFF',
   },
   colorPickerGrid: {
-    gap: 14,
-    paddingHorizontal: 19,
-    paddingTop: 13,
+    alignItems: 'center',
+    gap: SUBJECT_COLOR_PICKER_ROW_GAP,
+    paddingHorizontal: SUBJECT_COLOR_PICKER_HORIZONTAL_PADDING,
+    paddingTop: SUBJECT_COLOR_PICKER_TOP_PADDING,
   },
   colorPickerRow: {
     flexDirection: 'row',
-    gap: 14,
+    gap: SUBJECT_COLOR_PICKER_COLUMN_GAP,
   },
   colorPickerSwatch: {
-    width: 35,
-    height: 35,
+    width: SUBJECT_COLOR_PICKER_SWATCH_SIZE,
+    height: SUBJECT_COLOR_PICKER_SWATCH_SIZE,
     borderRadius: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  colorPickerSwatchSelected: {
-    borderWidth: 2,
-    borderColor: '#111111',
+  colorPickerSwatchCheck: {
+    width: 24,
+    height: 19,
   },
   scrollBoundary: {
     height: SCROLL_BOUNDARY_HEIGHT,
