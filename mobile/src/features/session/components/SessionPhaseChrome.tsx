@@ -1045,9 +1045,9 @@ function PhaseTabDot({
           ? {
               shadowColor: color,
               shadowOpacity: 1,
-              shadowRadius: 6,
+              shadowRadius: 2,
               shadowOffset: { width: 0, height: 0 },
-              elevation: 8,
+              elevation: 3,
             }
           : null),
       }}
@@ -1125,7 +1125,7 @@ export function PhaseTabs({
                 { color: phaseInactiveTextColor },
                 isActive
                   ? { color: activeTextColor, fontFamily: 'HiraginoSans-W6' }
-                  : { fontSize: 12 },
+                  : { fontSize: 10 },
               ]}
             >
               {SESSION_PHASE_LABELS[phase]}
@@ -1426,6 +1426,8 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   timerPhaseLabel: {
+    position: 'absolute',
+    top: '28%',
     fontFamily: 'HiraginoSans-W6',
     fontSize: 14,
     lineHeight: 24,
@@ -1435,11 +1437,12 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   timerText: {
+    position: 'absolute',
+    top: '36%',
     fontFamily: 'HiraginoSans-W6',
     fontSize: 55,
     fontWeight: '600',
     lineHeight: 70,
-    marginTop: '-2%',
   },
   timerTextCompact: {
     fontSize: 34,
