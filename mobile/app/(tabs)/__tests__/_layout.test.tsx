@@ -14,7 +14,6 @@ type MockScreenProps = {
   options?: {
     tabBarLabel?: (props: { color: string }) => unknown;
     tabBarIcon?: (props: { color: string }) => unknown;
-    tabBarLabel?: (props: { color: string }) => unknown;
   };
   listeners?: {
     tabPress?: (event: TabPressEvent) => void;
