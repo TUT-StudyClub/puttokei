@@ -95,7 +95,6 @@ describe('InputScreen', () => {
     expect(getByTestId('timer-display')).toBeTruthy();
     expect(getByTestId('input-circular-timer')).toBeTruthy();
     expect(getByTestId('input-cancel-button')).toBeTruthy();
-    expect(getByTestId('input-extend-button')).toBeTruthy();
     expect(queryByTestId('input-settings-button')).toBeNull();
     expect(queryByLabelText('設定')).toBeNull();
     expect(useTimerStore.getState().phase).toBe('input');
@@ -244,7 +243,7 @@ describe('InputScreen', () => {
     expect(useTimerStore.getState().remainingSeconds).toBe(120);
   });
 
-  it('今日のアウトプットを一覧表示し、選択すると詳細を表示する', async () => {
+  it('最近のアウトプットを一覧表示し、選択すると詳細を表示する', async () => {
     (sessionApi.listTodayOutputs as jest.Mock).mockResolvedValue({
       items: [
         {
@@ -279,7 +278,7 @@ describe('InputScreen', () => {
 
     const { getByTestId, findByText, queryByTestId } = renderWithProviders(<InputScreen />);
 
-    expect(await findByText('今日のアウトプット')).toBeTruthy();
+    expect(await findByText('最近のアウトプット')).toBeTruthy();
     fireEvent.press(getByTestId('today-output-row-out-1'));
 
     expect(getByTestId('output-review-detail')).toBeTruthy();
@@ -321,7 +320,7 @@ describe('InputScreen', () => {
 
     const { getByTestId, findByText } = renderWithProviders(<InputScreen />);
 
-    expect(await findByText('今日のアウトプット')).toBeTruthy();
+    expect(await findByText('最近のアウトプット')).toBeTruthy();
     fireEvent.press(getByTestId('today-output-row-out-2'));
 
     expect(getByTestId('output-review-feedback')).toBeTruthy();
