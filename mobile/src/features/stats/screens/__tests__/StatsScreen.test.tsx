@@ -381,11 +381,11 @@ describe('StatsScreen', () => {
     expect(
       StyleSheet.flatten(getByTestId('stats-history-sheet-subject-option-dot-0').props.style)
         .backgroundColor,
-    ).toBe('#28D94F');
+    ).toBe('#457DFF');
     expect(
       StyleSheet.flatten(getByTestId('stats-history-sheet-subject-option-dot-1').props.style)
         .backgroundColor,
-    ).toBe('#FF4A55');
+    ).toBe('#2BAAF3');
 
     await act(async () => {
       fireEvent.press(getByTestId('stats-history-sheet-subject-picker-close'));
@@ -429,6 +429,50 @@ describe('StatsScreen', () => {
     expect(getByText('保存する', { includeHiddenElements: true })).toBeTruthy();
 
     await act(async () => {
+      fireEvent.press(getByTestId('stats-new-subject-color-row', { includeHiddenElements: true }));
+    });
+
+    expect(getByTestId('stats-new-subject-modal', { includeHiddenElements: true })).toBeTruthy();
+    expect(getByTestId('stats-subject-color-picker', { includeHiddenElements: true })).toBeTruthy();
+    expect(getByText('色の選択', { includeHiddenElements: true })).toBeTruthy();
+    const firstColorRow = getByTestId('stats-subject-color-row-0', {
+      includeHiddenElements: true,
+    });
+    const secondColorRow = getByTestId('stats-subject-color-row-1', {
+      includeHiddenElements: true,
+    });
+    expect(firstColorRow.children).toHaveLength(5);
+    expect(secondColorRow.children).toHaveLength(5);
+    [
+      '#457DFF',
+      '#2BAAF3',
+      '#00E0C6',
+      '#2DDF39',
+      '#F7E927',
+      '#FF9147',
+      '#FF484B',
+      '#F84897',
+      '#C251E2',
+      '#AC6700',
+    ].forEach((color, index) => {
+      expect(
+        StyleSheet.flatten(
+          getByTestId(`stats-subject-color-swatch-${index}`, { includeHiddenElements: true }).props
+            .style,
+        ).backgroundColor,
+      ).toBe(color);
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-subject-color-swatch-5', { includeHiddenElements: true }));
+    });
+    await act(async () => {
+      fireEvent.press(
+        getByTestId('stats-subject-color-picker-confirm', { includeHiddenElements: true }),
+      );
+    });
+
+    await act(async () => {
       fireEvent.changeText(
         getByTestId('stats-new-subject-input', { includeHiddenElements: true }),
         '数学',
@@ -438,7 +482,7 @@ describe('StatsScreen', () => {
       StyleSheet.flatten(
         getByTestId('stats-new-subject-color', { includeHiddenElements: true }).props.style,
       ).backgroundColor,
-    ).toBe('#FF4A55');
+    ).toBe('#FF9147');
 
     await act(async () => {
       fireEvent.press(getByTestId('stats-new-subject-save', { includeHiddenElements: true }));
@@ -447,6 +491,10 @@ describe('StatsScreen', () => {
     expect(queryByTestId('stats-new-subject-input')).toBeNull();
     expect(getByTestId('stats-history-sheet-subject-picker')).toBeTruthy();
     expect(getByText('数学')).toBeTruthy();
+    expect(
+      StyleSheet.flatten(getByTestId('stats-history-sheet-subject-option-dot-1').props.style)
+        .backgroundColor,
+    ).toBe('#FF9147');
   });
 
   it('画像アウトプットの履歴詳細では画像アイコンを黒にする', async () => {

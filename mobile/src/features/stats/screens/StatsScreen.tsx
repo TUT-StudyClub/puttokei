@@ -74,7 +74,27 @@ const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'] as cons
 const TOKYO_TIME_ZONE = 'Asia/Tokyo';
 const HISTORY_VISIBLE_ITEM_LIMIT = 3;
 const UNSET_SUBJECT_LABEL = '未設定';
-const SUBJECT_COLOR_PALETTE = ['#28D94F', '#FF4A55', '#4B5CFF', '#F59E0B', '#A855F7'] as const;
+const SUBJECT_COLOR_PALETTE = [
+  '#457DFF',
+  '#2BAAF3',
+  '#00E0C6',
+  '#2DDF39',
+  '#F7E927',
+  '#FF9147',
+  '#FF484B',
+  '#F84897',
+  '#C251E2',
+  '#AC6700',
+] as const;
+const SUBJECT_COLOR_PICKER_COLUMN_COUNT = 5;
+const SUBJECT_COLOR_PICKER_ROWS = Array.from(
+  { length: Math.ceil(SUBJECT_COLOR_PALETTE.length / SUBJECT_COLOR_PICKER_COLUMN_COUNT) },
+  (_, rowIndex) =>
+    SUBJECT_COLOR_PALETTE.slice(
+      rowIndex * SUBJECT_COLOR_PICKER_COLUMN_COUNT,
+      (rowIndex + 1) * SUBJECT_COLOR_PICKER_COLUMN_COUNT,
+    ),
+);
 const SUBJECT_PICKER_PADDING_TOP = 17;
 const SUBJECT_PICKER_PADDING_BOTTOM = 18;
 const SUBJECT_PICKER_HEADER_HEIGHT = 24;
@@ -867,6 +887,7 @@ function NewSubjectFormModal({
   subjectName,
   color,
   onChangeSubjectName,
+  onChangeColor,
   onClose,
   onSave,
 }: {
@@ -874,9 +895,20 @@ function NewSubjectFormModal({
   subjectName: string;
   color: string;
   onChangeSubjectName: (value: string) => void;
+  onChangeColor: (value: string) => void;
   onClose: () => void;
   onSave: () => void;
 }) {
+  const [isColorPickerVisible, setColorPickerVisible] = useState(false);
+  const [draftColor, setDraftColor] = useState(color);
+
+  useEffect(() => {
+    if (visible) {
+      setColorPickerVisible(false);
+      setDraftColor(color);
+    }
+  }, [color, visible]);
+
   if (!visible) return null;
 
   return (
@@ -916,7 +948,15 @@ function NewSubjectFormModal({
               testID="stats-new-subject-input"
             />
           </View>
-          <View style={styles.newSubjectRow}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              setDraftColor(color);
+              setColorPickerVisible(true);
+            }}
+            style={styles.newSubjectRow}
+            testID="stats-new-subject-color-row"
+          >
             <SizableText style={styles.newSubjectLabel}>色</SizableText>
             <View
               style={[
@@ -925,17 +965,76 @@ function NewSubjectFormModal({
               ]}
               testID="stats-new-subject-color"
             />
-          </View>
+          </Pressable>
         </View>
 
         <Pressable
           accessibilityRole="button"
           onPress={onSave}
-          style={styles.newSubjectSaveButton}
+          style={[styles.newSubjectSaveButton, isColorPickerVisible ? styles.hidden : null]}
           testID="stats-new-subject-save"
         >
           <SizableText style={styles.newSubjectSaveText}>保存する</SizableText>
         </Pressable>
+
+        {isColorPickerVisible ? (
+          <View style={styles.colorPickerSheet} testID="stats-subject-color-picker">
+            <View style={styles.colorPickerHeader}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="色の選択を閉じる"
+                hitSlop={8}
+                onPress={() => setColorPickerVisible(false)}
+                style={styles.colorPickerCloseButton}
+                testID="stats-subject-color-picker-close"
+              >
+                <SizableText style={styles.colorPickerCloseText}>×</SizableText>
+              </Pressable>
+              <SizableText style={styles.colorPickerTitle}>色の選択</SizableText>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="色を決定"
+                hitSlop={8}
+                onPress={() => {
+                  onChangeColor(draftColor);
+                  setColorPickerVisible(false);
+                }}
+                style={styles.colorPickerConfirmButton}
+                testID="stats-subject-color-picker-confirm"
+              >
+                <CheckIcon />
+              </Pressable>
+            </View>
+            <View style={styles.colorPickerGrid}>
+              {SUBJECT_COLOR_PICKER_ROWS.map((rowColors, rowIndex) => (
+                <View
+                  key={rowColors.join('-')}
+                  style={styles.colorPickerRow}
+                  testID={`stats-subject-color-row-${rowIndex}`}
+                >
+                  {rowColors.map((paletteColor, columnIndex) => {
+                    const index = rowIndex * SUBJECT_COLOR_PICKER_COLUMN_COUNT + columnIndex;
+
+                    return (
+                      <Pressable
+                        key={paletteColor}
+                        accessibilityRole="button"
+                        accessibilityLabel={`色${index + 1}`}
+                        onPress={() => setDraftColor(paletteColor)}
+                        style={[
+                          styles.colorPickerSwatch,
+                          { backgroundColor: paletteColor },
+                          draftColor === paletteColor ? styles.colorPickerSwatchSelected : null,
+                        ]}
+                        testID={`stats-subject-color-swatch-${index}`}
+                      />
+                    );
+                  })}
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
       </SafeAreaView>
     </View>
   );
@@ -953,6 +1052,7 @@ function HistoryDetailSheet({
   const [isSubjectPickerVisible, setSubjectPickerVisible] = useState(false);
   const [isNewSubjectFormVisible, setNewSubjectFormVisible] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState('');
+  const [newSubjectColor, setNewSubjectColor] = useState<string>(SUBJECT_COLOR_PALETTE[0]);
   const [localSubjectOptions, setLocalSubjectOptions] = useState<SubjectOption[]>([]);
 
   useEffect(() => {
@@ -972,12 +1072,13 @@ function HistoryDetailSheet({
       visibleSubjectOptions.push(subject);
     }
   });
-  const newSubjectColor =
+  const defaultNewSubjectColor =
     SUBJECT_COLOR_PALETTE[visibleSubjectOptions.length % SUBJECT_COLOR_PALETTE.length]!;
   const subjectPickerHeight = getSubjectPickerHeight(visibleSubjectOptions.length);
   const shouldScrollSubjectPicker = visibleSubjectOptions.length > SUBJECT_PICKER_MAX_VISIBLE_ITEMS;
   const handleOpenNewSubjectForm = () => {
     setNewSubjectName('');
+    setNewSubjectColor(defaultNewSubjectColor);
     setSubjectPickerVisible(false);
     setNewSubjectFormVisible(true);
   };
@@ -1137,6 +1238,7 @@ function HistoryDetailSheet({
           subjectName={newSubjectName}
           color={newSubjectColor}
           onChangeSubjectName={setNewSubjectName}
+          onChangeColor={setNewSubjectColor}
           onClose={() => setNewSubjectFormVisible(false)}
           onSave={handleSaveNewSubject}
         />
@@ -2387,6 +2489,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     elevation: 40,
   },
+  hidden: {
+    display: 'none',
+  },
   newSubjectRoot: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -2461,6 +2566,79 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     lineHeight: 16,
+  },
+  colorPickerSheet: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    minHeight: 418,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: '#E5E5E5',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: -3 },
+    elevation: 44,
+  },
+  colorPickerHeader: {
+    height: 58,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  colorPickerCloseButton: {
+    position: 'absolute',
+    left: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F0F0F0',
+  },
+  colorPickerCloseText: {
+    color: '#333333',
+    fontSize: 24,
+    fontWeight: '400',
+    lineHeight: 28,
+  },
+  colorPickerTitle: {
+    color: '#111111',
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
+  colorPickerConfirmButton: {
+    position: 'absolute',
+    right: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E6EAFF',
+  },
+  colorPickerGrid: {
+    gap: 14,
+    paddingHorizontal: 19,
+    paddingTop: 13,
+  },
+  colorPickerRow: {
+    flexDirection: 'row',
+    gap: 14,
+  },
+  colorPickerSwatch: {
+    width: 35,
+    height: 35,
+    borderRadius: 3,
+  },
+  colorPickerSwatchSelected: {
+    borderWidth: 2,
+    borderColor: '#111111',
   },
   scrollBoundary: {
     height: SCROLL_BOUNDARY_HEIGHT,
