@@ -12,7 +12,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Path, Svg } from 'react-native-svg';
 import { SizableText } from 'tamagui';
 
@@ -41,7 +41,7 @@ const EXTEND_MINUTES = 5;
 // 4 件目以降は一覧内だけがスクロールするようにする。
 const TODAY_OUTPUT_VISIBLE_ROWS = 3;
 
-const PRIMARY_COLOR = '#4B5CFF';
+const PRIMARY_COLOR = '#148BFF';
 // 砂時計の砂積層に使う色。PRIMARY_COLOR (画面テーマの青) と砂時計の砂色を分離するため、input 用の砂色も独立した定数で管理する。
 const HOURGLASS_INPUT_COLOR = '#148BFF';
 const OUTPUT_PHASE_COLOR = '#F24D7E';
@@ -424,11 +424,6 @@ export function InputScreen() {
     ]);
   };
 
-  const handleExtend = () => {
-    extendTimer(EXTEND_MINUTES * 60);
-  };
-
-  const extendDisabled = timerStatus !== 'running' && timerStatus !== 'paused';
   const hasError = updateStatus.isError || cancelMutation.isError;
 
   return (
@@ -449,6 +444,7 @@ export function InputScreen() {
           phaseTabs={{
             activePhase: CURRENT_PHASE,
             activeDotColor: PRIMARY_COLOR,
+            activeTextColor: PRIMARY_COLOR,
             inactiveDotColor: DOT_INACTIVE,
           }}
         />
@@ -458,16 +454,16 @@ export function InputScreen() {
             <CircularPhaseTimer
               phase={CURRENT_PHASE}
               primaryColor={PRIMARY_COLOR}
-              trackColor={BORDER_COLOR}
+              trackColor={hasOutputReview ? BORDER_COLOR : '#E9F9FF'}
               testID="input-circular-timer"
               compact={hasOutputReview}
               enabled={isFocused}
             />
             {isDetailVisible ? null : (
-              <SizableText style={styles.timerCaption} testID="input-timer-caption">
+              <Text style={styles.timerCaption} testID="input-timer-caption">
                 終了後{outputMinutes}分間でアウトプットです{'\n'}
                 アウトプットへは自動で切り替わります
-              </SizableText>
+              </Text>
             )}
           </View>
 
@@ -486,34 +482,19 @@ export function InputScreen() {
             </SizableText>
           ) : null}
 
-          <View style={styles.actionArea}>
-            <Pressable
-              accessibilityRole="button"
-              disabled={cancelMutation.isPending}
-              onPress={handleCancel}
-              style={({ pressed }) => [
-                styles.cancelButton,
-                pressed ? styles.buttonPressed : null,
-                cancelMutation.isPending ? styles.buttonDisabled : null,
-              ]}
-              testID="input-cancel-button"
-            >
-              <SizableText style={styles.cancelButtonText}>中断する</SizableText>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              disabled={extendDisabled}
-              onPress={handleExtend}
-              style={({ pressed }) => [
-                styles.extendButton,
-                pressed ? styles.buttonPressed : null,
-                extendDisabled ? styles.buttonDisabled : null,
-              ]}
-              testID="input-extend-button"
-            >
-              <SizableText style={styles.extendButtonText}>{EXTEND_MINUTES}分延長</SizableText>
-            </Pressable>
-          </View>
+          <Pressable
+            accessibilityRole="button"
+            disabled={cancelMutation.isPending}
+            onPress={handleCancel}
+            style={({ pressed }) => [
+              styles.cancelButton,
+              pressed ? styles.buttonPressed : null,
+              cancelMutation.isPending ? styles.buttonDisabled : null,
+            ]}
+            testID="input-cancel-button"
+          >
+            <Text style={styles.cancelButtonText}>中断する</Text>
+          </Pressable>
         </View>
       </View>
     </SafeAreaView>
@@ -542,6 +523,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 20,
+    paddingBottom: '38.3%',
   },
   timerStageDetail: {
     flex: 0,
@@ -550,8 +532,9 @@ const styles = StyleSheet.create({
   },
   timerCaption: {
     color: CAPTION_COLOR,
-    fontSize: 13,
-    lineHeight: 20,
+    fontFamily: 'HiraginoSans-W4',
+    fontSize: 12,
+    lineHeight: 18,
     textAlign: 'center',
   },
   todayOutputsSection: {
@@ -776,38 +759,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 8,
   },
-  actionArea: {
-    flexDirection: 'row',
-    gap: 12,
-  },
+  actionArea: {},
   cancelButton: {
-    flex: 1,
+    position: 'absolute',
+    bottom: '19%',
+    left: '12.8%',
+    right: '12.8%',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 56,
-    borderRadius: 18,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#D0D5DD',
+    paddingVertical: '4.6%',
+    borderRadius: 20,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#6D6D6D',
   },
   cancelButtonText: {
-    color: TEXT_ACTIVE,
-    fontSize: 16,
-    fontWeight: '700',
-    lineHeight: 22,
-  },
-  extendButton: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 56,
-    borderRadius: 18,
-    backgroundColor: PRIMARY_COLOR,
-  },
-  extendButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+    color: '#6D6D6D',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 17,
     lineHeight: 22,
   },
   buttonPressed: {
