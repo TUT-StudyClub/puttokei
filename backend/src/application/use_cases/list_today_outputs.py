@@ -54,23 +54,29 @@ class ListTodayOutputs:
                     continue
 
                 judgment = await uow.judgments.find_by_session_id(session.id)
-                rows.append((session, output, judgment))
+                subject = await uow.study_subjects.find_assigned_subject_by_output_id(output.id)
+                rows.append((session, output, judgment, subject))
 
         rows.sort(key=lambda row: row[1].submitted_at)
         return TodayOutputsView(
             items=[
                 OutputReviewItemView(
                     session_id=session.id,
+                    session_started_at=session.started_at,
+                    input_minutes=session.input_minutes,
+                    output_minutes=session.output_minutes,
                     output=resolve_output_view(
                         output,
                         storage=self.image_storage,
                         download_url_ttl_seconds=self.download_url_ttl_seconds,
                     ),
                     cycle_index=index,
-                    subject=session.subject,
+                    subject=subject.label if subject is not None else session.subject,
+                    subject_id=subject.id if subject is not None else None,
+                    subject_color=subject.color if subject is not None else None,
                     topic=session.topic,
                     judgment=to_judgment_view(judgment) if judgment is not None else None,
                 )
-                for index, (session, output, judgment) in enumerate(rows, start=1)
+                for index, (session, output, judgment, subject) in enumerate(rows, start=1)
             ]
         )

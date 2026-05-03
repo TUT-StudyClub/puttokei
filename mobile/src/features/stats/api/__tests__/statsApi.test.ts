@@ -10,6 +10,7 @@ import {
   fetchStatsByPeriod,
   fetchStatsSummary,
   fetchWeeklyReport,
+  updateOutputSubject,
 } from '@/features/stats/api/statsApi';
 import type { StatsPeriodResponse, StatsSummary } from '@/features/stats/types';
 
@@ -31,13 +32,16 @@ describe('statsApi', () => {
   });
 
   let getSpy: jest.SpyInstance;
+  let patchSpy: jest.SpyInstance;
 
   beforeEach(() => {
     getSpy = jest.spyOn(api, 'get');
+    patchSpy = jest.spyOn(api, 'patch');
   });
 
   afterEach(() => {
     getSpy.mockRestore();
+    patchSpy.mockRestore();
   });
 
   it('fetchStatsSummary は /stats/summary を叩く', async () => {
@@ -101,5 +105,27 @@ describe('statsApi', () => {
 
     expect(getSpy).toHaveBeenCalledWith('/stats/daily?date=2026-04-29');
     expect(result).toEqual(dailyFixture);
+  });
+
+  it('updateOutputSubject は output id 付きで /sessions/outputs/{id}/subject を叩く', async () => {
+    const fixture = {
+      output_id: 'out-1',
+      subject_id: 'subject-1',
+      subject: '数学',
+      subject_color: '#FF9147',
+      updated_at: '2026-05-03T12:00:00Z',
+    };
+    patchSpy.mockResolvedValueOnce({ data: fixture, status: 200 });
+
+    const result = await updateOutputSubject('out-1', {
+      label: '数学',
+      color: '#FF9147',
+    });
+
+    expect(patchSpy).toHaveBeenCalledWith('/sessions/outputs/out-1/subject', {
+      label: '数学',
+      color: '#FF9147',
+    });
+    expect(result).toEqual(fixture);
   });
 });

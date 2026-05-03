@@ -24,6 +24,7 @@ from src.application.dto.session_dto import (
     IssueOutputImageUploadUrlCommand,
     SubmitImageOutputCommand,
     SubmitTextOutputCommand,
+    UpdateOutputSubjectCommand,
     UpdateSessionStatusCommand,
 )
 from src.application.use_cases.get_judgment import (
@@ -63,6 +64,9 @@ from src.application.use_cases.submit_text_output import (
 from src.application.use_cases.submit_text_output import (
     SessionNotFoundError as SubmitTextOutputSessionNotFoundError,
 )
+from src.application.use_cases.update_output_subject import (
+    OutputNotFoundError as UpdateOutputSubjectOutputNotFoundError,
+)
 from src.application.use_cases.update_session_status import (
     InvalidSessionStatusTransitionError,
     SessionNotFoundError,
@@ -73,6 +77,7 @@ from src.presentation.mappers.response_mapper import (
     to_judgment_pending_response,
     to_judgment_progress_response,
     to_judgment_response,
+    to_output_subject_assignment_response,
     to_session_response,
     to_submit_output_response,
     to_today_outputs_response,
@@ -88,11 +93,13 @@ from src.presentation.schemas.session_schema import (
     CreateSessionRequest,
     IssueOutputImageUploadUrlRequest,
     IssueOutputImageUploadUrlResponse,
+    OutputSubjectAssignmentResponse,
     SessionResponse,
     SubmitImageOutputRequest,
     SubmitOutputResponse,
     SubmitTextOutputRequest,
     TodayOutputsResponse,
+    UpdateOutputSubjectRequest,
     UpdateSessionRequest,
 )
 
@@ -133,6 +140,35 @@ async def list_today_outputs(
     container = get_presentation_container(request)
     view = await container.list_today_outputs.execute(current_user)
     return to_today_outputs_response(view)
+
+
+@sessions_router.patch(
+    "/outputs/{output_id}/subject",
+    response_model=OutputSubjectAssignmentResponse,
+)
+async def update_output_subject(
+    body: UpdateOutputSubjectRequest,
+    request: Request,
+    output_id: UUID = Path(...),  # noqa: B008
+    current_user: User = Depends(get_current_user),  # noqa: B008
+) -> OutputSubjectAssignmentResponse:
+    """アウトプット単位で教科名と表示色を保存する。"""
+    container = get_presentation_container(request)
+    command = UpdateOutputSubjectCommand(
+        output_id=output_id,
+        label=body.label,
+        color=body.color,
+    )
+    try:
+        view = await container.update_output_subject.execute(current_user, command)
+    except UpdateOutputSubjectOutputNotFoundError as exc:
+        raise ProblemDetailsError(
+            status_code=status.HTTP_404_NOT_FOUND,
+            problem_type="output_not_found",
+            title="Output Not Found",
+            detail="指定されたアウトプットが見つかりません。",
+        ) from exc
+    return to_output_subject_assignment_response(view)
 
 
 @sessions_router.patch("/{session_id}", response_model=SessionResponse)

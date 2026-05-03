@@ -6,6 +6,7 @@
  */
 import { api } from '@/shared/lib/api';
 
+import type { OutputSubjectAssignment, UpdateOutputSubjectInput } from '@/features/session/types';
 import type {
   DailyReportResponse,
   Period,
@@ -47,5 +48,20 @@ export async function fetchWeeklyReport(weekStart: string): Promise<WeeklyReport
 export async function fetchDailyReport(date: string): Promise<DailyReportResponse> {
   const query = encodeURIComponent(date);
   const { data } = await api.get<DailyReportResponse>(`/stats/daily?date=${query}`);
+  return data;
+}
+
+/**
+ * アウトプット単位の教科割り当て更新。
+ * 統計画面の履歴詳細から `/api/v1/sessions/outputs/{id}/subject` を叩く。
+ */
+export async function updateOutputSubject(
+  outputId: string,
+  input: UpdateOutputSubjectInput,
+): Promise<OutputSubjectAssignment> {
+  const { data } = await api.patch<OutputSubjectAssignment>(
+    `/sessions/outputs/${outputId}/subject`,
+    input,
+  );
   return data;
 }
