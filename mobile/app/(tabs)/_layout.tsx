@@ -157,16 +157,8 @@ export default function TabsLayout() {
           name="stats"
           options={{
             title: 'レポート',
-            tabBarLabel: () => (
-              <Text
-                allowFontScaling={false}
-                style={{
-                  color: '#676767',
-                  fontSize: 11,
-                  fontFamily: 'HiraginoSans-W6',
-                  marginTop: 4,
-                }}
-              >
+            tabBarLabel: ({ color }) => (
+              <Text allowFontScaling={false} style={[styles.tabBarLabel, { color, marginTop: 4 }]}>
                 レポート
               </Text>
             ),
