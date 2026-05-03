@@ -9,6 +9,7 @@ from src.domain.value_objects.judgment_progress import (
     JudgmentProgressStage,
     JudgmentProgressStatus,
 )
+from src.domain.value_objects.judgment_query import JudgmentSort
 from src.domain.value_objects.judgment_result import BoundingBox
 from src.domain.value_objects.verdict import Verdict
 
@@ -32,6 +33,24 @@ class JudgmentView(FrozenModel):
     advice: str
     corrections: list[JudgmentCorrectionView]
     judged_at: datetime
+
+
+class ListJudgmentsQuery(FrozenModel):
+    """判定履歴一覧の検索条件。"""
+
+    cursor: str | None = None
+    limit: int
+    verdict: Verdict | None = None
+    judged_from: datetime | None = None
+    judged_to: datetime | None = None
+    sort: JudgmentSort = JudgmentSort.JUDGED_AT_DESC
+
+
+class JudgmentListView(FrozenModel):
+    """判定履歴一覧の取得結果。"""
+
+    judgments: list[JudgmentView]
+    next_cursor: str | None
 
 
 class JudgmentPendingView(FrozenModel):
