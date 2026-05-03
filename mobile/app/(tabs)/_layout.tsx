@@ -144,8 +144,8 @@ export default function TabsLayout() {
           name="stats"
           options={{
             title: 'レポート',
-            tabBarLabel: () => (
-              <Text style={{ color: '#676767', fontSize: 12, fontWeight: '700' }}>レポート</Text>
+            tabBarLabel: ({ color }) => (
+              <Text style={[styles.tabBarLabel, { color }]}>レポート</Text>
             ),
             tabBarIcon: ({ color }) => <ReportTabIcon color={color} size={39} />,
           }}
@@ -174,6 +174,10 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
+  tabBarLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
   dialogBackdrop: {
     flex: 1,
     alignItems: 'center',

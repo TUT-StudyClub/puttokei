@@ -11,15 +11,17 @@
 import { Redirect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useQueries } from '@tanstack/react-query';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Image,
   ImageBackground,
+  Modal,
   Pressable,
   SafeAreaView,
   ScrollView,
   type StyleProp,
   StyleSheet,
+  TextInput,
   type TextStyle,
   type ViewStyle,
   useWindowDimensions,
@@ -51,6 +53,7 @@ import type {
   WeeklyReportPoint,
   WeeklyReportResponse,
 } from '@/features/stats/types';
+import { AnnotatedOutputText } from '@/features/session/components/AnnotatedOutputText';
 import type { OutputReviewItem } from '@/features/session/types';
 import { isApiError } from '@/shared/lib/api';
 import { useAuthStore } from '@/shared/stores/authStore';
@@ -60,12 +63,51 @@ const MONTHLY_HIGHLIGHT_BACKGROUND = require('../../../../assets/images/backgrou
 const CALENDAR_MONTH_ICON = require('../../../../assets/images/icons/icon_calendar_month.png');
 const CALENDAR_DATE_ICON = require('../../../../assets/images/icons/icon_calendar_date.png');
 const SHARE_ICON = require('../../../../assets/images/icons/icon_share.png');
+const TEXT_MODE_ICON_BLACK = require('../../../../assets/images/icons/icon_pen_black.png');
+const TEXT_MODE_ICON_GRAY = require('../../../../assets/images/icons/icon_pen_gray.png');
+const IMAGE_MODE_ICON_BLACK = require('../../../../assets/images/icons/icon_pic_black..png');
+const IMAGE_MODE_ICON_GRAY = require('../../../../assets/images/icons/icon_pic_gray..png');
+const VOICE_MODE_ICON_BLACK = require('../../../../assets/images/icons/icon_mic_black.png');
+const VOICE_MODE_ICON_GRAY = require('../../../../assets/images/icons/icon_mic_gray.png');
 
 const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'] as const;
 const TOKYO_TIME_ZONE = 'Asia/Tokyo';
 const HISTORY_VISIBLE_ITEM_LIMIT = 3;
+const UNSET_SUBJECT_LABEL = '未設定';
+const SUBJECT_COLOR_PALETTE = ['#28D94F', '#FF4A55', '#4B5CFF', '#F59E0B', '#A855F7'] as const;
+const SUBJECT_PICKER_PADDING_TOP = 17;
+const SUBJECT_PICKER_PADDING_BOTTOM = 18;
+const SUBJECT_PICKER_HEADER_HEIGHT = 24;
+const SUBJECT_PICKER_LIST_MARGIN_TOP = 9;
+const SUBJECT_PICKER_ITEM_HEIGHT = 24;
+const SUBJECT_PICKER_ITEM_GAP = 6;
+const SUBJECT_PICKER_MAX_VISIBLE_ITEMS = 5;
+const HISTORY_OUTPUT_MODE_TABS = [
+  {
+    key: 'text',
+    label: 'テキスト',
+    activeIcon: TEXT_MODE_ICON_BLACK,
+    inactiveIcon: TEXT_MODE_ICON_GRAY,
+  },
+  {
+    key: 'image',
+    label: '画像',
+    activeIcon: IMAGE_MODE_ICON_BLACK,
+    inactiveIcon: IMAGE_MODE_ICON_GRAY,
+  },
+  {
+    key: 'voice',
+    label: '音声',
+    activeIcon: VOICE_MODE_ICON_BLACK,
+    inactiveIcon: VOICE_MODE_ICON_GRAY,
+  },
+] as const;
 
 type ReportViewMode = 'daily' | 'weekly' | 'monthly';
+type SubjectOption = {
+  label: string;
+  color: string;
+};
 type HistoryGroup = {
   dateKey: string;
   dateLabel: string | null;
@@ -137,10 +179,80 @@ function ShareIconButton() {
   );
 }
 
+function CloseIcon() {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 6 L18 18" stroke="#4B4B4B" strokeWidth={2.4} strokeLinecap="round" />
+      <Path d="M18 6 L6 18" stroke="#4B4B4B" strokeWidth={2.4} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M5 12.4 L9.4 16.8 L19 7.2"
+        stroke="#5367FF"
+        strokeWidth={2.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 function getMonthStartKey(dateKey: string): string {
   const date = parseDateKey(dateKey);
   date.setDate(1);
   return toDateKey(date);
+}
+
+function getSubjectLabel(subject: string): string {
+  const trimmedSubject = subject.trim();
+  return trimmedSubject.length > 0 ? trimmedSubject : UNSET_SUBJECT_LABEL;
+}
+
+function isUnsetSubject(subject: string): boolean {
+  return getSubjectLabel(subject) === UNSET_SUBJECT_LABEL;
+}
+
+function buildSubjectOptions(items: readonly OutputReviewItem[]): SubjectOption[] {
+  const subjects = new Map<string, SubjectOption>();
+
+  items.forEach((item) => {
+    if (isUnsetSubject(item.subject)) return;
+
+    const label = getSubjectLabel(item.subject);
+    if (subjects.has(label)) return;
+
+    subjects.set(label, {
+      label,
+      color: SUBJECT_COLOR_PALETTE[subjects.size % SUBJECT_COLOR_PALETTE.length]!,
+    });
+  });
+
+  return [...subjects.values()];
+}
+
+function getSubjectPickerListHeight(subjectCount: number): number {
+  if (subjectCount === 0) return 0;
+  return subjectCount * SUBJECT_PICKER_ITEM_HEIGHT + (subjectCount - 1) * SUBJECT_PICKER_ITEM_GAP;
+}
+
+function getSubjectPickerHeight(subjectCount: number): number {
+  const visibleSubjectCount = Math.min(subjectCount, SUBJECT_PICKER_MAX_VISIBLE_ITEMS);
+  const listHeight =
+    visibleSubjectCount > 0
+      ? SUBJECT_PICKER_LIST_MARGIN_TOP + getSubjectPickerListHeight(visibleSubjectCount)
+      : 0;
+
+  return (
+    SUBJECT_PICKER_PADDING_TOP +
+    SUBJECT_PICKER_HEADER_HEIGHT +
+    listHeight +
+    SUBJECT_PICKER_PADDING_BOTTOM
+  );
 }
 
 function daysBetweenDateKeys(targetKey: string, baseKey: string): number {
@@ -750,18 +862,385 @@ function WeeklyBarChart({ points }: { points: WeeklyReportPoint[] }) {
   );
 }
 
+function NewSubjectFormModal({
+  visible,
+  subjectName,
+  color,
+  onChangeSubjectName,
+  onClose,
+  onSave,
+}: {
+  visible: boolean;
+  subjectName: string;
+  color: string;
+  onChangeSubjectName: (value: string) => void;
+  onClose: () => void;
+  onSave: () => void;
+}) {
+  if (!visible) return null;
+
+  return (
+    <View style={styles.newSubjectOverlay} testID="stats-new-subject-modal">
+      <SafeAreaView style={styles.newSubjectRoot}>
+        <View style={styles.newSubjectHeader}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="戻る"
+            hitSlop={8}
+            onPress={onClose}
+            style={styles.newSubjectBackButton}
+            testID="stats-new-subject-back"
+          >
+            <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M15 5 L8 12 L15 19"
+                stroke="#333333"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+          </Pressable>
+          <SizableText style={styles.newSubjectTitle}>新規教科追加</SizableText>
+        </View>
+
+        <View style={styles.newSubjectForm}>
+          <View style={styles.newSubjectRow}>
+            <SizableText style={styles.newSubjectLabel}>教科</SizableText>
+            <TextInput
+              value={subjectName}
+              onChangeText={onChangeSubjectName}
+              placeholder="新規教科"
+              placeholderTextColor="#D0D0D0"
+              style={styles.newSubjectInput}
+              testID="stats-new-subject-input"
+            />
+          </View>
+          <View style={styles.newSubjectRow}>
+            <SizableText style={styles.newSubjectLabel}>色</SizableText>
+            <View
+              style={[
+                styles.newSubjectColorPreview,
+                subjectName.trim() ? { backgroundColor: color } : null,
+              ]}
+              testID="stats-new-subject-color"
+            />
+          </View>
+        </View>
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={onSave}
+          style={styles.newSubjectSaveButton}
+          testID="stats-new-subject-save"
+        >
+          <SizableText style={styles.newSubjectSaveText}>保存する</SizableText>
+        </Pressable>
+      </SafeAreaView>
+    </View>
+  );
+}
+
+function HistoryDetailSheet({
+  item,
+  onClose,
+  subjectOptions,
+}: {
+  item: OutputReviewItem | null;
+  onClose: () => void;
+  subjectOptions: SubjectOption[];
+}) {
+  const [isSubjectPickerVisible, setSubjectPickerVisible] = useState(false);
+  const [isNewSubjectFormVisible, setNewSubjectFormVisible] = useState(false);
+  const [newSubjectName, setNewSubjectName] = useState('');
+  const [localSubjectOptions, setLocalSubjectOptions] = useState<SubjectOption[]>([]);
+
+  useEffect(() => {
+    setSubjectPickerVisible(false);
+    setNewSubjectFormVisible(false);
+  }, [item?.output.id]);
+
+  if (item === null) return null;
+
+  const timeRange = getHistoryTimeRangeParts(item);
+  const title = `${getTokyoMonthDayLabelFromTimestamp(item.output.submitted_at)}　${timeRange.start} - ${timeRange.end}`;
+  const subjectLabel = getSubjectLabel(item.subject);
+  const isSubjectUnset = isUnsetSubject(item.subject);
+  const visibleSubjectOptions = [...subjectOptions];
+  localSubjectOptions.forEach((subject) => {
+    if (!visibleSubjectOptions.some((option) => option.label === subject.label)) {
+      visibleSubjectOptions.push(subject);
+    }
+  });
+  const newSubjectColor =
+    SUBJECT_COLOR_PALETTE[visibleSubjectOptions.length % SUBJECT_COLOR_PALETTE.length]!;
+  const subjectPickerHeight = getSubjectPickerHeight(visibleSubjectOptions.length);
+  const shouldScrollSubjectPicker = visibleSubjectOptions.length > SUBJECT_PICKER_MAX_VISIBLE_ITEMS;
+  const handleOpenNewSubjectForm = () => {
+    setNewSubjectName('');
+    setSubjectPickerVisible(false);
+    setNewSubjectFormVisible(true);
+  };
+  const handleSaveNewSubject = () => {
+    const label = newSubjectName.trim();
+    if (label.length > 0 && !visibleSubjectOptions.some((subject) => subject.label === label)) {
+      setLocalSubjectOptions((current) => [...current, { label, color: newSubjectColor }]);
+    }
+    setNewSubjectFormVisible(false);
+    setSubjectPickerVisible(true);
+  };
+
+  return (
+    <Modal
+      transparent
+      animationType="slide"
+      visible
+      onRequestClose={onClose}
+      testID="stats-history-sheet-modal"
+    >
+      <View style={styles.historySheetModalRoot}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="履歴詳細を閉じる"
+          onPress={onClose}
+          style={styles.historySheetBackdrop}
+          testID="stats-history-sheet-backdrop"
+        />
+        <View
+          accessibilityViewIsModal
+          style={styles.historySheetPanel}
+          testID="stats-history-sheet"
+        >
+          <View style={styles.historySheetHeader}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="閉じる"
+              hitSlop={8}
+              onPress={onClose}
+              style={styles.historySheetIconButton}
+              testID="stats-history-sheet-close"
+            >
+              <CloseIcon />
+            </Pressable>
+            <SizableText style={styles.historySheetTitle} numberOfLines={1}>
+              {title}
+            </SizableText>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="閉じる"
+              hitSlop={8}
+              onPress={onClose}
+              style={[styles.historySheetIconButton, styles.historySheetConfirmButton]}
+              testID="stats-history-sheet-confirm"
+            >
+              <CheckIcon />
+            </Pressable>
+          </View>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ expanded: isSubjectPickerVisible }}
+            onPress={() => setSubjectPickerVisible(true)}
+            style={styles.historySheetSubjectRow}
+            testID="stats-history-sheet-subject-row"
+          >
+            <SizableText style={styles.historySheetLabel}>教科</SizableText>
+            <View style={styles.historySheetSubjectValue}>
+              <View
+                style={[
+                  styles.historySheetSubjectDot,
+                  isSubjectUnset ? styles.historySheetSubjectDotUnset : null,
+                ]}
+                testID="stats-history-sheet-subject-dot"
+              />
+              <SizableText
+                style={[
+                  styles.historySheetSubjectText,
+                  isSubjectUnset ? styles.historySheetSubjectTextUnset : null,
+                ]}
+                numberOfLines={1}
+                testID="stats-history-sheet-subject-text"
+              >
+                {subjectLabel}
+              </SizableText>
+            </View>
+          </Pressable>
+          <View style={styles.historySheetDivider} />
+
+          {isSubjectPickerVisible ? (
+            <View
+              style={[styles.historySheetSubjectPicker, { height: subjectPickerHeight }]}
+              testID="stats-history-sheet-subject-picker"
+            >
+              <View style={styles.historySheetSubjectPickerHeader}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={handleOpenNewSubjectForm}
+                  style={styles.historySheetNewSubjectButton}
+                  testID="stats-history-sheet-subject-picker-new"
+                >
+                  <View style={styles.historySheetNewSubjectIcon}>
+                    <SizableText style={styles.historySheetNewSubjectIconText}>+</SizableText>
+                  </View>
+                  <SizableText style={styles.historySheetNewSubjectText}>新規教科</SizableText>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="教科一覧を閉じる"
+                  hitSlop={8}
+                  onPress={() => setSubjectPickerVisible(false)}
+                  style={styles.historySheetSubjectPickerClose}
+                  testID="stats-history-sheet-subject-picker-close"
+                >
+                  <SizableText style={styles.historySheetSubjectPickerCloseText}>×</SizableText>
+                </Pressable>
+              </View>
+              {visibleSubjectOptions.length > 0 ? (
+                <ScrollView
+                  style={styles.historySheetSubjectPickerScroll}
+                  contentContainerStyle={styles.historySheetSubjectPickerList}
+                  showsVerticalScrollIndicator={shouldScrollSubjectPicker}
+                >
+                  {visibleSubjectOptions.map((subject, index) => (
+                    <View
+                      key={subject.label}
+                      style={styles.historySheetSubjectPickerItem}
+                      testID={`stats-history-sheet-subject-option-${index}`}
+                    >
+                      <View
+                        style={[
+                          styles.historySheetSubjectPickerDot,
+                          { backgroundColor: subject.color },
+                        ]}
+                        testID={`stats-history-sheet-subject-option-dot-${index}`}
+                      />
+                      <SizableText style={styles.historySheetSubjectPickerText}>
+                        {subject.label}
+                      </SizableText>
+                    </View>
+                  ))}
+                </ScrollView>
+              ) : null}
+            </View>
+          ) : null}
+
+          <SizableText style={styles.historySheetSectionTitle}>アウトプット</SizableText>
+          <View style={styles.historySheetOutputFrame}>
+            <HistoryOutputModeTabs activeKind={item.output.kind} />
+            <View style={styles.historySheetOutputBody}>
+              <HistorySheetOutput item={item} />
+            </View>
+          </View>
+        </View>
+        <NewSubjectFormModal
+          visible={isNewSubjectFormVisible}
+          subjectName={newSubjectName}
+          color={newSubjectColor}
+          onChangeSubjectName={setNewSubjectName}
+          onClose={() => setNewSubjectFormVisible(false)}
+          onSave={handleSaveNewSubject}
+        />
+      </View>
+    </Modal>
+  );
+}
+
+function HistoryOutputModeTabs({ activeKind }: { activeKind: OutputReviewItem['output']['kind'] }) {
+  return (
+    <View style={styles.historySheetTabs}>
+      {HISTORY_OUTPUT_MODE_TABS.map((tab) => {
+        const isActive = tab.key === activeKind;
+        return (
+          <View
+            key={tab.key}
+            style={[styles.historySheetTab, isActive ? styles.historySheetTabActive : null]}
+          >
+            <Image
+              source={isActive ? tab.activeIcon : tab.inactiveIcon}
+              resizeMode="contain"
+              style={styles.historySheetTabIcon}
+              testID={`stats-history-sheet-tab-icon-${tab.key}`}
+            />
+            <SizableText
+              style={[
+                styles.historySheetTabText,
+                isActive ? styles.historySheetTabTextActive : null,
+              ]}
+            >
+              {tab.label}
+            </SizableText>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function HistorySheetOutput({ item }: { item: OutputReviewItem }) {
+  if (item.output.kind === 'image') {
+    if (item.output.image_url === null) {
+      return (
+        <View style={styles.historySheetEmptyOutput}>
+          <SizableText style={styles.historySheetEmptyOutputText}>
+            画像アウトプットがありません。
+          </SizableText>
+        </View>
+      );
+    }
+
+    return (
+      <Image
+        source={{ uri: item.output.image_url }}
+        resizeMode="contain"
+        style={styles.historySheetOutputImage}
+        testID="stats-history-sheet-output-image"
+      />
+    );
+  }
+
+  const content = item.output.content?.trim();
+  if (!content) {
+    return (
+      <View style={styles.historySheetEmptyOutput}>
+        <SizableText style={styles.historySheetEmptyOutputText}>
+          テキストアウトプットがありません。
+        </SizableText>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      style={styles.historySheetOutputScroll}
+      contentContainerStyle={styles.historySheetOutputScrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      <AnnotatedOutputText
+        content={content}
+        corrections={item.judgment?.corrections ?? []}
+        selectedCorrectionIndex={null}
+        onSelectCorrection={() => undefined}
+        textStyle={styles.historySheetOutputText}
+        testID="stats-history-sheet-output-text"
+      />
+    </ScrollView>
+  );
+}
+
 function OutputHistory({
   items,
   fallbackDateKey,
   emptyMessage = 'この日の履歴はまだありません。',
   titleFrameStyle,
   cardFrameStyle,
+  onSelectItem,
 }: {
   items: OutputReviewItem[];
   fallbackDateKey?: string;
   emptyMessage?: string;
   titleFrameStyle?: StyleProp<TextStyle>;
   cardFrameStyle?: StyleProp<ViewStyle>;
+  onSelectItem: (item: OutputReviewItem) => void;
 }) {
   const groups = useMemo(
     () => buildHistoryGroups(items, fallbackDateKey),
@@ -789,8 +1268,10 @@ function OutputHistory({
             group.items.slice(0, HISTORY_VISIBLE_ITEM_LIMIT).map((item, index, visibleItems) => {
               const timeRange = getHistoryTimeRangeParts(item);
               return (
-                <View
+                <Pressable
                   key={item.output.id}
+                  accessibilityRole="button"
+                  onPress={() => onSelectItem(item)}
                   style={[
                     styles.historyRow,
                     index < visibleItems.length - 1 ? styles.historyRowBorder : null,
@@ -811,7 +1292,7 @@ function OutputHistory({
                   <SizableText style={styles.historyCycleText} numberOfLines={1}>
                     サイクル{item.cycle_index}
                   </SizableText>
-                </View>
+                </Pressable>
               );
             })
           )}
@@ -843,11 +1324,24 @@ export function StatsScreen() {
   );
   const [reportViewMode, setReportViewMode] = useState<ReportViewMode>('daily');
   const [calendarMonthStart, setCalendarMonthStart] = useState(() => getMonthStartKey(weekStart));
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState<OutputReviewItem | null>(null);
   const dailyReportQuery = useDailyReport(selectedDateKey);
   const weeklyReportQuery = useWeeklyReport(weekStart, {
     enabled: reportViewMode === 'weekly',
   });
   const monthlyReports = useMonthlyWeeklyReports(calendarMonthStart, reportViewMode === 'monthly');
+  const subjectOptions = useMemo(() => {
+    const loadedHistoryItems = [
+      ...(dailyReportQuery.data?.output_history ?? []),
+      ...(weeklyReportQuery.data?.output_history ?? []),
+      ...monthlyReports.reports.flatMap((report) => report.output_history),
+    ];
+    return buildSubjectOptions(loadedHistoryItems);
+  }, [
+    dailyReportQuery.data?.output_history,
+    monthlyReports.reports,
+    weeklyReportQuery.data?.output_history,
+  ]);
   const highlightCardSize = useMemo(() => getHighlightCardSize(viewportWidth), [viewportWidth]);
   const dailyHighlightCardStyle = useMemo<StyleProp<ViewStyle>>(() => {
     if (highlightCardSize.height === 0) return undefined;
@@ -904,6 +1398,12 @@ export function StatsScreen() {
   const handleMonthlyRetry = useCallback(() => {
     monthlyReports.refetch();
   }, [monthlyReports]);
+  const handleOpenHistorySheet = useCallback((item: OutputReviewItem) => {
+    setSelectedHistoryItem(item);
+  }, []);
+  const handleCloseHistorySheet = useCallback(() => {
+    setSelectedHistoryItem(null);
+  }, []);
   const handleOpenMonthlyCalendar = useCallback(() => {
     setCalendarMonthStart(getMonthStartKey(weekStart));
     setReportViewMode('monthly');
@@ -1023,6 +1523,7 @@ export function StatsScreen() {
           fallbackDateKey={dailyReportQuery.data.date}
           titleFrameStyle={dailyHighlightTextFrameStyle}
           cardFrameStyle={dailyHighlightViewFrameStyle}
+          onSelectItem={handleOpenHistorySheet}
         />
         {dailyReportQuery.isFetching ? (
           <SizableText style={styles.refetchingText} testID="stats-refetching">
@@ -1057,6 +1558,7 @@ export function StatsScreen() {
         <OutputHistory
           items={weeklyReportQuery.data.output_history}
           emptyMessage="この週の履歴はまだありません。"
+          onSelectItem={handleOpenHistorySheet}
         />
         {weeklyReportQuery.isFetching ? (
           <SizableText style={styles.refetchingText} testID="stats-weekly-refetching">
@@ -1091,6 +1593,11 @@ export function StatsScreen() {
           </View>
           {monthlyBody}
         </ScrollView>
+        <HistoryDetailSheet
+          item={selectedHistoryItem}
+          onClose={handleCloseHistorySheet}
+          subjectOptions={subjectOptions}
+        />
       </SafeAreaView>
     );
   }
@@ -1153,6 +1660,11 @@ export function StatsScreen() {
         >
           {weeklyBody}
         </ScrollView>
+        <HistoryDetailSheet
+          item={selectedHistoryItem}
+          onClose={handleCloseHistorySheet}
+          subjectOptions={subjectOptions}
+        />
       </SafeAreaView>
     );
   }
@@ -1200,6 +1712,11 @@ export function StatsScreen() {
       >
         {dailyBody}
       </ScrollView>
+      <HistoryDetailSheet
+        item={selectedHistoryItem}
+        onClose={handleCloseHistorySheet}
+        subjectOptions={subjectOptions}
+      />
     </SafeAreaView>
   );
 }
@@ -1580,6 +2097,370 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     lineHeight: 14,
+  },
+  historySheetModalRoot: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  historySheetBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+  },
+  historySheetPanel: {
+    width: '100%',
+    maxWidth: 430,
+    maxHeight: '82%',
+    alignSelf: 'center',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: '#E5E5E5',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 31,
+    paddingTop: 22,
+    paddingBottom: 34,
+    shadowColor: '#000000',
+    shadowOpacity: 0.14,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 8,
+  },
+  historySheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  historySheetIconButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F0F0F0',
+  },
+  historySheetConfirmButton: {
+    backgroundColor: '#E6EAFF',
+  },
+  historySheetTitle: {
+    flex: 1,
+    paddingLeft: 20,
+    color: '#111111',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 16,
+    fontWeight: '800',
+    lineHeight: 22,
+    fontVariant: ['tabular-nums'],
+  },
+  historySheetSubjectRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 12,
+    marginTop: 18,
+  },
+  historySheetLabel: {
+    color: '#333333',
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
+  historySheetSubjectValue: {
+    maxWidth: 170,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4,
+  },
+  historySheetSubjectDot: {
+    width: 15,
+    height: 15,
+    borderRadius: 7.5,
+    backgroundColor: '#28D94F',
+  },
+  historySheetSubjectDotUnset: {
+    backgroundColor: '#D0D0D0',
+  },
+  historySheetSubjectText: {
+    flexShrink: 1,
+    color: '#333333',
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
+  historySheetSubjectTextUnset: {
+    color: '#777777',
+  },
+  historySheetSubjectPicker: {
+    position: 'absolute',
+    top: 102,
+    left: 31,
+    right: 18,
+    zIndex: 20,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 22,
+    paddingTop: 17,
+    paddingBottom: 18,
+    shadowColor: '#000000',
+    shadowOpacity: 0.14,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 12,
+  },
+  historySheetSubjectPickerHeader: {
+    minHeight: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  historySheetNewSubjectButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  historySheetNewSubjectIcon: {
+    width: 18,
+    height: 18,
+    borderWidth: 1.2,
+    borderColor: '#333333',
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  historySheetNewSubjectIconText: {
+    color: '#333333',
+    fontSize: 16,
+    fontWeight: '500',
+    lineHeight: 18,
+  },
+  historySheetNewSubjectText: {
+    color: '#8A8A8A',
+    fontSize: 16,
+    fontWeight: '500',
+    lineHeight: 22,
+  },
+  historySheetSubjectPickerClose: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  historySheetSubjectPickerCloseText: {
+    color: '#777777',
+    fontSize: 18,
+    fontWeight: '700',
+    lineHeight: 22,
+  },
+  historySheetSubjectPickerScroll: {
+    marginTop: 9,
+    maxHeight:
+      SUBJECT_PICKER_MAX_VISIBLE_ITEMS * SUBJECT_PICKER_ITEM_HEIGHT +
+      (SUBJECT_PICKER_MAX_VISIBLE_ITEMS - 1) * SUBJECT_PICKER_ITEM_GAP,
+  },
+  historySheetSubjectPickerList: {
+    gap: 6,
+  },
+  historySheetSubjectPickerItem: {
+    minHeight: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  historySheetSubjectPickerDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+  },
+  historySheetSubjectPickerText: {
+    color: '#333333',
+    fontSize: 18,
+    fontWeight: '500',
+    lineHeight: 24,
+  },
+  historySheetDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 12,
+    marginTop: 7,
+    backgroundColor: '#D0D0D0',
+  },
+  historySheetSectionTitle: {
+    marginHorizontal: 12,
+    marginTop: 11,
+    color: '#333333',
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
+  historySheetOutputFrame: {
+    minHeight: 296,
+    marginHorizontal: 12,
+    marginTop: 8,
+    borderWidth: 1.5,
+    borderColor: '#777777',
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: 17,
+    backgroundColor: '#FFFFFF',
+  },
+  historySheetTabs: {
+    height: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#D0D0D0',
+    borderRadius: 7,
+    backgroundColor: '#EFEFEF',
+    overflow: 'hidden',
+  },
+  historySheetTab: {
+    flex: 1,
+    height: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  historySheetTabActive: {
+    backgroundColor: '#FFFFFF',
+  },
+  historySheetTabIcon: {
+    width: 12,
+    height: 12,
+  },
+  historySheetTabText: {
+    color: '#777777',
+    fontSize: 10,
+    fontWeight: '700',
+    lineHeight: 13,
+  },
+  historySheetTabTextActive: {
+    color: '#2F2F2F',
+  },
+  historySheetOutputBody: {
+    flex: 1,
+    minHeight: 234,
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: '#D0D0D0',
+    borderRadius: 6,
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+  },
+  historySheetOutputScroll: {
+    flex: 1,
+  },
+  historySheetOutputScrollContent: {
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+  },
+  historySheetOutputText: {
+    color: '#333333',
+    fontSize: 12,
+    fontWeight: '500',
+    lineHeight: 19,
+  },
+  historySheetOutputImage: {
+    flex: 1,
+    width: '100%',
+  },
+  historySheetEmptyOutput: {
+    flex: 1,
+    minHeight: 234,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  historySheetEmptyOutputText: {
+    color: '#777777',
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 18,
+    textAlign: 'center',
+  },
+  newSubjectOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 40,
+    backgroundColor: '#FFFFFF',
+    elevation: 40,
+  },
+  newSubjectRoot: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  newSubjectHeader: {
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  newSubjectBackButton: {
+    position: 'absolute',
+    left: 24,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  newSubjectTitle: {
+    color: '#111111',
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
+  newSubjectForm: {
+    paddingHorizontal: 33,
+  },
+  newSubjectRow: {
+    minHeight: 31,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#D9D9D9',
+  },
+  newSubjectLabel: {
+    width: 64,
+    color: '#333333',
+    fontSize: 14,
+    fontWeight: '400',
+    lineHeight: 20,
+  },
+  newSubjectInput: {
+    flex: 1,
+    height: 31,
+    padding: 0,
+    color: '#333333',
+    fontSize: 14,
+    fontWeight: '400',
+    textAlign: 'right',
+  },
+  newSubjectColorPreview: {
+    width: 12,
+    height: 12,
+    marginLeft: 'auto',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#D0D0D0',
+    borderRadius: 6,
+    backgroundColor: '#FFFFFF',
+  },
+  newSubjectSaveButton: {
+    position: 'absolute',
+    left: 39,
+    right: 39,
+    bottom: 56,
+    height: 40,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#4B5CFF',
+  },
+  newSubjectSaveText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 16,
   },
   scrollBoundary: {
     height: SCROLL_BOUNDARY_HEIGHT,

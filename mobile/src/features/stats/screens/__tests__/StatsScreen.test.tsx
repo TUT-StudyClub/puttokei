@@ -4,6 +4,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
+import { StyleSheet } from 'react-native';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../../tamagui.config';
@@ -15,6 +16,12 @@ import { ApiError } from '@/shared/lib/api';
 import { useAuthStore } from '@/shared/stores/authStore';
 
 jest.mock('@/features/stats/api/statsApi');
+
+const TEXT_MODE_ICON_BLACK = require('../../../../../assets/images/icons/icon_pen_black.png');
+const TEXT_MODE_ICON_GRAY = require('../../../../../assets/images/icons/icon_pen_gray.png');
+const IMAGE_MODE_ICON_BLACK = require('../../../../../assets/images/icons/icon_pic_black..png');
+const IMAGE_MODE_ICON_GRAY = require('../../../../../assets/images/icons/icon_pic_gray..png');
+const VOICE_MODE_ICON_GRAY = require('../../../../../assets/images/icons/icon_mic_gray.png');
 
 jest.mock('expo-router', () => ({
   Redirect: ({ href }: { href: unknown }) => {
@@ -237,6 +244,250 @@ describe('StatsScreen', () => {
     expect(getByTestId('stats-output-history-item-out-3')).toBeTruthy();
     expect(getByTestId('stats-output-history-item-out-2')).toBeTruthy();
     expect(queryByTestId('stats-output-history-item-out-1')).toBeNull();
+  });
+
+  it('履歴行をタップすると下部シートでアウトプット内容を確認できる', async () => {
+    (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(makeDailyResponse());
+
+    const { getAllByText, getByTestId, getByText, queryByTestId } = renderWithProviders(
+      <StatsScreen />,
+    );
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(getByTestId('stats-output-history-item-out-1')).toBeTruthy();
+    });
+    expect(queryByTestId('stats-history-sheet')).toBeNull();
+
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-output-history-item-out-1'));
+    });
+
+    expect(getByTestId('stats-history-sheet')).toBeTruthy();
+    expect(getByText('4月29日　09：35 - 10：00')).toBeTruthy();
+    expect(getByText('教科')).toBeTruthy();
+    expect(getByText('英語')).toBeTruthy();
+    expect(getAllByText('アウトプット').length).toBeGreaterThan(0);
+    expect(getByTestId('stats-history-sheet-tab-icon-text').props.source).toBe(
+      TEXT_MODE_ICON_BLACK,
+    );
+    expect(getByTestId('stats-history-sheet-tab-icon-image').props.source).toBe(
+      IMAGE_MODE_ICON_GRAY,
+    );
+    expect(getByTestId('stats-history-sheet-tab-icon-voice').props.source).toBe(
+      VOICE_MODE_ICON_GRAY,
+    );
+    expect(getByTestId('stats-history-sheet-output-text')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-history-sheet-close'));
+    });
+    expect(queryByTestId('stats-history-sheet')).toBeNull();
+  });
+
+  it('履歴詳細の教科が未設定の場合は値表示をグレーにする', async () => {
+    const baseResponse = makeDailyResponse();
+    const baseHistoryItem = baseResponse.output_history[0];
+    if (baseHistoryItem === undefined) {
+      throw new Error('base history item is missing');
+    }
+
+    (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(
+      makeDailyResponse({
+        output_history: [
+          {
+            ...baseHistoryItem,
+            subject: '未設定',
+          },
+        ],
+      }),
+    );
+
+    const { getByTestId, getByText, queryByTestId } = renderWithProviders(<StatsScreen />);
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(getByTestId('stats-output-history-item-out-1')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-output-history-item-out-1'));
+    });
+
+    const subjectDotStyle = StyleSheet.flatten(
+      getByTestId('stats-history-sheet-subject-dot').props.style,
+    );
+    const subjectTextStyle = StyleSheet.flatten(
+      getByTestId('stats-history-sheet-subject-text').props.style,
+    );
+
+    expect(getByTestId('stats-history-sheet-subject-text').props.children).toBe('未設定');
+    expect(subjectDotStyle.backgroundColor).toBe('#D0D0D0');
+    expect(subjectTextStyle.color).toBe('#777777');
+
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-history-sheet-subject-row'));
+    });
+
+    expect(getByTestId('stats-history-sheet-subject-picker')).toBeTruthy();
+    expect(getByText('新規教科')).toBeTruthy();
+    expect(queryByTestId('stats-history-sheet-subject-option-0')).toBeNull();
+    expect(
+      StyleSheet.flatten(getByTestId('stats-history-sheet-subject-picker').props.style).height,
+    ).toBe(59);
+  });
+
+  it('履歴詳細の教科行をタップすると作成済み教科の一覧を表示する', async () => {
+    (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(
+      makeDailyResponse({
+        output_history: [
+          {
+            ...makeOutputHistoryItem(1),
+            subject: '理科',
+          },
+          {
+            ...makeOutputHistoryItem(2),
+            subject: '現代文',
+          },
+        ],
+      }),
+    );
+
+    const { getAllByText, getByTestId, getByText, queryByTestId } = renderWithProviders(
+      <StatsScreen />,
+    );
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(getByTestId('stats-output-history-item-out-2')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-output-history-item-out-2'));
+    });
+    expect(queryByTestId('stats-history-sheet-subject-picker')).toBeNull();
+
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-history-sheet-subject-row'));
+    });
+
+    expect(getByTestId('stats-history-sheet-subject-picker')).toBeTruthy();
+    expect(
+      StyleSheet.flatten(getByTestId('stats-history-sheet-subject-picker').props.style).height,
+    ).toBe(122);
+    expect(getByText('新規教科')).toBeTruthy();
+    expect(getByText('理科')).toBeTruthy();
+    expect(getAllByText('現代文').length).toBeGreaterThan(1);
+    expect(
+      StyleSheet.flatten(getByTestId('stats-history-sheet-subject-option-dot-0').props.style)
+        .backgroundColor,
+    ).toBe('#28D94F');
+    expect(
+      StyleSheet.flatten(getByTestId('stats-history-sheet-subject-option-dot-1').props.style)
+        .backgroundColor,
+    ).toBe('#FF4A55');
+
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-history-sheet-subject-picker-close'));
+    });
+    expect(queryByTestId('stats-history-sheet-subject-picker')).toBeNull();
+  });
+
+  it('教科ポップアップの新規教科押下で追加画面を表示し保存後に一覧へ追加する', async () => {
+    (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(
+      makeDailyResponse({
+        output_history: [
+          {
+            ...makeOutputHistoryItem(1),
+            subject: '理科',
+          },
+        ],
+      }),
+    );
+
+    const { getByTestId, getByText, queryByTestId } = renderWithProviders(<StatsScreen />);
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(getByTestId('stats-output-history-item-out-1')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-output-history-item-out-1'));
+    });
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-history-sheet-subject-row'));
+    });
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-history-sheet-subject-picker-new'));
+    });
+
+    expect(getByText('新規教科追加', { includeHiddenElements: true })).toBeTruthy();
+    expect(
+      getByTestId('stats-new-subject-input', { includeHiddenElements: true }).props.placeholder,
+    ).toBe('新規教科');
+    expect(getByText('保存する', { includeHiddenElements: true })).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.changeText(
+        getByTestId('stats-new-subject-input', { includeHiddenElements: true }),
+        '数学',
+      );
+    });
+    expect(
+      StyleSheet.flatten(
+        getByTestId('stats-new-subject-color', { includeHiddenElements: true }).props.style,
+      ).backgroundColor,
+    ).toBe('#FF4A55');
+
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-new-subject-save', { includeHiddenElements: true }));
+    });
+
+    expect(queryByTestId('stats-new-subject-input')).toBeNull();
+    expect(getByTestId('stats-history-sheet-subject-picker')).toBeTruthy();
+    expect(getByText('数学')).toBeTruthy();
+  });
+
+  it('画像アウトプットの履歴詳細では画像アイコンを黒にする', async () => {
+    const baseResponse = makeDailyResponse();
+    const baseHistoryItem = baseResponse.output_history[0];
+    if (baseHistoryItem === undefined) {
+      throw new Error('base history item is missing');
+    }
+
+    (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(
+      makeDailyResponse({
+        output_history: [
+          {
+            ...baseHistoryItem,
+            output: {
+              ...baseHistoryItem.output,
+              kind: 'image',
+              content: null,
+              image_url: 'https://example.com/output.png',
+            },
+          },
+        ],
+      }),
+    );
+
+    const { getByTestId } = renderWithProviders(<StatsScreen />);
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(getByTestId('stats-output-history-item-out-1')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-output-history-item-out-1'));
+    });
+
+    expect(getByTestId('stats-history-sheet-tab-icon-text').props.source).toBe(TEXT_MODE_ICON_GRAY);
+    expect(getByTestId('stats-history-sheet-tab-icon-image').props.source).toBe(
+      IMAGE_MODE_ICON_BLACK,
+    );
+    expect(getByTestId('stats-history-sheet-output-image')).toBeTruthy();
   });
 
   it('別の日の日付セルをタップするとその日のレポートを取得しタイトルが切り替わる', async () => {
