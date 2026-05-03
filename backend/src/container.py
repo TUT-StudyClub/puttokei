@@ -7,6 +7,7 @@ from src.application.use_cases.create_session import CreateSession
 from src.application.use_cases.delete_account import DeleteAccount
 from src.application.use_cases.get_daily_report import GetDailyReport
 from src.application.use_cases.get_judgment import GetJudgment
+from src.application.use_cases.get_judgment_detail import GetJudgmentDetail
 from src.application.use_cases.get_judgment_progress import GetJudgmentProgress
 from src.application.use_cases.get_user_profile import GetUserProfile
 from src.application.use_cases.get_user_settings import GetUserSettings
@@ -14,6 +15,7 @@ from src.application.use_cases.get_weekly_report import GetWeeklyReport
 from src.application.use_cases.issue_output_image_upload_url import (
     IssueOutputImageUploadUrl,
 )
+from src.application.use_cases.list_judgments import ListJudgments
 from src.application.use_cases.list_today_outputs import ListTodayOutputs
 from src.application.use_cases.run_image_judgment import RunImageJudgment
 from src.application.use_cases.run_text_judgment import RunTextJudgment
@@ -56,7 +58,9 @@ class Container(BaseModel):
     run_text_judgment: RunTextJudgment | None
     run_image_judgment: RunImageJudgment | None
     get_judgment: GetJudgment
+    get_judgment_detail: GetJudgmentDetail
     get_judgment_progress: GetJudgmentProgress
+    list_judgments: ListJudgments
     list_today_outputs: ListTodayOutputs
     get_weekly_report: GetWeeklyReport
     get_daily_report: GetDailyReport
@@ -126,7 +130,9 @@ def build_container(settings: Settings) -> Container:
         run_text_judgment=run_text_judgment,
         run_image_judgment=run_image_judgment,
         get_judgment=GetJudgment(unit_of_work_factory=unit_of_work_factory),
+        get_judgment_detail=GetJudgmentDetail(unit_of_work_factory=unit_of_work_factory),
         get_judgment_progress=GetJudgmentProgress(unit_of_work_factory=unit_of_work_factory),
+        list_judgments=ListJudgments(unit_of_work_factory=unit_of_work_factory),
         list_today_outputs=ListTodayOutputs(
             unit_of_work_factory=unit_of_work_factory,
             image_storage=image_storage,
