@@ -35,7 +35,6 @@ import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
 const CURRENT_PHASE: SessionPhase = 'input';
-const EXTEND_MINUTES = 5;
 
 // 「今日のアウトプット」一覧で、スクロールせずに見せる最大行数。
 // 4 件目以降は一覧内だけがスクロールするようにする。
@@ -52,7 +51,6 @@ const TEXT_ACTIVE = '#2F2F2F';
 const TEXT_INACTIVE = '#9CA3AF';
 const DOT_INACTIVE = '#D9D9D9';
 const BORDER_COLOR = '#E5E7EB';
-const CAPTION_COLOR = '#777777';
 const ERROR_COLOR = '#D92D20';
 const PANEL_BORDER_COLOR = '#D0D0D0';
 const REVIEW_TEXT_MUTED = '#6B6B6B';
@@ -320,7 +318,6 @@ export function InputScreen() {
   const cancelMutation = useUpdateSessionStatus();
   const currentLoop = useLoopStore((s) => s.currentLoop);
   const resetLoop = useLoopStore((s) => s.reset);
-  const extendTimer = useTimerStore((s) => s.extend);
   const timerStatus = useTimerStore((s) => s.status);
   const totalSeconds = useTimerStore((s) => s.totalSeconds);
   // 砂時計の砂量を 1 秒刻みではなく細かく変えるための補間値。
@@ -450,16 +447,21 @@ export function InputScreen() {
         />
 
         <View style={styles.contentArea}>
-          <View style={[styles.timerStage, isDetailVisible ? styles.timerStageDetail : null]}>
+          <View
+            style={[
+              styles.timerStage,
+              isDetailVisible || hasOutputReview ? styles.timerStageDetail : null,
+            ]}
+          >
             <CircularPhaseTimer
               phase={CURRENT_PHASE}
               primaryColor={PRIMARY_COLOR}
-              trackColor={hasOutputReview ? BORDER_COLOR : '#E9F9FF'}
+              trackColor="#E9F9FF"
               testID="input-circular-timer"
-              compact={hasOutputReview}
+              compact={isDetailVisible}
               enabled={isFocused}
             />
-            {isDetailVisible ? null : (
+            {isDetailVisible || hasOutputReview ? null : (
               <Text style={styles.timerCaption} testID="input-timer-caption">
                 終了後{outputMinutes}分間でアウトプットです{'\n'}
                 アウトプットへは自動で切り替わります
@@ -487,7 +489,7 @@ export function InputScreen() {
             disabled={cancelMutation.isPending}
             onPress={handleCancel}
             style={({ pressed }) => [
-              styles.cancelButton,
+              hasOutputReview ? styles.cancelButtonFlow : styles.cancelButton,
               pressed ? styles.buttonPressed : null,
               cancelMutation.isPending ? styles.buttonDisabled : null,
             ]}
@@ -529,13 +531,15 @@ const styles = StyleSheet.create({
     flex: 0,
     gap: 10,
     marginBottom: 12,
+    paddingBottom: 0,
   },
   timerCaption: {
-    color: CAPTION_COLOR,
+    color: '#9D9D9D',
     fontFamily: 'HiraginoSans-W4',
-    fontSize: 12,
+    fontSize: 9,
     lineHeight: 18,
     textAlign: 'center',
+    marginTop: 8,
   },
   todayOutputsSection: {
     gap: 8,
@@ -762,9 +766,20 @@ const styles = StyleSheet.create({
   actionArea: {},
   cancelButton: {
     position: 'absolute',
-    bottom: '19%',
-    left: '12.8%',
-    right: '12.8%',
+    bottom: '21%',
+    left: '13.8%',
+    right: '14.1%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: '3.2%',
+    borderRadius: 20,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#6D6D6D',
+  },
+  cancelButtonFlow: {
+    alignSelf: 'center',
+    width: '72.4%',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: '4.6%',
@@ -776,7 +791,7 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     color: '#6D6D6D',
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 17,
+    fontSize: 14,
     lineHeight: 22,
   },
   buttonPressed: {
