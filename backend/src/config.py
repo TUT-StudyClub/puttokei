@@ -56,11 +56,11 @@ class Settings(BaseSettings):
         ),
     )
     llm_vertex_credentials_path: str | None = Field(
-    default=None,
-    description=(
-        "Vertex AI 認証用サービスアカウント鍵 JSON のパス。"
-        "未指定時は ADC を使う。GCS_CREDENTIALS_PATH とは分離する。"
-    ),
+        default=None,
+        description=(
+            "Vertex AI 認証用サービスアカウント鍵 JSON のパス。"
+            "未指定時は ADC を使う。GCS_CREDENTIALS_PATH とは分離する。"
+        ),
     )
     llm_vertex_location: str = Field(
         default="global",
