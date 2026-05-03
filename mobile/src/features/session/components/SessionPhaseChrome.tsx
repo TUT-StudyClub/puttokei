@@ -1124,8 +1124,8 @@ export function PhaseTabs({
                 styles.phaseTabLabel,
                 { color: phaseInactiveTextColor },
                 isActive
-                  ? { color: activeTextColor, fontFamily: 'HiraginoSans-W6', fontWeight: '700' }
-                  : null,
+                  ? { color: activeTextColor, fontFamily: 'HiraginoSans-W6' }
+                  : { fontSize: 12 },
               ]}
             >
               {SESSION_PHASE_LABELS[phase]}
@@ -1253,7 +1253,7 @@ export function CircularPhaseTimer({
   const totalSeconds = useTimerStore((s) => s.totalSeconds);
 
   const size = compact ? 156 : 290;
-  const strokeWidth = compact ? 10 : 14;
+  const strokeWidth = compact ? 10 : 11;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const displayRemainingSeconds = Math.max(0, Math.ceil(smoothRemainingSeconds));
@@ -1372,8 +1372,7 @@ const styles = StyleSheet.create({
   },
   phaseTabLabel: {
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 10,
   },
   phaseTabSeparator: {
     width: 14,
@@ -1421,14 +1420,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
-    paddingBottom: '5%',
+    paddingBottom: '0%',
   },
   timerCenterCompact: {
     gap: 2,
   },
   timerPhaseLabel: {
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 17,
+    fontSize: 14,
     lineHeight: 24,
   },
   timerPhaseLabelCompact: {
@@ -1437,10 +1436,10 @@ const styles = StyleSheet.create({
   },
   timerText: {
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 58,
+    fontSize: 55,
     fontWeight: '600',
     lineHeight: 70,
-    marginTop: '2%',
+    marginTop: '-2%',
   },
   timerTextCompact: {
     fontSize: 34,
