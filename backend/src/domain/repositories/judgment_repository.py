@@ -5,9 +5,12 @@ Epic #4 / Epic #5 に組み込む。
 """
 
 from abc import ABC, abstractmethod
+from datetime import datetime
 from uuid import UUID
 
 from src.domain.entities.judgment import Judgment
+from src.domain.value_objects.judgment_query import JudgmentListCursor, JudgmentSort
+from src.domain.value_objects.verdict import Verdict
 
 
 class JudgmentRepository(ABC):
@@ -29,7 +32,12 @@ class JudgmentRepository(ABC):
     async def list_by_user(
         self,
         user_id: UUID,
-        cursor: str | None,
+        cursor: JudgmentListCursor | None,
         limit: int,
-    ) -> tuple[list[Judgment], str | None]:
+        *,
+        verdict: Verdict | None = None,
+        judged_from: datetime | None = None,
+        judged_to: datetime | None = None,
+        sort: JudgmentSort = JudgmentSort.JUDGED_AT_DESC,
+    ) -> tuple[list[Judgment], JudgmentListCursor | None]:
         """ユーザー単位で判定履歴をカーソル付きで返す。"""
