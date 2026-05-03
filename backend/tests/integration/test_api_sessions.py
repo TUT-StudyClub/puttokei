@@ -495,6 +495,8 @@ async def test_list_today_outputs_returns_current_users_outputs(
     assert response.status_code == 200
     body = response.json()
     assert body["items"][0]["cycle_index"] == 1
+    assert body["items"][0]["input_minutes"] == 20
+    assert body["items"][0]["output_minutes"] == 5
     assert body["items"][0]["output"]["content"] == "今日のアウトプット本文です。"
     assert body["items"][0]["judgment"]["score"] == 72
 

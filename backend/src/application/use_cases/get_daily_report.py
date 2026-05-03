@@ -80,6 +80,8 @@ class GetDailyReport:
                 OutputReviewItemView(
                     session_id=session.id,
                     session_started_at=session.started_at,
+                    input_minutes=session.input_minutes,
+                    output_minutes=session.output_minutes,
                     output=resolve_output_view(
                         output,
                         storage=self.image_storage,

@@ -48,6 +48,8 @@ function makeDailyResponse(overrides: Partial<DailyReportResponse> = {}): DailyR
       {
         session_id: 'ses-1',
         session_started_at: '2026-04-29T00:35:00Z',
+        input_minutes: 20,
+        output_minutes: 5,
         output: {
           id: 'out-1',
           session_id: 'ses-1',
@@ -102,6 +104,8 @@ function makeOutputHistoryItem(cycleIndex: number): OutputReviewItem {
   return {
     session_id: `ses-${cycleIndex}`,
     session_started_at: `2026-04-29T00:${String(startedMinute).padStart(2, '0')}:00Z`,
+    input_minutes: 20,
+    output_minutes: 5,
     output: {
       id: `out-${cycleIndex}`,
       session_id: `ses-${cycleIndex}`,
@@ -437,7 +441,9 @@ describe('StatsScreen', () => {
       }),
     );
 
-    const { getByTestId, getByText, queryByTestId } = renderWithProviders(<StatsScreen />);
+    const { getAllByText, getByTestId, getByText, queryByTestId } = renderWithProviders(
+      <StatsScreen />,
+    );
     await flushAsyncUpdates();
 
     await waitFor(() => {
@@ -623,11 +629,13 @@ describe('StatsScreen', () => {
 
     expect(queryByTestId('stats-new-subject-input')).toBeNull();
     expect(getByTestId('stats-history-sheet-subject-picker')).toBeTruthy();
-    expect(getByText('数学')).toBeTruthy();
+    expect(getAllByText('数学').length).toBeGreaterThan(1);
     expect(
       StyleSheet.flatten(getByTestId('stats-history-sheet-subject-option-dot-1').props.style)
         .backgroundColor,
     ).toBe('#FF9147');
+    expect(getByTestId('stats-history-sheet-subject-option-check-1')).toBeTruthy();
+    expect(getByTestId('stats-history-sheet-subject-text').props.children).toBe('数学');
   });
 
   it('画像アウトプットの履歴詳細では画像アイコンを黒にする', async () => {
@@ -821,7 +829,7 @@ describe('StatsScreen', () => {
       }),
     );
     (statsApi.fetchWeeklyReport as jest.Mock).mockResolvedValue({
-      ...makeWeeklyResponseForDates('2026-04-26', { '2026-04-29': 60 }),
+      ...makeWeeklyResponseForDates('2026-04-26', { '2026-04-29': 70 }),
       output_history: [
         {
           ...makeOutputHistoryItem(1),
@@ -829,7 +837,91 @@ describe('StatsScreen', () => {
         },
         {
           ...makeOutputHistoryItem(2),
+          input_minutes: 30,
+          output_minutes: 15,
           subject: '現代文',
+        },
+      ],
+    });
+
+    const { getByTestId, queryByTestId } = renderWithProviders(<StatsScreen />);
+    await flushAsyncUpdates();
+
+    await act(async () => {
+      fireEvent.press(getByTestId('week-date-2026-04-29'));
+    });
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(getByTestId('stats-weekly-chart-bar-segment-2026-04-29-out-2')).toBeTruthy();
+    });
+    const totalBarHeight = getByTestId('stats-weekly-chart-bar-2026-04-29').props.height;
+    const secondSegment = getByTestId('stats-weekly-chart-bar-segment-2026-04-29-out-2');
+    expect(getByTestId('stats-weekly-chart-bar-2026-04-29').props.fill.payload).toBe(
+      processColor('#D6D6D6'),
+    );
+    expect(getByTestId('stats-weekly-chart-bar-segment-2026-04-29-out-1').props.fill.payload).toBe(
+      processColor('#457DFF'),
+    );
+    expect(secondSegment.props.fill.payload).toBe(processColor('#2BAAF3'));
+    expect(secondSegment.props.height / totalBarHeight).toBeCloseTo(45 / 70, 5);
+
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-output-history-item-out-2'));
+    });
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-history-sheet-subject-row'));
+    });
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-history-sheet-subject-option-0'));
+    });
+
+    expect(queryByTestId('stats-history-sheet-subject-picker')).toBeNull();
+    expect(getByTestId('stats-history-sheet-subject-text').props.children).toBe('理科');
+    await waitFor(() => {
+      expect(
+        getByTestId('stats-weekly-chart-bar-segment-2026-04-29-out-2').props.fill.payload,
+      ).toBe(processColor('#457DFF'));
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-history-sheet-confirm'));
+    });
+    expect(queryByTestId('stats-history-sheet')).toBeNull();
+
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-output-history-item-out-2'));
+    });
+    expect(getByTestId('stats-history-sheet-subject-text').props.children).toBe('理科');
+
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-history-sheet-subject-row'));
+    });
+    expect(getByTestId('stats-history-sheet-subject-option-check-0')).toBeTruthy();
+    expect(queryByTestId('stats-history-sheet-subject-option-check-1')).toBeNull();
+    expect(getByTestId('stats-weekly-chart-bar-segment-2026-04-29-out-2').props.fill.payload).toBe(
+      processColor('#457DFF'),
+    );
+  });
+
+  it('週別グラフは新規追加して保存した教科の色を反映する', async () => {
+    (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(
+      makeDailyResponse({
+        output_history: [],
+      }),
+    );
+    (statsApi.fetchWeeklyReport as jest.Mock).mockResolvedValue({
+      ...makeWeeklyResponseForDates('2026-04-26', { '2026-04-29': 70 }),
+      output_history: [
+        {
+          ...makeOutputHistoryItem(1),
+          subject: '未設定',
+        },
+        {
+          ...makeOutputHistoryItem(2),
+          input_minutes: 30,
+          output_minutes: 15,
+          subject: '未設定',
         },
       ],
     });
@@ -845,9 +937,8 @@ describe('StatsScreen', () => {
     await waitFor(() => {
       expect(getByTestId('stats-weekly-chart-bar-2026-04-29')).toBeTruthy();
     });
-    expect(getByTestId('stats-weekly-chart-bar-2026-04-29').props.fill.payload).toBe(
-      processColor('#2BAAF3'),
-    );
+    expect(queryByTestId('stats-weekly-chart-bar-segment-2026-04-29-out-1')).toBeNull();
+    expect(queryByTestId('stats-weekly-chart-bar-segment-2026-04-29-out-2')).toBeNull();
 
     await act(async () => {
       fireEvent.press(getByTestId('stats-output-history-item-out-2'));
@@ -856,16 +947,56 @@ describe('StatsScreen', () => {
       fireEvent.press(getByTestId('stats-history-sheet-subject-row'));
     });
     await act(async () => {
-      fireEvent.press(getByTestId('stats-history-sheet-subject-option-0'));
+      fireEvent.press(getByTestId('stats-history-sheet-subject-picker-new'));
     });
-
-    expect(queryByTestId('stats-history-sheet-subject-picker')).toBeNull();
-    expect(getByTestId('stats-history-sheet-subject-text').props.children).toBe('理科');
-    await waitFor(() => {
-      expect(getByTestId('stats-weekly-chart-bar-2026-04-29').props.fill.payload).toBe(
-        processColor('#457DFF'),
+    await act(async () => {
+      fireEvent.changeText(
+        getByTestId('stats-new-subject-input', { includeHiddenElements: true }),
+        '強化',
       );
     });
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-new-subject-color-row', { includeHiddenElements: true }));
+    });
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-subject-color-swatch-5', { includeHiddenElements: true }));
+    });
+    await act(async () => {
+      fireEvent.press(
+        getByTestId('stats-subject-color-picker-confirm', { includeHiddenElements: true }),
+      );
+    });
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-new-subject-save', { includeHiddenElements: true }));
+    });
+
+    expect(queryByTestId('stats-new-subject-input')).toBeNull();
+    const totalBar = getByTestId('stats-weekly-chart-bar-2026-04-29');
+    const selectedSegment = getByTestId('stats-weekly-chart-bar-segment-2026-04-29-out-2');
+    expect(getByTestId('stats-history-sheet-subject-text').props.children).toBe('強化');
+    expect(getByTestId('stats-history-sheet-subject-option-check-0')).toBeTruthy();
+    await waitFor(() => {
+      expect(
+        getByTestId('stats-weekly-chart-bar-segment-2026-04-29-out-2').props.fill.payload,
+      ).toBe(processColor('#FF9147'));
+    });
+    expect(selectedSegment.props.height / totalBar.props.height).toBeCloseTo(45 / 70, 5);
+    expect(selectedSegment.props.y).toBeCloseTo(totalBar.props.y, 5);
+    expect(queryByTestId('stats-weekly-chart-bar-segment-2026-04-29-out-1')).toBeNull();
+
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-history-sheet-confirm'));
+    });
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-output-history-item-out-2'));
+    });
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-history-sheet-subject-row'));
+    });
+    expect(getByTestId('stats-history-sheet-subject-option-check-0')).toBeTruthy();
+    expect(getByTestId('stats-weekly-chart-bar-segment-2026-04-29-out-2').props.fill.payload).toBe(
+      processColor('#FF9147'),
+    );
   });
 
   it('週別カレンダー中に別の日付セルをタップすると日別カレンダーに戻る', async () => {

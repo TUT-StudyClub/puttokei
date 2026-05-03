@@ -208,6 +208,10 @@ async def test_get_weekly_report_returns_current_users_weekly_outputs(
         first["started_at"],
         second["started_at"],
     ]
+    assert [(item["input_minutes"], item["output_minutes"]) for item in body["output_history"]] == [
+        (20, 5),
+        (30, 15),
+    ]
     assert body["output_history"][0]["judgment"]["score"] == 80
     assert body["output_history"][1]["judgment"] is None
 
@@ -297,6 +301,8 @@ async def test_get_daily_report_returns_only_target_date_outputs(
         "当日のアウトプットです。",
     ]
     assert body["output_history"][0]["session_started_at"] == target["started_at"]
+    assert body["output_history"][0]["input_minutes"] == 20
+    assert body["output_history"][0]["output_minutes"] == 5
     assert body["output_history"][0]["judgment"]["score"] == 72
 
 

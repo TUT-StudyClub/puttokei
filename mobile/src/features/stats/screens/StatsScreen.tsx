@@ -143,6 +143,11 @@ type HistoryGroup = {
   dateLabel: string | null;
   items: OutputReviewItem[];
 };
+type WeeklyBarSegment = {
+  outputId: string;
+  minutes: number;
+  color: string | null;
+};
 
 const MONTH_DAY_SLOT_HEIGHT = 38;
 const MONTH_DAY_ROW_GAP = 2;
@@ -292,33 +297,38 @@ function sortHistoryItemsByRecency(items: readonly OutputReviewItem[]): OutputRe
   });
 }
 
-function buildSubjectColorByDateKey(
+function getOutputReviewStudyMinutes(item: OutputReviewItem): number {
+  return Math.max(0, item.input_minutes + item.output_minutes);
+}
+
+function buildWeeklyBarSegmentsByDateKey(
   items: readonly OutputReviewItem[],
   subjectOptions: readonly SubjectOption[],
   selectedSubjectByOutputId: Readonly<Record<string, SubjectOption>>,
-): Record<string, string> {
-  const colorByDateKey: Record<string, string> = {};
-  const orderedItems = sortHistoryItemsByRecency(items);
-
-  orderedItems.forEach((item) => {
-    const selectedSubject = selectedSubjectByOutputId[item.output.id];
-    if (!selectedSubject) return;
-
-    const dateKey = getTokyoDateKeyFromTimestamp(item.output.submitted_at);
-    colorByDateKey[dateKey] ??= selectedSubject.color;
+): Record<string, WeeklyBarSegment[]> {
+  const segmentsByDateKey: Record<string, WeeklyBarSegment[]> = {};
+  const orderedItems = [...items].sort((a, b) => {
+    const timeDiff = getHistoryTimestampMs(a) - getHistoryTimestampMs(b);
+    if (timeDiff !== 0) return timeDiff;
+    return a.cycle_index - b.cycle_index;
   });
 
   orderedItems.forEach((item) => {
-    const dateKey = getTokyoDateKeyFromTimestamp(item.output.submitted_at);
-    if (colorByDateKey[dateKey]) return;
+    const minutes = getOutputReviewStudyMinutes(item);
+    if (minutes <= 0) return;
 
+    const dateKey = getTokyoDateKeyFromTimestamp(item.output.submitted_at);
     const subject = getEffectiveSubjectOption(item, subjectOptions, selectedSubjectByOutputId);
-    if (subject !== null) {
-      colorByDateKey[dateKey] = subject.color;
-    }
+    const segments = segmentsByDateKey[dateKey] ?? [];
+    segments.push({
+      outputId: item.output.id,
+      minutes,
+      color: subject?.color ?? null,
+    });
+    segmentsByDateKey[dateKey] = segments;
   });
 
-  return colorByDateKey;
+  return segmentsByDateKey;
 }
 
 function getSubjectPickerListHeight(subjectCount: number): number {
@@ -845,10 +855,10 @@ function formatHourLabel(hours: number): string {
 
 function WeeklyBarChart({
   points,
-  barColorsByDateKey,
+  barSegmentsByDateKey,
 }: {
   points: WeeklyReportPoint[];
-  barColorsByDateKey?: Readonly<Record<string, string>>;
+  barSegmentsByDateKey?: Readonly<Record<string, readonly WeeklyBarSegment[]>>;
 }) {
   const { width } = useWindowDimensions();
   const chartWidth = Math.max(0, width - WEEK_DATE_STRIP_HORIZONTAL_INSET * 2);
@@ -923,18 +933,54 @@ function WeeklyBarChart({
             const barHeight = yAxisMax > 0 ? (value / yAxisMax) * WEEKLY_CHART_PLOT_HEIGHT : 0;
             const x = plotLeft + dayCellWidth / 2 + dayStep * index - barWidth / 2;
             const y = axisY - barHeight;
+            const segments = barSegmentsByDateKey?.[point.bucket] ?? [];
+            let cumulativeMinutes = 0;
+            const visibleSegments = segments.flatMap((segment) => {
+              const remainingMinutes = Math.max(0, point.study_minutes - cumulativeMinutes);
+              const minutes = Math.min(segment.minutes, remainingMinutes);
+              if (minutes <= 0) return [];
+
+              cumulativeMinutes += minutes;
+              const color = segment.color;
+              if (color === null) return [];
+
+              return [{ ...segment, color, minutes, cumulativeMinutes }];
+            });
+
             return (
-              <Rect
-                key={point.bucket}
-                x={x}
-                y={toSvgY(y)}
-                width={barWidth}
-                height={barHeight}
-                rx={4}
-                ry={4}
-                fill={barColorsByDateKey?.[point.bucket] ?? '#D6D6D6'}
-                testID={`stats-weekly-chart-bar-${point.bucket}`}
-              />
+              <G key={point.bucket}>
+                <Rect
+                  x={x}
+                  y={toSvgY(y)}
+                  width={barWidth}
+                  height={barHeight}
+                  rx={4}
+                  ry={4}
+                  fill="#D6D6D6"
+                  testID={`stats-weekly-chart-bar-${point.bucket}`}
+                />
+                {visibleSegments.map((segment) => {
+                  const segmentHeight =
+                    yAxisMax > 0 ? (segment.minutes / 60 / yAxisMax) * WEEKLY_CHART_PLOT_HEIGHT : 0;
+                  const segmentY =
+                    axisY -
+                    (yAxisMax > 0
+                      ? (segment.cumulativeMinutes / 60 / yAxisMax) * WEEKLY_CHART_PLOT_HEIGHT
+                      : 0);
+
+                  return (
+                    <Rect
+                      key={segment.outputId}
+                      x={x}
+                      y={toSvgY(segmentY)}
+                      width={barWidth}
+                      height={segmentHeight}
+                      fill={segment.color}
+                      testID={`stats-weekly-chart-bar-segment-${point.bucket}-${segment.outputId}`}
+                    />
+                  );
+                })}
+              </G>
             );
           })}
           <Line
@@ -1182,11 +1228,16 @@ function HistoryDetailSheet({
   };
   const handleSaveNewSubject = () => {
     const label = newSubjectName.trim();
-    if (label.length > 0 && !visibleSubjectOptions.some((subject) => subject.label === label)) {
-      setLocalSubjectOptions((current) => [
-        ...current,
-        { label, color: newSubjectColor ?? UNSELECTED_SUBJECT_COLOR },
-      ]);
+    const existingSubject = visibleSubjectOptions.find((subject) => subject.label === label);
+    const subjectToSelect =
+      existingSubject ??
+      (label.length > 0 ? { label, color: newSubjectColor ?? UNSELECTED_SUBJECT_COLOR } : null);
+
+    if (subjectToSelect !== null && existingSubject === undefined) {
+      setLocalSubjectOptions((current) => [...current, subjectToSelect]);
+    }
+    if (subjectToSelect !== null) {
+      onSelectSubject(item.output.id, subjectToSelect);
     }
     setNewSubjectFormVisible(false);
     setSubjectPickerVisible(true);
@@ -1572,19 +1623,15 @@ export function StatsScreen() {
     });
     return options;
   }, [loadedHistoryItems, selectedSubjectByOutputId]);
-  const weeklyBarColorsByDateKey = useMemo(() => {
+  const weeklyBarSegmentsByDateKey = useMemo(() => {
     if (weeklyReportQuery.data === undefined) return {};
 
-    const weeklyDateKeys = new Set(weeklyReportQuery.data.points.map((point) => point.bucket));
-    const weeklyHistoryItems = loadedHistoryItems.filter((item) =>
-      weeklyDateKeys.has(getTokyoDateKeyFromTimestamp(item.output.submitted_at)),
-    );
-    return buildSubjectColorByDateKey(
-      weeklyHistoryItems,
+    return buildWeeklyBarSegmentsByDateKey(
+      weeklyReportQuery.data.output_history,
       subjectOptions,
       selectedSubjectByOutputId,
     );
-  }, [loadedHistoryItems, selectedSubjectByOutputId, subjectOptions, weeklyReportQuery.data]);
+  }, [selectedSubjectByOutputId, subjectOptions, weeklyReportQuery.data]);
   const highlightCardSize = useMemo(() => getHighlightCardSize(viewportWidth), [viewportWidth]);
   const dailyHighlightCardStyle = useMemo<StyleProp<ViewStyle>>(() => {
     if (highlightCardSize.height === 0) return undefined;
@@ -1907,7 +1954,7 @@ export function StatsScreen() {
             <View style={weeklyChartSlotStyle}>
               <WeeklyBarChart
                 points={weeklyReportQuery.data.points}
-                barColorsByDateKey={weeklyBarColorsByDateKey}
+                barSegmentsByDateKey={weeklyBarSegmentsByDateKey}
               />
             </View>
           ) : (

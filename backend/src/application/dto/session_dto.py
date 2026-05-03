@@ -106,6 +106,8 @@ class OutputReviewItemView(FrozenModel):
 
     session_id: UUID
     session_started_at: datetime
+    input_minutes: int
+    output_minutes: int
     output: OutputView
     cycle_index: int
     subject: str

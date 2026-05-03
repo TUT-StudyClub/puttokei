@@ -101,6 +101,8 @@ def to_today_outputs_response(view: TodayOutputsView) -> TodayOutputsResponse:
             OutputReviewItemResponse(
                 session_id=item.session_id,
                 session_started_at=item.session_started_at,
+                input_minutes=item.input_minutes,
+                output_minutes=item.output_minutes,
                 output=_to_output_response(item.output),
                 cycle_index=item.cycle_index,
                 subject=item.subject,
@@ -136,6 +138,8 @@ def to_weekly_report_response(view: WeeklyReportView) -> WeeklyReportResponse:
             OutputReviewItemResponse(
                 session_id=item.session_id,
                 session_started_at=item.session_started_at,
+                input_minutes=item.input_minutes,
+                output_minutes=item.output_minutes,
                 output=_to_output_response(item.output),
                 cycle_index=item.cycle_index,
                 subject=item.subject,
@@ -161,6 +165,8 @@ def to_daily_report_response(view: DailyReportView) -> DailyReportResponse:
             OutputReviewItemResponse(
                 session_id=item.session_id,
                 session_started_at=item.session_started_at,
+                input_minutes=item.input_minutes,
+                output_minutes=item.output_minutes,
                 output=_to_output_response(item.output),
                 cycle_index=item.cycle_index,
                 subject=item.subject,

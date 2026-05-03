@@ -158,6 +158,8 @@ export type JudgmentProgress = {
 export type OutputReviewItem = {
   session_id: string;
   session_started_at: string;
+  input_minutes: number;
+  output_minutes: number;
   output: Output;
   cycle_index: number;
   subject: string;
