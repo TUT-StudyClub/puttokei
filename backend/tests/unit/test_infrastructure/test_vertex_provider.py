@@ -174,22 +174,3 @@ async def test_vertex_provider_raises_error_when_response_is_not_valid_judgment_
             prompt_input="本能寺の変",
             user_output="明智光秀は本能寺の変で死んだ",
         )
-
-
-@pytest.mark.asyncio
-async def test_vertex_provider_strips_code_fence_wrapped_response():
-    inner_json = json.dumps(
-        {
-            "verdict": "correct",
-            "score": 80,
-            "advice": "ok",
-            "corrections": [],
-        },
-        ensure_ascii=False,
-    )
-    fenced = f"```json\n{inner_json}\n```"
-    provider = _build_provider_with_mocked_client(_StubResponse(fenced))
-
-    result = await provider.judge_text(prompt_input="x", user_output="y")
-    assert result.verdict.value == "correct"
-    assert result.score == 80

@@ -33,6 +33,7 @@ describe('devMockAuth', () => {
     expect(listener).toHaveBeenCalledWith({
       uid: DEV_MOCK_UID,
       idToken: `dev-mock-${DEV_MOCK_UID}`,
+      isAnonymous: false,
     });
   });
 

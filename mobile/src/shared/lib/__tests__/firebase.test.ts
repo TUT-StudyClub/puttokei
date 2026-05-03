@@ -36,18 +36,23 @@ describe('firebase auth 差し込み', () => {
     const listener = jest.fn();
     const unsubscribeSpy = jest.fn();
     const subscribeSpy = jest.fn((l: (session: AuthSession | null) => void) => {
-      l({ uid: 'u1', idToken: 'token-1' });
+      l({ uid: 'u1', idToken: 'token-1', isAnonymous: false });
       return unsubscribeSpy;
     });
 
     registerAuthImpl({
       subscribeIdTokenChanged: subscribeSpy,
       refreshIdToken: async () => null,
+      ensureAnonymousSession: async () => {},
     });
 
     const unsubscribe = subscribeIdTokenChanged(listener);
     expect(subscribeSpy).toHaveBeenCalledTimes(1);
-    expect(listener).toHaveBeenCalledWith({ uid: 'u1', idToken: 'token-1' });
+    expect(listener).toHaveBeenCalledWith({
+      uid: 'u1',
+      idToken: 'token-1',
+      isAnonymous: false,
+    });
 
     unsubscribe();
     expect(unsubscribeSpy).toHaveBeenCalledTimes(1);
@@ -58,6 +63,7 @@ describe('firebase auth 差し込み', () => {
     registerAuthImpl({
       subscribeIdTokenChanged: () => () => {},
       refreshIdToken: refreshSpy,
+      ensureAnonymousSession: async () => {},
     });
 
     await expect(refreshIdToken()).resolves.toBe('token-fresh');
@@ -81,6 +87,7 @@ describe('firebase auth 差し込み', () => {
     registerAuthImpl({
       subscribeIdTokenChanged: () => () => {},
       refreshIdToken: async () => 'token-fresh',
+      ensureAnonymousSession: async () => {},
     });
 
     resetAuthImpl();

@@ -29,7 +29,7 @@ export function getFirebaseConfig(): FirebaseConfig | null {
 export type AuthSession = {
   uid: string;
   idToken: string;
-  isAnonymous?: boolean;
+  isAnonymous: boolean;
 };
 
 export type AuthSessionListener = (session: AuthSession | null) => void;
@@ -38,7 +38,7 @@ export type Unsubscribe = () => void;
 export type AuthImpl = {
   subscribeIdTokenChanged: (listener: AuthSessionListener) => Unsubscribe;
   refreshIdToken: () => Promise<string | null>;
-  ensureAnonymousSession?: () => Promise<void>;
+  ensureAnonymousSession: () => Promise<void>;
 };
 
 const NOOP_IMPL: AuthImpl = {
@@ -71,5 +71,5 @@ export async function refreshIdToken(): Promise<string | null> {
 }
 
 export async function ensureAnonymousSession(): Promise<void> {
-  await currentImpl.ensureAnonymousSession?.();
+  await currentImpl.ensureAnonymousSession();
 }

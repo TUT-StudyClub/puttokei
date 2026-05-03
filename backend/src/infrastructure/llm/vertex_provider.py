@@ -150,7 +150,7 @@ class VertexProvider(LLMJudgeService):
         if text == "":
             raise VertexProviderError("Vertex AI レスポンスに本文テキストがありません。")
         try:
-            return JudgmentResult.model_validate_json(_strip_code_fence(text))
+            return JudgmentResult.model_validate_json(text)
         except (json.JSONDecodeError, ValidationError) as exc:
             raise VertexProviderError(
                 "Vertex AI のレスポンスを JudgmentResult として解釈できませんでした。"
@@ -176,13 +176,3 @@ def _normalize_media_resolution(value: str) -> types.MediaResolution:
     if normalized not in _MEDIA_RESOLUTION_MAP:
         raise ValueError(f"unsupported Vertex AI media resolution: {value}")
     return _MEDIA_RESOLUTION_MAP[normalized]
-
-
-def _strip_code_fence(text: str) -> str:
-    """LLM が ```json ... ``` で囲んで返したケースのフォールバック。"""
-    if not text.startswith("```"):
-        return text
-    lines = text.splitlines()
-    if len(lines) < 3 or not lines[-1].startswith("```"):
-        return text
-    return "\n".join(lines[1:-1]).strip()

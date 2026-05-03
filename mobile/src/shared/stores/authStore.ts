@@ -11,7 +11,7 @@ export type AuthState = {
   uid: string | null;
   idToken: string | null;
   isAnonymous: boolean;
-  setSession: (uid: string, idToken: string, isAnonymous?: boolean) => void;
+  setSession: (uid: string, idToken: string, isAnonymous: boolean) => void;
   clear: () => void;
 };
 
@@ -19,7 +19,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   uid: null,
   idToken: null,
   isAnonymous: false,
-  setSession: (uid, idToken, isAnonymous = false) => set({ uid, idToken, isAnonymous }),
+  setSession: (uid, idToken, isAnonymous) => set({ uid, idToken, isAnonymous }),
   clear: () => set({ uid: null, idToken: null, isAnonymous: false }),
 }));
 

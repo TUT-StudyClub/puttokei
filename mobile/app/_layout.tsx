@@ -44,11 +44,13 @@ export default function RootLayout() {
       const { setSession, clear } = useAuthStore.getState();
       if (session === null) {
         clear();
+        // 初回起動 / signOut / token 期限切れのいずれでも未サインイン状態に陥った場合は
+        // 匿名で接続し直し、未登録ユーザーでもタイマー / LLM 判定を継続できるようにする。
+        void ensureAnonymousSession();
       } else {
-        setSession(session.uid, session.idToken, session.isAnonymous ?? false);
+        setSession(session.uid, session.idToken, session.isAnonymous);
       }
     });
-    void ensureAnonymousSession();
 
     return () => {
       unsubscribe();
