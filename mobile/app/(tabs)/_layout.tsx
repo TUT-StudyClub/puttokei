@@ -138,6 +138,14 @@ export default function TabsLayout() {
             tabBarIcon: ({ color }) => (
               <TimerTabIcon color={shouldHighlightTimerTabIcon ? ACTIVE_COLOR : color} size={39} />
             ),
+            tabBarLabel: () => (
+              <Text
+                allowFontScaling={false}
+                style={{ color: '#475FFF', fontSize: 11, fontFamily: 'HiraginoSans-W3' }}
+              >
+                タイマー
+              </Text>
+            ),
           }}
         />
         <Tabs.Screen
@@ -145,7 +153,12 @@ export default function TabsLayout() {
           options={{
             title: 'レポート',
             tabBarLabel: () => (
-              <Text style={{ color: '#676767', fontSize: 12, fontWeight: '700' }}>レポート</Text>
+              <Text
+                allowFontScaling={false}
+                style={{ color: '#676767', fontSize: 11, fontFamily: 'HiraginoSans-W6' }}
+              >
+                レポート
+              </Text>
             ),
             tabBarIcon: ({ color }) => <ReportTabIcon color={color} size={39} />,
           }}
