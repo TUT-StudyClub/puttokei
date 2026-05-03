@@ -536,7 +536,7 @@ const styles = StyleSheet.create({
   timerCaption: {
     color: '#9D9D9D',
     fontFamily: 'HiraginoSans-W4',
-    fontSize: 9,
+    fontSize: 11,
     lineHeight: 18,
     textAlign: 'center',
     marginTop: 8,
@@ -767,8 +767,8 @@ const styles = StyleSheet.create({
   cancelButton: {
     position: 'absolute',
     bottom: '21%',
-    left: '13.8%',
-    right: '14.1%',
+    left: '15.8%',
+    right: '16.3%',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: '3.2%',
@@ -779,7 +779,7 @@ const styles = StyleSheet.create({
   },
   cancelButtonFlow: {
     alignSelf: 'center',
-    width: '72.4%',
+    width: '68.4%',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: '4.6%',
