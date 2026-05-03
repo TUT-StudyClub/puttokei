@@ -31,7 +31,6 @@ import type { OutputReviewItem } from '@/features/session/types';
 import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
-
 const CURRENT_PHASE: SessionPhase = 'input';
 
 const PRIMARY_COLOR = '#148BFF';
@@ -346,7 +345,7 @@ export function InputScreen() {
               <HourglassBadge
                 currentLoop={currentLoop}
                 testIDPrefix="input"
-                activeColor={PRIMARY_COLOR}
+                activeColor="#475FFF"
                 inactiveColor={TEXT_INACTIVE}
                 borderColor={BORDER_COLOR}
                 rowStyle={hasOutputReview ? undefined : { marginTop: 0 }}
@@ -362,6 +361,7 @@ export function InputScreen() {
             activeDotColor={PRIMARY_COLOR}
             activeTextColor={PRIMARY_COLOR}
             inactiveDotColor={DOT_INACTIVE}
+            inactiveTextColor="#CDCDCD"
           />
         </View>
 
@@ -450,6 +450,7 @@ const styles = StyleSheet.create({
     top: '18%',
     left: '16%',
     right: '16%',
+    alignItems: 'center',
   },
   phaseTabsWrapperFlow: {
     marginLeft: '13.18%',
@@ -679,23 +680,25 @@ const styles = StyleSheet.create({
   cancelButton: {
     position: 'absolute',
     top: '79%',
-    left: '12%',
-    right: '12%',
+    left: '10%',
+    right: '10%',
     alignItems: 'center',
     justifyContent: 'center',
     height: '7%',
+    paddingBottom: '1.5%',
     borderRadius: 20,
     backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: '#6D6D6D',
   },
   cancelButtonFlow: {
-    marginLeft: '12%',
-    marginRight: '12%',
+    marginLeft: '10%',
+    marginRight: '10%',
     marginTop: '2%',
     alignItems: 'center',
     justifyContent: 'center',
     height: '7%',
+    paddingBottom: '1.5%',
     borderRadius: 20,
     backgroundColor: 'transparent',
     borderWidth: 1,
@@ -703,9 +706,9 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     color: '#6D6D6D',
-    fontFamily: 'HiraginoSans-W3',
-    fontSize: 17,
-    lineHeight: 22,
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 15,
+    lineHeight: 20,
   },
   buttonPressed: {
     opacity: 0.92,
