@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import type { LayoutChangeEvent, StyleProp, ViewStyle } from 'react-native';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import type { LayoutChangeEvent, StyleProp, TextStyle, ViewStyle } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -968,7 +968,10 @@ export function HourglassBadge({
   }, [sandLayers, sandColor, sandProgress]);
 
   return (
-    <View style={[styles.badgeRow, { marginBottom }, rowStyle]}>
+    <View
+      style={[styles.badgeRow, { marginBottom }, rowStyle]}
+      testID={`${testIDPrefix}-hourglass-row`}
+    >
       <View
         style={[styles.badge, { borderColor }, badgeStyle]}
         testID={`${testIDPrefix}-hourglass-badge`}
@@ -1162,7 +1165,7 @@ export function PhaseTabs({
 /**
  * 4 画面 (Home / Input / Output / Break) で共通利用する画面上部の固定 chrome。
  *
- * Home の絶対配置座標 (`top: 7.9%` / `top: 18.6%`) を 4 画面で揃えるための wrapper。
+ * Home の絶対配置座標 (`top: 7.9%` / `top: 19.4%`) を 4 画面で揃えるための wrapper。
  * 砂時計バッジ・PhaseTabs を SafeAreaView 配下の親 View に対して絶対配置する想定。
  * `showHeader` が `false` のときは砂時計バッジを非表示にし、PhaseTabs だけ常に表示する。
  *
@@ -1171,11 +1174,14 @@ export function PhaseTabs({
  */
 export const SESSION_TOP_CHROME_CONTENT_TOP = '26.1%' as const;
 export const SESSION_TOP_CHROME_HOURGLASS_WIDTH_RATIO = 1 - 0.1318 - 0.1294;
+export const SESSION_TOP_CHROME_PHASE_TABS_TOP = '19.4%' as const;
 
 type SessionTopChromeProps = {
   testIDPrefix: string;
   /** 砂時計バッジを表示するか。`false` でも PhaseTabs は表示される。 */
   showHeader?: boolean;
+  cycleLabelStyle?: StyleProp<TextStyle>;
+  hourglassRowStyle?: StyleProp<ViewStyle>;
   hourglass: Omit<HourglassBadgeProps, 'testIDPrefix' | 'rowStyle' | 'marginBottom'>;
   phaseTabs: Omit<PhaseTabsProps, 'testIDPrefix' | 'marginBottom'>;
   /** 砂時計バッジ wrapper の View ref。Break 画面のエントランスアニメ用。 */
@@ -1186,6 +1192,8 @@ type SessionTopChromeProps = {
 export function SessionTopChrome({
   testIDPrefix,
   showHeader = true,
+  cycleLabelStyle,
+  hourglassRowStyle,
   hourglass,
   phaseTabs,
   hourglassWrapperRef,
@@ -1207,7 +1215,7 @@ export function SessionTopChrome({
           style={styles.topChromeHourglassWrapper}
         >
           <SizableText
-            style={[styles.topChromeCycleLabel, { color: cycleLabelColor }]}
+            style={[styles.topChromeCycleLabel, { color: cycleLabelColor }, cycleLabelStyle]}
             testID={`${testIDPrefix}-cycle-label`}
           >
             {cycleLabelCount}サイクル
@@ -1216,14 +1224,14 @@ export function SessionTopChrome({
             {...hourglass}
             testIDPrefix={testIDPrefix}
             marginBottom={0}
-            rowStyle={styles.topChromeHourglassRow}
+            rowStyle={[styles.topChromeHourglassRow, hourglassRowStyle]}
             badgeStyle={[styles.topChromeHourglassBadge, hourglass.badgeStyle]}
             iconBaseWidth={HOURGLASS_VARIANTS.gray.baseWidth}
             iconBaseHeight={HOURGLASS_VARIANTS.gray.baseHeight}
           />
         </View>
       ) : null}
-      <View style={styles.topChromePhaseTabsWrapper}>
+      <View style={styles.topChromePhaseTabsWrapper} testID={`${testIDPrefix}-phase-tabs-wrapper`}>
         <PhaseTabs {...phaseTabs} testIDPrefix={testIDPrefix} marginBottom={0} />
       </View>
     </>
@@ -1237,7 +1245,11 @@ type CircularPhaseTimerProps = {
   testID: string;
   compact?: boolean;
   enabled?: boolean;
+  phaseLabelTestID?: string;
+  phaseLabelFontWeight?: TextStyle['fontWeight'];
+  phaseLabelStyle?: StyleProp<TextStyle>;
   textTestID?: string;
+  timerTextStyle?: StyleProp<TextStyle>;
   size?: number;
   strokeWidth?: number;
 };
@@ -1249,7 +1261,11 @@ export function CircularPhaseTimer({
   testID,
   compact = false,
   enabled = true,
+  phaseLabelTestID,
+  phaseLabelFontWeight,
+  phaseLabelStyle,
   textTestID = 'timer-display',
+  timerTextStyle,
   size: customSize,
   strokeWidth: customStrokeWidth,
 }: CircularPhaseTimerProps) {
@@ -1264,6 +1280,13 @@ export function CircularPhaseTimer({
   const remainingRatio =
     totalSeconds > 0 ? Math.min(1, Math.max(0, smoothRemainingSeconds / totalSeconds)) : 0;
   const dashOffset = -circumference * (1 - remainingRatio);
+  const phaseLabelStyles: StyleProp<TextStyle> = [
+    styles.timerPhaseLabel,
+    { color: primaryColor },
+    compact ? styles.timerPhaseLabelCompact : null,
+    phaseLabelFontWeight ? { fontWeight: phaseLabelFontWeight } : null,
+    phaseLabelStyle,
+  ];
 
   return (
     <View style={[styles.timerWrap, { width: size, height: size }]} testID={testID}>
@@ -1293,20 +1316,21 @@ export function CircularPhaseTimer({
         style={[styles.timerCenter, compact ? styles.timerCenterCompact : null]}
         pointerEvents="none"
       >
-        <SizableText
-          style={[
-            styles.timerPhaseLabel,
-            { color: primaryColor },
-            compact ? styles.timerPhaseLabelCompact : null,
-          ]}
-        >
-          {SESSION_PHASE_LABELS[phase]}
-        </SizableText>
+        {phaseLabelFontWeight ? (
+          <Text style={phaseLabelStyles} testID={phaseLabelTestID}>
+            {SESSION_PHASE_LABELS[phase]}
+          </Text>
+        ) : (
+          <SizableText style={phaseLabelStyles} testID={phaseLabelTestID}>
+            {SESSION_PHASE_LABELS[phase]}
+          </SizableText>
+        )}
         <SizableText
           style={[
             styles.timerText,
             { color: primaryColor },
             compact ? styles.timerTextCompact : null,
+            timerTextStyle,
           ]}
           testID={textTestID}
         >
@@ -1412,7 +1436,7 @@ const styles = StyleSheet.create({
   },
   topChromePhaseTabsWrapper: {
     position: 'absolute',
-    top: '18.6%',
+    top: SESSION_TOP_CHROME_PHASE_TABS_TOP,
     left: '12.68%',
     right: '13.44%',
   },

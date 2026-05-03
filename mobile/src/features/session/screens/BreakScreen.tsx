@@ -20,6 +20,7 @@ import {
   Pressable,
   SafeAreaView,
   StyleSheet,
+  Text,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -121,13 +122,36 @@ const PROGRESS_BAR_OUTER_COLOR = '#EFEFEF';
 const PROGRESS_TRACK_COLOR = '#CDCDCD';
 const PROGRESS_FILL_COLOR = '#475FFF';
 const PROGRESS_STATUS_ERROR = '#FF6B6B';
-const PROGRESS_CARD_HEIGHT = 196;
-const PROGRESS_CONTENT_GAP = 16;
-const PROGRESS_STATUS_TITLE_FONT_SIZE = 22;
-const PROGRESS_STATUS_TITLE_LINE_HEIGHT = 30;
-const PROGRESS_STATUS_SUB_FONT_SIZE = 16;
-const PROGRESS_STATUS_SUB_LINE_HEIGHT = 24;
-const PROGRESS_STATUS_BLOCK_GAP = 12;
+const PROGRESS_BAR_WIDTH = '86%';
+const PROGRESS_BAR_HEIGHT = 8;
+const PROGRESS_BAR_PADDING = 1;
+const PROGRESS_CARD_HEIGHT = 168;
+const PROGRESS_CARD_MARGIN_TOP = 22;
+const PROGRESS_CARD_MARGIN_BOTTOM = 2;
+const PROGRESS_CARD_VERTICAL_PADDING = 14;
+const PROGRESS_CONTENT_GAP = 10;
+const PROGRESS_METER_GAP = 6;
+const PROGRESS_STATUS_TITLE_FONT_SIZE = 14;
+const PROGRESS_STATUS_TITLE_LINE_HEIGHT = 20;
+const PROGRESS_PROCESSING_TITLE_TRANSLATE_Y = -2;
+const PROGRESS_READY_SUB_FONT_SIZE = 12;
+const PROGRESS_READY_SUB_LINE_HEIGHT = 17;
+const PROGRESS_READY_SUB_TRANSLATE_Y = 4;
+const PROGRESS_STATUS_SUB_FONT_SIZE = PROGRESS_READY_SUB_FONT_SIZE;
+const PROGRESS_STATUS_SUB_LINE_HEIGHT = PROGRESS_READY_SUB_LINE_HEIGHT;
+const PROGRESS_PROCESSING_SUB_TRANSLATE_Y = 8;
+const PROGRESS_READY_BLOCK_TRANSLATE_Y = 4;
+const PROGRESS_READY_TITLE_FONT_SIZE = 14;
+const PROGRESS_READY_TITLE_LINE_HEIGHT = 20;
+const PROGRESS_READY_CHECK_ICON_WIDTH = 12;
+const PROGRESS_READY_CHECK_ICON_HEIGHT = 9;
+const PROGRESS_READY_TITLE_ROW_GAP = 8;
+const PROGRESS_READY_TITLE_ROW_TRANSLATE_X =
+  -(PROGRESS_READY_CHECK_ICON_WIDTH + PROGRESS_READY_TITLE_ROW_GAP) / 2;
+const PROGRESS_READY_TITLE_ROW_TRANSLATE_Y = -2;
+const PROGRESS_READY_TITLE_TRANSLATE_Y = -1;
+const PROGRESS_STATUS_BLOCK_GAP = 8;
+const TIMER_CAPTION_GAP_CENTER_OFFSET = PROGRESS_CARD_MARGIN_TOP / 2;
 
 const PROGRESS_STATUS_LABELS: Record<JudgmentProgressStatus, string> = {
   queued: '判定待機中',
@@ -169,22 +193,24 @@ function JudgingProgressCard({
   const headerLabel = isFailed ? PROGRESS_STATUS_LABELS[progressStatus] : 'テキストの解析...';
   return (
     <View style={[styles.progressCard, { width }]} testID="break-progress-card">
-      <View style={[styles.progressHeaderRow, isReady ? styles.progressHeaderRowReady : null]}>
-        {isReady ? null : (
-          <SizableText style={styles.progressHeaderLabel} testID="break-progress-status">
-            {headerLabel}
+      <View style={styles.progressMeterBlock} testID="break-progress-meter-block">
+        <View style={[styles.progressHeaderRow, isReady ? styles.progressHeaderRowReady : null]}>
+          {isReady ? null : (
+            <SizableText style={styles.progressHeaderLabel} testID="break-progress-status">
+              {headerLabel}
+            </SizableText>
+          )}
+          <SizableText style={styles.progressHeaderPercent} testID="break-progress-percent">
+            {clamped}%
           </SizableText>
-        )}
-        <SizableText style={styles.progressHeaderPercent} testID="break-progress-percent">
-          {clamped}%
-        </SizableText>
-      </View>
-      <View style={styles.progressBarOuter} testID="break-progress-bar-outer">
-        <View style={styles.progressTrack} testID="break-progress-track">
-          <View
-            style={[styles.progressFill, { width: `${clamped}%` }]}
-            testID="break-progress-fill"
-          />
+        </View>
+        <View style={styles.progressBarOuter} testID="break-progress-bar-outer">
+          <View style={styles.progressTrack} testID="break-progress-track">
+            <View
+              style={[styles.progressFill, { width: `${clamped}%` }]}
+              testID="break-progress-fill"
+            />
+          </View>
         </View>
       </View>
       {!isReady && !isFailed ? (
@@ -195,9 +221,17 @@ function JudgingProgressCard({
           >
             採点中...
           </SizableText>
-          <SizableText style={styles.progressProcessingSub} testID="break-progress-processing-sub">
-            あなたのアウトプットを{'\n'}AIが採点しています。
-          </SizableText>
+          <View
+            style={styles.progressProcessingSubOffset}
+            testID="break-progress-processing-sub-offset"
+          >
+            <SizableText
+              style={styles.progressProcessingSub}
+              testID="break-progress-processing-sub"
+            >
+              あなたのアウトプットを{'\n'}AIが採点しています。
+            </SizableText>
+          </View>
         </View>
       ) : null}
       {isFailed ? (
@@ -210,14 +244,14 @@ function JudgingProgressCard({
       ) : null}
       {isReady ? (
         <View style={styles.progressReadyBlock} testID="break-progress-ready">
-          <View style={styles.progressReadyTitleRow}>
+          <View style={styles.progressReadyTitleRow} testID="break-progress-ready-title-row">
             <Image
               source={CHECK_ICON}
               style={styles.progressReadyCheckIcon}
               resizeMode="contain"
               testID="break-progress-ready-check-icon"
             />
-            <SizableText style={styles.progressReadyTitle}>採点完了</SizableText>
+            <Text style={styles.progressReadyTitle}>採点完了</Text>
           </View>
           <SizableText style={styles.progressReadySub} testID="break-progress-ready-sub">
             次のサイクルのインプットで{'\n'}結果を確認できます。
@@ -1135,8 +1169,7 @@ export function BreakScreen() {
     : 'お疲れ様でした。ゆっくり休憩してください。';
   const timerCircleSize = windowWidth * HOME_TIMER_CIRCLE_WIDTH_RATIO;
   const timerCaptionWidth = timerCircleSize;
-  const timerStageMinHeight =
-    timerCircleSize + TIMER_STAGE_PADDING_TOP + TIMER_CAPTION_LINE_HEIGHT;
+  const timerStageMinHeight = timerCircleSize + TIMER_STAGE_PADDING_TOP + TIMER_CAPTION_LINE_HEIGHT;
 
   const isNextCycleMode = screenMode === 'nextCycle';
   const usesCompletedPhasePalette = screenMode === 'completed' || isNextCycleMode;
@@ -1159,6 +1192,8 @@ export function BreakScreen() {
           testIDPrefix="break"
           hourglassWrapperRef={badgeStackRef}
           onHourglassWrapperLayout={handleBadgeStackLayout}
+          cycleLabelStyle={styles.homeAlignedCycleLabel}
+          hourglassRowStyle={styles.closeCycleHourglassRow}
           hourglass={{
             currentLoop: displayedLoop,
             borderColor: BORDER_COLOR,
@@ -1193,8 +1228,12 @@ export function BreakScreen() {
                   primaryColor={BREAK_TIMER_COLOR}
                   trackColor={BREAK_TIMER_TRACK_COLOR}
                   testID="break-circular-timer"
+                  phaseLabelTestID="break-timer-phase-label"
+                  phaseLabelFontWeight="600"
+                  textTestID="break-timer-display"
                   size={timerCaptionWidth}
                   strokeWidth={HOME_TIMER_CIRCLE_STROKE_WIDTH}
+                  timerTextStyle={styles.breakTimerText}
                   enabled={isFocused && screenMode === 'resting'}
                 />
                 <View
@@ -1267,10 +1306,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   timerCaption: {
+    width: '100%',
     color: CAPTION_COLOR,
     fontSize: 13,
     lineHeight: 20,
     textAlign: 'center',
+    transform: [{ translateY: TIMER_CAPTION_GAP_CENTER_OFFSET }],
+  },
+  breakTimerText: {
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 58,
+    fontWeight: '500',
+    lineHeight: 64,
+  },
+  homeAlignedCycleLabel: {
+    marginBottom: 0,
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 10,
+    fontWeight: '700',
+    lineHeight: 14,
+    transform: [{ translateY: 18 }],
+  },
+  closeCycleHourglassRow: {
+    marginTop: 22,
   },
   breakPhaseDotShadow: {
     shadowColor: '#000000',
@@ -1282,20 +1340,27 @@ const styles = StyleSheet.create({
   progressCard: {
     alignSelf: 'center',
     height: PROGRESS_CARD_HEIGHT,
-    justifyContent: 'space-between',
+    marginTop: PROGRESS_CARD_MARGIN_TOP,
+    marginBottom: PROGRESS_CARD_MARGIN_BOTTOM,
+    justifyContent: 'flex-start',
     gap: PROGRESS_CONTENT_GAP,
     paddingHorizontal: 24,
-    paddingVertical: 18,
+    paddingVertical: PROGRESS_CARD_VERTICAL_PADDING,
     borderRadius: 24,
     backgroundColor: PROGRESS_CARD_BG,
   },
   progressHeaderRow: {
+    alignSelf: 'center',
+    width: PROGRESS_BAR_WIDTH,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   progressHeaderRowReady: {
     justifyContent: 'flex-end',
+  },
+  progressMeterBlock: {
+    gap: PROGRESS_METER_GAP,
   },
   progressHeaderLabel: {
     color: PROGRESS_CARD_TEXT,
@@ -1308,10 +1373,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   progressBarOuter: {
-    width: '100%',
-    height: 12,
-    padding: 2,
-    borderRadius: 6,
+    alignSelf: 'center',
+    width: PROGRESS_BAR_WIDTH,
+    height: PROGRESS_BAR_HEIGHT,
+    padding: PROGRESS_BAR_PADDING,
+    borderRadius: PROGRESS_BAR_HEIGHT / 2,
     backgroundColor: PROGRESS_BAR_OUTER_COLOR,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 5 },
@@ -1321,13 +1387,13 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     flex: 1,
-    borderRadius: 4,
+    borderRadius: (PROGRESS_BAR_HEIGHT - PROGRESS_BAR_PADDING * 2) / 2,
     backgroundColor: PROGRESS_TRACK_COLOR,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: (PROGRESS_BAR_HEIGHT - PROGRESS_BAR_PADDING * 2) / 2,
     backgroundColor: PROGRESS_FILL_COLOR,
   },
   progressMessage: {
@@ -1344,10 +1410,12 @@ const styles = StyleSheet.create({
   },
   progressProcessingTitle: {
     color: PROGRESS_CARD_TEXT,
+    fontFamily: 'HiraginoSans-W3',
     fontSize: PROGRESS_STATUS_TITLE_FONT_SIZE,
-    fontWeight: '800',
+    fontWeight: '600',
     lineHeight: PROGRESS_STATUS_TITLE_LINE_HEIGHT,
     textAlign: 'center',
+    transform: [{ translateY: PROGRESS_PROCESSING_TITLE_TRANSLATE_Y }],
   },
   progressProcessingSub: {
     color: PROGRESS_CARD_TEXT,
@@ -1355,30 +1423,41 @@ const styles = StyleSheet.create({
     lineHeight: PROGRESS_STATUS_SUB_LINE_HEIGHT,
     textAlign: 'center',
   },
+  progressProcessingSubOffset: {
+    marginTop: PROGRESS_PROCESSING_SUB_TRANSLATE_Y,
+  },
   progressReadyBlock: {
     alignItems: 'center',
     gap: PROGRESS_STATUS_BLOCK_GAP,
+    transform: [{ translateY: PROGRESS_READY_BLOCK_TRANSLATE_Y }],
   },
   progressReadyTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: PROGRESS_READY_TITLE_ROW_GAP,
+    transform: [
+      { translateX: PROGRESS_READY_TITLE_ROW_TRANSLATE_X },
+      { translateY: PROGRESS_READY_TITLE_ROW_TRANSLATE_Y },
+    ],
   },
   progressReadyCheckIcon: {
-    width: 22,
-    height: 17,
+    width: PROGRESS_READY_CHECK_ICON_WIDTH,
+    height: PROGRESS_READY_CHECK_ICON_HEIGHT,
   },
   progressReadyTitle: {
     color: PROGRESS_CARD_TEXT,
-    fontSize: PROGRESS_STATUS_TITLE_FONT_SIZE,
-    fontWeight: '800',
-    lineHeight: PROGRESS_STATUS_TITLE_LINE_HEIGHT,
+    fontFamily: 'HiraginoSans-W3',
+    fontSize: PROGRESS_READY_TITLE_FONT_SIZE,
+    fontWeight: '600',
+    lineHeight: PROGRESS_READY_TITLE_LINE_HEIGHT,
+    transform: [{ translateY: PROGRESS_READY_TITLE_TRANSLATE_Y }],
   },
   progressReadySub: {
     color: PROGRESS_READY_SUBTEXT,
-    fontSize: PROGRESS_STATUS_SUB_FONT_SIZE,
-    lineHeight: PROGRESS_STATUS_SUB_LINE_HEIGHT,
+    fontSize: PROGRESS_READY_SUB_FONT_SIZE,
+    lineHeight: PROGRESS_READY_SUB_LINE_HEIGHT,
     textAlign: 'center',
+    transform: [{ translateY: PROGRESS_READY_SUB_TRANSLATE_Y }],
   },
   completedContent: {
     flex: 1,
