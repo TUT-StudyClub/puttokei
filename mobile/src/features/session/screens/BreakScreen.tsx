@@ -133,7 +133,7 @@ const PROGRESS_CONTENT_GAP = 10;
 const PROGRESS_METER_GAP = 6;
 const PROGRESS_STATUS_TITLE_FONT_SIZE = 14;
 const PROGRESS_STATUS_TITLE_LINE_HEIGHT = 20;
-const PROGRESS_PROCESSING_TITLE_TRANSLATE_Y = -2;
+const PROGRESS_PROCESSING_TITLE_TRANSLATE_Y = 1;
 const PROGRESS_READY_SUB_FONT_SIZE = 12;
 const PROGRESS_READY_SUB_LINE_HEIGHT = 17;
 const PROGRESS_READY_SUB_TRANSLATE_Y = 4;
@@ -1485,8 +1485,9 @@ const styles = StyleSheet.create({
   },
   completedTitle: {
     color: '#FFFFFF',
+    fontFamily: 'HiraginoSans-W6',
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '900',
     lineHeight: 26,
     textAlign: 'center',
   },
