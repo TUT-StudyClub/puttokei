@@ -197,6 +197,10 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
+  tabBarLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
   dialogBackdrop: {
     flex: 1,
     alignItems: 'center',
