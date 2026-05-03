@@ -33,6 +33,17 @@ async def test_verify_rejects_invalid_token(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_verify_rejects_unsupported_sign_in_provider(client: AsyncClient):
+    response = await client.post(
+        "/api/v1/auth/verify",
+        headers={"Authorization": "Bearer github-user:github.com"},
+    )
+    assert response.status_code == 401
+    body = response.json()
+    assert body["type"].endswith("unsupported_sign_in_provider")
+
+
+@pytest.mark.asyncio
 async def test_verify_creates_new_user_on_first_call(
     client: AsyncClient, fake_user_repository: FakeUserRepository
 ):

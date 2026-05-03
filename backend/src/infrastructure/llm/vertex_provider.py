@@ -64,20 +64,27 @@ class VertexProvider(LLMJudgeService):
         self.thinking_budget = thinking_budget
         self.image_media_resolution = _normalize_media_resolution(image_media_resolution)
 
-        credentials = (
-            service_account.Credentials.from_service_account_file(
-                credentials_path,
-                scopes=["https://www.googleapis.com/auth/cloud-platform"],
+        try:
+            credentials = (
+                service_account.Credentials.from_service_account_file(
+                    credentials_path,
+                    scopes=["https://www.googleapis.com/auth/cloud-platform"],
+                )
+                if credentials_path is not None
+                else None
             )
-            if credentials_path is not None
-            else None
-        )
-        self._client = genai.Client(
-            vertexai=True,
-            project=project_id,
-            location=location,
-            credentials=credentials,
-        )
+            self._client = genai.Client(
+                vertexai=True,
+                project=project_id,
+                location=location,
+                credentials=credentials,
+            )
+        except Exception as exc:
+            raise VertexProviderError(
+                f"Vertex AI クライアントの初期化に失敗しました "
+                f"(project={project_id}, location={location}, "
+                f"credentials_path={credentials_path or '<ADC>'}): {exc}"
+            ) from exc
 
     async def judge_text(
         self,

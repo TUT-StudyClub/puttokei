@@ -9,6 +9,7 @@ from src.application.use_cases.authenticate_user import (
     AuthenticateUser,
     DeletedAccountAuthenticationError,
     InvalidAuthenticationTokenError,
+    UnsupportedSignInProviderError,
 )
 from src.domain.entities.user import User
 from src.domain.entities.user_settings import UserSettings
@@ -138,6 +139,25 @@ async def test_raises_invalid_token_error_without_opening_uow():
 
     with pytest.raises(InvalidAuthenticationTokenError):
         await use_case.execute("invalid-token")
+
+    assert uow.enter_count == 0
+    assert uow.commit_count == 0
+
+
+@pytest.mark.asyncio
+async def test_rejects_unsupported_sign_in_provider():
+    repo = FakeUserRepository()
+    uow = FakeUnitOfWork(users=repo)
+    use_case = AuthenticateUser(
+        auth_verifier=FakeAuthVerifier(),
+        unit_of_work_factory=lambda: uow,
+    )
+
+    # Firebase の sign_in_provider には password / phone / facebook.com / github.com など、
+    # 設計上サポートしていない値が来る可能性がある。GOOGLE に黙って fallback すると
+    # 監査ログ / 統計が壊れるため、明示的に拒否することを担保する。
+    with pytest.raises(UnsupportedSignInProviderError):
+        await use_case.execute("github-user:github.com")
 
     assert uow.enter_count == 0
     assert uow.commit_count == 0
