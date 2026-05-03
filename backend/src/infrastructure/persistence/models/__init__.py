@@ -9,6 +9,10 @@ from src.infrastructure.persistence.models.judgment_model import JudgmentModel
 from src.infrastructure.persistence.models.judgment_progress_model import JudgmentProgressModel
 from src.infrastructure.persistence.models.output_model import OutputModel
 from src.infrastructure.persistence.models.session_model import SessionModel
+from src.infrastructure.persistence.models.study_subject_model import (
+    OutputSubjectAssignmentModel,
+    StudySubjectModel,
+)
 from src.infrastructure.persistence.models.user_model import UserModel
 from src.infrastructure.persistence.models.user_settings_model import UserSettingsModel
 
@@ -17,7 +21,9 @@ __all__ = [
     "JudgmentModel",
     "JudgmentProgressModel",
     "OutputModel",
+    "OutputSubjectAssignmentModel",
     "SessionModel",
+    "StudySubjectModel",
     "UserModel",
     "UserSettingsModel",
 ]
