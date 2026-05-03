@@ -1427,7 +1427,7 @@ const styles = StyleSheet.create({
   },
   timerPhaseLabel: {
     position: 'absolute',
-    top: '28%',
+    top: '30.3%',
     fontFamily: 'HiraginoSans-W6',
     fontSize: 14,
     lineHeight: 24,
@@ -1438,11 +1438,11 @@ const styles = StyleSheet.create({
   },
   timerText: {
     position: 'absolute',
-    top: '36%',
+    top: '41%',
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 55,
-    fontWeight: '600',
-    lineHeight: 70,
+    fontSize: 54,
+    fontWeight: '700',
+    lineHeight: 64,
   },
   timerTextCompact: {
     fontSize: 34,
