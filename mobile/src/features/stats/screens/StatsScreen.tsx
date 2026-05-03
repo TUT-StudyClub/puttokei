@@ -20,6 +20,7 @@ import {
   ScrollView,
   type StyleProp,
   StyleSheet,
+  type TextStyle,
   type ViewStyle,
   useWindowDimensions,
   View,
@@ -80,6 +81,7 @@ const FIXED_HEADER_HORIZONTAL_PADDING = 24;
 const FIXED_HEADER_BOTTOM_PADDING = 24;
 const SCROLL_BOUNDARY_HEIGHT = 2;
 const HIGHLIGHT_CARD_WIDTH_RATIO = 0.96;
+const HIGHLIGHT_CARD_MAX_WIDTH = 360;
 const HIGHLIGHT_CARD_ASPECT_RATIO = 1264 / 1288;
 const WEEKLY_CHART_WRAP_MIN_HEIGHT = 350;
 const WEEKLY_CHART_WRAP_PADDING_TOP = 4;
@@ -96,10 +98,13 @@ const WEEKLY_CHART_FRAME_TOP_OFFSET =
     2;
 const WEEKLY_CHART_TO_BOUNDARY_EXTENSION =
   WEEKLY_CALENDAR_GRAPH_BOUNDARY_BOTTOM + WEEKLY_CHART_FRAME_TOP_OFFSET;
-const WEEKLY_CHART_PLOT_TOP = -WEEKLY_CHART_TO_BOUNDARY_EXTENSION;
+const WEEKLY_CHART_PLOT_TOP = -8;
+const WEEKLY_CHART_GRID_TOP = -WEEKLY_CHART_TO_BOUNDARY_EXTENSION;
 const WEEKLY_CHART_TOP_OVERFLOW = WEEKLY_CHART_TO_BOUNDARY_EXTENSION + 16;
 const WEEKLY_CHART_PLOT_HEIGHT = WEEKLY_CHART_AXIS_Y - WEEKLY_CHART_PLOT_TOP;
 const WEEKLY_HISTORY_UP_OFFSET = -32;
+const DAILY_HIGHLIGHT_CARD_HEIGHT_REDUCTION = -WEEKLY_HISTORY_UP_OFFSET;
+const DAILY_HIGHLIGHT_METRICS_TRANSLATE_X = 16;
 
 function CalendarMonthIcon() {
   return <Image source={CALENDAR_MONTH_ICON} style={styles.calendarToggleIcon} />;
@@ -370,6 +375,19 @@ function splitMinutes(minutes: number) {
   };
 }
 
+function getHighlightCardSize(viewportWidth: number) {
+  const headerContentWidth = Math.max(0, viewportWidth - FIXED_HEADER_HORIZONTAL_PADDING * 2);
+  if (headerContentWidth === 0) {
+    return { width: 0, height: 0 };
+  }
+
+  const width = Math.min(HIGHLIGHT_CARD_MAX_WIDTH, headerContentWidth * HIGHLIGHT_CARD_WIDTH_RATIO);
+  return {
+    width,
+    height: width / HIGHLIGHT_CARD_ASPECT_RATIO,
+  };
+}
+
 function MetricLine({
   label,
   minutes,
@@ -398,13 +416,19 @@ function MetricLine({
   );
 }
 
-function HighlightCard({ summary }: { summary: DailyReportSummary }) {
+function HighlightCard({
+  summary,
+  style,
+}: {
+  summary: DailyReportSummary;
+  style?: StyleProp<ViewStyle>;
+}) {
   const total = splitMinutes(summary.total_study_minutes);
   return (
     <ImageBackground
       source={HIGHLIGHT_BACKGROUND}
       resizeMode="stretch"
-      style={styles.highlightCard}
+      style={[styles.highlightCard, style]}
       imageStyle={styles.highlightBackground}
       testID="stats-highlight-card"
     >
@@ -438,10 +462,10 @@ function HighlightCard({ summary }: { summary: DailyReportSummary }) {
   );
 }
 
-function HighlightPlaceholder() {
+function HighlightPlaceholder({ style }: { style?: StyleProp<ViewStyle> }) {
   return (
     <View
-      style={[styles.highlightCard, styles.highlightPlaceholder]}
+      style={[styles.highlightCard, style, styles.highlightPlaceholder]}
       testID="stats-highlight-loading"
     >
       <Spinner />
@@ -686,7 +710,7 @@ function WeeklyBarChart({ points }: { points: WeeklyReportPoint[] }) {
               <Line
                 key={`vertical-${_point.bucket}`}
                 x1={x}
-                y1={toSvgY(WEEKLY_CHART_PLOT_TOP)}
+                y1={toSvgY(WEEKLY_CHART_GRID_TOP)}
                 x2={x}
                 y2={toSvgY(axisY)}
                 stroke="#ECECEC"
@@ -730,10 +754,14 @@ function OutputHistory({
   items,
   fallbackDateKey,
   emptyMessage = 'この日の履歴はまだありません。',
+  titleFrameStyle,
+  cardFrameStyle,
 }: {
   items: OutputReviewItem[];
   fallbackDateKey?: string;
   emptyMessage?: string;
+  titleFrameStyle?: StyleProp<TextStyle>;
+  cardFrameStyle?: StyleProp<ViewStyle>;
 }) {
   const groups = useMemo(
     () => buildHistoryGroups(items, fallbackDateKey),
@@ -742,11 +770,14 @@ function OutputHistory({
 
   return (
     <View style={styles.historySection} testID="stats-output-history">
-      <SizableText style={styles.historyTitle} testID="stats-output-history-title">
+      <SizableText
+        style={[styles.historyTitle, titleFrameStyle]}
+        testID="stats-output-history-title"
+      >
         履歴
       </SizableText>
       {groups.map((group) => (
-        <View key={group.dateKey} style={styles.historyCard}>
+        <View key={group.dateKey} style={[styles.historyCard, cardFrameStyle]}>
           {group.dateLabel ? (
             <SizableText style={styles.historyDateText}>{group.dateLabel}</SizableText>
           ) : null}
@@ -817,12 +848,40 @@ export function StatsScreen() {
     enabled: reportViewMode === 'weekly',
   });
   const monthlyReports = useMonthlyWeeklyReports(calendarMonthStart, reportViewMode === 'monthly');
-  const weeklyChartSlotHistoryOffset = useMemo(() => {
-    const headerContentWidth = Math.max(0, viewportWidth - FIXED_HEADER_HORIZONTAL_PADDING * 2);
-    if (headerContentWidth === 0) return 0;
+  const highlightCardSize = useMemo(() => getHighlightCardSize(viewportWidth), [viewportWidth]);
+  const dailyHighlightCardStyle = useMemo<StyleProp<ViewStyle>>(() => {
+    if (highlightCardSize.height === 0) return undefined;
 
-    const highlightCardWidth = Math.min(360, headerContentWidth * HIGHLIGHT_CARD_WIDTH_RATIO);
-    const highlightCardHeight = highlightCardWidth / HIGHLIGHT_CARD_ASPECT_RATIO;
+    const height = Math.max(0, highlightCardSize.height - DAILY_HIGHLIGHT_CARD_HEIGHT_REDUCTION);
+    return {
+      width: height * HIGHLIGHT_CARD_ASPECT_RATIO,
+      height,
+    };
+  }, [highlightCardSize.height]);
+  const dailyHighlightViewFrameStyle = useMemo<StyleProp<ViewStyle>>(() => {
+    if (highlightCardSize.height === 0) return undefined;
+
+    const height = Math.max(0, highlightCardSize.height - DAILY_HIGHLIGHT_CARD_HEIGHT_REDUCTION);
+    return {
+      width: height * HIGHLIGHT_CARD_ASPECT_RATIO,
+      alignSelf: 'center',
+      marginLeft: 0,
+    };
+  }, [highlightCardSize.height]);
+  const dailyHighlightTextFrameStyle = useMemo<StyleProp<TextStyle>>(() => {
+    if (highlightCardSize.height === 0) return undefined;
+
+    const height = Math.max(0, highlightCardSize.height - DAILY_HIGHLIGHT_CARD_HEIGHT_REDUCTION);
+    return {
+      width: height * HIGHLIGHT_CARD_ASPECT_RATIO,
+      alignSelf: 'center',
+      marginLeft: 0,
+    };
+  }, [highlightCardSize.height]);
+  const weeklyChartSlotHistoryOffset = useMemo(() => {
+    if (highlightCardSize.height === 0) return 0;
+
+    const highlightCardHeight = highlightCardSize.height;
     const weeklyChartSlotHeight = Math.max(highlightCardHeight, WEEKLY_CHART_SLOT_MIN_HEIGHT);
     return (
       highlightCardHeight +
@@ -831,7 +890,7 @@ export function StatsScreen() {
       weeklyChartSlotHeight +
       WEEKLY_HISTORY_UP_OFFSET
     );
-  }, [viewportWidth]);
+  }, [highlightCardSize.height]);
   const weeklyChartSlotStyle = useMemo(
     () => [styles.weeklyChartSlot, { marginBottom: weeklyChartSlotHistoryOffset }],
     [weeklyChartSlotHistoryOffset],
@@ -962,6 +1021,8 @@ export function StatsScreen() {
         <OutputHistory
           items={dailyReportQuery.data.output_history}
           fallbackDateKey={dailyReportQuery.data.date}
+          titleFrameStyle={dailyHighlightTextFrameStyle}
+          cardFrameStyle={dailyHighlightViewFrameStyle}
         />
         {dailyReportQuery.isFetching ? (
           <SizableText style={styles.refetchingText} testID="stats-refetching">
@@ -1118,14 +1179,16 @@ export function StatsScreen() {
           selectedDateKey={selectedDateKey}
           onSelectDate={handleSelectDate}
         />
-        <View style={styles.highlightTitleRow}>
-          <SizableText style={styles.highlightTitle}>{highlightTitle}</SizableText>
+        <View style={[styles.highlightTitleRow, dailyHighlightViewFrameStyle]}>
+          <SizableText style={[styles.highlightTitle, styles.dailyHighlightTitle]}>
+            {highlightTitle}
+          </SizableText>
           <ShareIconButton />
         </View>
         {dailyReportQuery.data ? (
-          <HighlightCard summary={dailyReportQuery.data.summary} />
+          <HighlightCard summary={dailyReportQuery.data.summary} style={dailyHighlightCardStyle} />
         ) : (
-          <HighlightPlaceholder />
+          <HighlightPlaceholder style={dailyHighlightCardStyle} />
         )}
       </View>
       <View style={styles.scrollBoundary} />
@@ -1309,6 +1372,9 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     paddingLeft: 9,
   },
+  dailyHighlightTitle: {
+    paddingLeft: 0,
+  },
   shareButton: {
     width: 30,
     height: 30,
@@ -1331,7 +1397,7 @@ const styles = StyleSheet.create({
   },
   highlightCard: {
     width: '96%',
-    maxWidth: 360,
+    maxWidth: HIGHLIGHT_CARD_MAX_WIDTH,
     aspectRatio: HIGHLIGHT_CARD_ASPECT_RATIO,
     alignSelf: 'center',
     backgroundColor: 'transparent',
@@ -1401,9 +1467,9 @@ const styles = StyleSheet.create({
   highlightCaption: {
     color: '#333333',
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
-    lineHeight: 22,
+    lineHeight: 20,
     textAlign: 'center',
   },
   totalTimeRow: {
@@ -1416,16 +1482,16 @@ const styles = StyleSheet.create({
   totalTimeNumber: {
     color: '#333333',
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 40,
+    fontSize: 36,
     fontWeight: '900',
-    lineHeight: 45,
+    lineHeight: 40,
   },
   totalTimeUnit: {
     color: '#333333',
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
-    lineHeight: 31,
+    lineHeight: 28,
   },
   highlightBody: {
     alignItems: 'center',
@@ -1436,6 +1502,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
     gap: 7,
     marginTop: 10,
+    transform: [{ translateX: DAILY_HIGHLIGHT_METRICS_TRANSLATE_X }],
   },
   sessionBadge: {
     position: 'absolute',
