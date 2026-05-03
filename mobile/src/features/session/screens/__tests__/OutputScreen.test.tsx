@@ -283,7 +283,7 @@ describe('OutputScreen', () => {
   });
 
   it('音声認識の final result を本文に追加し、既存の送信フローで提出できる', async () => {
-    (sessionApi.submitOutput as jest.Mock).mockResolvedValue({
+    (sessionApi.submitTextOutput as jest.Mock).mockResolvedValue({
       ...submitSuccessResponse,
       output: {
         ...submitSuccessResponse.output,
@@ -311,7 +311,7 @@ describe('OutputScreen', () => {
     });
 
     await waitFor(() => {
-      expect(sessionApi.submitOutput).toHaveBeenCalledWith('ses-123', {
+      expect(sessionApi.submitTextOutput).toHaveBeenCalledWith('ses-123', {
         content: '関係代名詞は先行詞を説明する',
         submitted_at: '2026-04-10T15:25:00.000Z',
       });
@@ -390,16 +390,11 @@ describe('OutputScreen', () => {
     expect(getByTestId('output-voice-error').props.children).toBe(expectedMessage);
   });
 
-  it('画像追加メニューからカメラを開き、撮影画像を左から追加する', async () => {
-    mockLaunchCameraAsync
-      .mockResolvedValueOnce({
-        canceled: false,
-        assets: [{ uri: 'file:///output-first.jpg' }],
-      })
-      .mockResolvedValueOnce({
-        canceled: false,
-        assets: [{ uri: 'file:///output-second.jpg' }],
-      });
+  it('画像追加メニューからカメラを開き、撮影画像を 1 枚プレビューに表示する', async () => {
+    mockLaunchCameraAsync.mockResolvedValueOnce({
+      canceled: false,
+      assets: [{ uri: 'file:///output-first.jpg' }],
+    });
 
     const { getByTestId } = renderWithProviders(<OutputScreen />);
 
@@ -413,25 +408,12 @@ describe('OutputScreen', () => {
     });
 
     await waitFor(() => {
-      expect(getByTestId('output-image-thumbnail-0').props.source).toEqual({
+      expect(getByTestId('output-image-thumbnail').props.source).toEqual({
         uri: 'file:///output-first.jpg',
       });
     });
-
-    await act(async () => {
-      fireEvent.press(getByTestId('output-image-add-button'));
-    });
-    await act(async () => {
-      fireEvent.press(getByTestId('output-image-add-menu-camera'));
-    });
-
-    await waitFor(() => {
-      expect(getByTestId('output-image-thumbnail-1').props.source).toEqual({
-        uri: 'file:///output-second.jpg',
-      });
-    });
-    expect(mockRequestCameraPermissionsAsync).toHaveBeenCalledTimes(2);
-    expect(mockLaunchCameraAsync).toHaveBeenCalledTimes(2);
+    expect(mockRequestCameraPermissionsAsync).toHaveBeenCalledTimes(1);
+    expect(mockLaunchCameraAsync).toHaveBeenCalledTimes(1);
     expect(mockLaunchCameraAsync).toHaveBeenCalledWith({
       allowsEditing: false,
       mediaTypes: 'images',
@@ -439,7 +421,7 @@ describe('OutputScreen', () => {
     });
   });
 
-  it('画像追加メニューから写真アルバムを開き、選択画像を追加する', async () => {
+  it('画像追加メニューから写真アルバムを開き、選択画像をプレビューに表示する', async () => {
     mockLaunchImageLibraryAsync.mockResolvedValueOnce({
       canceled: false,
       assets: [{ uri: 'file:///library-output.jpg' }],
@@ -457,7 +439,7 @@ describe('OutputScreen', () => {
     });
 
     await waitFor(() => {
-      expect(getByTestId('output-image-thumbnail-0').props.source).toEqual({
+      expect(getByTestId('output-image-thumbnail').props.source).toEqual({
         uri: 'file:///library-output.jpg',
       });
     });
@@ -499,20 +481,40 @@ describe('OutputScreen', () => {
     fireEvent.press(getByTestId('output-image-submit'));
 
     expect(getByTestId('output-image-submit-error').props.children).toBe(
-      '画像を1枚以上追加してから提出してください。',
+      '画像を追加してから提出してください。',
     );
-    expect(sessionApi.submitOutput).not.toHaveBeenCalled();
+    expect(sessionApi.submitImageOutput).not.toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  it('画像を追加して提出すると submitOutput → break 画面へ replace する', async () => {
-    (sessionApi.submitOutput as jest.Mock).mockResolvedValue({
+  it('画像を追加して提出すると GCS upload → submitImageOutput → break 画面へ replace する', async () => {
+    (sessionApi.issueOutputImageUploadUrl as jest.Mock).mockResolvedValue({
+      upload_url: 'https://fake.storage/upload/abc',
+      storage_path: 'outputs/uid/abc.jpg',
+      expires_at: '2026-04-10T15:35:00.000Z',
+    });
+    (sessionApi.submitImageOutput as jest.Mock).mockResolvedValue({
       ...submitSuccessResponse,
       output: {
         ...submitSuccessResponse.output,
-        content: '画像でアウトプットしました。撮影した学習内容の画像を提出しました。（1枚）',
+        kind: 'image',
+        content: null,
+        image_url: 'https://fake.storage/download/abc',
       },
     });
+    const fetchMock = jest.spyOn(global, 'fetch').mockImplementation((async (
+      _input: string,
+      init?: { method?: string },
+    ): Promise<Response> => {
+      if (init?.method === 'PUT') {
+        return { ok: true, status: 200 } as Response;
+      }
+      return {
+        ok: true,
+        status: 200,
+        blob: async () => new Blob([]),
+      } as unknown as Response;
+    }) as unknown as typeof fetch);
     mockLaunchCameraAsync.mockResolvedValueOnce({
       canceled: false,
       assets: [{ uri: 'file:///output-first.jpg' }],
@@ -530,7 +532,7 @@ describe('OutputScreen', () => {
     });
 
     await waitFor(() => {
-      expect(getByTestId('output-image-thumbnail-0')).toBeTruthy();
+      expect(getByTestId('output-image-thumbnail')).toBeTruthy();
     });
 
     act(() => {
@@ -538,16 +540,13 @@ describe('OutputScreen', () => {
     });
 
     await waitFor(() => {
-      expect(sessionApi.submitOutput).toHaveBeenCalledWith('ses-123', {
-        content: expect.stringContaining(
-          '画像でアウトプットしました。撮影した学習内容の画像を提出しました。（1枚）',
-        ),
-        submitted_at: '2026-04-10T15:25:00.000Z',
-      });
+      expect(sessionApi.issueOutputImageUploadUrl).toHaveBeenCalledWith('ses-123', 'image/jpeg');
     });
-    expect(sessionApi.submitOutput).toHaveBeenCalledWith('ses-123', {
-      content: expect.stringContaining('画像1: file:///output-first.jpg'),
-      submitted_at: '2026-04-10T15:25:00.000Z',
+    await waitFor(() => {
+      expect(sessionApi.submitImageOutput).toHaveBeenCalledWith('ses-123', {
+        image_storage_path: 'outputs/uid/abc.jpg',
+        submitted_at: expect.stringMatching(/^2026-04-10T15:25:00\.\d{3}Z$/),
+      });
     });
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith({
@@ -555,6 +554,8 @@ describe('OutputScreen', () => {
         params: { id: 'ses-123', input: '20', output: '1', break: '5' },
       });
     });
+
+    fetchMock.mockRestore();
   });
 
   it('タイマー完了で本文が空ならエラーメッセージを表示し、送信しない', async () => {
@@ -567,7 +568,7 @@ describe('OutputScreen', () => {
     await waitFor(() => {
       expect(getByTestId('output-editor-error')).toBeTruthy();
     });
-    expect(sessionApi.submitOutput).not.toHaveBeenCalled();
+    expect(sessionApi.submitTextOutput).not.toHaveBeenCalled();
   });
 
   it('タイマー完了で本文があれば送信を促すメッセージを表示し、自動送信しない', async () => {
@@ -582,12 +583,12 @@ describe('OutputScreen', () => {
     await waitFor(() => {
       expect(getByTestId('output-editor-error')).toBeTruthy();
     });
-    expect(sessionApi.submitOutput).not.toHaveBeenCalled();
+    expect(sessionApi.submitTextOutput).not.toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it('本文入力 → 送信で submitOutput → break 画面へ replace する', async () => {
-    (sessionApi.submitOutput as jest.Mock).mockResolvedValue(submitSuccessResponse);
+    (sessionApi.submitTextOutput as jest.Mock).mockResolvedValue(submitSuccessResponse);
 
     const { getByTestId } = renderWithProviders(<OutputScreen />);
 
@@ -598,7 +599,7 @@ describe('OutputScreen', () => {
     });
 
     await waitFor(() => {
-      expect(sessionApi.submitOutput).toHaveBeenCalledWith('ses-123', {
+      expect(sessionApi.submitTextOutput).toHaveBeenCalledWith('ses-123', {
         content: '関係代名詞は先行詞を修飾する',
         submitted_at: '2026-04-10T15:25:00.000Z',
       });
@@ -612,7 +613,7 @@ describe('OutputScreen', () => {
   });
 
   it('submitOutput 失敗時はエラーメッセージと「再送する」ボタンが現れ、明示操作で再送できる', async () => {
-    (sessionApi.submitOutput as jest.Mock)
+    (sessionApi.submitTextOutput as jest.Mock)
       .mockRejectedValueOnce(new Error('HTTP 500'))
       .mockResolvedValueOnce(submitSuccessResponse);
 
@@ -632,14 +633,14 @@ describe('OutputScreen', () => {
       fireEvent.press(getByTestId('output-editor-submit'));
       fireEvent.press(getByTestId('output-editor-submit'));
     });
-    expect(sessionApi.submitOutput).toHaveBeenCalledTimes(1);
+    expect(sessionApi.submitTextOutput).toHaveBeenCalledTimes(1);
 
     act(() => {
       fireEvent.press(getByTestId('output-editor-retry'));
     });
 
     await waitFor(() => {
-      expect(sessionApi.submitOutput).toHaveBeenCalledTimes(2);
+      expect(sessionApi.submitTextOutput).toHaveBeenCalledTimes(2);
     });
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith({
@@ -650,7 +651,7 @@ describe('OutputScreen', () => {
   });
 
   it('session id が変わったら前サイクルの送信状態を引き継がずに新しいアウトプットを送信できる', async () => {
-    (sessionApi.submitOutput as jest.Mock)
+    (sessionApi.submitTextOutput as jest.Mock)
       .mockResolvedValueOnce(submitSuccessResponse)
       .mockResolvedValueOnce({
         status: 'judging',
@@ -670,7 +671,7 @@ describe('OutputScreen', () => {
     });
 
     await waitFor(() => {
-      expect(sessionApi.submitOutput).toHaveBeenCalledWith('ses-123', {
+      expect(sessionApi.submitTextOutput).toHaveBeenCalledWith('ses-123', {
         content: '1回目の本文',
         submitted_at: '2026-04-10T15:25:00.000Z',
       });
@@ -694,12 +695,12 @@ describe('OutputScreen', () => {
     });
 
     await waitFor(() => {
-      expect(sessionApi.submitOutput).toHaveBeenCalledWith('ses-next', {
+      expect(sessionApi.submitTextOutput).toHaveBeenCalledWith('ses-next', {
         content: '2回目の本文',
         submitted_at: expect.any(String),
       });
     });
-    expect(sessionApi.submitOutput).toHaveBeenCalledTimes(2);
+    expect(sessionApi.submitTextOutput).toHaveBeenCalledTimes(2);
   });
 
   it('session id が変わったら音声認識状態と本文をリセットする', async () => {

@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.entities.output import Output
 from src.domain.repositories.output_repository import OutputRepository
+from src.domain.value_objects.output_kind import OutputKind
 from src.infrastructure.persistence.models.output_model import OutputModel
 
 
@@ -26,13 +27,17 @@ class PgOutputRepository(OutputRepository):
                 OutputModel(
                     id=output.id,
                     session_id=output.session_id,
+                    kind=output.kind.value,
                     content=output.content,
+                    image_storage_path=output.image_storage_path,
                     submitted_at=output.submitted_at,
                 )
             )
         else:
             model.id = output.id
+            model.kind = output.kind.value
             model.content = output.content
+            model.image_storage_path = output.image_storage_path
             model.submitted_at = output.submitted_at
 
         await self._session.flush()
@@ -43,11 +48,19 @@ class PgOutputRepository(OutputRepository):
         model = result.scalar_one_or_none()
         return _to_output(model) if model is not None else None
 
+    async def find_by_id(self, output_id: UUID) -> Output | None:
+        stmt = select(OutputModel).where(OutputModel.id == output_id)
+        result = await self._session.execute(stmt)
+        model = result.scalar_one_or_none()
+        return _to_output(model) if model is not None else None
+
 
 def _to_output(model: OutputModel) -> Output:
     return Output(
         id=model.id,
         session_id=model.session_id,
+        kind=OutputKind(model.kind),
         content=model.content,
+        image_storage_path=model.image_storage_path,
         submitted_at=model.submitted_at,
     )

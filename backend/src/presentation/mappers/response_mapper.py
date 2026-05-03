@@ -6,6 +6,7 @@ from src.application.dto.judgment_dto import (
     JudgmentView,
 )
 from src.application.dto.session_dto import (
+    OutputSubjectAssignmentView,
     OutputView,
     SessionView,
     SubmitOutputView,
@@ -23,6 +24,7 @@ from src.presentation.schemas.judgment_schema import (
 from src.presentation.schemas.session_schema import (
     OutputResponse,
     OutputReviewItemResponse,
+    OutputSubjectAssignmentResponse,
     SessionResponse,
     SubmitOutputResponse,
     TodayOutputsResponse,
@@ -79,13 +81,20 @@ def to_session_response(view: SessionView) -> SessionResponse:
 
 def to_submit_output_response(view: SubmitOutputView) -> SubmitOutputResponse:
     return SubmitOutputResponse(
-        output=OutputResponse(
-            id=view.output.id,
-            session_id=view.output.session_id,
-            content=view.output.content,
-            submitted_at=view.output.submitted_at,
-        ),
+        output=_to_output_response(view.output),
         status=view.status,
+    )
+
+
+def to_output_subject_assignment_response(
+    view: OutputSubjectAssignmentView,
+) -> OutputSubjectAssignmentResponse:
+    return OutputSubjectAssignmentResponse(
+        output_id=view.output_id,
+        subject_id=view.subject_id,
+        subject=view.subject,
+        subject_color=view.subject_color,
+        updated_at=view.updated_at,
     )
 
 
@@ -93,7 +102,9 @@ def _to_output_response(view: OutputView) -> OutputResponse:
     return OutputResponse(
         id=view.id,
         session_id=view.session_id,
+        kind=view.kind,
         content=view.content,
+        image_url=view.image_url,
         submitted_at=view.submitted_at,
     )
 
@@ -103,9 +114,14 @@ def to_today_outputs_response(view: TodayOutputsView) -> TodayOutputsResponse:
         items=[
             OutputReviewItemResponse(
                 session_id=item.session_id,
+                session_started_at=item.session_started_at,
+                input_minutes=item.input_minutes,
+                output_minutes=item.output_minutes,
                 output=_to_output_response(item.output),
                 cycle_index=item.cycle_index,
                 subject=item.subject,
+                subject_id=item.subject_id,
+                subject_color=item.subject_color,
                 topic=item.topic,
                 judgment=_to_optional_judgment_response(item.judgment),
             )
@@ -137,9 +153,14 @@ def to_weekly_report_response(view: WeeklyReportView) -> WeeklyReportResponse:
         output_history=[
             OutputReviewItemResponse(
                 session_id=item.session_id,
+                session_started_at=item.session_started_at,
+                input_minutes=item.input_minutes,
+                output_minutes=item.output_minutes,
                 output=_to_output_response(item.output),
                 cycle_index=item.cycle_index,
                 subject=item.subject,
+                subject_id=item.subject_id,
+                subject_color=item.subject_color,
                 topic=item.topic,
                 judgment=_to_optional_judgment_response(item.judgment),
             )
@@ -161,9 +182,14 @@ def to_daily_report_response(view: DailyReportView) -> DailyReportResponse:
         output_history=[
             OutputReviewItemResponse(
                 session_id=item.session_id,
+                session_started_at=item.session_started_at,
+                input_minutes=item.input_minutes,
+                output_minutes=item.output_minutes,
                 output=_to_output_response(item.output),
                 cycle_index=item.cycle_index,
                 subject=item.subject,
+                subject_id=item.subject_id,
+                subject_color=item.subject_color,
                 topic=item.topic,
                 judgment=_to_optional_judgment_response(item.judgment),
             )
@@ -211,6 +237,7 @@ def to_judgment_response(view: JudgmentView) -> JudgmentResponse:
                 target_text=correction.target_text,
                 correct_text=correction.correct_text,
                 explanation=correction.explanation,
+                bbox=correction.bbox,
             )
             for correction in view.corrections
         ],

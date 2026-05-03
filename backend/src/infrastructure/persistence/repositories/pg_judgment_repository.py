@@ -1,5 +1,6 @@
 """Judgment リポジトリの PostgreSQL 実装。"""
 
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -7,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.entities.judgment import Judgment, JudgmentCorrection
 from src.domain.repositories.judgment_repository import JudgmentRepository
+from src.domain.value_objects.judgment_result import BoundingBox
 from src.domain.value_objects.verdict import Verdict
 from src.infrastructure.persistence.models.judgment_model import JudgmentModel
 
@@ -26,12 +28,7 @@ class PgJudgmentRepository(JudgmentRepository):
                 score=judgment.score,
                 advice=judgment.advice,
                 corrections=[
-                    {
-                        "target_text": correction.target_text,
-                        "correct_text": correction.correct_text,
-                        "explanation": correction.explanation,
-                    }
-                    for correction in judgment.corrections
+                    _correction_to_jsonb(correction) for correction in judgment.corrections
                 ],
                 judged_at=judgment.judged_at,
             )
@@ -60,6 +57,23 @@ class PgJudgmentRepository(JudgmentRepository):
         raise NotImplementedError("履歴一覧エンドポイントの Task で実装する")
 
 
+def _correction_to_jsonb(correction: JudgmentCorrection) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "target_text": correction.target_text,
+        "correct_text": correction.correct_text,
+        "explanation": correction.explanation,
+    }
+    bbox = correction.bbox
+    if bbox is not None:
+        payload["bbox"] = {
+            "x": bbox.x,
+            "y": bbox.y,
+            "width": bbox.width,
+            "height": bbox.height,
+        }
+    return payload
+
+
 def _to_judgment(model: JudgmentModel) -> Judgment:
     return Judgment(
         id=model.id,
@@ -67,13 +81,26 @@ def _to_judgment(model: JudgmentModel) -> Judgment:
         verdict=Verdict(model.verdict),
         score=model.score,
         advice=model.advice,
-        corrections=[
-            JudgmentCorrection(
-                target_text=correction["target_text"],
-                correct_text=correction["correct_text"],
-                explanation=correction["explanation"],
-            )
-            for correction in model.corrections
-        ],
+        corrections=[_jsonb_to_correction(correction) for correction in model.corrections],
         judged_at=model.judged_at,
+    )
+
+
+def _jsonb_to_correction(payload: dict[str, Any]) -> JudgmentCorrection:
+    bbox_payload = payload.get("bbox")
+    bbox = (
+        BoundingBox(
+            x=bbox_payload["x"],
+            y=bbox_payload["y"],
+            width=bbox_payload["width"],
+            height=bbox_payload["height"],
+        )
+        if isinstance(bbox_payload, dict)
+        else None
+    )
+    return JudgmentCorrection(
+        target_text=payload["target_text"],
+        correct_text=payload["correct_text"],
+        explanation=payload["explanation"],
+        bbox=bbox,
     )

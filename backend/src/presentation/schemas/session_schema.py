@@ -1,12 +1,13 @@
 """/api/v1/sessions 系の Pydantic スキーマ。"""
 
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import Field, StringConstraints
 
 from src.common.models import FrozenModel, StrictRequestModel
+from src.domain.value_objects.output_kind import OutputKind
 from src.domain.value_objects.session_status import SessionStatus
 from src.presentation.schemas.judgment_schema import JudgmentResponse
 
@@ -14,6 +15,18 @@ NonEmptyOutputContent = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1, max_length=2000),
 ]
+
+NonEmptyStoragePath = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=512),
+]
+
+SubjectLabel = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=50),
+]
+
+OutputImageMimeType = Literal["image/jpeg", "image/png"]
 
 
 class CreateSessionRequest(StrictRequestModel):
@@ -40,11 +53,39 @@ class UpdateSessionRequest(StrictRequestModel):
     status: SessionStatus
 
 
-class SubmitOutputRequest(StrictRequestModel):
-    """POST /sessions/{id}/output の body。"""
+class SubmitTextOutputRequest(StrictRequestModel):
+    """POST /sessions/{id}/outputs/text の body。"""
 
     content: NonEmptyOutputContent
     submitted_at: datetime
+
+
+class SubmitImageOutputRequest(StrictRequestModel):
+    """POST /sessions/{id}/outputs/image の body。"""
+
+    image_storage_path: NonEmptyStoragePath
+    submitted_at: datetime
+
+
+class IssueOutputImageUploadUrlRequest(StrictRequestModel):
+    """POST /sessions/{id}/outputs/image/upload-url の body。"""
+
+    mime_type: OutputImageMimeType
+
+
+class UpdateOutputSubjectRequest(StrictRequestModel):
+    """PATCH /sessions/outputs/{id}/subject の body。"""
+
+    label: SubjectLabel
+    color: str = Field(pattern=r"^#[0-9A-Fa-f]{6}$")
+
+
+class IssueOutputImageUploadUrlResponse(FrozenModel):
+    """画像アップロード用 signed URL レスポンス。"""
+
+    upload_url: str
+    storage_path: str
+    expires_at: datetime
 
 
 class SessionResponse(FrozenModel):
@@ -64,11 +105,17 @@ class SessionResponse(FrozenModel):
 
 
 class OutputResponse(FrozenModel):
-    """送信済みアウトプット。"""
+    """送信済みアウトプット。
+
+    `kind` が `text` のときは `content` が、`image` のときは `image_url` が入る。
+    `image_url` は短期 TTL の signed URL のため、表示時に都度取得する想定。
+    """
 
     id: UUID
     session_id: UUID
-    content: str
+    kind: OutputKind
+    content: str | None
+    image_url: str | None
     submitted_at: datetime
 
 
@@ -79,13 +126,28 @@ class SubmitOutputResponse(FrozenModel):
     status: SessionStatus
 
 
+class OutputSubjectAssignmentResponse(FrozenModel):
+    """アウトプットへの教科割り当て結果。"""
+
+    output_id: UUID
+    subject_id: UUID
+    subject: str
+    subject_color: str
+    updated_at: datetime
+
+
 class OutputReviewItemResponse(FrozenModel):
     """インプット画面で見返すためのアウトプット。"""
 
     session_id: UUID
+    session_started_at: datetime
+    input_minutes: int
+    output_minutes: int
     output: OutputResponse
     cycle_index: int
     subject: str
+    subject_id: UUID | None
+    subject_color: str | None
     topic: str
     judgment: JudgmentResponse | None
 

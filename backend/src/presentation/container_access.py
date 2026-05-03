@@ -14,9 +14,15 @@ from src.application.use_cases.get_judgment_progress import GetJudgmentProgress
 from src.application.use_cases.get_user_profile import GetUserProfile
 from src.application.use_cases.get_user_settings import GetUserSettings
 from src.application.use_cases.get_weekly_report import GetWeeklyReport
+from src.application.use_cases.issue_output_image_upload_url import (
+    IssueOutputImageUploadUrl,
+)
 from src.application.use_cases.list_today_outputs import ListTodayOutputs
-from src.application.use_cases.run_local_judgment import RunLocalJudgment
-from src.application.use_cases.submit_output import SubmitOutput
+from src.application.use_cases.run_image_judgment import RunImageJudgment
+from src.application.use_cases.run_text_judgment import RunTextJudgment
+from src.application.use_cases.submit_image_output import SubmitImageOutput
+from src.application.use_cases.submit_text_output import SubmitTextOutput
+from src.application.use_cases.update_output_subject import UpdateOutputSubject
 from src.application.use_cases.update_session_status import UpdateSessionStatus
 from src.application.use_cases.update_user_profile import UpdateUserProfile
 from src.application.use_cases.update_user_settings import UpdateUserSettings
@@ -42,8 +48,12 @@ class PresentationContainer(ABC):
     delete_account: DeleteAccount
     create_session: CreateSession
     update_session_status: UpdateSessionStatus
-    submit_output: SubmitOutput
-    run_local_judgment: RunLocalJudgment | None
+    submit_text_output: SubmitTextOutput
+    submit_image_output: SubmitImageOutput
+    update_output_subject: UpdateOutputSubject
+    issue_output_image_upload_url: IssueOutputImageUploadUrl | None
+    run_text_judgment: RunTextJudgment | None
+    run_image_judgment: RunImageJudgment | None
     get_judgment: GetJudgment
     get_judgment_progress: GetJudgmentProgress
     list_today_outputs: ListTodayOutputs

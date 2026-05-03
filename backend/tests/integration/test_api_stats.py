@@ -69,13 +69,14 @@ async def _submit_output(
     *,
     content: str,
     submitted_at: str,
-) -> None:
+) -> dict[str, object]:
     response = await client.post(
-        f"/api/v1/sessions/{session_id}/output",
+        f"/api/v1/sessions/{session_id}/outputs/text",
         headers={"Authorization": f"Bearer {auth_uid}"},
         json={"content": content, "submitted_at": submitted_at},
     )
     assert response.status_code == 202
+    return response.json()
 
 
 async def _create_session_with_output(
@@ -128,7 +129,7 @@ async def test_get_weekly_report_returns_current_users_weekly_outputs(
         content="日曜のアウトプットです。",
         submitted_at="2026-04-26T01:00:00Z",
     )
-    await _create_session_with_output(
+    second = await _create_session_with_output(
         client,
         auth_uid,
         subject="国語",
@@ -204,6 +205,14 @@ async def test_get_weekly_report_returns_current_users_weekly_outputs(
         "日曜のアウトプットです。",
         "月曜のアウトプットです。",
     ]
+    assert [item["session_started_at"] for item in body["output_history"]] == [
+        first["started_at"],
+        second["started_at"],
+    ]
+    assert [(item["input_minutes"], item["output_minutes"]) for item in body["output_history"]] == [
+        (20, 5),
+        (30, 15),
+    ]
     assert body["output_history"][0]["judgment"]["score"] == 80
     assert body["output_history"][1]["judgment"] is None
 
@@ -221,6 +230,50 @@ async def test_get_weekly_report_returns_zero_filled_empty_week(client: AsyncCli
     assert len(body["points"]) == 7
     assert all(point["study_minutes"] == 0 for point in body["points"])
     assert body["output_history"] == []
+
+
+@pytest.mark.asyncio
+async def test_get_weekly_report_returns_saved_output_subject(client: AsyncClient):
+    auth_uid = "weekly-report-subject-user"
+    session = await _create_session(
+        client,
+        auth_uid,
+        subject="未設定",
+        topic="三角関数",
+        input_minutes=25,
+        output_minutes=10,
+        break_minutes=5,
+    )
+    session_id = str(session["id"])
+    await _advance_status(client, auth_uid, session_id)
+    submitted = await _submit_output(
+        client,
+        auth_uid,
+        session_id,
+        content="三角関数のアウトプットです。",
+        submitted_at="2026-04-29T01:00:00Z",
+    )
+
+    output_id = submitted["output"]["id"]
+    assignment_response = await client.patch(
+        f"/api/v1/sessions/outputs/{output_id}/subject",
+        headers={"Authorization": f"Bearer {auth_uid}"},
+        json={"label": "数学", "color": "#FF9147"},
+    )
+    assert assignment_response.status_code == 200
+    assignment = assignment_response.json()
+
+    response = await client.get(
+        "/api/v1/stats/weekly?week_start=2026-04-26",
+        headers={"Authorization": f"Bearer {auth_uid}"},
+    )
+
+    assert response.status_code == 200
+    item = response.json()["output_history"][0]
+    assert item["output"]["id"] == output_id
+    assert item["subject"] == "数学"
+    assert item["subject_id"] == assignment["subject_id"]
+    assert item["subject_color"] == "#FF9147"
 
 
 @pytest.mark.asyncio
@@ -292,6 +345,9 @@ async def test_get_daily_report_returns_only_target_date_outputs(
     assert [item["output"]["content"] for item in body["output_history"]] == [
         "当日のアウトプットです。",
     ]
+    assert body["output_history"][0]["session_started_at"] == target["started_at"]
+    assert body["output_history"][0]["input_minutes"] == 20
+    assert body["output_history"][0]["output_minutes"] == 5
     assert body["output_history"][0]["judgment"]["score"] == 72
 
 

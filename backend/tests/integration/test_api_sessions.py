@@ -67,7 +67,7 @@ async def _submit_output(
     submitted_at: str = "2026-04-10T15:25:00Z",
 ):
     return await client.post(
-        f"/api/v1/sessions/{session_id}/output",
+        f"/api/v1/sessions/{session_id}/outputs/text",
         headers={"Authorization": f"Bearer {auth_uid}"},
         json={"content": content, "submitted_at": submitted_at},
     )
@@ -342,7 +342,7 @@ async def test_update_session_rejects_extra_fields(client: AsyncClient):
     assert response.status_code == 422
 
 
-# --- POST /sessions/{id}/output (Issue #51) ---
+# --- POST /sessions/{id}/outputs/text (Issue #51) ---
 
 
 @pytest.mark.asyncio
@@ -351,7 +351,7 @@ async def test_submit_output_requires_authorization_header(client: AsyncClient):
     await _advance_status(client, "submit-user-001", created["id"], "output")
 
     response = await client.post(
-        f"/api/v1/sessions/{created['id']}/output",
+        f"/api/v1/sessions/{created['id']}/outputs/text",
         json={
             "content": "本文です",
             "submitted_at": "2026-04-10T15:25:00Z",
@@ -495,8 +495,76 @@ async def test_list_today_outputs_returns_current_users_outputs(
     assert response.status_code == 200
     body = response.json()
     assert body["items"][0]["cycle_index"] == 1
+    assert body["items"][0]["input_minutes"] == 20
+    assert body["items"][0]["output_minutes"] == 5
     assert body["items"][0]["output"]["content"] == "今日のアウトプット本文です。"
     assert body["items"][0]["judgment"]["score"] == 72
+
+
+@pytest.mark.asyncio
+async def test_update_output_subject_persists_selection_for_today_outputs(client: AsyncClient):
+    auth_uid = "output-subject-user"
+    created = await _create_session(client, auth_uid)
+    session_id = created["id"]
+    submitted_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    await _advance_status(client, auth_uid, session_id, "output")
+    output_response = await _submit_output(
+        client,
+        auth_uid,
+        session_id,
+        content="今日のアウトプット本文です。",
+        submitted_at=submitted_at,
+    )
+    assert output_response.status_code == 202
+    output_id = output_response.json()["output"]["id"]
+
+    response = await client.patch(
+        f"/api/v1/sessions/outputs/{output_id}/subject",
+        headers={"Authorization": f"Bearer {auth_uid}"},
+        json={"label": "数学", "color": "#FF9147"},
+    )
+
+    assert response.status_code == 200
+    assignment = response.json()
+    assert assignment["output_id"] == output_id
+    assert assignment["subject"] == "数学"
+    assert assignment["subject_color"] == "#FF9147"
+    assert assignment["subject_id"]
+
+    today_response = await client.get(
+        "/api/v1/sessions/outputs/today",
+        headers={"Authorization": f"Bearer {auth_uid}"},
+    )
+
+    assert today_response.status_code == 200
+    item = today_response.json()["items"][0]
+    assert item["output"]["id"] == output_id
+    assert item["subject"] == "数学"
+    assert item["subject_id"] == assignment["subject_id"]
+    assert item["subject_color"] == "#FF9147"
+
+
+@pytest.mark.asyncio
+async def test_update_output_subject_returns_404_for_other_users_output(client: AsyncClient):
+    owner_uid = "output-subject-owner"
+    created = await _create_session(client, owner_uid)
+    await _advance_status(client, owner_uid, created["id"], "output")
+    output_response = await _submit_output(client, owner_uid, created["id"])
+    assert output_response.status_code == 202
+    output_id = output_response.json()["output"]["id"]
+
+    response = await client.patch(
+        f"/api/v1/sessions/outputs/{output_id}/subject",
+        headers={"Authorization": "Bearer output-subject-other"},
+        json={"label": "数学", "color": "#FF9147"},
+    )
+
+    assert response.status_code == 404
+    _assert_problem_details(
+        response.json(),
+        expected_status=404,
+        expected_type="output_not_found",
+    )
 
 
 @pytest.mark.asyncio
@@ -506,7 +574,7 @@ async def test_submit_output_rejects_blank_content_with_problem_details(client: 
     await _advance_status(client, auth_uid, created["id"], "output")
 
     response = await client.post(
-        f"/api/v1/sessions/{created['id']}/output",
+        f"/api/v1/sessions/{created['id']}/outputs/text",
         headers={"Authorization": f"Bearer {auth_uid}"},
         json={
             "content": "   ",

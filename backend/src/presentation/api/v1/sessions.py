@@ -1,9 +1,13 @@
 """セッションエンドポイント。
 
-- POST /api/v1/sessions: 新規セッション作成（Issue #39）
-- PATCH /api/v1/sessions/{id}: フェーズ遷移に伴うステータス更新（Issue #41）
-- POST /api/v1/sessions/{id}/output: アウトプット送信（Issue #51）
-- GET /api/v1/sessions/{id}/judgment: 判定結果取得（Issue #51）
+- POST /api/v1/sessions: 新規セッション作成
+- PATCH /api/v1/sessions/{id}: フェーズ遷移に伴うステータス更新
+- POST /api/v1/sessions/{id}/outputs/text: テキストアウトプット送信
+- POST /api/v1/sessions/{id}/outputs/image: 画像アウトプット送信（GCS path 指定）
+- POST /api/v1/sessions/{id}/outputs/image/upload-url: 画像アップロード用 URL 発行
+- GET /api/v1/sessions/{id}/judgment: 判定結果取得
+- GET /api/v1/sessions/{id}/judgment/progress: 判定進捗取得
+- GET /api/v1/sessions/{id}/judgment/progress/stream: SSE 配信
 """
 
 import asyncio
@@ -17,7 +21,10 @@ from starlette.responses import StreamingResponse
 from src.application.dto.judgment_dto import JudgmentPendingView, JudgmentProgressView
 from src.application.dto.session_dto import (
     CreateSessionCommand,
-    SubmitOutputCommand,
+    IssueOutputImageUploadUrlCommand,
+    SubmitImageOutputCommand,
+    SubmitTextOutputCommand,
+    UpdateOutputSubjectCommand,
     UpdateSessionStatusCommand,
 )
 from src.application.use_cases.get_judgment import (
@@ -33,11 +40,32 @@ from src.application.use_cases.get_judgment_progress import (
 from src.application.use_cases.get_judgment_progress import (
     SessionNotFoundError as JudgmentProgressSessionNotFoundError,
 )
-from src.application.use_cases.submit_output import (
-    InvalidSessionStatusError as SubmitOutputInvalidSessionStatusError,
+from src.application.use_cases.issue_output_image_upload_url import (
+    InvalidSessionStatusError as IssueUploadUrlInvalidSessionStatusError,
 )
-from src.application.use_cases.submit_output import (
-    SessionNotFoundError as SubmitOutputSessionNotFoundError,
+from src.application.use_cases.issue_output_image_upload_url import (
+    SessionNotFoundError as IssueUploadUrlSessionNotFoundError,
+)
+from src.application.use_cases.issue_output_image_upload_url import (
+    UnsupportedMimeTypeError,
+)
+from src.application.use_cases.submit_image_output import (
+    InvalidSessionStatusError as SubmitImageOutputInvalidSessionStatusError,
+)
+from src.application.use_cases.submit_image_output import (
+    InvalidStoragePathError as SubmitImageOutputInvalidStoragePathError,
+)
+from src.application.use_cases.submit_image_output import (
+    SessionNotFoundError as SubmitImageOutputSessionNotFoundError,
+)
+from src.application.use_cases.submit_text_output import (
+    InvalidSessionStatusError as SubmitTextOutputInvalidSessionStatusError,
+)
+from src.application.use_cases.submit_text_output import (
+    SessionNotFoundError as SubmitTextOutputSessionNotFoundError,
+)
+from src.application.use_cases.update_output_subject import (
+    OutputNotFoundError as UpdateOutputSubjectOutputNotFoundError,
 )
 from src.application.use_cases.update_session_status import (
     InvalidSessionStatusTransitionError,
@@ -49,6 +77,7 @@ from src.presentation.mappers.response_mapper import (
     to_judgment_pending_response,
     to_judgment_progress_response,
     to_judgment_response,
+    to_output_subject_assignment_response,
     to_session_response,
     to_submit_output_response,
     to_today_outputs_response,
@@ -62,10 +91,15 @@ from src.presentation.schemas.judgment_schema import (
 )
 from src.presentation.schemas.session_schema import (
     CreateSessionRequest,
+    IssueOutputImageUploadUrlRequest,
+    IssueOutputImageUploadUrlResponse,
+    OutputSubjectAssignmentResponse,
     SessionResponse,
-    SubmitOutputRequest,
+    SubmitImageOutputRequest,
     SubmitOutputResponse,
+    SubmitTextOutputRequest,
     TodayOutputsResponse,
+    UpdateOutputSubjectRequest,
     UpdateSessionRequest,
 )
 
@@ -108,6 +142,35 @@ async def list_today_outputs(
     return to_today_outputs_response(view)
 
 
+@sessions_router.patch(
+    "/outputs/{output_id}/subject",
+    response_model=OutputSubjectAssignmentResponse,
+)
+async def update_output_subject(
+    body: UpdateOutputSubjectRequest,
+    request: Request,
+    output_id: UUID = Path(...),  # noqa: B008
+    current_user: User = Depends(get_current_user),  # noqa: B008
+) -> OutputSubjectAssignmentResponse:
+    """アウトプット単位で教科名と表示色を保存する。"""
+    container = get_presentation_container(request)
+    command = UpdateOutputSubjectCommand(
+        output_id=output_id,
+        label=body.label,
+        color=body.color,
+    )
+    try:
+        view = await container.update_output_subject.execute(current_user, command)
+    except UpdateOutputSubjectOutputNotFoundError as exc:
+        raise ProblemDetailsError(
+            status_code=status.HTTP_404_NOT_FOUND,
+            problem_type="output_not_found",
+            title="Output Not Found",
+            detail="指定されたアウトプットが見つかりません。",
+        ) from exc
+    return to_output_subject_assignment_response(view)
+
+
 @sessions_router.patch("/{session_id}", response_model=SessionResponse)
 async def update_session(
     body: UpdateSessionRequest,
@@ -115,10 +178,7 @@ async def update_session(
     session_id: UUID = Path(...),  # noqa: B008
     current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> SessionResponse:
-    """Session の status を遷移させる。
-
-    許可されない遷移は 400、存在しない / 他ユーザーの session は 404 を返す。
-    """
+    """Session の status を遷移させる。"""
     container = get_presentation_container(request)
     command = UpdateSessionStatusCommand(session_id=session_id, new_status=body.status)
     try:
@@ -141,39 +201,34 @@ async def update_session(
 
 
 @sessions_router.post(
-    "/{session_id}/output",
+    "/{session_id}/outputs/text",
     response_model=SubmitOutputResponse,
     status_code=status.HTTP_202_ACCEPTED,
 )
-async def submit_output(
-    body: SubmitOutputRequest,
+async def submit_text_output(
+    body: SubmitTextOutputRequest,
     request: Request,
     background_tasks: BackgroundTasks,
     session_id: UUID = Path(...),  # noqa: B008
     current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> SubmitOutputResponse:
-    """アウトプット本文を保存し、判定待ち状態に進める。
-
-    `local_judgment_enabled` が有効な環境では LLM 判定を BackgroundTasks に登録し、
-    レスポンス送信後に fire-and-forget で実行する。production など Cloud Tasks に
-    寄せる構成では `run_local_judgment` が None なので、ここでは何も登録しない。
-    """
+    """テキストアウトプットを保存し、判定待ち状態に進める。"""
     container = get_presentation_container(request)
-    command = SubmitOutputCommand(
+    command = SubmitTextOutputCommand(
         session_id=session_id,
         content=body.content,
         submitted_at=body.submitted_at,
     )
     try:
-        view = await container.submit_output.execute(current_user, command)
-    except SubmitOutputSessionNotFoundError as exc:
+        view = await container.submit_text_output.execute(current_user, command)
+    except SubmitTextOutputSessionNotFoundError as exc:
         raise ProblemDetailsError(
             status_code=status.HTTP_404_NOT_FOUND,
             problem_type="session_not_found",
             title="Session Not Found",
             detail="指定されたセッションが見つかりません。",
         ) from exc
-    except SubmitOutputInvalidSessionStatusError as exc:
+    except SubmitTextOutputInvalidSessionStatusError as exc:
         raise ProblemDetailsError(
             status_code=status.HTTP_409_CONFLICT,
             problem_type="invalid_session_state",
@@ -181,14 +236,121 @@ async def submit_output(
             detail=str(exc),
         ) from exc
 
-    run_local_judgment = container.run_local_judgment
-    if run_local_judgment is not None:
+    run_text_judgment = container.run_text_judgment
+    if run_text_judgment is not None:
         background_tasks.add_task(
-            run_local_judgment.execute,
+            run_text_judgment.execute,
             session_id=session_id,
         )
 
     return to_submit_output_response(view)
+
+
+@sessions_router.post(
+    "/{session_id}/outputs/image",
+    response_model=SubmitOutputResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def submit_image_output(
+    body: SubmitImageOutputRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    session_id: UUID = Path(...),  # noqa: B008
+    current_user: User = Depends(get_current_user),  # noqa: B008
+) -> SubmitOutputResponse:
+    """画像アウトプット (GCS path 指定) を保存し、判定待ち状態に進める。"""
+    container = get_presentation_container(request)
+    command = SubmitImageOutputCommand(
+        session_id=session_id,
+        image_storage_path=body.image_storage_path,
+        submitted_at=body.submitted_at,
+    )
+    try:
+        view = await container.submit_image_output.execute(current_user, command)
+    except SubmitImageOutputInvalidStoragePathError as exc:
+        raise ProblemDetailsError(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            problem_type="invalid_storage_path",
+            title="Invalid Storage Path",
+            detail="image_storage_path がこのユーザーのアップロード先ではありません。",
+        ) from exc
+    except SubmitImageOutputSessionNotFoundError as exc:
+        raise ProblemDetailsError(
+            status_code=status.HTTP_404_NOT_FOUND,
+            problem_type="session_not_found",
+            title="Session Not Found",
+            detail="指定されたセッションが見つかりません。",
+        ) from exc
+    except SubmitImageOutputInvalidSessionStatusError as exc:
+        raise ProblemDetailsError(
+            status_code=status.HTTP_409_CONFLICT,
+            problem_type="invalid_session_state",
+            title="Invalid Session State",
+            detail=str(exc),
+        ) from exc
+
+    run_image_judgment = container.run_image_judgment
+    if run_image_judgment is not None:
+        background_tasks.add_task(
+            run_image_judgment.execute,
+            session_id=session_id,
+        )
+
+    return to_submit_output_response(view)
+
+
+@sessions_router.post(
+    "/{session_id}/outputs/image/upload-url",
+    response_model=IssueOutputImageUploadUrlResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def issue_output_image_upload_url(
+    body: IssueOutputImageUploadUrlRequest,
+    request: Request,
+    session_id: UUID = Path(...),  # noqa: B008
+    current_user: User = Depends(get_current_user),  # noqa: B008
+) -> IssueOutputImageUploadUrlResponse:
+    """画像アウトプットを GCS に直接アップロードするための signed URL を発行する。"""
+    container = get_presentation_container(request)
+    use_case = container.issue_output_image_upload_url
+    if use_case is None:
+        raise ProblemDetailsError(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            problem_type="image_upload_unavailable",
+            title="Image Upload Unavailable",
+            detail="画像アップロードはこの環境で有効化されていません。",
+        )
+
+    command = IssueOutputImageUploadUrlCommand(session_id=session_id, mime_type=body.mime_type)
+    try:
+        view = await use_case.execute(current_user, command)
+    except IssueUploadUrlSessionNotFoundError as exc:
+        raise ProblemDetailsError(
+            status_code=status.HTTP_404_NOT_FOUND,
+            problem_type="session_not_found",
+            title="Session Not Found",
+            detail="指定されたセッションが見つかりません。",
+        ) from exc
+    except IssueUploadUrlInvalidSessionStatusError as exc:
+        raise ProblemDetailsError(
+            status_code=status.HTTP_409_CONFLICT,
+            problem_type="invalid_session_state",
+            title="Invalid Session State",
+            detail=str(exc),
+        ) from exc
+    except UnsupportedMimeTypeError as exc:
+        raise ProblemDetailsError(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            problem_type="unsupported_mime_type",
+            title="Unsupported Mime Type",
+            detail=str(exc),
+        ) from exc
+
+    return IssueOutputImageUploadUrlResponse(
+        upload_url=view.upload_url,
+        storage_path=view.storage_path,
+        expires_at=view.expires_at,
+    )
 
 
 @sessions_router.get(

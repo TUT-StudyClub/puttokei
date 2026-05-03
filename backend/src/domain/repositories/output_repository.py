@@ -16,3 +16,7 @@ class OutputRepository(ABC):
     @abstractmethod
     async def find_by_session_id(self, session_id: UUID) -> Output | None:
         """セッション ID からアウトプットを取得する。"""
+
+    @abstractmethod
+    async def find_by_id(self, output_id: UUID) -> Output | None:
+        """アウトプット ID から取得する。存在しなければ None。"""

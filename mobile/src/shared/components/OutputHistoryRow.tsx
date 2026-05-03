@@ -11,7 +11,8 @@ const CYCLE_COLOR = '#6B6B6B';
 
 export const OUTPUT_HISTORY_ROW_HEIGHT = 40;
 
-export function buildOutputHistoryPreview(content: string): string {
+export function buildOutputHistoryPreview(content: string | null | undefined): string {
+  if (!content) return '';
   const normalized = content.replace(/\s+/g, ' ').trim();
   if (normalized.length <= 15) return normalized;
   return `${normalized.slice(0, 15)}...`;
@@ -61,7 +62,9 @@ export function OutputHistoryRow({ item, onPress, isLast = false, testID }: Prop
         <PencilIcon />
       </View>
       <SizableText style={styles.text} numberOfLines={1}>
-        {buildOutputHistoryPreview(item.output.content)}
+        {item.output.kind === 'image'
+          ? '画像で提出したアウトプット'
+          : buildOutputHistoryPreview(item.output.content)}
       </SizableText>
       <SizableText style={styles.cycle}>サイクル{item.cycle_index}</SizableText>
     </Pressable>

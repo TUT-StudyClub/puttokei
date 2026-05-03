@@ -18,6 +18,7 @@ from src.domain.value_objects.judgment_progress import (
     JudgmentProgressStage,
     JudgmentProgressStatus,
 )
+from src.domain.value_objects.output_kind import OutputKind
 from src.domain.value_objects.session_status import SessionStatus
 from tests.fakes.fake_judgment_progress_repository import FakeJudgmentProgressRepository
 from tests.fakes.fake_output_repository import FakeOutputRepository
@@ -104,7 +105,9 @@ async def test_get_judgment_progress_returns_synthetic_queued_for_legacy_pending
         Output(
             id=uuid4(),
             session_id=session.id,
+            kind=OutputKind.TEXT,
             content="明智光秀が織田信長を本能寺で討った出来事について説明しました。",
+            image_storage_path=None,
             submitted_at=datetime.now(UTC),
         )
     )

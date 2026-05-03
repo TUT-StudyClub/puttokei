@@ -54,7 +54,7 @@ async def test_gemini_provider_parses_structured_output_and_builds_request():
         transport=httpx.MockTransport(handler),
     )
 
-    result = await provider.judge(prompt_input="足し算", user_output="1+1=3")
+    result = await provider.judge_text(prompt_input="足し算", user_output="1+1=3")
 
     assert result.verdict.value == "incorrect"
     assert result.score == 24
@@ -120,7 +120,7 @@ async def test_gemini_provider_uses_stable_generate_content_when_progress_callba
         transport=httpx.MockTransport(handler),
     )
 
-    result = await provider.judge(
+    result = await provider.judge_text(
         prompt_input="足し算",
         user_output="1+1=2",
         progress_callback=report_progress,
@@ -171,4 +171,7 @@ async def test_gemini_provider_raises_error_when_response_is_not_valid_judgment_
     )
 
     with pytest.raises(GeminiProviderError):
-        await provider.judge(prompt_input="本能寺の変", user_output="明智光秀は本能寺の変で死んだ")
+        await provider.judge_text(
+            prompt_input="本能寺の変",
+            user_output="明智光秀は本能寺の変で死んだ",
+        )

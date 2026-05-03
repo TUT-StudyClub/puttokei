@@ -1,4 +1,5 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 
 import { useTimerStore, type TimerPhase } from '@/shared/stores/timerStore';
 
@@ -13,6 +14,7 @@ type MockScreenProps = {
   options?: {
     tabBarLabel?: (props: { color: string }) => unknown;
     tabBarIcon?: (props: { color: string }) => unknown;
+    tabBarLabel?: (props: { color: string }) => unknown;
   };
   listeners?: {
     tabPress?: (event: TabPressEvent) => void;
@@ -169,5 +171,18 @@ describe('TabsLayout', () => {
     expect((label as { props?: { style?: { color?: string } } }).props?.style?.color).toBe(
       '#4B5CFF',
     );
+  });
+
+  it('レポートタブの文字色はナビゲーションから渡された色を使う', () => {
+    const { statsTab } = renderStatsTabScreen();
+
+    const label = statsTab.options?.tabBarLabel?.({ color: '#4B5CFF' });
+    const labelStyle = StyleSheet.flatten((label as { props?: { style?: unknown } }).props?.style);
+
+    expect(labelStyle).toMatchObject({
+      color: '#4B5CFF',
+      fontSize: 12,
+      fontWeight: '700',
+    });
   });
 });

@@ -9,15 +9,21 @@ from src.domain.value_objects.judgment_progress import (
     JudgmentProgressStage,
     JudgmentProgressStatus,
 )
+from src.domain.value_objects.judgment_result import BoundingBox
 from src.domain.value_objects.verdict import Verdict
 
 
 class JudgmentCorrectionResponse(FrozenModel):
-    """アウトプット中の誤りに対する指摘。"""
+    """アウトプット中の誤りに対する指摘。
+
+    `bbox` は画像判定で位置が特定できた correction にのみ入る。
+    テキスト判定や bbox 未取得の画像 correction では None。
+    """
 
     target_text: str
     correct_text: str
     explanation: str
+    bbox: BoundingBox | None = None
 
 
 class JudgmentResponse(FrozenModel):
