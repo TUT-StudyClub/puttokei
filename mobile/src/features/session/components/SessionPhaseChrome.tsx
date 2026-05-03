@@ -1,5 +1,5 @@
 import type { StyleProp, ViewStyle } from 'react-native';
-import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Circle, ClipPath, Defs, Path, Rect, Svg } from 'react-native-svg';
 import { SizableText } from 'tamagui';
 
@@ -180,10 +180,10 @@ function PhaseTabDot({
         borderWidth: 0,
         ...(filled && {
           shadowColor: color,
-          shadowOpacity: 0.5,
+          shadowOpacity: 1,
           shadowRadius: 6,
-          shadowOffset: { width: 0, height: 2 },
-          elevation: 4,
+          shadowOffset: { width: 0, height: 0 },
+          elevation: 8,
         }),
       }}
     >
@@ -238,6 +238,9 @@ export function PhaseTabs({
   marginBottom = 24,
   onChange,
 }: PhaseTabsProps) {
+  const { width: windowWidth } = useWindowDimensions();
+  const separatorWidth = windowWidth * 0.026;
+  const separatorHeight = windowWidth * 0.003;
   return (
     <View style={[styles.phaseTabs, { marginBottom }]} testID={`${testIDPrefix}-phase-tabs`}>
       {SESSION_PHASES.map((phase, index) => {
@@ -286,7 +289,16 @@ export function PhaseTabs({
               </View>
             )}
             {isLast ? null : (
-              <View style={[styles.phaseTabSeparator, { backgroundColor: separatorColor }]} />
+              <View
+                style={[
+                  styles.phaseTabSeparator,
+                  {
+                    backgroundColor: separatorColor,
+                    width: separatorWidth,
+                    height: separatorHeight,
+                  },
+                ]}
+              />
             )}
           </View>
         );
@@ -373,7 +385,7 @@ export function CircularPhaseTimer({
         >
           {SESSION_PHASE_LABELS[phase]}
         </SizableText>
-        <SizableText
+        <Text
           style={[
             styles.timerText,
             { color: primaryColor },
@@ -382,7 +394,7 @@ export function CircularPhaseTimer({
           testID={textTestID}
         >
           {formatMmSs(displayRemainingSeconds)}
-        </SizableText>
+        </Text>
       </View>
     </View>
   );
@@ -443,12 +455,10 @@ const styles = StyleSheet.create({
   },
   phaseTabLabel: {
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
   },
   phaseTabSeparator: {
-    width: 16,
-    height: 1.5,
     borderRadius: 999,
     marginHorizontal: 2,
   },
@@ -461,15 +471,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
+    paddingBottom: '5%',
   },
   timerCenterCompact: {
     gap: 2,
   },
   timerPhaseLabel: {
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 17,
-    fontWeight: '600',
-    lineHeight: 22,
+    fontSize: 13,
+    lineHeight: 18,
   },
   timerPhaseLabelCompact: {
     fontSize: 12,
@@ -477,9 +487,10 @@ const styles = StyleSheet.create({
   },
   timerText: {
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 58,
+    fontSize: 46,
     fontWeight: '600',
-    lineHeight: 64,
+    lineHeight: 54,
+    marginTop: '2%',
   },
   timerTextCompact: {
     fontSize: 34,
