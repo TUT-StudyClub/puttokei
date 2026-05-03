@@ -4,7 +4,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
-import { StyleSheet } from 'react-native';
+import { processColor, StyleSheet } from 'react-native';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../../tamagui.config';
@@ -389,9 +389,40 @@ describe('StatsScreen', () => {
     ).toBe('#2BAAF3');
 
     await act(async () => {
+      fireEvent.press(getByTestId('stats-history-sheet-subject-option-0'));
+    });
+    expect(queryByTestId('stats-history-sheet-subject-picker')).toBeNull();
+    expect(getByTestId('stats-history-sheet-subject-text').props.children).toBe('理科');
+    expect(
+      StyleSheet.flatten(getByTestId('stats-history-sheet-subject-dot').props.style)
+        .backgroundColor,
+    ).toBe('#457DFF');
+
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-history-sheet-subject-row'));
+    });
+    expect(getByTestId('stats-history-sheet-subject-option-check-0')).toBeTruthy();
+    expect(queryByTestId('stats-history-sheet-subject-option-check-1')).toBeNull();
+    await act(async () => {
       fireEvent.press(getByTestId('stats-history-sheet-subject-picker-close'));
     });
     expect(queryByTestId('stats-history-sheet-subject-picker')).toBeNull();
+
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-history-sheet-close'));
+    });
+    expect(queryByTestId('stats-history-sheet')).toBeNull();
+
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-output-history-item-out-2'));
+    });
+    expect(getByTestId('stats-history-sheet-subject-text').props.children).toBe('理科');
+
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-history-sheet-subject-row'));
+    });
+    expect(getByTestId('stats-history-sheet-subject-option-check-0')).toBeTruthy();
+    expect(queryByTestId('stats-history-sheet-subject-option-check-1')).toBeNull();
   });
 
   it('教科ポップアップの新規教科押下で追加画面を表示し保存後に一覧へ追加する', async () => {
@@ -449,6 +480,7 @@ describe('StatsScreen', () => {
     expect(newSubjectColorLabelStyle.fontSize).toBe(16);
     expect(newSubjectColorLabelStyle.lineHeight).toBe(22);
     expect(newSubjectInputStyle.fontSize).toBe(16);
+    expect(newSubjectInputStyle.fontWeight).toBe('500');
     expect(newSubjectColorPreviewStyle.width).toBe(14);
     expect(newSubjectColorPreviewStyle.height).toBe(14);
     expect(newSubjectColorPreviewStyle.borderRadius).toBe(7);
@@ -494,10 +526,6 @@ describe('StatsScreen', () => {
     const firstSwatchStyle = StyleSheet.flatten(
       getByTestId('stats-subject-color-swatch-0', { includeHiddenElements: true }).props.style,
     );
-    const selectedSwatchCheckStyle = StyleSheet.flatten(
-      getByTestId('stats-subject-color-swatch-check-1', { includeHiddenElements: true }).props
-        .style,
-    );
     expect(firstColorRow.children).toHaveLength(5);
     expect(secondColorRow.children).toHaveLength(5);
     expect(colorGridStyle.alignItems).toBe('center');
@@ -522,12 +550,8 @@ describe('StatsScreen', () => {
     expect(firstSwatchStyle.height).toBe(50);
     expect(firstSwatchStyle.alignItems).toBe('center');
     expect(firstSwatchStyle.justifyContent).toBe('center');
-    expect(
-      getByTestId('stats-subject-color-swatch-check-1', { includeHiddenElements: true }).props
-        .source,
-    ).toBe(COLOR_PICKER_CHECK_ICON);
-    expect(selectedSwatchCheckStyle.width).toBe(24);
-    expect(selectedSwatchCheckStyle.height).toBe(19);
+    expect(queryByTestId('stats-subject-color-swatch-check-0')).toBeNull();
+    expect(queryByTestId('stats-subject-color-swatch-check-1')).toBeNull();
     [
       '#457DFF',
       '#2BAAF3',
@@ -551,11 +575,21 @@ describe('StatsScreen', () => {
     await act(async () => {
       fireEvent.press(getByTestId('stats-subject-color-swatch-1', { includeHiddenElements: true }));
     });
-    expect(queryByTestId('stats-subject-color-swatch-check-1')).toBeNull();
+    const selectedSwatchCheckStyle = StyleSheet.flatten(
+      getByTestId('stats-subject-color-swatch-check-1', { includeHiddenElements: true }).props
+        .style,
+    );
+    expect(
+      getByTestId('stats-subject-color-swatch-check-1', { includeHiddenElements: true }).props
+        .source,
+    ).toBe(COLOR_PICKER_CHECK_ICON);
+    expect(selectedSwatchCheckStyle.width).toBe(24);
+    expect(selectedSwatchCheckStyle.height).toBe(19);
 
     await act(async () => {
       fireEvent.press(getByTestId('stats-subject-color-swatch-5', { includeHiddenElements: true }));
     });
+    expect(queryByTestId('stats-subject-color-swatch-check-1')).toBeNull();
     expect(
       getByTestId('stats-subject-color-swatch-check-5', { includeHiddenElements: true }).props
         .source,
@@ -763,9 +797,75 @@ describe('StatsScreen', () => {
     });
     expect(getByTestId('stats-weekly-chart')).toBeTruthy();
     expect(getByTestId('stats-weekly-calendar-graph-boundary')).toBeTruthy();
+    const weeklyHistoryTitleStyle = StyleSheet.flatten(
+      getByTestId('stats-output-history-title').props.style,
+    );
+    const weeklyHistoryCardStyle = StyleSheet.flatten(
+      getByTestId('stats-output-history-empty').parent?.parent?.props.style,
+    );
+    expect(weeklyHistoryTitleStyle.alignSelf).toBe('center');
+    expect(weeklyHistoryTitleStyle.marginLeft).toBe(0);
+    expect(typeof weeklyHistoryTitleStyle.width).toBe('number');
+    expect(weeklyHistoryCardStyle.alignSelf).toBe('center');
+    expect(weeklyHistoryCardStyle.marginLeft).toBe(0);
+    expect(weeklyHistoryCardStyle.width).toBe(weeklyHistoryTitleStyle.width);
     expect(queryByTestId('stats-weekly-highlight-card')).toBeNull();
     expect(queryByText('今週のハイライト')).toBeNull();
     expect(queryByText('4月29日のハイライト')).toBeNull();
+  });
+
+  it('週別グラフは履歴詳細で選択した教科の色を反映する', async () => {
+    (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(
+      makeDailyResponse({
+        output_history: [],
+      }),
+    );
+    (statsApi.fetchWeeklyReport as jest.Mock).mockResolvedValue({
+      ...makeWeeklyResponseForDates('2026-04-26', { '2026-04-29': 60 }),
+      output_history: [
+        {
+          ...makeOutputHistoryItem(1),
+          subject: '理科',
+        },
+        {
+          ...makeOutputHistoryItem(2),
+          subject: '現代文',
+        },
+      ],
+    });
+
+    const { getByTestId, queryByTestId } = renderWithProviders(<StatsScreen />);
+    await flushAsyncUpdates();
+
+    await act(async () => {
+      fireEvent.press(getByTestId('week-date-2026-04-29'));
+    });
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(getByTestId('stats-weekly-chart-bar-2026-04-29')).toBeTruthy();
+    });
+    expect(getByTestId('stats-weekly-chart-bar-2026-04-29').props.fill.payload).toBe(
+      processColor('#2BAAF3'),
+    );
+
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-output-history-item-out-2'));
+    });
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-history-sheet-subject-row'));
+    });
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-history-sheet-subject-option-0'));
+    });
+
+    expect(queryByTestId('stats-history-sheet-subject-picker')).toBeNull();
+    expect(getByTestId('stats-history-sheet-subject-text').props.children).toBe('理科');
+    await waitFor(() => {
+      expect(getByTestId('stats-weekly-chart-bar-2026-04-29').props.fill.payload).toBe(
+        processColor('#457DFF'),
+      );
+    });
   });
 
   it('週別カレンダー中に別の日付セルをタップすると日別カレンダーに戻る', async () => {

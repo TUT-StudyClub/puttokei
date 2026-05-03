@@ -247,6 +247,13 @@ function isUnsetSubject(subject: string): boolean {
   return getSubjectLabel(subject) === UNSET_SUBJECT_LABEL;
 }
 
+function appendSubjectOptionIfMissing(options: SubjectOption[], subject: SubjectOption | null) {
+  if (subject === null) return;
+  if (options.some((option) => option.label === subject.label)) return;
+
+  options.push(subject);
+}
+
 function buildSubjectOptions(items: readonly OutputReviewItem[]): SubjectOption[] {
   const subjects = new Map<string, SubjectOption>();
 
@@ -263,6 +270,55 @@ function buildSubjectOptions(items: readonly OutputReviewItem[]): SubjectOption[
   });
 
   return [...subjects.values()];
+}
+
+function getEffectiveSubjectOption(
+  item: OutputReviewItem,
+  subjectOptions: readonly SubjectOption[],
+  selectedSubjectByOutputId: Readonly<Record<string, SubjectOption>>,
+): SubjectOption | null {
+  const selectedSubject = selectedSubjectByOutputId[item.output.id];
+  if (selectedSubject) return selectedSubject;
+
+  const subjectLabel = getSubjectLabel(item.subject);
+  return subjectOptions.find((subject) => subject.label === subjectLabel) ?? null;
+}
+
+function sortHistoryItemsByRecency(items: readonly OutputReviewItem[]): OutputReviewItem[] {
+  return [...items].sort((a, b) => {
+    const timeDiff = getHistoryTimestampMs(b) - getHistoryTimestampMs(a);
+    if (timeDiff !== 0) return timeDiff;
+    return b.cycle_index - a.cycle_index;
+  });
+}
+
+function buildSubjectColorByDateKey(
+  items: readonly OutputReviewItem[],
+  subjectOptions: readonly SubjectOption[],
+  selectedSubjectByOutputId: Readonly<Record<string, SubjectOption>>,
+): Record<string, string> {
+  const colorByDateKey: Record<string, string> = {};
+  const orderedItems = sortHistoryItemsByRecency(items);
+
+  orderedItems.forEach((item) => {
+    const selectedSubject = selectedSubjectByOutputId[item.output.id];
+    if (!selectedSubject) return;
+
+    const dateKey = getTokyoDateKeyFromTimestamp(item.output.submitted_at);
+    colorByDateKey[dateKey] ??= selectedSubject.color;
+  });
+
+  orderedItems.forEach((item) => {
+    const dateKey = getTokyoDateKeyFromTimestamp(item.output.submitted_at);
+    if (colorByDateKey[dateKey]) return;
+
+    const subject = getEffectiveSubjectOption(item, subjectOptions, selectedSubjectByOutputId);
+    if (subject !== null) {
+      colorByDateKey[dateKey] = subject.color;
+    }
+  });
+
+  return colorByDateKey;
 }
 
 function getSubjectPickerListHeight(subjectCount: number): number {
@@ -363,11 +419,7 @@ function buildHistoryGroups(items: OutputReviewItem[], fallbackDateKey?: string)
   }
 
   const groupsByDate = new Map<string, HistoryGroup>();
-  const orderedItems = [...items].sort((a, b) => {
-    const timeDiff = getHistoryTimestampMs(b) - getHistoryTimestampMs(a);
-    if (timeDiff !== 0) return timeDiff;
-    return b.cycle_index - a.cycle_index;
-  });
+  const orderedItems = sortHistoryItemsByRecency(items);
 
   orderedItems.forEach((item) => {
     const dateKey = getTokyoDateKeyFromTimestamp(item.output.submitted_at);
@@ -791,7 +843,13 @@ function formatHourLabel(hours: number): string {
   return hours.toFixed(1).replace(/\.0$/, '');
 }
 
-function WeeklyBarChart({ points }: { points: WeeklyReportPoint[] }) {
+function WeeklyBarChart({
+  points,
+  barColorsByDateKey,
+}: {
+  points: WeeklyReportPoint[];
+  barColorsByDateKey?: Readonly<Record<string, string>>;
+}) {
   const { width } = useWindowDimensions();
   const chartWidth = Math.max(0, width - WEEK_DATE_STRIP_HORIZONTAL_INSET * 2);
   const plotLeft = WEEK_DATE_STRIP_ARROW_BUTTON_WIDTH;
@@ -874,7 +932,8 @@ function WeeklyBarChart({ points }: { points: WeeklyReportPoint[] }) {
                 height={barHeight}
                 rx={4}
                 ry={4}
-                fill="#D6D6D6"
+                fill={barColorsByDateKey?.[point.bucket] ?? '#D6D6D6'}
+                testID={`stats-weekly-chart-bar-${point.bucket}`}
               />
             );
           })}
@@ -1075,15 +1134,19 @@ function HistoryDetailSheet({
   item,
   onClose,
   subjectOptions,
+  selectedSubject,
+  onSelectSubject,
 }: {
   item: OutputReviewItem | null;
   onClose: () => void;
   subjectOptions: SubjectOption[];
+  selectedSubject: SubjectOption | null;
+  onSelectSubject: (outputId: string, subject: SubjectOption) => void;
 }) {
   const [isSubjectPickerVisible, setSubjectPickerVisible] = useState(false);
   const [isNewSubjectFormVisible, setNewSubjectFormVisible] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState('');
-  const [newSubjectColor, setNewSubjectColor] = useState<string | null>(SUBJECT_COLOR_PALETTE[0]);
+  const [newSubjectColor, setNewSubjectColor] = useState<string | null>(null);
   const [localSubjectOptions, setLocalSubjectOptions] = useState<SubjectOption[]>([]);
 
   useEffect(() => {
@@ -1095,21 +1158,25 @@ function HistoryDetailSheet({
 
   const timeRange = getHistoryTimeRangeParts(item);
   const title = `${getTokyoMonthDayLabelFromTimestamp(item.output.submitted_at)}　${timeRange.start} - ${timeRange.end}`;
-  const subjectLabel = getSubjectLabel(item.subject);
-  const isSubjectUnset = isUnsetSubject(item.subject);
   const visibleSubjectOptions = [...subjectOptions];
   localSubjectOptions.forEach((subject) => {
     if (!visibleSubjectOptions.some((option) => option.label === subject.label)) {
       visibleSubjectOptions.push(subject);
     }
   });
-  const defaultNewSubjectColor =
-    SUBJECT_COLOR_PALETTE[visibleSubjectOptions.length % SUBJECT_COLOR_PALETTE.length]!;
+  appendSubjectOptionIfMissing(visibleSubjectOptions, selectedSubject);
+  const itemSubjectLabel = getSubjectLabel(item.subject);
+  const itemSubjectOption =
+    visibleSubjectOptions.find((subject) => subject.label === itemSubjectLabel) ?? null;
+  const currentSubject = selectedSubject ?? itemSubjectOption;
+  const subjectLabel = currentSubject?.label ?? itemSubjectLabel;
+  const subjectColor = currentSubject?.color ?? null;
+  const isSubjectUnset = currentSubject === null && isUnsetSubject(item.subject);
   const subjectPickerHeight = getSubjectPickerHeight(visibleSubjectOptions.length);
   const shouldScrollSubjectPicker = visibleSubjectOptions.length > SUBJECT_PICKER_MAX_VISIBLE_ITEMS;
   const handleOpenNewSubjectForm = () => {
     setNewSubjectName('');
-    setNewSubjectColor(defaultNewSubjectColor);
+    setNewSubjectColor(null);
     setSubjectPickerVisible(false);
     setNewSubjectFormVisible(true);
   };
@@ -1184,6 +1251,7 @@ function HistoryDetailSheet({
               <View
                 style={[
                   styles.historySheetSubjectDot,
+                  subjectColor !== null ? { backgroundColor: subjectColor } : null,
                   isSubjectUnset ? styles.historySheetSubjectDotUnset : null,
                 ]}
                 testID="stats-history-sheet-subject-dot"
@@ -1236,24 +1304,40 @@ function HistoryDetailSheet({
                   contentContainerStyle={styles.historySheetSubjectPickerList}
                   showsVerticalScrollIndicator={shouldScrollSubjectPicker}
                 >
-                  {visibleSubjectOptions.map((subject, index) => (
-                    <View
-                      key={subject.label}
-                      style={styles.historySheetSubjectPickerItem}
-                      testID={`stats-history-sheet-subject-option-${index}`}
-                    >
-                      <View
-                        style={[
-                          styles.historySheetSubjectPickerDot,
-                          { backgroundColor: subject.color },
-                        ]}
-                        testID={`stats-history-sheet-subject-option-dot-${index}`}
-                      />
-                      <SizableText style={styles.historySheetSubjectPickerText}>
-                        {subject.label}
-                      </SizableText>
-                    </View>
-                  ))}
+                  {visibleSubjectOptions.map((subject, index) => {
+                    const isSelectedSubject = currentSubject?.label === subject.label;
+
+                    return (
+                      <Pressable
+                        key={subject.label}
+                        accessibilityRole="button"
+                        onPress={() => {
+                          onSelectSubject(item.output.id, subject);
+                          setSubjectPickerVisible(false);
+                        }}
+                        style={styles.historySheetSubjectPickerItem}
+                        testID={`stats-history-sheet-subject-option-${index}`}
+                      >
+                        <View
+                          style={[
+                            styles.historySheetSubjectPickerDot,
+                            { backgroundColor: subject.color },
+                          ]}
+                          testID={`stats-history-sheet-subject-option-dot-${index}`}
+                        />
+                        <SizableText style={styles.historySheetSubjectPickerText}>
+                          {subject.label}
+                        </SizableText>
+                        {isSelectedSubject ? (
+                          <Image
+                            source={COLOR_PICKER_CHECK_ICON}
+                            style={styles.historySheetSubjectPickerCheck}
+                            testID={`stats-history-sheet-subject-option-check-${index}`}
+                          />
+                        ) : null}
+                      </Pressable>
+                    );
+                  })}
                 </ScrollView>
               ) : null}
             </View>
@@ -1461,23 +1545,46 @@ export function StatsScreen() {
   const [reportViewMode, setReportViewMode] = useState<ReportViewMode>('daily');
   const [calendarMonthStart, setCalendarMonthStart] = useState(() => getMonthStartKey(weekStart));
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<OutputReviewItem | null>(null);
+  const [selectedSubjectByOutputId, setSelectedSubjectByOutputId] = useState<
+    Record<string, SubjectOption>
+  >({});
   const dailyReportQuery = useDailyReport(selectedDateKey);
   const weeklyReportQuery = useWeeklyReport(weekStart, {
     enabled: reportViewMode === 'weekly',
   });
   const monthlyReports = useMonthlyWeeklyReports(calendarMonthStart, reportViewMode === 'monthly');
-  const subjectOptions = useMemo(() => {
-    const loadedHistoryItems = [
+  const loadedHistoryItems = useMemo(
+    () => [
       ...(dailyReportQuery.data?.output_history ?? []),
       ...(weeklyReportQuery.data?.output_history ?? []),
       ...monthlyReports.reports.flatMap((report) => report.output_history),
-    ];
-    return buildSubjectOptions(loadedHistoryItems);
-  }, [
-    dailyReportQuery.data?.output_history,
-    monthlyReports.reports,
-    weeklyReportQuery.data?.output_history,
-  ]);
+    ],
+    [
+      dailyReportQuery.data?.output_history,
+      monthlyReports.reports,
+      weeklyReportQuery.data?.output_history,
+    ],
+  );
+  const subjectOptions = useMemo(() => {
+    const options = buildSubjectOptions(loadedHistoryItems);
+    Object.values(selectedSubjectByOutputId).forEach((subject) => {
+      appendSubjectOptionIfMissing(options, subject);
+    });
+    return options;
+  }, [loadedHistoryItems, selectedSubjectByOutputId]);
+  const weeklyBarColorsByDateKey = useMemo(() => {
+    if (weeklyReportQuery.data === undefined) return {};
+
+    const weeklyDateKeys = new Set(weeklyReportQuery.data.points.map((point) => point.bucket));
+    const weeklyHistoryItems = loadedHistoryItems.filter((item) =>
+      weeklyDateKeys.has(getTokyoDateKeyFromTimestamp(item.output.submitted_at)),
+    );
+    return buildSubjectColorByDateKey(
+      weeklyHistoryItems,
+      subjectOptions,
+      selectedSubjectByOutputId,
+    );
+  }, [loadedHistoryItems, selectedSubjectByOutputId, subjectOptions, weeklyReportQuery.data]);
   const highlightCardSize = useMemo(() => getHighlightCardSize(viewportWidth), [viewportWidth]);
   const dailyHighlightCardStyle = useMemo<StyleProp<ViewStyle>>(() => {
     if (highlightCardSize.height === 0) return undefined;
@@ -1540,6 +1647,19 @@ export function StatsScreen() {
   const handleCloseHistorySheet = useCallback(() => {
     setSelectedHistoryItem(null);
   }, []);
+  const handleSelectHistorySubject = useCallback((outputId: string, subject: SubjectOption) => {
+    setSelectedSubjectByOutputId((current) => {
+      const currentSubject = current[outputId];
+      if (currentSubject?.label === subject.label && currentSubject.color === subject.color) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [outputId]: subject,
+      };
+    });
+  }, []);
   const handleOpenMonthlyCalendar = useCallback(() => {
     setCalendarMonthStart(getMonthStartKey(weekStart));
     setReportViewMode('monthly');
@@ -1592,6 +1712,10 @@ export function StatsScreen() {
     selectedDateKey === todayKey
       ? '今日のハイライト'
       : `${getMonthDayLabel(selectedDateKey)}のハイライト`;
+  const selectedHistorySubject =
+    selectedHistoryItem === null
+      ? null
+      : (selectedSubjectByOutputId[selectedHistoryItem.output.id] ?? null);
 
   const monthlyBody = (() => {
     if (monthlyReports.isPending) {
@@ -1694,6 +1818,8 @@ export function StatsScreen() {
         <OutputHistory
           items={weeklyReportQuery.data.output_history}
           emptyMessage="この週の履歴はまだありません。"
+          titleFrameStyle={dailyHighlightTextFrameStyle}
+          cardFrameStyle={dailyHighlightViewFrameStyle}
           onSelectItem={handleOpenHistorySheet}
         />
         {weeklyReportQuery.isFetching ? (
@@ -1733,6 +1859,8 @@ export function StatsScreen() {
           item={selectedHistoryItem}
           onClose={handleCloseHistorySheet}
           subjectOptions={subjectOptions}
+          selectedSubject={selectedHistorySubject}
+          onSelectSubject={handleSelectHistorySubject}
         />
       </SafeAreaView>
     );
@@ -1777,7 +1905,10 @@ export function StatsScreen() {
           </View>
           {weeklyReportQuery.data ? (
             <View style={weeklyChartSlotStyle}>
-              <WeeklyBarChart points={weeklyReportQuery.data.points} />
+              <WeeklyBarChart
+                points={weeklyReportQuery.data.points}
+                barColorsByDateKey={weeklyBarColorsByDateKey}
+              />
             </View>
           ) : (
             <View
@@ -1800,6 +1931,8 @@ export function StatsScreen() {
           item={selectedHistoryItem}
           onClose={handleCloseHistorySheet}
           subjectOptions={subjectOptions}
+          selectedSubject={selectedHistorySubject}
+          onSelectSubject={handleSelectHistorySubject}
         />
       </SafeAreaView>
     );
@@ -1852,6 +1985,8 @@ export function StatsScreen() {
         item={selectedHistoryItem}
         onClose={handleCloseHistorySheet}
         subjectOptions={subjectOptions}
+        selectedSubject={selectedHistorySubject}
+        onSelectSubject={handleSelectHistorySubject}
       />
     </SafeAreaView>
   );
@@ -2411,10 +2546,16 @@ const styles = StyleSheet.create({
     borderRadius: 9,
   },
   historySheetSubjectPickerText: {
+    flex: 1,
     color: '#333333',
     fontSize: 18,
     fontWeight: '500',
     lineHeight: 24,
+  },
+  historySheetSubjectPickerCheck: {
+    width: 18,
+    height: 14,
+    marginLeft: 'auto',
   },
   historySheetDivider: {
     height: StyleSheet.hairlineWidth,
@@ -2575,7 +2716,7 @@ const styles = StyleSheet.create({
     padding: 0,
     color: '#333333',
     fontSize: 16,
-    fontWeight: '400',
+    fontWeight: '500',
     textAlign: 'right',
   },
   newSubjectColorPreview: {
