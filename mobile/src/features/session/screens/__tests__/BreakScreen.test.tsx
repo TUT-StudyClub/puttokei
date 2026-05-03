@@ -491,9 +491,9 @@ describe('BreakScreen', () => {
       getByText('記念すべき1サイクル目です！').props.style,
     );
     expect(completedTitleStyle.fontFamily).toBe('HiraginoSans-W6');
-    expect(completedTitleStyle.fontWeight).toBe('900');
+    expect(completedTitleStyle.fontWeight).toBe('600');
     expect(completedCycleTitleStyle.fontFamily).toBe('HiraginoSans-W6');
-    expect(completedCycleTitleStyle.fontWeight).toBe('900');
+    expect(completedCycleTitleStyle.fontWeight).toBe('600');
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
