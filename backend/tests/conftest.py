@@ -19,10 +19,12 @@ from src.application.use_cases.create_session import CreateSession
 from src.application.use_cases.delete_account import DeleteAccount
 from src.application.use_cases.get_daily_report import GetDailyReport
 from src.application.use_cases.get_judgment import GetJudgment
+from src.application.use_cases.get_judgment_detail import GetJudgmentDetail
 from src.application.use_cases.get_judgment_progress import GetJudgmentProgress
 from src.application.use_cases.get_user_profile import GetUserProfile
 from src.application.use_cases.get_user_settings import GetUserSettings
 from src.application.use_cases.get_weekly_report import GetWeeklyReport
+from src.application.use_cases.list_judgments import ListJudgments
 from src.application.use_cases.list_today_outputs import ListTodayOutputs
 from src.application.use_cases.submit_image_output import SubmitImageOutput
 from src.application.use_cases.submit_text_output import SubmitTextOutput
@@ -126,7 +128,9 @@ def container(
         run_text_judgment=None,
         run_image_judgment=None,
         get_judgment=GetJudgment(unit_of_work_factory=unit_of_work_factory),
+        get_judgment_detail=GetJudgmentDetail(unit_of_work_factory=unit_of_work_factory),
         get_judgment_progress=GetJudgmentProgress(unit_of_work_factory=unit_of_work_factory),
+        list_judgments=ListJudgments(unit_of_work_factory=unit_of_work_factory),
         list_today_outputs=ListTodayOutputs(unit_of_work_factory=unit_of_work_factory),
         get_weekly_report=GetWeeklyReport(unit_of_work_factory=unit_of_work_factory),
         get_daily_report=GetDailyReport(unit_of_work_factory=unit_of_work_factory),
