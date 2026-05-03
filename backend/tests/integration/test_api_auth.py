@@ -60,6 +60,20 @@ async def test_verify_creates_new_user_on_first_call(
 
 
 @pytest.mark.asyncio
+async def test_verify_creates_anonymous_user(client: AsyncClient):
+    response = await client.post(
+        "/api/v1/auth/verify",
+        headers={"Authorization": "Bearer anonymous-user:anonymous"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["is_new"] is True
+    assert body["user"]["firebase_uid"] == "anonymous-user"
+    assert body["user"]["auth_provider"] == "anonymous"
+
+
+@pytest.mark.asyncio
 async def test_verify_returns_existing_user_on_second_call(client: AsyncClient):
     headers = {"Authorization": "Bearer existing-user"}
 

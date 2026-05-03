@@ -150,7 +150,7 @@ describe('StatsScreen', () => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-04-29T00:00:00Z'));
     act(() => {
-      useAuthStore.setState({ uid: 'u-1', idToken: 'token-1' });
+      useAuthStore.setState({ uid: 'u-1', idToken: 'token-1', isAnonymous: false });
     });
   });
 
@@ -160,14 +160,35 @@ describe('StatsScreen', () => {
       jest.runOnlyPendingTimers();
     });
     act(() => {
-      useAuthStore.setState({ uid: null, idToken: null });
+      useAuthStore.setState({ uid: null, idToken: null, isAnonymous: false });
     });
     jest.useRealTimers();
   });
 
   it('未認証の場合はサインインへ遷移し、レポートを取得しない', () => {
     act(() => {
-      useAuthStore.setState({ uid: null, idToken: null });
+      useAuthStore.setState({ uid: null, idToken: null, isAnonymous: false });
+    });
+
+    const { getByTestId } = renderWithProviders(<StatsScreen />);
+
+    expect(getByTestId('stats-redirect').props.children).toBe(
+      JSON.stringify({
+        pathname: '/(auth)/sign-in',
+        params: { returnTo: '/(tabs)/stats' },
+      }),
+    );
+    expect(statsApi.fetchDailyReport).not.toHaveBeenCalled();
+    expect(statsApi.fetchWeeklyReport).not.toHaveBeenCalled();
+  });
+
+  it('匿名ユーザーの場合はサインインへ遷移し、レポートを取得しない', () => {
+    act(() => {
+      useAuthStore.setState({
+        uid: 'anonymous-user',
+        idToken: 'anonymous-token',
+        isAnonymous: true,
+      });
     });
 
     const { getByTestId } = renderWithProviders(<StatsScreen />);

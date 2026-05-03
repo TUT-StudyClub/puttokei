@@ -17,13 +17,17 @@ function createFirebaseAuthImpl(): AuthImpl {
           return;
         }
         const idToken = await user.getIdToken();
-        listener({ uid: user.uid, idToken });
+        listener({ uid: user.uid, idToken, isAnonymous: user.isAnonymous });
       });
     },
     async refreshIdToken() {
       const user = auth().currentUser;
       if (user === null) return null;
       return user.getIdToken(true);
+    },
+    async ensureAnonymousSession() {
+      if (auth().currentUser !== null) return;
+      await auth().signInAnonymously();
     },
   };
 }

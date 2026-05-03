@@ -14,11 +14,12 @@ type Options = {
 
 export function useWeeklyReport(weekStart: string, options?: Options) {
   const idToken = useAuthStore((s) => s.idToken);
+  const isAnonymous = useAuthStore((s) => s.isAnonymous);
   const callerEnabled = options?.enabled ?? true;
   return useQuery<WeeklyReportResponse, ApiError>({
     queryKey: WEEKLY_REPORT_QUERY_KEY(weekStart),
     queryFn: () => fetchWeeklyReport(weekStart),
-    enabled: idToken !== null && callerEnabled,
+    enabled: idToken !== null && !isAnonymous && callerEnabled,
     staleTime: 5 * 60 * 1000,
     retry: false,
   });

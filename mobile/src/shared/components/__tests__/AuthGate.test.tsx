@@ -67,7 +67,7 @@ describe('AuthGate', () => {
     mockProfileQuery();
     mockSignOut.mockResolvedValue();
     act(() => {
-      useAuthStore.setState({ uid: null, idToken: null });
+      useAuthStore.setState({ uid: null, idToken: null, isAnonymous: false });
       useTutorialStore.getState().reset();
     });
   });
@@ -78,7 +78,7 @@ describe('AuthGate', () => {
       jest.runOnlyPendingTimers();
     });
     act(() => {
-      useAuthStore.setState({ uid: null, idToken: null });
+      useAuthStore.setState({ uid: null, idToken: null, isAnonymous: false });
       useTutorialStore.getState().reset();
     });
     jest.useRealTimers();
@@ -154,6 +154,25 @@ describe('AuthGate', () => {
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
     });
+  });
+
+  it('チュートリアル完了 & 匿名認証済 & (auth) 配下 → 正式登録画面に滞在できる', async () => {
+    act(() => {
+      useAuthStore.setState({
+        uid: 'anonymous-user',
+        idToken: 'anonymous-token',
+        isAnonymous: true,
+      });
+      useTutorialStore.getState().markCompleted();
+    });
+    mockSegments = ['(auth)'];
+
+    renderAuthGate();
+
+    await waitFor(() => {
+      expect(mockHideSplashWhenReady).toHaveBeenCalledTimes(1);
+    });
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it('チュートリアル完了 & 認証済 & (auth) 配下 & returnTo 指定あり → returnTo へ抜ける', async () => {

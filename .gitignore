@@ -47,3 +47,4 @@ coverage/
 .cursorignore.local
 .claude/scheduled_tasks.lock
 .claude/settings.local.json
+.claude/worktrees/

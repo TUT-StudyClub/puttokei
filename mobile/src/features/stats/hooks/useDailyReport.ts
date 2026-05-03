@@ -9,10 +9,11 @@ export const DAILY_REPORT_QUERY_KEY = (date: string) => ['stats', 'daily-report'
 
 export function useDailyReport(date: string) {
   const idToken = useAuthStore((s) => s.idToken);
+  const isAnonymous = useAuthStore((s) => s.isAnonymous);
   return useQuery<DailyReportResponse, ApiError>({
     queryKey: DAILY_REPORT_QUERY_KEY(date),
     queryFn: () => fetchDailyReport(date),
-    enabled: idToken !== null,
+    enabled: idToken !== null && !isAnonymous,
     staleTime: 5 * 60 * 1000,
     retry: false,
   });

@@ -81,6 +81,54 @@ async def test_auto_creates_user_and_settings():
 
 
 @pytest.mark.asyncio
+async def test_auto_creates_anonymous_user():
+    repo = FakeUserRepository()
+    uow = FakeUnitOfWork(users=repo)
+    use_case = AuthenticateUser(
+        auth_verifier=FakeAuthVerifier(),
+        unit_of_work_factory=lambda: uow,
+    )
+
+    result = await use_case.execute("anonymous-user:anonymous")
+
+    assert result.is_new is True
+    assert result.user.firebase_uid == "anonymous-user"
+    assert result.user.auth_provider is AuthProvider.ANONYMOUS
+    assert result.user.id in repo.settings
+    assert uow.commit_count == 1
+    assert uow.rollback_count == 0
+
+
+@pytest.mark.asyncio
+async def test_updates_auth_provider_when_anonymous_user_links_account():
+    now = datetime.now(UTC)
+    existing = User(
+        id=uuid4(),
+        firebase_uid="linked-user",
+        auth_provider=AuthProvider.ANONYMOUS,
+        created_at=now,
+        updated_at=now,
+    )
+    repo = FakeUserRepository()
+    await repo.add(existing, _make_settings(existing))
+    uow = FakeUnitOfWork(users=repo)
+    use_case = AuthenticateUser(
+        auth_verifier=FakeAuthVerifier(),
+        unit_of_work_factory=lambda: uow,
+    )
+
+    result = await use_case.execute("linked-user:apple.com")
+
+    assert result.is_new is False
+    assert result.user.id == existing.id
+    assert result.user.firebase_uid == existing.firebase_uid
+    assert result.user.auth_provider is AuthProvider.APPLE
+    assert result.user.updated_at > existing.updated_at
+    assert uow.commit_count == 1
+    assert uow.rollback_count == 0
+
+
+@pytest.mark.asyncio
 async def test_raises_invalid_token_error_without_opening_uow():
     uow = FakeUnitOfWork()
     use_case = AuthenticateUser(

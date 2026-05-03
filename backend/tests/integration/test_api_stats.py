@@ -224,6 +224,22 @@ async def test_get_weekly_report_returns_zero_filled_empty_week(client: AsyncCli
 
 
 @pytest.mark.asyncio
+async def test_get_weekly_report_requires_registered_user(client: AsyncClient):
+    response = await client.get(
+        "/api/v1/stats/weekly?week_start=2026-04-26",
+        headers={"Authorization": "Bearer anonymous-week-user:anonymous"},
+    )
+
+    assert response.status_code == 403
+    body = response.json()
+    assert body["type"].endswith("registration_required")
+    assert (
+        body["detail"]
+        == "レポート機能を利用するには Apple または Google でユーザー登録してください。"
+    )
+
+
+@pytest.mark.asyncio
 async def test_get_daily_report_returns_only_target_date_outputs(
     client: AsyncClient,
     fake_judgment_repository: FakeJudgmentRepository,
@@ -312,3 +328,15 @@ async def test_get_daily_report_returns_zero_filled_empty_day(client: AsyncClien
         "total_sessions": 0,
     }
     assert body["output_history"] == []
+
+
+@pytest.mark.asyncio
+async def test_get_daily_report_requires_registered_user(client: AsyncClient):
+    response = await client.get(
+        "/api/v1/stats/daily?date=2026-04-29",
+        headers={"Authorization": "Bearer anonymous-day-user:anonymous"},
+    )
+
+    assert response.status_code == 403
+    body = response.json()
+    assert body["type"].endswith("registration_required")

@@ -55,6 +55,17 @@ class AuthenticateUser:
         async with self.unit_of_work_factory() as uow:
             existing = await uow.users.find_by_firebase_uid(verified["uid"])
             if existing is not None:
+                auth_provider = _to_auth_provider(verified["sign_in_provider"])
+                if existing.auth_provider is not auth_provider:
+                    updated = existing.model_copy(
+                        update={
+                            "auth_provider": auth_provider,
+                            "updated_at": datetime.now(UTC),
+                        }
+                    )
+                    await uow.users.update(updated)
+                    await uow.commit()
+                    return AuthenticateUserResult(user=updated, is_new=False)
                 return AuthenticateUserResult(user=existing, is_new=False)
 
             user, settings = _build_initial_user(verified)
@@ -90,6 +101,9 @@ def _build_initial_user(verified: VerifiedToken) -> tuple[User, UserSettings]:
 
 
 def _to_auth_provider(sign_in_provider: str) -> AuthProvider:
-    if sign_in_provider.startswith("apple"):
+    normalized = sign_in_provider.strip().lower()
+    if normalized.startswith("apple"):
         return AuthProvider.APPLE
+    if normalized.startswith("anonymous"):
+        return AuthProvider.ANONYMOUS
     return AuthProvider.GOOGLE
