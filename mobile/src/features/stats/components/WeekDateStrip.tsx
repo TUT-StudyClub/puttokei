@@ -21,9 +21,9 @@ import {
 } from '@/features/stats/lib/week';
 
 const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'] as const;
-const ARROW_BUTTON_WIDTH = 32;
-const DAY_CELL_MAX_WIDTH = 43;
-const DEFAULT_HORIZONTAL_INSET = 24;
+export const WEEK_DATE_STRIP_ARROW_BUTTON_WIDTH = 32;
+export const WEEK_DATE_STRIP_DAY_CELL_MAX_WIDTH = 43;
+export const WEEK_DATE_STRIP_HORIZONTAL_INSET = 24;
 
 type Props = {
   weekStart: string;
@@ -51,10 +51,10 @@ export function WeekDateStrip({ weekStart, onWeekChange, selectedDateKey, onSele
   const scrollRef = useRef<ScrollView | null>(null);
   const { width } = useWindowDimensions();
   const [stripWidth, setStripWidth] = useState(0);
-  const fallbackStripWidth = Math.max(0, width - DEFAULT_HORIZONTAL_INSET * 2);
+  const fallbackStripWidth = Math.max(0, width - WEEK_DATE_STRIP_HORIZONTAL_INSET * 2);
   const resolvedStripWidth = stripWidth > 0 ? stripWidth : fallbackStripWidth;
-  const pageWidth = Math.max(0, resolvedStripWidth - ARROW_BUTTON_WIDTH * 2);
-  const dayCellWidth = Math.min(DAY_CELL_MAX_WIDTH, pageWidth / 7);
+  const pageWidth = Math.max(0, resolvedStripWidth - WEEK_DATE_STRIP_ARROW_BUTTON_WIDTH * 2);
+  const dayCellWidth = Math.min(WEEK_DATE_STRIP_DAY_CELL_MAX_WIDTH, pageWidth / 7);
   const todayKey = getTokyoDateKey();
   const pages = useMemo(
     () => [addDaysToDateKey(weekStart, -7), weekStart, addDaysToDateKey(weekStart, 7)],
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   arrowButton: {
-    width: ARROW_BUTTON_WIDTH,
+    width: WEEK_DATE_STRIP_ARROW_BUTTON_WIDTH,
     height: 52,
     alignItems: 'center',
     justifyContent: 'center',

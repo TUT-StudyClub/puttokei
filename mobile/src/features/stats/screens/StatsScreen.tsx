@@ -24,11 +24,15 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { BarChart } from 'react-native-gifted-charts';
-import { Path, Svg } from 'react-native-svg';
+import { G, Line, Path, Rect, Svg, Text as SvgText } from 'react-native-svg';
 import { Button, Paragraph, SizableText, Spinner } from 'tamagui';
 
-import { WeekDateStrip } from '@/features/stats/components/WeekDateStrip';
+import {
+  WEEK_DATE_STRIP_ARROW_BUTTON_WIDTH,
+  WEEK_DATE_STRIP_DAY_CELL_MAX_WIDTH,
+  WEEK_DATE_STRIP_HORIZONTAL_INSET,
+  WeekDateStrip,
+} from '@/features/stats/components/WeekDateStrip';
 import { fetchWeeklyReport } from '@/features/stats/api/statsApi';
 import { useDailyReport } from '@/features/stats/hooks/useDailyReport';
 import { WEEKLY_REPORT_QUERY_KEY, useWeeklyReport } from '@/features/stats/hooks/useWeeklyReport';
@@ -45,7 +49,6 @@ import type {
   DailyReportSummary,
   WeeklyReportPoint,
   WeeklyReportResponse,
-  WeeklyReportSummary,
 } from '@/features/stats/types';
 import type { OutputReviewItem } from '@/features/session/types';
 import { isApiError } from '@/shared/lib/api';
@@ -71,6 +74,32 @@ type HistoryGroup = {
 const MONTH_DAY_SLOT_HEIGHT = 38;
 const MONTH_DAY_ROW_GAP = 2;
 const MONTH_CALENDAR_ARROW_HEIGHT = 58;
+const WEEKLY_CHART_HEIGHT = 330;
+const WEEKLY_CHART_AXIS_Y = 288;
+const FIXED_HEADER_HORIZONTAL_PADDING = 24;
+const FIXED_HEADER_BOTTOM_PADDING = 24;
+const SCROLL_BOUNDARY_HEIGHT = 2;
+const HIGHLIGHT_CARD_WIDTH_RATIO = 0.96;
+const HIGHLIGHT_CARD_ASPECT_RATIO = 1264 / 1288;
+const WEEKLY_CHART_WRAP_MIN_HEIGHT = 350;
+const WEEKLY_CHART_WRAP_PADDING_TOP = 4;
+const WEEKLY_CHART_WRAP_PADDING_BOTTOM = 8;
+const WEEKLY_CHART_SLOT_MIN_HEIGHT = 360;
+const WEEKLY_CALENDAR_GRAPH_BOUNDARY_BOTTOM = 36;
+const WEEKLY_CHART_FRAME_TOP_OFFSET =
+  (WEEKLY_CHART_SLOT_MIN_HEIGHT - WEEKLY_CHART_WRAP_MIN_HEIGHT) / 2 +
+  WEEKLY_CHART_WRAP_PADDING_TOP +
+  (WEEKLY_CHART_WRAP_MIN_HEIGHT -
+    WEEKLY_CHART_WRAP_PADDING_TOP -
+    WEEKLY_CHART_WRAP_PADDING_BOTTOM -
+    WEEKLY_CHART_HEIGHT) /
+    2;
+const WEEKLY_CHART_TO_BOUNDARY_EXTENSION =
+  WEEKLY_CALENDAR_GRAPH_BOUNDARY_BOTTOM + WEEKLY_CHART_FRAME_TOP_OFFSET;
+const WEEKLY_CHART_PLOT_TOP = -WEEKLY_CHART_TO_BOUNDARY_EXTENSION;
+const WEEKLY_CHART_TOP_OVERFLOW = WEEKLY_CHART_TO_BOUNDARY_EXTENSION + 16;
+const WEEKLY_CHART_PLOT_HEIGHT = WEEKLY_CHART_AXIS_Y - WEEKLY_CHART_PLOT_TOP;
+const WEEKLY_HISTORY_UP_OFFSET = -32;
 
 function CalendarMonthIcon() {
   return <Image source={CALENDAR_MONTH_ICON} style={styles.calendarToggleIcon} />;
@@ -598,18 +627,19 @@ function formatHourLabel(hours: number): string {
 
 function WeeklyBarChart({ points }: { points: WeeklyReportPoint[] }) {
   const { width } = useWindowDimensions();
-  const chartWidth = Math.max(260, width - 72);
+  const chartWidth = Math.max(0, width - WEEK_DATE_STRIP_HORIZONTAL_INSET * 2);
+  const plotLeft = WEEK_DATE_STRIP_ARROW_BUTTON_WIDTH;
+  const plotWidth = Math.max(0, chartWidth - WEEK_DATE_STRIP_ARROW_BUTTON_WIDTH * 2);
+  const axisY = WEEKLY_CHART_AXIS_Y;
+  const chartSvgHeight = WEEKLY_CHART_HEIGHT + WEEKLY_CHART_TOP_OVERFLOW;
+  const toSvgY = (y: number) => y + WEEKLY_CHART_TOP_OVERFLOW;
+  const dayCellWidth = Math.min(WEEK_DATE_STRIP_DAY_CELL_MAX_WIDTH, plotWidth / 7);
+  const dayStep = plotWidth > 0 ? (plotWidth - dayCellWidth) / 6 : 0;
+  const barWidth = Math.min(34, Math.max(16, dayCellWidth * 0.76));
   const maxStudyMinutes = Math.max(...points.map((point) => point.study_minutes), 0);
   const maxHours = maxStudyMinutes / 60;
   const stepValue = maxHours <= 1 ? 0.2 : Math.max(1, Math.ceil(maxHours / WEEKLY_CHART_SECTIONS));
   const yAxisMax = stepValue * WEEKLY_CHART_SECTIONS;
-  const barData = useMemo(
-    () =>
-      points.map((point) => ({
-        value: point.study_minutes / 60,
-      })),
-    [points],
-  );
   const yAxisLabelTexts = useMemo(
     () =>
       Array.from({ length: WEEKLY_CHART_SECTIONS + 1 }, (_value, index) =>
@@ -620,49 +650,77 @@ function WeeklyBarChart({ points }: { points: WeeklyReportPoint[] }) {
 
   return (
     <View style={styles.weeklyChartWrap} testID="stats-weekly-chart">
-      <BarChart
-        data={barData}
-        width={chartWidth}
-        height={200}
-        maxValue={yAxisMax}
-        noOfSections={WEEKLY_CHART_SECTIONS}
-        stepValue={stepValue}
-        yAxisLabelTexts={yAxisLabelTexts}
-        formatYLabel={(label) => formatHourLabel(Number(label))}
-        barWidth={22}
-        spacing={17}
-        initialSpacing={12}
-        frontColor="#D6D6D6"
-        yAxisThickness={0}
-        xAxisThickness={1}
-        xAxisColor="#D6D6D6"
-        rulesColor="#D6D6D6"
-        rulesThickness={1}
-        hideRules={false}
-        showVerticalLines
-        verticalLinesColor="#ECECEC"
-        verticalLinesThickness={1}
-        barBorderTopLeftRadius={4}
-        barBorderTopRightRadius={4}
-      />
-    </View>
-  );
-}
-
-function WeeklyHighlightCard({ summary }: { summary: WeeklyReportSummary }) {
-  const total = splitMinutes(summary.total_study_minutes);
-  return (
-    <View style={styles.weeklyHighlightCard} testID="stats-weekly-highlight-card">
-      <SizableText style={styles.weeklyHighlightCaption}>勉強時間合計</SizableText>
-      <View style={styles.weeklyTotalRow}>
-        {total.hours > 0 ? (
-          <>
-            <SizableText style={styles.weeklyTotalNumber}>{total.hours}</SizableText>
-            <SizableText style={styles.weeklyTotalUnit}>時間</SizableText>
-          </>
-        ) : null}
-        <SizableText style={styles.weeklyTotalNumber}>{total.minutes}</SizableText>
-        <SizableText style={styles.weeklyTotalUnit}>分</SizableText>
+      <View style={[styles.weeklyChartSvgFrame, { width: chartWidth }]}>
+        <Svg width={chartWidth} height={chartSvgHeight} style={styles.weeklyChartSvg}>
+          {yAxisLabelTexts.map((label, index) => {
+            const y = axisY - (WEEKLY_CHART_PLOT_HEIGHT * index) / WEEKLY_CHART_SECTIONS;
+            const labelY = y + 4;
+            return (
+              <G key={`rule-${index}`}>
+                <Line
+                  x1={plotLeft}
+                  y1={toSvgY(y)}
+                  x2={plotLeft + plotWidth}
+                  y2={toSvgY(y)}
+                  stroke="#D6D6D6"
+                  strokeWidth={1}
+                />
+                {label ? (
+                  <SvgText
+                    x={plotLeft - 8}
+                    y={toSvgY(labelY)}
+                    fill="#777777"
+                    fontSize={10}
+                    fontWeight="600"
+                    textAnchor="end"
+                  >
+                    {label}
+                  </SvgText>
+                ) : null}
+              </G>
+            );
+          })}
+          {points.map((_point, index) => {
+            const x = plotLeft + dayCellWidth / 2 + dayStep * index;
+            return (
+              <Line
+                key={`vertical-${_point.bucket}`}
+                x1={x}
+                y1={toSvgY(WEEKLY_CHART_PLOT_TOP)}
+                x2={x}
+                y2={toSvgY(axisY)}
+                stroke="#ECECEC"
+                strokeWidth={1}
+              />
+            );
+          })}
+          {points.map((point, index) => {
+            const value = point.study_minutes / 60;
+            const barHeight = yAxisMax > 0 ? (value / yAxisMax) * WEEKLY_CHART_PLOT_HEIGHT : 0;
+            const x = plotLeft + dayCellWidth / 2 + dayStep * index - barWidth / 2;
+            const y = axisY - barHeight;
+            return (
+              <Rect
+                key={point.bucket}
+                x={x}
+                y={toSvgY(y)}
+                width={barWidth}
+                height={barHeight}
+                rx={4}
+                ry={4}
+                fill="#D6D6D6"
+              />
+            );
+          })}
+          <Line
+            x1={plotLeft}
+            y1={toSvgY(axisY)}
+            x2={plotLeft + plotWidth}
+            y2={toSvgY(axisY)}
+            stroke="#D6D6D6"
+            strokeWidth={1}
+          />
+        </Svg>
       </View>
     </View>
   );
@@ -745,6 +803,7 @@ function ErrorBody({ message, onRetry }: { message: string; onRetry: () => void 
 
 export function StatsScreen() {
   const uid = useAuthStore((s) => s.uid);
+  const { width: viewportWidth } = useWindowDimensions();
   const todayKey = getTokyoDateKey();
   const [selectedDateKey, setSelectedDateKey] = useState(() => todayKey);
   const weekStart = useMemo(
@@ -758,6 +817,25 @@ export function StatsScreen() {
     enabled: reportViewMode === 'weekly',
   });
   const monthlyReports = useMonthlyWeeklyReports(calendarMonthStart, reportViewMode === 'monthly');
+  const weeklyChartSlotHistoryOffset = useMemo(() => {
+    const headerContentWidth = Math.max(0, viewportWidth - FIXED_HEADER_HORIZONTAL_PADDING * 2);
+    if (headerContentWidth === 0) return 0;
+
+    const highlightCardWidth = Math.min(360, headerContentWidth * HIGHLIGHT_CARD_WIDTH_RATIO);
+    const highlightCardHeight = highlightCardWidth / HIGHLIGHT_CARD_ASPECT_RATIO;
+    const weeklyChartSlotHeight = Math.max(highlightCardHeight, WEEKLY_CHART_SLOT_MIN_HEIGHT);
+    return (
+      highlightCardHeight +
+      FIXED_HEADER_BOTTOM_PADDING +
+      SCROLL_BOUNDARY_HEIGHT -
+      weeklyChartSlotHeight +
+      WEEKLY_HISTORY_UP_OFFSET
+    );
+  }, [viewportWidth]);
+  const weeklyChartSlotStyle = useMemo(
+    () => [styles.weeklyChartSlot, { marginBottom: weeklyChartSlotHistoryOffset }],
+    [weeklyChartSlotHistoryOffset],
+  );
   const handleDailyRetry = useCallback(() => {
     void dailyReportQuery.refetch();
   }, [dailyReportQuery]);
@@ -915,12 +993,6 @@ export function StatsScreen() {
 
     return (
       <>
-        <WeeklyBarChart points={weeklyReportQuery.data.points} />
-        <View style={styles.highlightTitleRow}>
-          <SizableText style={styles.highlightTitle}>今週のハイライト</SizableText>
-          <ShareIconButton />
-        </View>
-        <WeeklyHighlightCard summary={weeklyReportQuery.data.summary} />
         <OutputHistory
           items={weeklyReportQuery.data.output_history}
           emptyMessage="この週の履歴はまだありません。"
@@ -966,7 +1038,7 @@ export function StatsScreen() {
     return (
       <SafeAreaView style={styles.safeArea} testID="stats-root">
         <StatusBar style="dark" />
-        <View style={styles.fixedHeader}>
+        <View style={[styles.fixedHeader, styles.weeklyFixedHeader]}>
           <View style={styles.monthRow}>
             <SizableText style={styles.monthText}>{getMonthLabel(weekStart)}</SizableText>
             <Pressable
@@ -985,8 +1057,33 @@ export function StatsScreen() {
             selectedDateKey={selectedDateKey}
             onSelectDate={handleSelectDate}
           />
+          <View style={styles.weeklyCalendarGraphBoundaryWrap}>
+            <View
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              pointerEvents="none"
+            >
+              <View style={[styles.highlightTitleRow, styles.hiddenHighlightTitleRow]} />
+            </View>
+            <View
+              pointerEvents="none"
+              style={[styles.scrollBoundary, styles.weeklyCalendarGraphBoundary]}
+              testID="stats-weekly-calendar-graph-boundary"
+            />
+          </View>
+          {weeklyReportQuery.data ? (
+            <View style={weeklyChartSlotStyle}>
+              <WeeklyBarChart points={weeklyReportQuery.data.points} />
+            </View>
+          ) : (
+            <View
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              pointerEvents="none"
+              style={weeklyChartSlotStyle}
+            />
+          )}
         </View>
-        <View style={styles.scrollBoundary} />
         <ScrollView
           style={styles.scrollArea}
           contentContainerStyle={styles.scrollContent}
@@ -1050,10 +1147,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   fixedHeader: {
-    paddingHorizontal: 24,
+    paddingHorizontal: FIXED_HEADER_HORIZONTAL_PADDING,
     paddingTop: 12,
-    paddingBottom: 24,
+    paddingBottom: FIXED_HEADER_BOTTOM_PADDING,
     backgroundColor: '#FFFFFF',
+  },
+  weeklyFixedHeader: {
+    paddingBottom: 0,
   },
   monthRow: {
     flexDirection: 'row',
@@ -1075,9 +1175,19 @@ const styles = StyleSheet.create({
   },
   monthText: {
     color: '#333333',
+    fontFamily: 'HiraginoSans-W6',
     fontSize: 26,
     fontWeight: '800',
     lineHeight: 32,
+  },
+  weeklyCalendarGraphBoundaryWrap: {
+    position: 'relative',
+  },
+  weeklyCalendarGraphBoundary: {
+    position: 'absolute',
+    left: -24,
+    right: -24,
+    bottom: WEEKLY_CALENDAR_GRAPH_BOUNDARY_BOTTOM,
   },
   monthlyScrollArea: {
     flex: 1,
@@ -1188,6 +1298,9 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 12,
   },
+  hiddenHighlightTitleRow: {
+    height: 30,
+  },
   highlightTitle: {
     color: '#333333',
     fontFamily: 'HiraginoSans-W6',
@@ -1219,7 +1332,7 @@ const styles = StyleSheet.create({
   highlightCard: {
     width: '96%',
     maxWidth: 360,
-    aspectRatio: 1264 / 1288,
+    aspectRatio: HIGHLIGHT_CARD_ASPECT_RATIO,
     alignSelf: 'center',
     backgroundColor: 'transparent',
   },
@@ -1402,7 +1515,7 @@ const styles = StyleSheet.create({
     lineHeight: 14,
   },
   scrollBoundary: {
-    height: 2,
+    height: SCROLL_BOUNDARY_HEIGHT,
     backgroundColor: '#E4E4E4',
     shadowColor: '#000000',
     shadowOpacity: 0.18,
@@ -1522,48 +1635,28 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   weeklyChartWrap: {
-    minHeight: 240,
+    minHeight: WEEKLY_CHART_WRAP_MIN_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 4,
-    paddingBottom: 8,
+    paddingTop: WEEKLY_CHART_WRAP_PADDING_TOP,
+    paddingBottom: WEEKLY_CHART_WRAP_PADDING_BOTTOM,
   },
-  weeklyHighlightCard: {
-    marginTop: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#DADADA',
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
+  weeklyChartSvgFrame: {
+    height: WEEKLY_CHART_HEIGHT,
+    overflow: 'visible',
   },
-  weeklyHighlightCaption: {
-    color: '#333333',
-    fontFamily: 'HiraginoSans-W6',
-    fontSize: 14,
-    fontWeight: '700',
-    lineHeight: 18,
+  weeklyChartSvg: {
+    position: 'absolute',
+    top: -WEEKLY_CHART_TOP_OVERFLOW,
+    overflow: 'visible',
   },
-  weeklyTotalRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
+  weeklyChartSlot: {
+    width: '96%',
+    maxWidth: 360,
+    minHeight: WEEKLY_CHART_SLOT_MIN_HEIGHT,
+    aspectRatio: HIGHLIGHT_CARD_ASPECT_RATIO,
+    alignSelf: 'center',
     justifyContent: 'center',
-    gap: 4,
-    marginTop: 6,
-  },
-  weeklyTotalNumber: {
-    color: '#333333',
-    fontFamily: 'HiraginoSans-W6',
-    fontSize: 32,
-    fontWeight: '900',
-    lineHeight: 38,
-  },
-  weeklyTotalUnit: {
-    color: '#333333',
-    fontFamily: 'HiraginoSans-W6',
-    fontSize: 16,
-    fontWeight: '800',
-    lineHeight: 28,
+    backgroundColor: 'transparent',
   },
 });

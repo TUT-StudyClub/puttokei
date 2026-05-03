@@ -26,13 +26,6 @@ jest.mock('expo-router', () => ({
   }),
 }));
 
-jest.mock('react-native-gifted-charts', () => ({
-  BarChart: () => {
-    const { View } = require('react-native');
-    return <View testID="mock-bar-chart" />;
-  },
-}));
-
 function makeDailyResponse(overrides: Partial<DailyReportResponse> = {}): DailyReportResponse {
   const base: DailyReportResponse = {
     date: '2026-04-29',
@@ -355,7 +348,7 @@ describe('StatsScreen', () => {
       makeWeeklyResponseForDates('2026-04-26', { '2026-04-29': 60 }),
     );
 
-    const { getByTestId, getByText, queryByText } = renderWithProviders(<StatsScreen />);
+    const { getByTestId, queryByTestId, queryByText } = renderWithProviders(<StatsScreen />);
     await flushAsyncUpdates();
 
     await waitFor(() => {
@@ -371,8 +364,9 @@ describe('StatsScreen', () => {
       expect(statsApi.fetchWeeklyReport).toHaveBeenCalledWith('2026-04-26');
     });
     expect(getByTestId('stats-weekly-chart')).toBeTruthy();
-    expect(getByTestId('stats-weekly-highlight-card')).toBeTruthy();
-    expect(getByText('今週のハイライト')).toBeTruthy();
+    expect(getByTestId('stats-weekly-calendar-graph-boundary')).toBeTruthy();
+    expect(queryByTestId('stats-weekly-highlight-card')).toBeNull();
+    expect(queryByText('今週のハイライト')).toBeNull();
     expect(queryByText('4月29日のハイライト')).toBeNull();
   });
 
