@@ -141,7 +141,12 @@ export default function TabsLayout() {
             tabBarLabel: () => (
               <Text
                 allowFontScaling={false}
-                style={{ color: '#475FFF', fontSize: 11, fontFamily: 'HiraginoSans-W6' }}
+                style={{
+                  color: '#475FFF',
+                  fontSize: 11,
+                  fontFamily: 'HiraginoSans-W6',
+                  marginTop: 4,
+                }}
               >
                 タイマー
               </Text>
@@ -155,12 +160,17 @@ export default function TabsLayout() {
             tabBarLabel: () => (
               <Text
                 allowFontScaling={false}
-                style={{ color: '#676767', fontSize: 11, fontFamily: 'HiraginoSans-W3' }}
+                style={{
+                  color: '#676767',
+                  fontSize: 11,
+                  fontFamily: 'HiraginoSans-W6',
+                  marginTop: 4,
+                }}
               >
                 レポート
               </Text>
             ),
-            tabBarIcon: ({ color }) => <ReportTabIcon color={color} size={39} />,
+            tabBarIcon: () => <ReportTabIcon color="#9D9D9D" size={39} />,
           }}
           listeners={{
             tabPress: (event) => {
