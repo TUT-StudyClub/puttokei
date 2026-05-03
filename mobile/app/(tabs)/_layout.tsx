@@ -82,14 +82,25 @@ export default function TabsLayout() {
         options={{
           title: 'タイマー',
           tabBarIcon: () => <TimerTabIcon size={39} />,
-          tabBarLabelStyle: { fontSize: 14, fontWeight: '600', color: TIMER_ICON_COLOR },
+          tabBarLabelStyle: {
+            fontSize: 10,
+            fontWeight: '600',
+            fontFamily: 'HiraginoSans-W6',
+            color: TIMER_ICON_COLOR,
+          },
         }}
       />
       <Tabs.Screen
         name="stats"
         options={{
           title: 'レポート',
-          tabBarIcon: ({ color }) => <ReportTabIcon color={color} size={39} />,
+          tabBarIcon: () => <ReportTabIcon color="#9D9D9D" size={39} />,
+          tabBarLabelStyle: {
+            fontSize: 10,
+            fontWeight: '600',
+            fontFamily: 'HiraginoSans-W6',
+            color: '#676767',
+          },
         }}
       />
       <Tabs.Screen name="history" options={{ href: null }} />
