@@ -17,3 +17,9 @@ class FakeOutputRepository(OutputRepository):
 
     async def find_by_session_id(self, session_id: UUID) -> Output | None:
         return self.outputs_by_session_id.get(session_id)
+
+    async def find_by_id(self, output_id: UUID) -> Output | None:
+        for output in self.outputs_by_session_id.values():
+            if output.id == output_id:
+                return output
+        return None

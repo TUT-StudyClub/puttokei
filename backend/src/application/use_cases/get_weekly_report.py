@@ -73,7 +73,8 @@ class GetWeeklyReport:
                 break_minutes += session.break_minutes
 
                 judgment = await uow.judgments.find_by_session_id(session.id)
-                rows.append((submitted_at, session, output, judgment))
+                subject = await uow.study_subjects.find_assigned_subject_by_output_id(output.id)
+                rows.append((submitted_at, session, output, judgment, subject))
 
         rows.sort(key=lambda row: row[0])
 
@@ -108,11 +109,16 @@ class GetWeeklyReport:
                         download_url_ttl_seconds=self.download_url_ttl_seconds,
                     ),
                     cycle_index=index,
-                    subject=session.subject,
+                    subject=subject.label if subject is not None else session.subject,
+                    subject_id=subject.id if subject is not None else None,
+                    subject_color=subject.color if subject is not None else None,
                     topic=session.topic,
                     judgment=to_judgment_view(judgment) if judgment is not None else None,
                 )
-                for index, (_submitted_at, session, output, judgment) in enumerate(rows, start=1)
+                for index, (_submitted_at, session, output, judgment, subject) in enumerate(
+                    rows,
+                    start=1,
+                )
             ],
         )
 

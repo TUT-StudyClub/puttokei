@@ -10,7 +10,7 @@
  */
 import { Redirect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useQueries } from '@tanstack/react-query';
+import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Image,
@@ -37,7 +37,7 @@ import {
   WEEK_DATE_STRIP_HORIZONTAL_INSET,
   WeekDateStrip,
 } from '@/features/stats/components/WeekDateStrip';
-import { fetchWeeklyReport } from '@/features/stats/api/statsApi';
+import { fetchWeeklyReport, updateOutputSubject } from '@/features/stats/api/statsApi';
 import { useDailyReport } from '@/features/stats/hooks/useDailyReport';
 import { WEEKLY_REPORT_QUERY_KEY, useWeeklyReport } from '@/features/stats/hooks/useWeeklyReport';
 import {
@@ -266,11 +266,13 @@ function buildSubjectOptions(items: readonly OutputReviewItem[]): SubjectOption[
     if (isUnsetSubject(item.subject)) return;
 
     const label = getSubjectLabel(item.subject);
-    if (subjects.has(label)) return;
+    const existingSubject = subjects.get(label);
+    if (existingSubject && item.subject_color === null) return;
 
     subjects.set(label, {
       label,
-      color: SUBJECT_COLOR_PALETTE[subjects.size % SUBJECT_COLOR_PALETTE.length]!,
+      color:
+        item.subject_color ?? SUBJECT_COLOR_PALETTE[subjects.size % SUBJECT_COLOR_PALETTE.length]!,
     });
   });
 
@@ -286,7 +288,44 @@ function getEffectiveSubjectOption(
   if (selectedSubject) return selectedSubject;
 
   const subjectLabel = getSubjectLabel(item.subject);
+  if (!isUnsetSubject(item.subject) && item.subject_color !== null) {
+    return {
+      label: subjectLabel,
+      color: item.subject_color,
+    };
+  }
   return subjectOptions.find((subject) => subject.label === subjectLabel) ?? null;
+}
+
+function applyOutputSubjectToReportCache<T>(
+  report: T,
+  outputId: string,
+  subject: SubjectOption,
+  subjectId: string | null,
+): T {
+  if (typeof report !== 'object' || report === null) return report;
+  const maybeReport = report as { output_history?: unknown };
+  if (!Array.isArray(maybeReport.output_history)) return report;
+
+  let changed = false;
+  const outputHistory = maybeReport.output_history.map((item) => {
+    const historyItem = item as OutputReviewItem;
+    if (historyItem.output?.id !== outputId) return item;
+
+    changed = true;
+    return {
+      ...historyItem,
+      subject: subject.label,
+      subject_id: subjectId,
+      subject_color: subject.color,
+    };
+  });
+
+  if (!changed) return report;
+  return {
+    ...report,
+    output_history: outputHistory,
+  };
 }
 
 function sortHistoryItemsByRecency(items: readonly OutputReviewItem[]): OutputReviewItem[] {
@@ -1234,7 +1273,14 @@ function HistoryDetailSheet({
       (label.length > 0 ? { label, color: newSubjectColor ?? UNSELECTED_SUBJECT_COLOR } : null);
 
     if (subjectToSelect !== null && existingSubject === undefined) {
-      setLocalSubjectOptions((current) => [...current, subjectToSelect]);
+      setLocalSubjectOptions((current) => {
+        const next = [...current];
+        visibleSubjectOptions.forEach((subject) => {
+          appendSubjectOptionIfMissing(next, subject);
+        });
+        appendSubjectOptionIfMissing(next, subjectToSelect);
+        return next;
+      });
     }
     if (subjectToSelect !== null) {
       onSelectSubject(item.output.id, subjectToSelect);
@@ -1586,6 +1632,7 @@ function ErrorBody({ message, onRetry }: { message: string; onRetry: () => void 
 
 export function StatsScreen() {
   const uid = useAuthStore((s) => s.uid);
+  const queryClient = useQueryClient();
   const { width: viewportWidth } = useWindowDimensions();
   const todayKey = getTokyoDateKey();
   const [selectedDateKey, setSelectedDateKey] = useState(() => todayKey);
@@ -1599,6 +1646,38 @@ export function StatsScreen() {
   const [selectedSubjectByOutputId, setSelectedSubjectByOutputId] = useState<
     Record<string, SubjectOption>
   >({});
+  const updateSubjectMutation = useMutation({
+    mutationFn: ({ outputId, subject }: { outputId: string; subject: SubjectOption }) =>
+      updateOutputSubject(outputId, { label: subject.label, color: subject.color }),
+    onSuccess: (assignment) => {
+      const savedSubject = {
+        label: assignment.subject,
+        color: assignment.subject_color,
+      };
+      setSelectedSubjectByOutputId((current) => ({
+        ...current,
+        [assignment.output_id]: savedSubject,
+      }));
+      queryClient.setQueriesData({ queryKey: ['stats'] }, (report) =>
+        applyOutputSubjectToReportCache(
+          report,
+          assignment.output_id,
+          savedSubject,
+          assignment.subject_id,
+        ),
+      );
+    },
+    onError: (_error, variables) => {
+      void queryClient.invalidateQueries({ queryKey: ['stats'] });
+      setSelectedSubjectByOutputId((current) => {
+        if (current[variables.outputId] !== variables.subject) return current;
+
+        const next = { ...current };
+        delete next[variables.outputId];
+        return next;
+      });
+    },
+  });
   const dailyReportQuery = useDailyReport(selectedDateKey);
   const weeklyReportQuery = useWeeklyReport(weekStart, {
     enabled: reportViewMode === 'weekly',
@@ -1694,19 +1773,23 @@ export function StatsScreen() {
   const handleCloseHistorySheet = useCallback(() => {
     setSelectedHistoryItem(null);
   }, []);
-  const handleSelectHistorySubject = useCallback((outputId: string, subject: SubjectOption) => {
-    setSelectedSubjectByOutputId((current) => {
-      const currentSubject = current[outputId];
-      if (currentSubject?.label === subject.label && currentSubject.color === subject.color) {
-        return current;
-      }
+  const handleSelectHistorySubject = useCallback(
+    (outputId: string, subject: SubjectOption) => {
+      setSelectedSubjectByOutputId((current) => {
+        const currentSubject = current[outputId];
+        if (currentSubject?.label === subject.label && currentSubject.color === subject.color) {
+          return current;
+        }
 
-      return {
-        ...current,
-        [outputId]: subject,
-      };
-    });
-  }, []);
+        return {
+          ...current,
+          [outputId]: subject,
+        };
+      });
+      updateSubjectMutation.mutate({ outputId, subject });
+    },
+    [updateSubjectMutation],
+  );
   const handleOpenMonthlyCalendar = useCallback(() => {
     setCalendarMonthStart(getMonthStartKey(weekStart));
     setReportViewMode('monthly');

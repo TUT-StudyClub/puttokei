@@ -6,6 +6,7 @@ from src.application.dto.judgment_dto import (
     JudgmentView,
 )
 from src.application.dto.session_dto import (
+    OutputSubjectAssignmentView,
     OutputView,
     SessionView,
     SubmitOutputView,
@@ -23,6 +24,7 @@ from src.presentation.schemas.judgment_schema import (
 from src.presentation.schemas.session_schema import (
     OutputResponse,
     OutputReviewItemResponse,
+    OutputSubjectAssignmentResponse,
     SessionResponse,
     SubmitOutputResponse,
     TodayOutputsResponse,
@@ -84,6 +86,18 @@ def to_submit_output_response(view: SubmitOutputView) -> SubmitOutputResponse:
     )
 
 
+def to_output_subject_assignment_response(
+    view: OutputSubjectAssignmentView,
+) -> OutputSubjectAssignmentResponse:
+    return OutputSubjectAssignmentResponse(
+        output_id=view.output_id,
+        subject_id=view.subject_id,
+        subject=view.subject,
+        subject_color=view.subject_color,
+        updated_at=view.updated_at,
+    )
+
+
 def _to_output_response(view: OutputView) -> OutputResponse:
     return OutputResponse(
         id=view.id,
@@ -106,6 +120,8 @@ def to_today_outputs_response(view: TodayOutputsView) -> TodayOutputsResponse:
                 output=_to_output_response(item.output),
                 cycle_index=item.cycle_index,
                 subject=item.subject,
+                subject_id=item.subject_id,
+                subject_color=item.subject_color,
                 topic=item.topic,
                 judgment=_to_optional_judgment_response(item.judgment),
             )
@@ -143,6 +159,8 @@ def to_weekly_report_response(view: WeeklyReportView) -> WeeklyReportResponse:
                 output=_to_output_response(item.output),
                 cycle_index=item.cycle_index,
                 subject=item.subject,
+                subject_id=item.subject_id,
+                subject_color=item.subject_color,
                 topic=item.topic,
                 judgment=_to_optional_judgment_response(item.judgment),
             )
@@ -170,6 +188,8 @@ def to_daily_report_response(view: DailyReportView) -> DailyReportResponse:
                 output=_to_output_response(item.output),
                 cycle_index=item.cycle_index,
                 subject=item.subject,
+                subject_id=item.subject_id,
+                subject_color=item.subject_color,
                 topic=item.topic,
                 judgment=_to_optional_judgment_response(item.judgment),
             )

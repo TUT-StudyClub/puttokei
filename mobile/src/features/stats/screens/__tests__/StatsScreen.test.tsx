@@ -60,6 +60,8 @@ function makeDailyResponse(overrides: Partial<DailyReportResponse> = {}): DailyR
         },
         cycle_index: 1,
         subject: '英語',
+        subject_id: null,
+        subject_color: null,
         topic: '関係代名詞',
         judgment: {
           id: 'judgment-1',
@@ -116,6 +118,8 @@ function makeOutputHistoryItem(cycleIndex: number): OutputReviewItem {
     },
     cycle_index: cycleIndex,
     subject: '英語',
+    subject_id: null,
+    subject_color: null,
     topic: '関係代名詞',
     judgment: null,
   };
@@ -177,6 +181,16 @@ describe('StatsScreen', () => {
     jest.clearAllMocks();
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-04-29T00:00:00Z'));
+    (statsApi.updateOutputSubject as jest.Mock).mockImplementation(
+      (outputId: string, input: { label: string; color: string }) =>
+        Promise.resolve({
+          output_id: outputId,
+          subject_id: `subject-${input.label}`,
+          subject: input.label,
+          subject_color: input.color,
+          updated_at: '2026-05-03T12:00:00Z',
+        }),
+    );
     act(() => {
       useAuthStore.setState({ uid: 'u-1', idToken: 'token-1' });
     });
@@ -396,6 +410,10 @@ describe('StatsScreen', () => {
       fireEvent.press(getByTestId('stats-history-sheet-subject-option-0'));
     });
     expect(queryByTestId('stats-history-sheet-subject-picker')).toBeNull();
+    expect(statsApi.updateOutputSubject).toHaveBeenCalledWith('out-2', {
+      label: '理科',
+      color: '#457DFF',
+    });
     expect(getByTestId('stats-history-sheet-subject-text').props.children).toBe('理科');
     expect(
       StyleSheet.flatten(getByTestId('stats-history-sheet-subject-dot').props.style)
@@ -631,10 +649,14 @@ describe('StatsScreen', () => {
     expect(getByTestId('stats-history-sheet-subject-picker')).toBeTruthy();
     expect(getAllByText('数学').length).toBeGreaterThan(1);
     expect(
-      StyleSheet.flatten(getByTestId('stats-history-sheet-subject-option-dot-1').props.style)
+      StyleSheet.flatten(getByTestId('stats-history-sheet-subject-option-dot-0').props.style)
         .backgroundColor,
     ).toBe('#FF9147');
-    expect(getByTestId('stats-history-sheet-subject-option-check-1')).toBeTruthy();
+    expect(statsApi.updateOutputSubject).toHaveBeenCalledWith('out-1', {
+      label: '数学',
+      color: '#FF9147',
+    });
+    expect(getByTestId('stats-history-sheet-subject-option-check-0')).toBeTruthy();
     expect(getByTestId('stats-history-sheet-subject-text').props.children).toBe('数学');
   });
 

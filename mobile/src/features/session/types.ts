@@ -47,6 +47,19 @@ export type SubmitOutputResponse = {
   status: SessionStatus;
 };
 
+export type UpdateOutputSubjectInput = {
+  label: string;
+  color: string;
+};
+
+export type OutputSubjectAssignment = {
+  output_id: string;
+  subject_id: string;
+  subject: string;
+  subject_color: string;
+  updated_at: string;
+};
+
 /**
  * テキストアウトプット送信リクエスト。
  * backend の `POST /api/v1/sessions/{id}/outputs/text` に対応する。
@@ -163,6 +176,8 @@ export type OutputReviewItem = {
   output: Output;
   cycle_index: number;
   subject: string;
+  subject_id: string | null;
+  subject_color: string | null;
   topic: string;
   judgment: Judgment | null;
 };

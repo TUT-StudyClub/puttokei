@@ -48,6 +48,14 @@ class SubmitImageOutputCommand(FrozenModel):
     submitted_at: datetime
 
 
+class UpdateOutputSubjectCommand(FrozenModel):
+    """PATCH /sessions/outputs/{id}/subject の入力コマンド。"""
+
+    output_id: UUID
+    label: str
+    color: str
+
+
 class IssueOutputImageUploadUrlCommand(FrozenModel):
     """POST /sessions/{id}/outputs/image/upload-url の入力コマンド。"""
 
@@ -101,6 +109,16 @@ class SubmitOutputView(FrozenModel):
     status: SessionStatus
 
 
+class OutputSubjectAssignmentView(FrozenModel):
+    """アウトプットへの教科割り当て結果。"""
+
+    output_id: UUID
+    subject_id: UUID
+    subject: str
+    subject_color: str
+    updated_at: datetime
+
+
 class OutputReviewItemView(FrozenModel):
     """インプット画面で見返すためのアウトプットと判定情報。"""
 
@@ -111,6 +129,8 @@ class OutputReviewItemView(FrozenModel):
     output: OutputView
     cycle_index: int
     subject: str
+    subject_id: UUID | None
+    subject_color: str | None
     topic: str
     judgment: JudgmentView | None
 
