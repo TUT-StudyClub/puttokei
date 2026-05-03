@@ -21,6 +21,11 @@ NonEmptyStoragePath = Annotated[
     StringConstraints(strip_whitespace=True, min_length=1, max_length=512),
 ]
 
+SubjectLabel = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=50),
+]
+
 OutputImageMimeType = Literal["image/jpeg", "image/png"]
 
 
@@ -66,6 +71,13 @@ class IssueOutputImageUploadUrlRequest(StrictRequestModel):
     """POST /sessions/{id}/outputs/image/upload-url の body。"""
 
     mime_type: OutputImageMimeType
+
+
+class UpdateOutputSubjectRequest(StrictRequestModel):
+    """PATCH /sessions/outputs/{id}/subject の body。"""
+
+    label: SubjectLabel
+    color: str = Field(pattern=r"^#[0-9A-Fa-f]{6}$")
 
 
 class IssueOutputImageUploadUrlResponse(FrozenModel):
@@ -114,13 +126,28 @@ class SubmitOutputResponse(FrozenModel):
     status: SessionStatus
 
 
+class OutputSubjectAssignmentResponse(FrozenModel):
+    """アウトプットへの教科割り当て結果。"""
+
+    output_id: UUID
+    subject_id: UUID
+    subject: str
+    subject_color: str
+    updated_at: datetime
+
+
 class OutputReviewItemResponse(FrozenModel):
     """インプット画面で見返すためのアウトプット。"""
 
     session_id: UUID
+    session_started_at: datetime
+    input_minutes: int
+    output_minutes: int
     output: OutputResponse
     cycle_index: int
     subject: str
+    subject_id: UUID | None
+    subject_color: str | None
     topic: str
     judgment: JudgmentResponse | None
 

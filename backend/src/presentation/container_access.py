@@ -22,6 +22,7 @@ from src.application.use_cases.run_image_judgment import RunImageJudgment
 from src.application.use_cases.run_text_judgment import RunTextJudgment
 from src.application.use_cases.submit_image_output import SubmitImageOutput
 from src.application.use_cases.submit_text_output import SubmitTextOutput
+from src.application.use_cases.update_output_subject import UpdateOutputSubject
 from src.application.use_cases.update_session_status import UpdateSessionStatus
 from src.application.use_cases.update_user_profile import UpdateUserProfile
 from src.application.use_cases.update_user_settings import UpdateUserSettings
@@ -49,6 +50,7 @@ class PresentationContainer(ABC):
     update_session_status: UpdateSessionStatus
     submit_text_output: SubmitTextOutput
     submit_image_output: SubmitImageOutput
+    update_output_subject: UpdateOutputSubject
     issue_output_image_upload_url: IssueOutputImageUploadUrl | None
     run_text_judgment: RunTextJudgment | None
     run_image_judgment: RunImageJudgment | None
