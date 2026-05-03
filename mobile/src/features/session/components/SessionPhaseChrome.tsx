@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import type { LayoutChangeEvent, StyleProp, ViewStyle } from 'react-native';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -1041,6 +1041,15 @@ function PhaseTabDot({
         backgroundColor: filled ? color : 'transparent',
         borderColor: color,
         borderWidth: 0,
+        ...(filled
+          ? {
+              shadowColor: color,
+              shadowOpacity: 1,
+              shadowRadius: 6,
+              shadowOffset: { width: 0, height: 0 },
+              elevation: 8,
+            }
+          : null),
       }}
     >
       {!filled && (
@@ -1243,7 +1252,7 @@ export function CircularPhaseTimer({
   const smoothRemainingSeconds = useSmoothRemainingSeconds(enabled);
   const totalSeconds = useTimerStore((s) => s.totalSeconds);
 
-  const size = compact ? 156 : 260;
+  const size = compact ? 156 : 290;
   const strokeWidth = compact ? 10 : 14;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -1280,7 +1289,7 @@ export function CircularPhaseTimer({
         style={[styles.timerCenter, compact ? styles.timerCenterCompact : null]}
         pointerEvents="none"
       >
-        <SizableText
+        <Text
           style={[
             styles.timerPhaseLabel,
             { color: primaryColor },
@@ -1288,8 +1297,8 @@ export function CircularPhaseTimer({
           ]}
         >
           {SESSION_PHASE_LABELS[phase]}
-        </SizableText>
-        <SizableText
+        </Text>
+        <Text
           style={[
             styles.timerText,
             { color: primaryColor },
@@ -1298,7 +1307,7 @@ export function CircularPhaseTimer({
           testID={textTestID}
         >
           {formatMmSs(displayRemainingSeconds)}
-        </SizableText>
+        </Text>
       </View>
     </View>
   );
@@ -1412,23 +1421,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
+    paddingBottom: '5%',
   },
   timerCenterCompact: {
     gap: 2,
   },
   timerPhaseLabel: {
-    fontSize: 18,
-    fontWeight: '700',
-    lineHeight: 22,
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 17,
+    lineHeight: 24,
   },
   timerPhaseLabelCompact: {
     fontSize: 12,
     lineHeight: 16,
   },
   timerText: {
-    fontSize: 56,
-    fontWeight: '900',
-    lineHeight: 64,
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 58,
+    fontWeight: '600',
+    lineHeight: 70,
+    marginTop: '2%',
   },
   timerTextCompact: {
     fontSize: 34,
