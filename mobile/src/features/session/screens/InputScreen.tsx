@@ -35,13 +35,12 @@ import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
 const CURRENT_PHASE: SessionPhase = 'input';
-const EXTEND_MINUTES = 5;
 
 // 「今日のアウトプット」一覧で、スクロールせずに見せる最大行数。
 // 4 件目以降は一覧内だけがスクロールするようにする。
 const TODAY_OUTPUT_VISIBLE_ROWS = 3;
 
-const PRIMARY_COLOR = '#4B5CFF';
+const PRIMARY_COLOR = '#148BFF';
 // 砂時計の砂積層に使う色。PRIMARY_COLOR (画面テーマの青) と砂時計の砂色を分離するため、input 用の砂色も独立した定数で管理する。
 const HOURGLASS_INPUT_COLOR = '#148BFF';
 const OUTPUT_PHASE_COLOR = '#F24D7E';
@@ -127,7 +126,7 @@ function TodayOutputList({ items, onSelect }: TodayOutputListProps) {
 
   return (
     <View style={styles.todayOutputsSection} testID="today-outputs-section">
-      <SizableText style={styles.todayOutputsTitle}>今日のアウトプット</SizableText>
+      <SizableText style={styles.todayOutputsTitle}>最近のアウトプット</SizableText>
       <View style={styles.todayOutputsCard}>
         <ScrollView
           style={isScrollable ? styles.todayOutputsScroll : null}
@@ -320,7 +319,6 @@ export function InputScreen() {
   const cancelMutation = useUpdateSessionStatus();
   const currentLoop = useLoopStore((s) => s.currentLoop);
   const resetLoop = useLoopStore((s) => s.reset);
-  const extendTimer = useTimerStore((s) => s.extend);
   const timerStatus = useTimerStore((s) => s.status);
   const totalSeconds = useTimerStore((s) => s.totalSeconds);
   // 砂時計の砂量を 1 秒刻みではなく細かく変えるための補間値。
@@ -424,11 +422,6 @@ export function InputScreen() {
     ]);
   };
 
-  const handleExtend = () => {
-    extendTimer(EXTEND_MINUTES * 60);
-  };
-
-  const extendDisabled = timerStatus !== 'running' && timerStatus !== 'paused';
   const hasError = updateStatus.isError || cancelMutation.isError;
 
   return (
@@ -448,7 +441,8 @@ export function InputScreen() {
           }}
           phaseTabs={{
             activePhase: CURRENT_PHASE,
-            activeDotColor: PRIMARY_COLOR,
+            activeDotColor: '#148BFF',
+            activeTextColor: '#148BFF',
             inactiveDotColor: DOT_INACTIVE,
           }}
         />
@@ -458,12 +452,12 @@ export function InputScreen() {
             <CircularPhaseTimer
               phase={CURRENT_PHASE}
               primaryColor={PRIMARY_COLOR}
-              trackColor={BORDER_COLOR}
+              trackColor="#E9F9FF"
               testID="input-circular-timer"
-              compact={hasOutputReview}
+              compact={false}
               enabled={isFocused}
             />
-            {isDetailVisible ? null : (
+            {isDetailVisible || hasOutputReview ? null : (
               <SizableText style={styles.timerCaption} testID="input-timer-caption">
                 終了後{outputMinutes}分間でアウトプットです{'\n'}
                 アウトプットへは自動で切り替わります
@@ -486,34 +480,19 @@ export function InputScreen() {
             </SizableText>
           ) : null}
 
-          <View style={styles.actionArea}>
-            <Pressable
-              accessibilityRole="button"
-              disabled={cancelMutation.isPending}
-              onPress={handleCancel}
-              style={({ pressed }) => [
-                styles.cancelButton,
-                pressed ? styles.buttonPressed : null,
-                cancelMutation.isPending ? styles.buttonDisabled : null,
-              ]}
-              testID="input-cancel-button"
-            >
-              <SizableText style={styles.cancelButtonText}>中断する</SizableText>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              disabled={extendDisabled}
-              onPress={handleExtend}
-              style={({ pressed }) => [
-                styles.extendButton,
-                pressed ? styles.buttonPressed : null,
-                extendDisabled ? styles.buttonDisabled : null,
-              ]}
-              testID="input-extend-button"
-            >
-              <SizableText style={styles.extendButtonText}>{EXTEND_MINUTES}分延長</SizableText>
-            </Pressable>
-          </View>
+          <Pressable
+            accessibilityRole="button"
+            disabled={cancelMutation.isPending}
+            onPress={handleCancel}
+            style={({ pressed }) => [
+              styles.cancelButton,
+              pressed ? styles.buttonPressed : null,
+              cancelMutation.isPending ? styles.buttonDisabled : null,
+            ]}
+            testID="input-cancel-button"
+          >
+            <SizableText style={styles.cancelButtonText}>中断する</SizableText>
+          </Pressable>
         </View>
       </View>
     </SafeAreaView>
@@ -540,8 +519,9 @@ const styles = StyleSheet.create({
   timerStage: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     gap: 20,
+    paddingTop: '5%',
   },
   timerStageDetail: {
     flex: 0,
@@ -781,7 +761,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   cancelButton: {
-    flex: 1,
+    alignSelf: 'center',
+    width: '80%',
     alignItems: 'center',
     justifyContent: 'center',
     height: 56,
@@ -792,20 +773,6 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     color: TEXT_ACTIVE,
-    fontSize: 16,
-    fontWeight: '700',
-    lineHeight: 22,
-  },
-  extendButton: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 56,
-    borderRadius: 18,
-    backgroundColor: PRIMARY_COLOR,
-  },
-  extendButtonText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
     lineHeight: 22,
