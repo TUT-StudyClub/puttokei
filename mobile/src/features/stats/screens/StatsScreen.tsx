@@ -2,13 +2,13 @@
  * 日単位のレポート画面。
  *
  * 上部の週ナビゲーションでは「表示週」と「選択日」を扱い、ハイライトカードと
- * アウトプット履歴は選択日のものを表示する。月単位の集計とカレンダーは
+ * 履歴は選択日のものを表示する。月単位の集計とカレンダーは
  * カレンダーボタンから切り替える。
  *
  * 未認証ユーザーはこの画面のデータを取得できないため、`/(auth)/sign-in` に誘導する。
  * サインイン成功後に戻ってこられるよう `returnTo` を渡している。
  */
-import { Redirect, type RelativePathString, useRouter } from 'expo-router';
+import { Redirect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useQueries } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
@@ -18,7 +18,9 @@ import {
   Pressable,
   SafeAreaView,
   ScrollView,
+  type StyleProp,
   StyleSheet,
+  type ViewStyle,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -46,7 +48,6 @@ import type {
   WeeklyReportSummary,
 } from '@/features/stats/types';
 import type { OutputReviewItem } from '@/features/session/types';
-import { OutputHistoryRow } from '@/shared/components/OutputHistoryRow';
 import { isApiError } from '@/shared/lib/api';
 import { useAuthStore } from '@/shared/stores/authStore';
 
@@ -54,10 +55,18 @@ const HIGHLIGHT_BACKGROUND = require('../../../../assets/images/backgrounds/high
 const MONTHLY_HIGHLIGHT_BACKGROUND = require('../../../../assets/images/backgrounds/highlight_monthly.png');
 const CALENDAR_MONTH_ICON = require('../../../../assets/images/icons/icon_calendar_month.png');
 const CALENDAR_DATE_ICON = require('../../../../assets/images/icons/icon_calendar_date.png');
+const SHARE_ICON = require('../../../../assets/images/icons/icon_share.png');
 
 const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'] as const;
+const TOKYO_TIME_ZONE = 'Asia/Tokyo';
+const HISTORY_VISIBLE_ITEM_LIMIT = 3;
 
 type ReportViewMode = 'daily' | 'weekly' | 'monthly';
+type HistoryGroup = {
+  dateKey: string;
+  dateLabel: string | null;
+  items: OutputReviewItem[];
+};
 
 const MONTH_DAY_SLOT_HEIGHT = 38;
 const MONTH_DAY_ROW_GAP = 2;
@@ -86,19 +95,11 @@ function ArrowIcon({ direction }: { direction: 'left' | 'right' }) {
   );
 }
 
-function ExternalIcon() {
+function ShareIconButton() {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M14 5 H19 V10" stroke="#777777" strokeWidth={2} strokeLinecap="round" />
-      <Path d="M19 5 L12 12" stroke="#777777" strokeWidth={2} strokeLinecap="round" />
-      <Path
-        d="M10 7 H6 V18 H17 V14"
-        stroke="#777777"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
+    <Pressable accessibilityRole="button" hitSlop={10} style={styles.shareButton}>
+      <Image source={SHARE_ICON} style={styles.shareIcon} />
+    </Pressable>
   );
 }
 
@@ -118,6 +119,96 @@ function daysBetweenDateKeys(targetKey: string, baseKey: string): number {
 function getMonthDayLabel(dateKey: string): string {
   const date = parseDateKey(dateKey);
   return `${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
+function parseTimestamp(value: string): Date | null {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+}
+
+function getTokyoDatePart(value: string, partType: Intl.DateTimeFormatPartTypes): string | null {
+  const date = parseTimestamp(value);
+  if (date === null) return null;
+  const formatter = new Intl.DateTimeFormat('ja-JP', {
+    timeZone: TOKYO_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  return formatter.formatToParts(date).find((part) => part.type === partType)?.value ?? null;
+}
+
+function getTokyoDateKeyFromTimestamp(value: string): string {
+  const year = getTokyoDatePart(value, 'year');
+  const month = getTokyoDatePart(value, 'month');
+  const day = getTokyoDatePart(value, 'day');
+  if (year === null || month === null || day === null) return 'unknown';
+  return `${year}-${month}-${day}`;
+}
+
+function getTokyoMonthDayLabelFromTimestamp(value: string): string {
+  const month = getTokyoDatePart(value, 'month');
+  const day = getTokyoDatePart(value, 'day');
+  if (month === null || day === null) return '日付不明';
+  return `${Number(month)}月${Number(day)}日`;
+}
+
+function formatTokyoTimeLabel(value: string): string {
+  const hour = getTokyoDatePart(value, 'hour');
+  const minute = getTokyoDatePart(value, 'minute');
+  if (hour === null || minute === null) return '--：--';
+  return `${hour}：${minute}`;
+}
+
+function getHistoryTimestampMs(item: OutputReviewItem): number {
+  return parseTimestamp(item.session_started_at)?.getTime() ?? 0;
+}
+
+function getHistoryTimeRangeParts(item: OutputReviewItem): { start: string; end: string } {
+  return {
+    start: formatTokyoTimeLabel(item.session_started_at),
+    end: formatTokyoTimeLabel(item.output.submitted_at),
+  };
+}
+
+function buildHistoryGroups(items: OutputReviewItem[], fallbackDateKey?: string): HistoryGroup[] {
+  if (items.length === 0) {
+    return [
+      {
+        dateKey: fallbackDateKey ?? 'empty',
+        dateLabel: fallbackDateKey ? getMonthDayLabel(fallbackDateKey) : null,
+        items: [],
+      },
+    ];
+  }
+
+  const groupsByDate = new Map<string, HistoryGroup>();
+  const orderedItems = [...items].sort((a, b) => {
+    const timeDiff = getHistoryTimestampMs(b) - getHistoryTimestampMs(a);
+    if (timeDiff !== 0) return timeDiff;
+    return b.cycle_index - a.cycle_index;
+  });
+
+  orderedItems.forEach((item) => {
+    const dateKey = getTokyoDateKeyFromTimestamp(item.output.submitted_at);
+    const existingGroup = groupsByDate.get(dateKey);
+    if (existingGroup) {
+      existingGroup.items.push(item);
+      return;
+    }
+
+    groupsByDate.set(dateKey, {
+      dateKey,
+      dateLabel: getTokyoMonthDayLabelFromTimestamp(item.output.submitted_at),
+      items: [item],
+    });
+  });
+
+  return Array.from(groupsByDate.values());
 }
 
 function addMonthsToMonthStartKey(monthStartKey: string, months: number): string {
@@ -250,10 +341,18 @@ function splitMinutes(minutes: number) {
   };
 }
 
-function MetricLine({ label, minutes }: { label: string; minutes: number }) {
+function MetricLine({
+  label,
+  minutes,
+  style,
+}: {
+  label: string;
+  minutes: number;
+  style?: StyleProp<ViewStyle>;
+}) {
   const parts = splitMinutes(minutes);
   return (
-    <View style={styles.metricLine}>
+    <View style={[styles.metricLine, style]}>
       <SizableText style={styles.metricLabel}>{label}</SizableText>
       <View style={styles.metricValueRow}>
         <View style={styles.metricConnector} />
@@ -295,8 +394,12 @@ function HighlightCard({ summary }: { summary: DailyReportSummary }) {
         <View style={styles.highlightBody}>
           <View style={styles.highlightMetrics}>
             <MetricLine label="インプット" minutes={summary.input_minutes} />
-            <MetricLine label="アウトプット" minutes={summary.output_minutes} />
-            <View style={styles.breakPill}>
+            <MetricLine
+              label="アウトプット"
+              minutes={summary.output_minutes}
+              style={styles.lowerMetricLine}
+            />
+            <View style={[styles.breakPill, styles.lowerBreakPill]}>
               <SizableText style={styles.breakPillText}>休憩{summary.break_minutes}分</SizableText>
             </View>
           </View>
@@ -565,39 +668,66 @@ function WeeklyHighlightCard({ summary }: { summary: WeeklyReportSummary }) {
   );
 }
 
-function OutputHistory({ items }: { items: OutputReviewItem[] }) {
-  const router = useRouter();
-
-  const handlePress = useCallback(
-    (item: OutputReviewItem) => {
-      if (item.judgment === null) return;
-      router.push(`../history/${item.judgment.id}` as RelativePathString);
-    },
-    [router],
+function OutputHistory({
+  items,
+  fallbackDateKey,
+  emptyMessage = 'この日の履歴はまだありません。',
+}: {
+  items: OutputReviewItem[];
+  fallbackDateKey?: string;
+  emptyMessage?: string;
+}) {
+  const groups = useMemo(
+    () => buildHistoryGroups(items, fallbackDateKey),
+    [fallbackDateKey, items],
   );
 
   return (
     <View style={styles.historySection} testID="stats-output-history">
-      <SizableText style={styles.sectionTitle}>アウトプット履歴</SizableText>
-      <View style={styles.historyCard}>
-        {items.length === 0 ? (
-          <View style={styles.emptyHistory} testID="stats-output-history-empty">
-            <SizableText style={styles.emptyHistoryText}>
-              この日のアウトプットはまだありません。
-            </SizableText>
-          </View>
-        ) : (
-          items.map((item, index) => (
-            <OutputHistoryRow
-              key={item.output.id}
-              item={item}
-              onPress={item.judgment !== null ? handlePress : undefined}
-              isLast={index === items.length - 1}
-              testID={`stats-output-history-item-${item.output.id}`}
-            />
-          ))
-        )}
-      </View>
+      <SizableText style={styles.historyTitle} testID="stats-output-history-title">
+        履歴
+      </SizableText>
+      {groups.map((group) => (
+        <View key={group.dateKey} style={styles.historyCard}>
+          {group.dateLabel ? (
+            <SizableText style={styles.historyDateText}>{group.dateLabel}</SizableText>
+          ) : null}
+          {group.items.length === 0 ? (
+            <View style={styles.emptyHistory} testID="stats-output-history-empty">
+              <SizableText style={styles.emptyHistoryText}>{emptyMessage}</SizableText>
+            </View>
+          ) : (
+            group.items.slice(0, HISTORY_VISIBLE_ITEM_LIMIT).map((item, index, visibleItems) => {
+              const timeRange = getHistoryTimeRangeParts(item);
+              return (
+                <View
+                  key={item.output.id}
+                  style={[
+                    styles.historyRow,
+                    index < visibleItems.length - 1 ? styles.historyRowBorder : null,
+                  ]}
+                  testID={`stats-output-history-item-${item.output.id}`}
+                >
+                  <View style={styles.historyTimeRange}>
+                    <SizableText style={styles.historyTimePart} numberOfLines={1}>
+                      {timeRange.start}
+                    </SizableText>
+                    <SizableText style={styles.historyTimeSeparator} numberOfLines={1}>
+                      -
+                    </SizableText>
+                    <SizableText style={styles.historyTimePart} numberOfLines={1}>
+                      {timeRange.end}
+                    </SizableText>
+                  </View>
+                  <SizableText style={styles.historyCycleText} numberOfLines={1}>
+                    サイクル{item.cycle_index}
+                  </SizableText>
+                </View>
+              );
+            })
+          )}
+        </View>
+      ))}
     </View>
   );
 }
@@ -718,7 +848,7 @@ export function StatsScreen() {
         />
         <View style={styles.monthlyHighlightTitleRow}>
           <SizableText style={styles.highlightTitle}>今月のハイライト</SizableText>
-          <ExternalIcon />
+          <ShareIconButton />
         </View>
         <MonthlyHighlightCard reports={monthlyReports.reports} monthStart={calendarMonthStart} />
         {monthlyReports.isFetching ? (
@@ -751,7 +881,10 @@ export function StatsScreen() {
 
     return (
       <>
-        <OutputHistory items={dailyReportQuery.data.output_history} />
+        <OutputHistory
+          items={dailyReportQuery.data.output_history}
+          fallbackDateKey={dailyReportQuery.data.date}
+        />
         {dailyReportQuery.isFetching ? (
           <SizableText style={styles.refetchingText} testID="stats-refetching">
             最新データを取得中…
@@ -785,10 +918,13 @@ export function StatsScreen() {
         <WeeklyBarChart points={weeklyReportQuery.data.points} />
         <View style={styles.highlightTitleRow}>
           <SizableText style={styles.highlightTitle}>今週のハイライト</SizableText>
-          <ExternalIcon />
+          <ShareIconButton />
         </View>
         <WeeklyHighlightCard summary={weeklyReportQuery.data.summary} />
-        <OutputHistory items={weeklyReportQuery.data.output_history} />
+        <OutputHistory
+          items={weeklyReportQuery.data.output_history}
+          emptyMessage="この週の履歴はまだありません。"
+        />
         {weeklyReportQuery.isFetching ? (
           <SizableText style={styles.refetchingText} testID="stats-weekly-refetching">
             最新データを取得中…
@@ -887,7 +1023,7 @@ export function StatsScreen() {
         />
         <View style={styles.highlightTitleRow}>
           <SizableText style={styles.highlightTitle}>{highlightTitle}</SizableText>
-          <ExternalIcon />
+          <ShareIconButton />
         </View>
         {dailyReportQuery.data ? (
           <HighlightCard summary={dailyReportQuery.data.summary} />
@@ -923,6 +1059,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    marginLeft: 28,
     marginBottom: 2,
   },
   calendarButton: {
@@ -1042,18 +1179,34 @@ const styles = StyleSheet.create({
     color: '#5367FF',
   },
   highlightTitleRow: {
+    width: '96%',
+    maxWidth: 360,
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: 12,
     marginBottom: 12,
-    paddingHorizontal: 4,
   },
   highlightTitle: {
     color: '#333333',
-    fontSize: 22,
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 18,
     fontWeight: '800',
-    lineHeight: 28,
+    lineHeight: 24,
+    paddingLeft: 9,
+  },
+  shareButton: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  shareIcon: {
+    width: 22,
+    height: 22,
+    resizeMode: 'contain',
   },
   monthlyHighlightTitleRow: {
     flexDirection: 'row',
@@ -1134,6 +1287,7 @@ const styles = StyleSheet.create({
   },
   highlightCaption: {
     color: '#333333',
+    fontFamily: 'HiraginoSans-W6',
     fontSize: 16,
     fontWeight: '800',
     lineHeight: 22,
@@ -1148,12 +1302,14 @@ const styles = StyleSheet.create({
   },
   totalTimeNumber: {
     color: '#333333',
+    fontFamily: 'HiraginoSans-W6',
     fontSize: 40,
     fontWeight: '900',
     lineHeight: 45,
   },
   totalTimeUnit: {
     color: '#333333',
+    fontFamily: 'HiraginoSans-W6',
     fontSize: 18,
     fontWeight: '800',
     lineHeight: 31,
@@ -1166,6 +1322,7 @@ const styles = StyleSheet.create({
     width: 166,
     alignSelf: 'flex-end',
     gap: 7,
+    marginTop: 10,
   },
   sessionBadge: {
     position: 'absolute',
@@ -1180,40 +1337,49 @@ const styles = StyleSheet.create({
   },
   sessionBadgeText: {
     color: '#FFFFFF',
-    fontSize: 19,
+    fontSize: 17,
     fontWeight: '800',
-    lineHeight: 24,
+    lineHeight: 22,
   },
   metricLine: {
     gap: 2,
+  },
+  lowerMetricLine: {
+    marginTop: 4,
   },
   metricLabel: {
     color: '#777777',
     fontSize: 12,
     fontWeight: '700',
     lineHeight: 16,
+    paddingLeft: 24,
   },
   metricValueRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    marginLeft: -36,
   },
   metricConnector: {
-    width: 36,
+    width: 54,
     height: 1,
     backgroundColor: '#333333',
     marginRight: 2,
+    zIndex: 1,
+    elevation: 1,
   },
   metricValue: {
     color: '#333333',
+    fontFamily: 'HiraginoSans-W6',
     fontSize: 27,
-    fontWeight: '900',
+    fontWeight: '800',
     lineHeight: 31,
   },
   metricUnit: {
     color: '#333333',
+    fontFamily: 'HiraginoSans-W6',
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '700',
     lineHeight: 25,
   },
   breakPill: {
@@ -1222,8 +1388,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#D6D6D6',
     backgroundColor: 'rgba(255, 255, 255, 0.74)',
+    marginLeft: 24,
     paddingHorizontal: 10,
     paddingVertical: 4,
+  },
+  lowerBreakPill: {
+    marginTop: 4,
   },
   breakPillText: {
     color: '#999999',
@@ -1232,19 +1402,21 @@ const styles = StyleSheet.create({
     lineHeight: 14,
   },
   scrollBoundary: {
-    height: 1,
+    height: 2,
     backgroundColor: '#E4E4E4',
     shadowColor: '#000000',
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
+    zIndex: 2,
   },
   scrollArea: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
   scrollContent: {
-    paddingTop: 18,
+    paddingTop: 12,
     paddingHorizontal: 24,
     paddingBottom: 112,
   },
@@ -1255,26 +1427,85 @@ const styles = StyleSheet.create({
     gap: 14,
     paddingHorizontal: 16,
   },
-  sectionTitle: {
-    color: '#333333',
-    fontSize: 18,
-    fontWeight: '800',
-    lineHeight: 24,
-  },
   historySection: {
     gap: 8,
     marginTop: 4,
   },
+  historyTitle: {
+    width: '90%',
+    maxWidth: 338,
+    alignSelf: 'flex-start',
+    marginLeft: '3%',
+    color: '#333333',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 14,
+    fontWeight: '800',
+    lineHeight: 20,
+  },
   historyCard: {
+    width: '90%',
+    maxWidth: 338,
+    alignSelf: 'flex-start',
+    marginLeft: '3%',
     borderWidth: 1,
     borderColor: '#D0D0D0',
-    borderRadius: 16,
+    borderRadius: 18,
     paddingHorizontal: 14,
-    paddingVertical: 4,
+    paddingTop: 12,
+    paddingBottom: 10,
     backgroundColor: '#FFFFFF',
   },
+  historyDateText: {
+    color: '#111111',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 16,
+    fontWeight: '800',
+    lineHeight: 20,
+    marginBottom: 2,
+  },
+  historyRow: {
+    minHeight: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 14,
+  },
+  historyRowBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#D0D0D0',
+  },
+  historyTimeRange: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  historyTimePart: {
+    width: 46,
+    color: '#111111',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 14,
+    fontWeight: '800',
+    lineHeight: 18,
+    fontVariant: ['tabular-nums'],
+  },
+  historyTimeSeparator: {
+    width: 14,
+    color: '#111111',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 14,
+    fontWeight: '800',
+    lineHeight: 18,
+    textAlign: 'center',
+  },
+  historyCycleText: {
+    flexShrink: 0,
+    color: '#6B6B6B',
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 18,
+  },
   emptyHistory: {
-    minHeight: 40,
+    minHeight: 30,
     justifyContent: 'center',
   },
   emptyHistoryText: {
@@ -1309,6 +1540,7 @@ const styles = StyleSheet.create({
   },
   weeklyHighlightCaption: {
     color: '#333333',
+    fontFamily: 'HiraginoSans-W6',
     fontSize: 14,
     fontWeight: '700',
     lineHeight: 18,
@@ -1322,12 +1554,14 @@ const styles = StyleSheet.create({
   },
   weeklyTotalNumber: {
     color: '#333333',
+    fontFamily: 'HiraginoSans-W6',
     fontSize: 32,
     fontWeight: '900',
     lineHeight: 38,
   },
   weeklyTotalUnit: {
     color: '#333333',
+    fontFamily: 'HiraginoSans-W6',
     fontSize: 16,
     fontWeight: '800',
     lineHeight: 28,

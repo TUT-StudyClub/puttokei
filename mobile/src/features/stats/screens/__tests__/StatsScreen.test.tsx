@@ -10,6 +10,7 @@ import config from '../../../../../tamagui.config';
 import * as statsApi from '@/features/stats/api/statsApi';
 import { StatsScreen } from '@/features/stats/screens/StatsScreen';
 import type { DailyReportResponse, WeeklyReportResponse } from '@/features/stats/types';
+import type { OutputReviewItem } from '@/features/session/types';
 import { ApiError } from '@/shared/lib/api';
 import { useAuthStore } from '@/shared/stores/authStore';
 
@@ -45,6 +46,7 @@ function makeDailyResponse(overrides: Partial<DailyReportResponse> = {}): DailyR
     output_history: [
       {
         session_id: 'ses-1',
+        session_started_at: '2026-04-29T00:35:00Z',
         output: {
           id: 'out-1',
           session_id: 'ses-1',
@@ -91,6 +93,27 @@ function addDaysToDateKeyForTest(dateKey: string, days: number): string {
   const date = parseDateKeyForTest(dateKey);
   date.setDate(date.getDate() + days);
   return toDateKeyForTest(date);
+}
+
+function makeOutputHistoryItem(cycleIndex: number): OutputReviewItem {
+  const startedMinute = 10 + cycleIndex * 10;
+  const submittedMinute = startedMinute + 5;
+  return {
+    session_id: `ses-${cycleIndex}`,
+    session_started_at: `2026-04-29T00:${String(startedMinute).padStart(2, '0')}:00Z`,
+    output: {
+      id: `out-${cycleIndex}`,
+      session_id: `ses-${cycleIndex}`,
+      kind: 'text',
+      content: `アウトプット${cycleIndex}`,
+      image_url: null,
+      submitted_at: `2026-04-29T00:${String(submittedMinute).padStart(2, '0')}:00Z`,
+    },
+    cycle_index: cycleIndex,
+    subject: '英語',
+    topic: '関係代名詞',
+    judgment: null,
+  };
 }
 
 function makeWeeklyResponseForDates(
@@ -195,9 +218,32 @@ describe('StatsScreen', () => {
       expect(getByTestId('stats-highlight-card')).toBeTruthy();
     });
     expect(getByTestId('stats-session-badge').props.children.props.children).toEqual(['×', 5]);
+    expect(getByTestId('stats-output-history-title').props.children).toBe('履歴');
     expect(getByTestId('stats-output-history-item-out-1')).toBeTruthy();
+    expect(getByText('4月29日')).toBeTruthy();
+    expect(getByText('09：35')).toBeTruthy();
+    expect(getByText('10：00')).toBeTruthy();
+    expect(getByText('サイクル1')).toBeTruthy();
     expect(getByText('今日のハイライト')).toBeTruthy();
     expect(queryByText('教科')).toBeNull();
+  });
+
+  it('履歴カードは3サイクル分で枠を閉じる', async () => {
+    (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(
+      makeDailyResponse({
+        output_history: [1, 2, 3, 4].map((cycleIndex) => makeOutputHistoryItem(cycleIndex)),
+      }),
+    );
+
+    const { getByTestId, queryByTestId } = renderWithProviders(<StatsScreen />);
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(getByTestId('stats-output-history-item-out-4')).toBeTruthy();
+    });
+    expect(getByTestId('stats-output-history-item-out-3')).toBeTruthy();
+    expect(getByTestId('stats-output-history-item-out-2')).toBeTruthy();
+    expect(queryByTestId('stats-output-history-item-out-1')).toBeNull();
   });
 
   it('別の日の日付セルをタップするとその日のレポートを取得しタイトルが切り替わる', async () => {
@@ -360,7 +406,7 @@ describe('StatsScreen', () => {
     expect(getByText('4月27日のハイライト')).toBeTruthy();
   });
 
-  it('選択日のアウトプット履歴が空の場合は empty メッセージが表示される', async () => {
+  it('選択日の履歴が空の場合は empty メッセージが表示される', async () => {
     (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(
       makeDailyResponse({
         summary: {

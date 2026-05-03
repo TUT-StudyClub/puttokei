@@ -221,6 +221,7 @@ const styles = StyleSheet.create({
   },
   dayTextSelected: {
     color: '#FFFFFF',
+    fontFamily: 'HiraginoSans-W6',
   },
   dayTextToday: {
     color: '#4B5CFF',

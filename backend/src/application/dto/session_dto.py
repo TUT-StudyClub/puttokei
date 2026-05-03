@@ -105,6 +105,7 @@ class OutputReviewItemView(FrozenModel):
     """インプット画面で見返すためのアウトプットと判定情報。"""
 
     session_id: UUID
+    session_started_at: datetime
     output: OutputView
     cycle_index: int
     subject: str

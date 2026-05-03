@@ -157,6 +157,7 @@ export type JudgmentProgress = {
 
 export type OutputReviewItem = {
   session_id: string;
+  session_started_at: string;
   output: Output;
   cycle_index: number;
   subject: string;

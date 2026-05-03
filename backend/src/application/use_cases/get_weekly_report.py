@@ -99,6 +99,7 @@ class GetWeeklyReport:
             output_history=[
                 OutputReviewItemView(
                     session_id=session.id,
+                    session_started_at=session.started_at,
                     output=resolve_output_view(
                         output,
                         storage=self.image_storage,

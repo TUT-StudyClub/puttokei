@@ -118,6 +118,7 @@ class OutputReviewItemResponse(FrozenModel):
     """インプット画面で見返すためのアウトプット。"""
 
     session_id: UUID
+    session_started_at: datetime
     output: OutputResponse
     cycle_index: int
     subject: str

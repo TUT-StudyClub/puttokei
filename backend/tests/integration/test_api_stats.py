@@ -128,7 +128,7 @@ async def test_get_weekly_report_returns_current_users_weekly_outputs(
         content="日曜のアウトプットです。",
         submitted_at="2026-04-26T01:00:00Z",
     )
-    await _create_session_with_output(
+    second = await _create_session_with_output(
         client,
         auth_uid,
         subject="国語",
@@ -203,6 +203,10 @@ async def test_get_weekly_report_returns_current_users_weekly_outputs(
     assert [item["output"]["content"] for item in body["output_history"]] == [
         "日曜のアウトプットです。",
         "月曜のアウトプットです。",
+    ]
+    assert [item["session_started_at"] for item in body["output_history"]] == [
+        first["started_at"],
+        second["started_at"],
     ]
     assert body["output_history"][0]["judgment"]["score"] == 80
     assert body["output_history"][1]["judgment"] is None
@@ -292,6 +296,7 @@ async def test_get_daily_report_returns_only_target_date_outputs(
     assert [item["output"]["content"] for item in body["output_history"]] == [
         "当日のアウトプットです。",
     ]
+    assert body["output_history"][0]["session_started_at"] == target["started_at"]
     assert body["output_history"][0]["judgment"]["score"] == 72
 
 
