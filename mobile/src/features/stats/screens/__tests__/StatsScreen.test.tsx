@@ -282,7 +282,27 @@ describe('StatsScreen', () => {
     await waitFor(() => {
       expect(getByTestId('stats-highlight-card')).toBeTruthy();
     });
-    expect(getByTestId('stats-session-badge').props.children.props.children).toEqual(['×', 5]);
+    const sessionBadgeRow = getByTestId('stats-session-badge').props.children;
+    const sessionBadgeChildren = sessionBadgeRow.props.children;
+    const sessionBadgeXOffset = sessionBadgeChildren[0];
+    const sessionBadgeXText = sessionBadgeXOffset.props.children;
+    const sessionBadgeNumberText = sessionBadgeChildren[1];
+    expect(StyleSheet.flatten(sessionBadgeNumberText.props.style)).toMatchObject({
+      fontSize: 16,
+      fontFamily: 'HiraginoSans-W6',
+      fontWeight: '600',
+      transform: [{ translateX: -2 }],
+    });
+    expect(StyleSheet.flatten(sessionBadgeXOffset.props.style)).toMatchObject({
+      left: -2,
+      position: 'relative',
+      top: 0,
+    });
+    expect(sessionBadgeXText.props.children).toBe('×');
+    expect(StyleSheet.flatten(sessionBadgeXText.props.style)).toMatchObject({
+      fontSize: 14,
+    });
+    expect(sessionBadgeNumberText.props.children).toBe(5);
     expect(getByTestId('stats-output-history-title').props.children).toBe('履歴');
     expect(getByTestId('stats-output-history-item-out-1')).toBeTruthy();
     expect(getByText('4月29日')).toBeTruthy();
@@ -1174,6 +1194,9 @@ describe('StatsScreen', () => {
     await waitFor(() => {
       expect(getByTestId('stats-output-history-empty')).toBeTruthy();
     });
-    expect(getByTestId('stats-session-badge').props.children.props.children).toEqual(['×', 0]);
+    const sessionBadgeRow = getByTestId('stats-session-badge').props.children;
+    const sessionBadgeChildren = sessionBadgeRow.props.children;
+    expect(sessionBadgeChildren[0].props.children.props.children).toBe('×');
+    expect(sessionBadgeChildren[1].props.children).toBe(0);
   });
 });

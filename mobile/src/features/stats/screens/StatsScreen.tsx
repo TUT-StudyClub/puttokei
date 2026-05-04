@@ -687,7 +687,14 @@ function HighlightCard({
       testID="stats-highlight-card"
     >
       <View pointerEvents="none" style={styles.sessionBadge} testID="stats-session-badge">
-        <SizableText style={styles.sessionBadgeText}>×{summary.total_sessions}</SizableText>
+        <View style={styles.sessionBadgeTextRow}>
+          <View style={styles.sessionBadgeXOffset}>
+            <Text style={[styles.sessionBadgeText, styles.sessionBadgeXText]}>×</Text>
+          </View>
+          <SizableText style={[styles.sessionBadgeText, styles.sessionBadgeNumberText]}>
+            {summary.total_sessions}
+          </SizableText>
+        </View>
       </View>
       <View style={styles.highlightContent}>
         <SizableText style={styles.highlightCaption}>勉強時間合計</SizableText>
@@ -2549,9 +2556,29 @@ const styles = StyleSheet.create({
   },
   sessionBadgeText: {
     color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '800',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 16,
+    fontWeight: '600',
     lineHeight: 22,
+  },
+  sessionBadgeTextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 22,
+    transform: [{ translateY: -1 }],
+  },
+  sessionBadgeXOffset: {
+    position: 'relative',
+    left: -2,
+    top: 0,
+  },
+  sessionBadgeXText: {
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  sessionBadgeNumberText: {
+    transform: [{ translateX: -2 }],
   },
   metricLine: {
     gap: 2,
@@ -2608,6 +2635,7 @@ const styles = StyleSheet.create({
   },
   lowerBreakPill: {
     marginTop: 4,
+    transform: [{ translateY: -10 }],
   },
   breakPillText: {
     color: '#999999',
