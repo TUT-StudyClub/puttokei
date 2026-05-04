@@ -1291,7 +1291,7 @@ export function CircularPhaseTimer({
     compact ? styles.timerPhaseLabelCompact : null,
     phaseLabelFontWeight ? { fontWeight: phaseLabelFontWeight } : null,
     phaseLabelStyle,
-  ];main
+  ];
 
   return (
     <View style={[styles.timerWrap, { width: size, height: size }]} testID={testID}>

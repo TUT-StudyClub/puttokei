@@ -149,19 +149,6 @@ export default function TabsLayout() {
             tabBarIcon: ({ color }) => (
               <TimerTabIcon color={shouldHighlightTimerTabIcon ? ACTIVE_COLOR : color} size={39} />
             ),
-            tabBarLabel: () => (
-              <Text
-                allowFontScaling={false}
-                style={{
-                  color: '#475FFF',
-                  fontSize: 11,
-                  fontFamily: 'HiraginoSans-W6',
-                  marginTop: 4,
-                }}
-              >
-                タイマー
-              </Text>
-            ),
           }}
         />
         <Tabs.Screen
