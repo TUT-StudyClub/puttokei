@@ -187,6 +187,7 @@ const WEEKLY_CHART_PLOT_HEIGHT = WEEKLY_CHART_AXIS_Y - WEEKLY_CHART_PLOT_TOP;
 const WEEKLY_HISTORY_UP_OFFSET = -32;
 const DAILY_HIGHLIGHT_CARD_HEIGHT_REDUCTION = -WEEKLY_HISTORY_UP_OFFSET;
 const DAILY_HIGHLIGHT_METRICS_TRANSLATE_X = 16;
+const DAILY_HIGHLIGHT_TITLE_TRANSLATE_X = 4;
 const DAILY_HIGHLIGHT_TITLE_ROW_TRANSLATE_Y = 8;
 
 function CalendarMonthIcon() {
@@ -2381,6 +2382,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 23,
     paddingLeft: 0,
+    transform: [{ translateX: DAILY_HIGHLIGHT_TITLE_TRANSLATE_X }],
   },
   shareButton: {
     width: 30,
