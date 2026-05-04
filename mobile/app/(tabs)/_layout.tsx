@@ -21,8 +21,16 @@ export function isReportTabNavigationBlocked(phase: TimerPhase) {
   return phase === 'input' || phase === 'output' || phase === 'break';
 }
 
-export function isTimerTabIconHighlighted(segments: readonly string[], focused: boolean) {
+export function isTimerTabIconHighlighted(
+  segments: readonly string[],
+  focused: boolean,
+  phase: TimerPhase,
+) {
   if (focused) {
+    return true;
+  }
+
+  if (TIMER_TAB_ACTIVE_SESSION_PHASES.has(phase)) {
     return true;
   }
 
@@ -118,7 +126,11 @@ export default function TabsLayout() {
           options={{
             title: 'タイマー',
             tabBarLabel: ({ color, focused }) => {
-              const shouldHighlightTimerTabIcon = isTimerTabIconHighlighted(segments, focused);
+              const shouldHighlightTimerTabIcon = isTimerTabIconHighlighted(
+                segments,
+                focused,
+                timerPhase,
+              );
 
               return (
                 <Text
@@ -133,7 +145,10 @@ export default function TabsLayout() {
               );
             },
             tabBarIcon: ({ focused }) => (
-              <TimerTabIcon active={isTimerTabIconHighlighted(segments, focused)} size={39} />
+              <TimerTabIcon
+                active={isTimerTabIconHighlighted(segments, focused, timerPhase)}
+                size={39}
+              />
             ),
           }}
         />

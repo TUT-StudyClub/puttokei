@@ -166,18 +166,21 @@ describe('TabsLayout', () => {
   });
 
   it.each([
-    [['(tabs)'], true, true],
-    [['(tabs)'], false, false],
-    [['(tabs)', 'index'], true, true],
-    [['(tabs)', 'session', '[id]', 'input'], false, true],
-    [['(tabs)', 'session', '[id]', 'output'], false, true],
-    [['(tabs)', 'session', '[id]', 'break'], false, true],
-    [['(tabs)', 'session', '[id]', 'result'], false, false],
-    [['(tabs)', 'stats'], false, false],
+    [['(tabs)'], true, 'idle', true],
+    [['(tabs)'], false, 'idle', false],
+    [['(tabs)'], false, 'input', true],
+    [['(tabs)'], false, 'output', true],
+    [['(tabs)'], false, 'break', true],
+    [['(tabs)', 'index'], true, 'idle', true],
+    [['(tabs)', 'session', '[id]', 'input'], false, 'idle', true],
+    [['(tabs)', 'session', '[id]', 'output'], false, 'idle', true],
+    [['(tabs)', 'session', '[id]', 'break'], false, 'idle', true],
+    [['(tabs)', 'session', '[id]', 'result'], false, 'idle', false],
+    [['(tabs)', 'stats'], false, 'idle', false],
   ] as const)(
-    'isTimerTabIconHighlighted(%j, focused: %s) は %s を返す',
-    (segments, focused, expected) => {
-      expect(isTimerTabIconHighlighted(segments, focused)).toBe(expected);
+    'isTimerTabIconHighlighted(%j, focused: %s, phase: %s) は %s を返す',
+    (segments, focused, phase, expected) => {
+      expect(isTimerTabIconHighlighted(segments, focused, phase)).toBe(expected);
     },
   );
 
@@ -189,6 +192,19 @@ describe('TabsLayout', () => {
 
     expect(getRenderedImageProps(timerIcon).source).toBe(TIMER_ICON_GRAY);
   });
+
+  it.each<TimerPhase>(['input', 'output', 'break'])(
+    '%s フェーズ中はルートセグメントが未更新でもタイマーアイコンを青にする',
+    (phase) => {
+      mockSegments = ['(tabs)'];
+      useTimerStore.setState({ phase });
+      const { timerTab } = renderTimerTabScreen();
+
+      const timerIcon = timerTab.options?.tabBarIcon?.({ color: '#9CA3AF', focused: false });
+
+      expect(getRenderedImageProps(timerIcon).source).toBe(TIMER_ICON_BLUE);
+    },
+  );
 
   it.each([
     ['ホーム', ['(tabs)']],
