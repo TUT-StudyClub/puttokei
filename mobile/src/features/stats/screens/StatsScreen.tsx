@@ -2142,7 +2142,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginLeft: 28,
+    marginLeft: 24,
     marginBottom: 2,
   },
   calendarButton: {
@@ -2150,18 +2150,19 @@ const styles = StyleSheet.create({
     height: 30,
     alignItems: 'center',
     justifyContent: 'center',
+    transform: [{ translateX: -2 }],
   },
   calendarToggleIcon: {
-    width: 22,
-    height: 22,
+    width: 24,
+    height: 24,
     resizeMode: 'contain',
   },
   monthText: {
     color: '#333333',
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 26,
-    fontWeight: '800',
-    lineHeight: 32,
+    fontSize: 23,
+    fontWeight: '700',
+    lineHeight: 29,
   },
   weeklyCalendarGraphBoundaryWrap: {
     position: 'relative',
