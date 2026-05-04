@@ -12,6 +12,7 @@ from src.application.use_cases.get_daily_report import GetDailyReport
 from src.application.use_cases.get_judgment import GetJudgment
 from src.application.use_cases.get_judgment_detail import GetJudgmentDetail
 from src.application.use_cases.get_judgment_progress import GetJudgmentProgress
+from src.application.use_cases.get_stats import GetStatsPeriod, GetStatsSummary
 from src.application.use_cases.get_user_profile import GetUserProfile
 from src.application.use_cases.get_user_settings import GetUserSettings
 from src.application.use_cases.get_weekly_report import GetWeeklyReport
@@ -61,6 +62,8 @@ class PresentationContainer(ABC):
     get_judgment_progress: GetJudgmentProgress
     list_judgments: ListJudgments
     list_today_outputs: ListTodayOutputs
+    get_stats_summary: GetStatsSummary
+    get_stats_period: GetStatsPeriod
     get_weekly_report: GetWeeklyReport
     get_daily_report: GetDailyReport
 
