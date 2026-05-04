@@ -4,7 +4,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
-import { processColor, StyleSheet } from 'react-native';
+import { processColor, StyleSheet, View } from 'react-native';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../../tamagui.config';
@@ -24,13 +24,15 @@ const IMAGE_MODE_ICON_GRAY = require('../../../../../assets/images/icons/icon_pi
 const VOICE_MODE_ICON_GRAY = require('../../../../../assets/images/icons/icon_mic_gray.png');
 const COLOR_PICKER_CHECK_ICON = require('../../../../../assets/images/icons/check.png');
 
+const mockRouterPush = jest.fn();
+
 jest.mock('expo-router', () => ({
   Redirect: ({ href }: { href: unknown }) => {
     const { Text } = require('react-native');
     return <Text testID="stats-redirect">{JSON.stringify(href)}</Text>;
   },
   useRouter: () => ({
-    push: jest.fn(),
+    push: mockRouterPush,
   }),
 }));
 
@@ -246,6 +248,26 @@ describe('StatsScreen', () => {
     );
     expect(statsApi.fetchDailyReport).not.toHaveBeenCalled();
     expect(statsApi.fetchWeeklyReport).not.toHaveBeenCalled();
+  });
+
+  it('設定ボタンを少し右寄せで表示し、設定画面へ遷移できる', () => {
+    (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(makeDailyResponse());
+
+    const { getByLabelText, getByTestId, UNSAFE_getAllByType } = renderWithProviders(
+      <StatsScreen />,
+    );
+    const hasHomeAlignedSettingsRow = UNSAFE_getAllByType(View).some((view) => {
+      const style = StyleSheet.flatten(view.props.style);
+      return style?.position === 'absolute' && style.top === -4.5 && style.right === 34;
+    });
+
+    expect(getByLabelText('設定')).toBeTruthy();
+    expect(getByTestId('stats-settings-button')).toBeTruthy();
+    expect(hasHomeAlignedSettingsRow).toBe(true);
+
+    fireEvent.press(getByTestId('stats-settings-button'));
+
+    expect(mockRouterPush).toHaveBeenCalledWith('/(tabs)/settings');
   });
 
   it('初期表示で当日の日次レポートを取得し、ハイライトと履歴を表示する', async () => {

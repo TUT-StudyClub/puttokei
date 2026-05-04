@@ -8,7 +8,7 @@
  * 未認証 / 匿名ユーザーはこの画面のデータを取得できないため、`/(auth)/sign-in` に誘導する。
  * サインイン成功後に戻ってこられるよう `returnTo` を渡している。
  */
-import { Redirect } from 'expo-router';
+import { type Href, Redirect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -56,6 +56,7 @@ import type {
   WeeklyReportResponse,
 } from '@/features/stats/types';
 import { AnnotatedOutputText } from '@/features/session/components/AnnotatedOutputText';
+import { SessionSettingsButton } from '@/features/session/components/SessionPhaseChrome';
 import type { OutputReviewItem } from '@/features/session/types';
 import { isApiError } from '@/shared/lib/api';
 import { useAuthStore } from '@/shared/stores/authStore';
@@ -73,6 +74,8 @@ const VOICE_MODE_ICON_BLACK = require('../../../../assets/images/icons/icon_mic_
 const VOICE_MODE_ICON_GRAY = require('../../../../assets/images/icons/icon_mic_gray.png');
 const COLOR_PICKER_CHECK_ICON = require('../../../../assets/images/icons/check.png');
 
+const SETTINGS_ROUTE = '/(tabs)/settings' as unknown as Href;
+const STATS_SETTINGS_BUTTON_RIGHT = 34;
 const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'] as const;
 const TOKYO_TIME_ZONE = 'Asia/Tokyo';
 const HISTORY_VISIBLE_ITEM_LIMIT = 3;
@@ -1640,6 +1643,7 @@ function ErrorBody({ message, onRetry }: { message: string; onRetry: () => void 
 }
 
 export function StatsScreen() {
+  const router = useRouter();
   const uid = useAuthStore((s) => s.uid);
   const isAnonymous = useAuthStore((s) => s.isAnonymous);
   const queryClient = useQueryClient();
@@ -1871,6 +1875,13 @@ export function StatsScreen() {
     selectedHistoryItem === null
       ? null
       : (selectedSubjectByOutputId[selectedHistoryItem.output.id] ?? null);
+  const settingsButton = (
+    <SessionSettingsButton
+      onPress={() => router.push(SETTINGS_ROUTE)}
+      testID="stats-settings-button"
+      rowStyle={styles.settingsButtonRow}
+    />
+  );
 
   const monthlyBody = (() => {
     if (monthlyReports.isPending) {
@@ -1990,33 +2001,38 @@ export function StatsScreen() {
     return (
       <SafeAreaView style={styles.safeArea} testID="stats-root">
         <StatusBar style="dark" />
-        <ScrollView
-          style={styles.monthlyScrollArea}
-          contentContainerStyle={styles.monthlyContent}
-          showsVerticalScrollIndicator={false}
-          testID="stats-monthly-content"
-        >
-          <View style={styles.monthRow}>
-            <SizableText style={styles.monthText}>{getMonthLabel(calendarMonthStart)}</SizableText>
-            <Pressable
-              accessibilityRole="button"
-              hitSlop={10}
-              onPress={handleCloseMonthlyCalendar}
-              style={styles.calendarButton}
-              testID="stats-calendar-toggle"
-            >
-              <CalendarMonthIcon />
-            </Pressable>
-          </View>
-          {monthlyBody}
-        </ScrollView>
-        <HistoryDetailSheet
-          item={selectedHistoryItem}
-          onClose={handleCloseHistorySheet}
-          subjectOptions={subjectOptions}
-          selectedSubject={selectedHistorySubject}
-          onSelectSubject={handleSelectHistorySubject}
-        />
+        <View style={styles.container}>
+          <ScrollView
+            style={styles.monthlyScrollArea}
+            contentContainerStyle={styles.monthlyContent}
+            showsVerticalScrollIndicator={false}
+            testID="stats-monthly-content"
+          >
+            <View style={styles.monthRow}>
+              <SizableText style={styles.monthText}>
+                {getMonthLabel(calendarMonthStart)}
+              </SizableText>
+              <Pressable
+                accessibilityRole="button"
+                hitSlop={10}
+                onPress={handleCloseMonthlyCalendar}
+                style={styles.calendarButton}
+                testID="stats-calendar-toggle"
+              >
+                <CalendarMonthIcon />
+              </Pressable>
+            </View>
+            {monthlyBody}
+          </ScrollView>
+          {settingsButton}
+          <HistoryDetailSheet
+            item={selectedHistoryItem}
+            onClose={handleCloseHistorySheet}
+            subjectOptions={subjectOptions}
+            selectedSubject={selectedHistorySubject}
+            onSelectSubject={handleSelectHistorySubject}
+          />
+        </View>
       </SafeAreaView>
     );
   }
@@ -2025,7 +2041,85 @@ export function StatsScreen() {
     return (
       <SafeAreaView style={styles.safeArea} testID="stats-root">
         <StatusBar style="dark" />
-        <View style={[styles.fixedHeader, styles.weeklyFixedHeader]}>
+        <View style={styles.container}>
+          <View style={[styles.fixedHeader, styles.weeklyFixedHeader]}>
+            <View style={styles.monthRow}>
+              <SizableText style={styles.monthText}>{getMonthLabel(weekStart)}</SizableText>
+              <Pressable
+                accessibilityRole="button"
+                hitSlop={10}
+                onPress={handleOpenMonthlyCalendar}
+                style={styles.calendarButton}
+                testID="stats-calendar-toggle"
+              >
+                <CalendarDateIcon />
+              </Pressable>
+            </View>
+            <View style={styles.dailyWeeklyCalendarStrip}>
+              <WeekDateStrip
+                weekStart={weekStart}
+                onWeekChange={handleWeekChange}
+                selectedDateKey={selectedDateKey}
+                onSelectDate={handleSelectDate}
+                studiedDateKeys={calendarStudiedDateKeys}
+              />
+            </View>
+            <View style={styles.weeklyCalendarGraphBoundaryWrap}>
+              <View
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                pointerEvents="none"
+              >
+                <View style={[styles.highlightTitleRow, styles.hiddenHighlightTitleRow]} />
+              </View>
+              <View
+                pointerEvents="none"
+                style={[styles.scrollBoundary, styles.weeklyCalendarGraphBoundary]}
+                testID="stats-weekly-calendar-graph-boundary"
+              />
+            </View>
+            {weeklyReportQuery.data ? (
+              <View style={weeklyChartSlotStyle}>
+                <WeeklyBarChart
+                  points={weeklyReportQuery.data.points}
+                  barSegmentsByDateKey={weeklyBarSegmentsByDateKey}
+                />
+              </View>
+            ) : (
+              <View
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                pointerEvents="none"
+                style={weeklyChartSlotStyle}
+              />
+            )}
+          </View>
+          {settingsButton}
+          <ScrollView
+            style={styles.scrollArea}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            testID="stats-weekly-content"
+          >
+            {weeklyBody}
+          </ScrollView>
+          <HistoryDetailSheet
+            item={selectedHistoryItem}
+            onClose={handleCloseHistorySheet}
+            subjectOptions={subjectOptions}
+            selectedSubject={selectedHistorySubject}
+            onSelectSubject={handleSelectHistorySubject}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.safeArea} testID="stats-root">
+      <StatusBar style="dark" />
+      <View style={styles.container}>
+        <View style={styles.fixedHeader}>
           <View style={styles.monthRow}>
             <SizableText style={styles.monthText}>{getMonthLabel(weekStart)}</SizableText>
             <Pressable
@@ -2047,44 +2141,28 @@ export function StatsScreen() {
               studiedDateKeys={calendarStudiedDateKeys}
             />
           </View>
-          <View style={styles.weeklyCalendarGraphBoundaryWrap}>
-            <View
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants"
-              pointerEvents="none"
-            >
-              <View style={[styles.highlightTitleRow, styles.hiddenHighlightTitleRow]} />
-            </View>
-            <View
-              pointerEvents="none"
-              style={[styles.scrollBoundary, styles.weeklyCalendarGraphBoundary]}
-              testID="stats-weekly-calendar-graph-boundary"
-            />
+          <View style={[styles.highlightTitleRow, dailyHighlightViewFrameStyle]}>
+            <SizableText style={[styles.highlightTitle, styles.dailyHighlightTitle]}>
+              {highlightTitle}
+            </SizableText>
+            <ShareIconButton />
           </View>
-          {weeklyReportQuery.data ? (
-            <View style={weeklyChartSlotStyle}>
-              <WeeklyBarChart
-                points={weeklyReportQuery.data.points}
-                barSegmentsByDateKey={weeklyBarSegmentsByDateKey}
-              />
-            </View>
+          {dailyReportQuery.data ? (
+            <HighlightCard summary={dailyReportQuery.data.summary} style={dailyHighlightCardStyle} />
           ) : (
-            <View
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants"
-              pointerEvents="none"
-              style={weeklyChartSlotStyle}
-            />
+            <HighlightPlaceholder style={dailyHighlightCardStyle} />
           )}
         </View>
+        <View style={styles.scrollBoundary} />
         <ScrollView
           style={styles.scrollArea}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
-          testID="stats-weekly-content"
+          testID="stats-scroll-content"
         >
-          {weeklyBody}
+          {dailyBody}
         </ScrollView>
+        {settingsButton}
         <HistoryDetailSheet
           item={selectedHistoryItem}
           onClose={handleCloseHistorySheet}
@@ -2092,63 +2170,7 @@ export function StatsScreen() {
           selectedSubject={selectedHistorySubject}
           onSelectSubject={handleSelectHistorySubject}
         />
-      </SafeAreaView>
-    );
-  }
-
-  return (
-    <SafeAreaView style={styles.safeArea} testID="stats-root">
-      <StatusBar style="dark" />
-      <View style={styles.fixedHeader}>
-        <View style={styles.monthRow}>
-          <SizableText style={styles.monthText}>{getMonthLabel(weekStart)}</SizableText>
-          <Pressable
-            accessibilityRole="button"
-            hitSlop={10}
-            onPress={handleOpenMonthlyCalendar}
-            style={styles.calendarButton}
-            testID="stats-calendar-toggle"
-          >
-            <CalendarDateIcon />
-          </Pressable>
-        </View>
-        <View style={styles.dailyWeeklyCalendarStrip}>
-          <WeekDateStrip
-            weekStart={weekStart}
-            onWeekChange={handleWeekChange}
-            selectedDateKey={selectedDateKey}
-            onSelectDate={handleSelectDate}
-            studiedDateKeys={calendarStudiedDateKeys}
-          />
-        </View>
-        <View style={[styles.highlightTitleRow, dailyHighlightViewFrameStyle]}>
-          <SizableText style={[styles.highlightTitle, styles.dailyHighlightTitle]}>
-            {highlightTitle}
-          </SizableText>
-          <ShareIconButton />
-        </View>
-        {dailyReportQuery.data ? (
-          <HighlightCard summary={dailyReportQuery.data.summary} style={dailyHighlightCardStyle} />
-        ) : (
-          <HighlightPlaceholder style={dailyHighlightCardStyle} />
-        )}
       </View>
-      <View style={styles.scrollBoundary} />
-      <ScrollView
-        style={styles.scrollArea}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        testID="stats-scroll-content"
-      >
-        {dailyBody}
-      </ScrollView>
-      <HistoryDetailSheet
-        item={selectedHistoryItem}
-        onClose={handleCloseHistorySheet}
-        subjectOptions={subjectOptions}
-        selectedSubject={selectedHistorySubject}
-        onSelectSubject={handleSelectHistorySubject}
-      />
     </SafeAreaView>
   );
 }
@@ -2157,6 +2179,12 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  container: {
+    flex: 1,
+  },
+  settingsButtonRow: {
+    right: STATS_SETTINGS_BUTTON_RIGHT,
   },
   fixedHeader: {
     paddingHorizontal: FIXED_HEADER_HORIZONTAL_PADDING,
