@@ -66,7 +66,10 @@ from src.application.use_cases.submit_text_output import (
     SessionNotFoundError as SubmitTextOutputSessionNotFoundError,
 )
 from src.application.use_cases.transcribe_audio import (
-    TranscribeAudioInput,
+    SessionNotFoundError as TranscribeAudioSessionNotFoundError,
+)
+from src.application.use_cases.transcribe_audio import (
+    TranscribeAudioCommand,
 )
 from src.application.use_cases.update_output_subject import (
     OutputNotFoundError as UpdateOutputSubjectOutputNotFoundError,
@@ -506,26 +509,35 @@ def _format_progress_event(view: JudgmentProgressView) -> str:
     status_code=status.HTTP_200_OK,
 )
 async def transcribe_session_audio(
-    session_id: UUID,  # noqa: ARG001
+    session_id: UUID,
     request: Request,
     audio: UploadFile = File(...),  # noqa: B008
-    current_user: User = Depends(get_current_user),  # noqa: B008, ARG001
+    current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> TranscribeAudioResponse:
     """音声ファイルを Cloud Speech-to-Text で文字起こしする。
 
-    session_id は将来の利用ログ / レート制限の文脈で受けるが、現時点では
-    認可チェック (current_user) のみが実質的な使い道。文字起こし結果は
-    DB に保存せず、mobile に返して既存の text 提出フローに渡す想定。
+    UseCase 側で current_user 所有の session_id か検証し、他ユーザー所有の
+    session_id を詐称した呼び出しは 404 として弾く。文字起こし結果は DB に
+    保存せず、mobile に返して既存の text 提出フローに渡す想定。
     """
     audio_bytes = await audio.read()
     container = get_presentation_container(request)
     try:
         result = await container.transcribe_audio.execute(
-            TranscribeAudioInput(
+            current_user,
+            TranscribeAudioCommand(
+                session_id=session_id,
                 audio_bytes=audio_bytes,
                 mime_type=audio.content_type or "application/octet-stream",
-            )
+            ),
         )
+    except TranscribeAudioSessionNotFoundError as exc:
+        raise ProblemDetailsError(
+            status_code=status.HTTP_404_NOT_FOUND,
+            problem_type="session_not_found",
+            title="Session Not Found",
+            detail="セッションが見つかりません。",
+        ) from exc
     except AudioTooLargeError as exc:
         raise ProblemDetailsError(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,

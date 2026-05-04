@@ -143,6 +143,7 @@ def container(
         get_weekly_report=GetWeeklyReport(unit_of_work_factory=unit_of_work_factory),
         get_daily_report=GetDailyReport(unit_of_work_factory=unit_of_work_factory),
         transcribe_audio=TranscribeAudio(
+            unit_of_work_factory=unit_of_work_factory,
             speech_service=LocalSttService(mock_transcript="テスト文字起こし"),
             max_bytes=settings.audio_max_bytes,
             allowed_mime_types=settings.audio_allowed_mime_types,

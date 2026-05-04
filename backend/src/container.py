@@ -149,6 +149,7 @@ def build_container(settings: Settings) -> Container:
             download_url_ttl_seconds=settings.gcs_signed_download_url_ttl_seconds,
         ),
         transcribe_audio=TranscribeAudio(
+            unit_of_work_factory=unit_of_work_factory,
             speech_service=build_speech_to_text_service(settings),
             max_bytes=settings.audio_max_bytes,
             allowed_mime_types=settings.audio_allowed_mime_types,
