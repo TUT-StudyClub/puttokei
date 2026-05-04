@@ -2142,15 +2142,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginLeft: 24,
+    marginLeft: 20,
     marginBottom: 2,
+    transform: [{ translateY: -7 }],
   },
   calendarButton: {
     width: 30,
     height: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    transform: [{ translateX: -2 }],
+    transform: [{ translateX: -5 }, { translateY: -1 }],
   },
   calendarToggleIcon: {
     width: 24,
