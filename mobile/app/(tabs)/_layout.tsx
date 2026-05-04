@@ -135,12 +135,13 @@ export default function TabsLayout() {
           name="index"
           options={{
             title: 'タイマー',
-            tabBarLabel: ({ color }) => (
+            tabBarLabel: () => (
               <Text
                 style={{
-                  color: shouldHighlightTimerTabIcon ? ACTIVE_COLOR : color,
-                  fontSize: 12,
-                  fontWeight: '700',
+                  color: shouldHighlightTimerTabIcon ? '#475FFF' : INACTIVE_COLOR,
+                  fontSize: 11,
+                  fontFamily: 'HiraginoSans-W6',
+                  marginTop: 1,
                 }}
               >
                 タイマー
@@ -155,8 +156,8 @@ export default function TabsLayout() {
           name="stats"
           options={{
             title: 'レポート',
-            tabBarLabel: ({ color }) => (
-              <Text allowFontScaling={false} style={[styles.tabBarLabel, { color, marginTop: 4 }]}>
+            tabBarLabel: () => (
+              <Text allowFontScaling={false} style={styles.tabBarLabel}>
                 レポート
               </Text>
             ),
@@ -188,8 +189,10 @@ export default function TabsLayout() {
 
 const styles = StyleSheet.create({
   tabBarLabel: {
-    fontSize: 12,
-    fontWeight: '700',
+    color: '#676767',
+    fontSize: 11,
+    fontFamily: 'HiraginoSans-W6',
+    marginTop: 1,
   },
   dialogBackdrop: {
     flex: 1,
