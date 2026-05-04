@@ -13,6 +13,7 @@ from src.domain.repositories.judgment_progress_repository import (
 from src.domain.repositories.judgment_repository import JudgmentRepository
 from src.domain.repositories.output_repository import OutputRepository
 from src.domain.repositories.session_repository import SessionRepository
+from src.domain.repositories.stats_repository import StatsRepository
 from src.domain.repositories.study_subject_repository import StudySubjectRepository
 from src.domain.repositories.user_repository import UserRepository
 
@@ -26,6 +27,7 @@ class ApplicationUnitOfWork(ABC):
     study_subjects: StudySubjectRepository
     judgments: JudgmentRepository
     judgment_progresses: JudgmentProgressRepository
+    stats: StatsRepository
 
     @abstractmethod
     async def __aenter__(self) -> Self:

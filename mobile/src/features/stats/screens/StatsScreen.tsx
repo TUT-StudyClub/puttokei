@@ -745,10 +745,12 @@ function MonthlyCalendar({
   monthStart,
   reports,
   onMonthChange,
+  onDatePress,
 }: {
   monthStart: string;
   reports: WeeklyReportResponse[];
   onMonthChange: (monthStart: string) => void;
+  onDatePress: (dateKey: string) => void;
 }) {
   const todayKey = getTokyoDateKey();
   const monthPrefix = monthStart.slice(0, 7);
@@ -816,8 +818,11 @@ function MonthlyCalendar({
                     : 'empty';
 
                 return (
-                  <View
+                  <Pressable
+                    accessibilityLabel={`${getMonthDayLabel(dateKey)}のサマリーを表示`}
+                    accessibilityRole="button"
                     key={dateKey}
+                    onPress={() => onDatePress(dateKey)}
                     style={styles.monthDaySlot}
                     testID={`month-day-${dateKey}-${studiedTestSuffix}`}
                   >
@@ -846,7 +851,7 @@ function MonthlyCalendar({
                         {getDateNumberLabel(dateKey)}
                       </SizableText>
                     </View>
-                  </View>
+                  </Pressable>
                 );
               })}
             </View>
@@ -1844,6 +1849,10 @@ export function StatsScreen() {
   const handleCloseMonthlyCalendar = useCallback(() => {
     setReportViewMode('daily');
   }, []);
+  const handleSelectMonthlyDate = useCallback((dateKey: string) => {
+    setSelectedDateKey(dateKey);
+    setReportViewMode('daily');
+  }, []);
   const handleWeekChange = useCallback(
     (newWeekStart: string) => {
       const offsetDays = daysBetweenDateKeys(newWeekStart, weekStart);
@@ -1926,6 +1935,7 @@ export function StatsScreen() {
           monthStart={calendarMonthStart}
           reports={monthlyReports.reports}
           onMonthChange={setCalendarMonthStart}
+          onDatePress={handleSelectMonthlyDate}
         />
         <View style={styles.monthlyHighlightTitleRow}>
           <SizableText style={styles.highlightTitle}>今月のハイライト</SizableText>

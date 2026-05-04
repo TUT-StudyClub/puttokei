@@ -396,3 +396,212 @@ async def test_get_daily_report_requires_registered_user(client: AsyncClient):
     assert response.status_code == 403
     body = response.json()
     assert body["type"].endswith("registration_required")
+
+
+@pytest.mark.asyncio
+async def test_get_stats_summary_returns_current_users_aggregate(
+    client: AsyncClient,
+    fake_judgment_repository: FakeJudgmentRepository,
+):
+    auth_uid = "stats-summary-user"
+    first = await _create_session_with_output(
+        client,
+        auth_uid,
+        subject="英語",
+        topic="関係代名詞",
+        input_minutes=20,
+        output_minutes=5,
+        break_minutes=5,
+        content="1日目のアウトプットです。",
+        submitted_at="2026-04-29T01:00:00Z",
+    )
+    second = await _create_session_with_output(
+        client,
+        auth_uid,
+        subject="数学",
+        topic="二次関数",
+        input_minutes=30,
+        output_minutes=10,
+        break_minutes=5,
+        content="2日目のアウトプットです。",
+        submitted_at="2026-04-30T01:00:00Z",
+    )
+    await _create_session_with_output(
+        client,
+        auth_uid,
+        subject="国語",
+        topic="随筆",
+        input_minutes=15,
+        output_minutes=5,
+        break_minutes=5,
+        content="3日目のアウトプットです。",
+        submitted_at="2026-05-01T01:00:00Z",
+    )
+    await _create_session_with_output(
+        client,
+        "stats-summary-other-user",
+        subject="理科",
+        topic="化学",
+        input_minutes=100,
+        output_minutes=20,
+        break_minutes=5,
+        content="別ユーザーのアウトプットです。",
+        submitted_at="2026-05-01T01:00:00Z",
+    )
+    await fake_judgment_repository.add(
+        Judgment(
+            id=uuid4(),
+            session_id=UUID(str(first["id"])),
+            verdict=Verdict.CORRECT,
+            score=100,
+            advice="よくできています。",
+            corrections=[],
+            judged_at=datetime.now(UTC),
+        )
+    )
+    await fake_judgment_repository.add(
+        Judgment(
+            id=uuid4(),
+            session_id=UUID(str(second["id"])),
+            verdict=Verdict.PARTIAL,
+            score=70,
+            advice="一部修正しましょう。",
+            corrections=[],
+            judged_at=datetime.now(UTC),
+        )
+    )
+
+    response = await client.get(
+        "/api/v1/stats/summary",
+        headers={"Authorization": f"Bearer {auth_uid}"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body == {
+        "total_sessions": 3,
+        "total_study_minutes": 85,
+        "correct_rate": 0.5,
+        "streak_days": 3,
+        "period": "daily",
+        "from": "2026-04-29",
+        "to": "2026-05-01",
+    }
+
+
+@pytest.mark.asyncio
+async def test_get_stats_periods_return_bucketed_points(
+    client: AsyncClient,
+    fake_judgment_repository: FakeJudgmentRepository,
+):
+    auth_uid = "stats-period-user"
+    first = await _create_session_with_output(
+        client,
+        auth_uid,
+        subject="英語",
+        topic="関係代名詞",
+        input_minutes=20,
+        output_minutes=5,
+        break_minutes=5,
+        content="4月のアウトプットです。",
+        submitted_at="2026-04-26T01:00:00Z",
+    )
+    second = await _create_session_with_output(
+        client,
+        auth_uid,
+        subject="数学",
+        topic="二次関数",
+        input_minutes=30,
+        output_minutes=10,
+        break_minutes=5,
+        content="5月のアウトプットです。",
+        submitted_at="2026-05-03T01:00:00Z",
+    )
+    await fake_judgment_repository.add(
+        Judgment(
+            id=uuid4(),
+            session_id=UUID(str(first["id"])),
+            verdict=Verdict.CORRECT,
+            score=95,
+            advice="よくできています。",
+            corrections=[],
+            judged_at=datetime.now(UTC),
+        )
+    )
+    await fake_judgment_repository.add(
+        Judgment(
+            id=uuid4(),
+            session_id=UUID(str(second["id"])),
+            verdict=Verdict.INCORRECT,
+            score=20,
+            advice="復習しましょう。",
+            corrections=[],
+            judged_at=datetime.now(UTC),
+        )
+    )
+
+    daily_response = await client.get(
+        "/api/v1/stats/daily",
+        headers={"Authorization": f"Bearer {auth_uid}"},
+    )
+    weekly_response = await client.get(
+        "/api/v1/stats/weekly",
+        headers={"Authorization": f"Bearer {auth_uid}"},
+    )
+    monthly_response = await client.get(
+        "/api/v1/stats/monthly",
+        headers={"Authorization": f"Bearer {auth_uid}"},
+    )
+
+    assert daily_response.status_code == 200
+    daily_body = daily_response.json()
+    assert daily_body["period"] == "daily"
+    assert daily_body["summary"]["total_sessions"] == 2
+    assert daily_body["summary"]["total_study_minutes"] == 65
+    assert daily_body["summary"]["correct_rate"] == 0.5
+    assert [point["bucket"] for point in daily_body["points"]] == [
+        "2026-04-26",
+        "2026-04-27",
+        "2026-04-28",
+        "2026-04-29",
+        "2026-04-30",
+        "2026-05-01",
+        "2026-05-02",
+        "2026-05-03",
+    ]
+    assert [point["sessions"] for point in daily_body["points"]] == [1, 0, 0, 0, 0, 0, 0, 1]
+    assert "output_history" not in daily_body
+
+    assert weekly_response.status_code == 200
+    weekly_body = weekly_response.json()
+    assert weekly_body["period"] == "weekly"
+    assert [point["bucket"] for point in weekly_body["points"]] == [
+        "2026-04-26",
+        "2026-05-03",
+    ]
+    assert [point["study_minutes"] for point in weekly_body["points"]] == [25, 40]
+
+    assert monthly_response.status_code == 200
+    monthly_body = monthly_response.json()
+    assert monthly_body["period"] == "monthly"
+    assert [point["bucket"] for point in monthly_body["points"]] == ["2026-04", "2026-05"]
+    assert [point["correct_rate"] for point in monthly_body["points"]] == [1.0, 0.0]
+
+
+@pytest.mark.asyncio
+async def test_get_monthly_stats_returns_zero_filled_empty_response(client: AsyncClient):
+    response = await client.get(
+        "/api/v1/stats/monthly",
+        headers={"Authorization": "Bearer stats-empty-monthly-user"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["period"] == "monthly"
+    assert body["summary"]["total_sessions"] == 0
+    assert body["summary"]["total_study_minutes"] == 0
+    assert body["summary"]["correct_rate"] == 0.0
+    assert body["summary"]["streak_days"] == 0
+    assert len(body["points"]) == 1
+    assert body["points"][0]["sessions"] == 0
+    assert body["points"][0]["study_minutes"] == 0
