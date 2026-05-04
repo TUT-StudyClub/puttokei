@@ -1,4 +1,4 @@
-import { Tabs, useSegments } from 'expo-router';
+import { Tabs, usePathname, useSegments } from 'expo-router';
 import { Fragment, useState } from 'react';
 import { Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -25,7 +25,18 @@ export function isTimerTabIconHighlighted(
   segments: readonly string[],
   focused: boolean,
   phase: TimerPhase,
+  pathname: string,
 ) {
+  const routeSegments = segments[0] === TABS_SEGMENT ? segments.slice(1) : segments;
+  const currentRouteSegment = routeSegments[0];
+  const pathnameSegments = pathname.split('/').filter(Boolean);
+  const currentPathSegment = pathnameSegments[0];
+  const currentSessionPhase = pathnameSegments[pathnameSegments.length - 1];
+
+  if (currentRouteSegment === 'stats' || currentPathSegment === 'stats') {
+    return false;
+  }
+
   if (focused) {
     return true;
   }
@@ -34,11 +45,11 @@ export function isTimerTabIconHighlighted(
     return true;
   }
 
-  const routeSegments = segments[0] === TABS_SEGMENT ? segments.slice(1) : segments;
-  const currentRouteSegment = routeSegments[0];
-
   return (
-    currentRouteSegment === 'session' && TIMER_TAB_ACTIVE_SESSION_PHASES.has(routeSegments[2] ?? '')
+    (currentRouteSegment === 'session' &&
+      TIMER_TAB_ACTIVE_SESSION_PHASES.has(routeSegments[2] ?? '')) ||
+    (currentPathSegment === 'session' &&
+      TIMER_TAB_ACTIVE_SESSION_PHASES.has(currentSessionPhase ?? ''))
   );
 }
 
@@ -105,6 +116,7 @@ function ReportBlockedDialog({ visible, onDismiss }: { visible: boolean; onDismi
 export default function TabsLayout() {
   const timerPhase = useTimerStore((s) => s.phase);
   const segments = useSegments() as string[];
+  const pathname = usePathname();
   const shouldBlockReportTab = isReportTabNavigationBlocked(timerPhase);
   const [isReportBlockedDialogVisible, setReportBlockedDialogVisible] = useState(false);
 
@@ -130,6 +142,7 @@ export default function TabsLayout() {
                 segments,
                 focused,
                 timerPhase,
+                pathname,
               );
 
               return (
@@ -146,7 +159,7 @@ export default function TabsLayout() {
             },
             tabBarIcon: ({ focused }) => (
               <TimerTabIcon
-                active={isTimerTabIconHighlighted(segments, focused, timerPhase)}
+                active={isTimerTabIconHighlighted(segments, focused, timerPhase, pathname)}
                 size={39}
               />
             ),

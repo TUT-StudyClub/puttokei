@@ -28,6 +28,7 @@ type MockScreenProps = {
 
 const mockTabScreens: MockScreenProps[] = [];
 let mockSegments: string[] = ['(tabs)'];
+let mockPathname = '/';
 
 jest.mock('expo-router', () => {
   const React = require('react');
@@ -43,6 +44,7 @@ jest.mock('expo-router', () => {
 
   return {
     Tabs,
+    usePathname: () => mockPathname,
     useSegments: () => mockSegments,
   };
 });
@@ -86,6 +88,7 @@ describe('TabsLayout', () => {
   beforeEach(() => {
     mockTabScreens.length = 0;
     mockSegments = ['(tabs)'];
+    mockPathname = '/';
     useTimerStore.setState({
       phase: 'idle',
       status: 'idle',
@@ -166,21 +169,28 @@ describe('TabsLayout', () => {
   });
 
   it.each([
-    [['(tabs)'], true, 'idle', true],
-    [['(tabs)'], false, 'idle', false],
-    [['(tabs)'], false, 'input', true],
-    [['(tabs)'], false, 'output', true],
-    [['(tabs)'], false, 'break', true],
-    [['(tabs)', 'index'], true, 'idle', true],
-    [['(tabs)', 'session', '[id]', 'input'], false, 'idle', true],
-    [['(tabs)', 'session', '[id]', 'output'], false, 'idle', true],
-    [['(tabs)', 'session', '[id]', 'break'], false, 'idle', true],
-    [['(tabs)', 'session', '[id]', 'result'], false, 'idle', false],
-    [['(tabs)', 'stats'], false, 'idle', false],
+    [['(tabs)'], '/', true, 'idle', true],
+    [['(tabs)'], '/', false, 'idle', false],
+    [['(tabs)'], '/', false, 'input', true],
+    [['(tabs)'], '/', false, 'output', true],
+    [['(tabs)'], '/', false, 'break', true],
+    [['(tabs)'], '/stats', false, 'input', false],
+    [['(tabs)'], '/session/session-1/input', false, 'idle', true],
+    [['(tabs)'], '/session/session-1/output', false, 'idle', true],
+    [['(tabs)'], '/session/session-1/break', false, 'idle', true],
+    [['(tabs)', 'index'], '/', true, 'idle', true],
+    [['(tabs)', 'session', '[id]', 'input'], '/session/session-1/input', false, 'idle', true],
+    [['(tabs)', 'session', '[id]', 'output'], '/session/session-1/output', false, 'idle', true],
+    [['(tabs)', 'session', '[id]', 'break'], '/session/session-1/break', false, 'idle', true],
+    [['(tabs)', 'session', '[id]', 'result'], '/session/session-1/result', false, 'idle', false],
+    [['(tabs)', 'stats'], '/stats', false, 'idle', false],
+    [['(tabs)', 'stats'], '/stats', false, 'input', false],
+    [['(tabs)', 'stats'], '/stats', false, 'output', false],
+    [['(tabs)', 'stats'], '/stats', false, 'break', false],
   ] as const)(
-    'isTimerTabIconHighlighted(%j, focused: %s, phase: %s) は %s を返す',
-    (segments, focused, phase, expected) => {
-      expect(isTimerTabIconHighlighted(segments, focused, phase)).toBe(expected);
+    'isTimerTabIconHighlighted(%j, pathname: %s, focused: %s, phase: %s) は %s を返す',
+    (segments, pathname, focused, phase, expected) => {
+      expect(isTimerTabIconHighlighted(segments, focused, phase, pathname)).toBe(expected);
     },
   );
 
@@ -213,6 +223,7 @@ describe('TabsLayout', () => {
     ['休憩', ['(tabs)', 'session', '[id]', 'break']],
   ] as const)('%s画面ではタイマーアイコンとラベルを青にする', (_screen, segments) => {
     mockSegments = [...segments];
+    mockPathname = segments[1] === 'session' ? `/session/session-1/${segments[3] ?? 'input'}` : '/';
     const { timerTab } = renderTimerTabScreen();
     const isHomeScreen = segments.length === 1;
 
@@ -241,6 +252,7 @@ describe('TabsLayout', () => {
 
   it('レポート画面ではタイマーアイコンをグレー、レポートアイコンを青にする', () => {
     mockSegments = ['(tabs)', 'stats'];
+    mockPathname = '/stats';
     const { timerTab, statsTab } = renderMainTabScreens();
 
     const timerIcon = timerTab.options?.tabBarIcon?.({ color: '#9CA3AF', focused: false });
@@ -249,6 +261,20 @@ describe('TabsLayout', () => {
     expect(getRenderedImageProps(timerIcon).source).toBe(TIMER_ICON_GRAY);
     expect(getRenderedImageProps(reportIcon).source).toBe(REPORT_ICON_BLUE);
   });
+
+  it.each<TimerPhase>(['input', 'output', 'break'])(
+    'レポート画面では %s フェーズが残っていてもタイマーアイコンをグレーにする',
+    (phase) => {
+      mockSegments = ['(tabs)', 'stats'];
+      mockPathname = '/stats';
+      useTimerStore.setState({ phase });
+      const { timerTab } = renderTimerTabScreen();
+
+      const timerIcon = timerTab.options?.tabBarIcon?.({ color: '#9CA3AF', focused: false });
+
+      expect(getRenderedImageProps(timerIcon).source).toBe(TIMER_ICON_GRAY);
+    },
+  );
 
   it('レポートタブの文字色はナビゲーションから渡された色を使う', () => {
     const { statsTab } = renderStatsTabScreen();
