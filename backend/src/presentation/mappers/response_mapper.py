@@ -13,7 +13,12 @@ from src.application.dto.session_dto import (
     SubmitOutputView,
     TodayOutputsView,
 )
-from src.application.dto.stats_dto import DailyReportView, WeeklyReportView
+from src.application.dto.stats_dto import (
+    DailyReportView,
+    StatsPeriodView,
+    StatsSummaryView,
+    WeeklyReportView,
+)
 from src.application.dto.user_dto import UserProfileView
 from src.application.dto.user_settings_dto import UserSettingsView
 from src.presentation.schemas.judgment_schema import (
@@ -35,6 +40,9 @@ from src.presentation.schemas.session_schema import (
 from src.presentation.schemas.stats_schema import (
     DailyReportResponse,
     DailyReportSummaryResponse,
+    StatsDataPointResponse,
+    StatsPeriodResponse,
+    StatsSummaryResponse,
     WeeklyReportPointResponse,
     WeeklyReportResponse,
     WeeklyReportSummaryResponse,
@@ -198,6 +206,35 @@ def to_daily_report_response(view: DailyReportView) -> DailyReportResponse:
             )
             for item in view.output_history
         ],
+    )
+
+
+def to_stats_summary_response(view: StatsSummaryView) -> StatsSummaryResponse:
+    return StatsSummaryResponse(
+        total_sessions=view.total_sessions,
+        total_study_minutes=view.total_study_minutes,
+        correct_rate=view.correct_rate,
+        streak_days=view.streak_days,
+        period=view.period,
+        from_date=view.from_date,
+        to_date=view.to_date,
+    )
+
+
+def to_stats_period_response(view: StatsPeriodView) -> StatsPeriodResponse:
+    return StatsPeriodResponse(
+        period=view.period,
+        points=[
+            StatsDataPointResponse(
+                bucket=point.bucket,
+                label=point.label,
+                sessions=point.sessions,
+                study_minutes=point.study_minutes,
+                correct_rate=point.correct_rate,
+            )
+            for point in view.points
+        ],
+        summary=to_stats_summary_response(view.summary),
     )
 
 
