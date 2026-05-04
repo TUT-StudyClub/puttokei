@@ -261,8 +261,7 @@ describe('StatsScreen', () => {
     expect(getByTestId('stats-output-history-title').props.children).toBe('履歴');
     expect(getByTestId('stats-output-history-item-out-1')).toBeTruthy();
     expect(getByText('4月29日')).toBeTruthy();
-    expect(getByText('09：35')).toBeTruthy();
-    expect(getByText('10：00')).toBeTruthy();
+    expect(getByText('09：35 - 10：00')).toBeTruthy();
     expect(getByText('サイクル1')).toBeTruthy();
     expect(getByText('今日のハイライト')).toBeTruthy();
     expect(queryByText('教科')).toBeNull();

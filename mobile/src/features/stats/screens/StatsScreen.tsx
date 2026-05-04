@@ -1585,6 +1585,7 @@ function OutputHistory({
           ) : (
             group.items.slice(0, HISTORY_VISIBLE_ITEM_LIMIT).map((item, index, visibleItems) => {
               const timeRange = getHistoryTimeRangeParts(item);
+              const timeRangeLabel = `${timeRange.start} - ${timeRange.end}`;
               return (
                 <Pressable
                   key={item.output.id}
@@ -1597,15 +1598,14 @@ function OutputHistory({
                   testID={`stats-output-history-item-${item.output.id}`}
                 >
                   <View style={styles.historyTimeRange}>
-                    <SizableText style={styles.historyTimePart} numberOfLines={1}>
-                      {timeRange.start}
-                    </SizableText>
-                    <SizableText style={styles.historyTimeSeparator} numberOfLines={1}>
-                      -
-                    </SizableText>
-                    <SizableText style={styles.historyTimePart} numberOfLines={1}>
-                      {timeRange.end}
-                    </SizableText>
+                    <Text
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.82}
+                      numberOfLines={1}
+                      style={styles.historyTimeText}
+                    >
+                      {timeRangeLabel}
+                    </Text>
                   </View>
                   <SizableText style={styles.historyCycleText} numberOfLines={1}>
                     サイクル{item.cycle_index}
@@ -2481,6 +2481,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     lineHeight: 25,
+    transform: [{ translateY: 2 }],
   },
   breakPill: {
     alignSelf: 'flex-start',
@@ -3033,24 +3034,17 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    minWidth: 0,
   },
-  historyTimePart: {
-    width: 46,
+  historyTimeText: {
+    flexShrink: 1,
     color: '#111111',
     fontFamily: 'HiraginoSans-W6',
     fontSize: 14,
     fontWeight: '800',
     lineHeight: 18,
     fontVariant: ['tabular-nums'],
-  },
-  historyTimeSeparator: {
-    width: 14,
-    color: '#111111',
-    fontFamily: 'HiraginoSans-W6',
-    fontSize: 14,
-    fontWeight: '800',
-    lineHeight: 18,
-    textAlign: 'center',
+    includeFontPadding: false,
   },
   historyCycleText: {
     flexShrink: 0,
