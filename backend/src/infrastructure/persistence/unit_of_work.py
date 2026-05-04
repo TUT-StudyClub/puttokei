@@ -20,6 +20,7 @@ from src.infrastructure.persistence.repositories.pg_output_repository import PgO
 from src.infrastructure.persistence.repositories.pg_session_repository import (
     PgSessionRepository,
 )
+from src.infrastructure.persistence.repositories.pg_stats_repository import PgStatsRepository
 from src.infrastructure.persistence.repositories.pg_study_subject_repository import (
     PgStudySubjectRepository,
 )
@@ -40,6 +41,7 @@ class SqlAlchemyUnitOfWork(ApplicationUnitOfWork):
         self.study_subjects: PgStudySubjectRepository
         self.judgments: PgJudgmentRepository
         self.judgment_progresses: PgJudgmentProgressRepository
+        self.stats: PgStatsRepository
 
     async def __aenter__(self) -> Self:
         self._session_context = self._database.session()
@@ -51,6 +53,7 @@ class SqlAlchemyUnitOfWork(ApplicationUnitOfWork):
         self.study_subjects = PgStudySubjectRepository(self._session)
         self.judgments = PgJudgmentRepository(self._session)
         self.judgment_progresses = PgJudgmentProgressRepository(self._session)
+        self.stats = PgStatsRepository(self._session)
         return self
 
     async def __aexit__(
