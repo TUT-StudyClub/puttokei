@@ -125,7 +125,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  if (uid !== null && profileQuery.isError) {
+  if (uid !== null && !isAnonymous && profileQuery.isError) {
     return (
       <>
         <ProfileErrorScreen

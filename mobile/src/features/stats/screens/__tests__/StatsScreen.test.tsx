@@ -4,7 +4,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
-import { processColor, StyleSheet } from 'react-native';
+import { processColor, StyleSheet, View } from 'react-native';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../../tamagui.config';
@@ -24,13 +24,15 @@ const IMAGE_MODE_ICON_GRAY = require('../../../../../assets/images/icons/icon_pi
 const VOICE_MODE_ICON_GRAY = require('../../../../../assets/images/icons/icon_mic_gray.png');
 const COLOR_PICKER_CHECK_ICON = require('../../../../../assets/images/icons/check.png');
 
+const mockRouterPush = jest.fn();
+
 jest.mock('expo-router', () => ({
   Redirect: ({ href }: { href: unknown }) => {
     const { Text } = require('react-native');
     return <Text testID="stats-redirect">{JSON.stringify(href)}</Text>;
   },
   useRouter: () => ({
-    push: jest.fn(),
+    push: mockRouterPush,
   }),
 }));
 
@@ -191,6 +193,9 @@ describe('StatsScreen', () => {
           updated_at: '2026-05-03T12:00:00Z',
         }),
     );
+    (statsApi.fetchWeeklyReport as jest.Mock).mockImplementation((weekStart: string) =>
+      Promise.resolve(makeWeeklyResponseForDates(weekStart, {})),
+    );
     act(() => {
       useAuthStore.setState({ uid: 'u-1', idToken: 'token-1', isAnonymous: false });
     });
@@ -245,6 +250,26 @@ describe('StatsScreen', () => {
     expect(statsApi.fetchWeeklyReport).not.toHaveBeenCalled();
   });
 
+  it('設定ボタンを少し右寄せで表示し、設定画面へ遷移できる', () => {
+    (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(makeDailyResponse());
+
+    const { getByLabelText, getByTestId, UNSAFE_getAllByType } = renderWithProviders(
+      <StatsScreen />,
+    );
+    const hasHomeAlignedSettingsRow = UNSAFE_getAllByType(View).some((view) => {
+      const style = StyleSheet.flatten(view.props.style);
+      return style?.position === 'absolute' && style.top === -4.5 && style.right === 34;
+    });
+
+    expect(getByLabelText('設定')).toBeTruthy();
+    expect(getByTestId('stats-settings-button')).toBeTruthy();
+    expect(hasHomeAlignedSettingsRow).toBe(true);
+
+    fireEvent.press(getByTestId('stats-settings-button'));
+
+    expect(mockRouterPush).toHaveBeenCalledWith('/(tabs)/settings');
+  });
+
   it('初期表示で当日の日次レポートを取得し、ハイライトと履歴を表示する', async () => {
     (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(makeDailyResponse());
 
@@ -257,14 +282,42 @@ describe('StatsScreen', () => {
     await waitFor(() => {
       expect(getByTestId('stats-highlight-card')).toBeTruthy();
     });
-    expect(getByTestId('stats-session-badge').props.children.props.children).toEqual(['×', 5]);
+    const sessionBadgeRow = getByTestId('stats-session-badge').props.children;
+    const sessionBadgeChildren = sessionBadgeRow.props.children;
+    const sessionBadgeXOffset = sessionBadgeChildren[0];
+    const sessionBadgeXText = sessionBadgeXOffset.props.children;
+    const sessionBadgeNumberText = sessionBadgeChildren[1];
+    expect(StyleSheet.flatten(sessionBadgeNumberText.props.style)).toMatchObject({
+      fontSize: 16,
+      fontFamily: 'HiraginoSans-W6',
+      fontWeight: '600',
+      transform: [{ translateX: -2 }],
+    });
+    expect(StyleSheet.flatten(sessionBadgeXOffset.props.style)).toMatchObject({
+      left: -2,
+      position: 'relative',
+      top: 0,
+    });
+    expect(sessionBadgeXText.props.children).toBe('×');
+    expect(StyleSheet.flatten(sessionBadgeXText.props.style)).toMatchObject({
+      fontSize: 14,
+    });
+    expect(sessionBadgeNumberText.props.children).toBe(5);
     expect(getByTestId('stats-output-history-title').props.children).toBe('履歴');
     expect(getByTestId('stats-output-history-item-out-1')).toBeTruthy();
     expect(getByText('4月29日')).toBeTruthy();
-    expect(getByText('09：35')).toBeTruthy();
-    expect(getByText('10：00')).toBeTruthy();
+    expect(getByText('09：35 - 10：00')).toBeTruthy();
     expect(getByText('サイクル1')).toBeTruthy();
     expect(getByText('今日のハイライト')).toBeTruthy();
+    expect(StyleSheet.flatten(getByText('今日のハイライト').props.style)).toMatchObject({
+      fontFamily: 'HiraginoSans-W6',
+      fontSize: 17,
+      fontWeight: '700',
+      lineHeight: 23,
+    });
+    expect(
+      StyleSheet.flatten(getByTestId('stats-highlight-title-row').props.style).transform,
+    ).toEqual([{ translateY: 8 }]);
     expect(queryByText('教科')).toBeNull();
   });
 
@@ -767,6 +820,28 @@ describe('StatsScreen', () => {
     });
   });
 
+  it('画面上部カレンダーで学習済み日を薄い青にする', async () => {
+    (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(makeDailyResponse());
+    (statsApi.fetchWeeklyReport as jest.Mock).mockImplementation((weekStart: string) =>
+      Promise.resolve(makeWeeklyResponseForDates(weekStart, { '2026-04-28': 30 })),
+    );
+
+    const { getByTestId } = renderWithProviders(<StatsScreen />);
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(statsApi.fetchWeeklyReport).toHaveBeenCalledWith('2026-04-26');
+    });
+    await waitFor(() => {
+      expect(getByTestId('week-date-2026-04-28-studied-background')).toBeTruthy();
+    });
+
+    const studiedBackgroundStyle = StyleSheet.flatten(
+      getByTestId('week-date-2026-04-28-studied-background').props.style,
+    );
+    expect(studiedBackgroundStyle.backgroundColor).toBe('#DBE3FF');
+  });
+
   it('カレンダーアイコン押下で月間カレンダーと今月のハイライトを表示する', async () => {
     (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(makeDailyResponse());
     const studiedMinutesByDate = {
@@ -795,6 +870,33 @@ describe('StatsScreen', () => {
     await waitFor(() => {
       expect(getByTestId('stats-month-calendar')).toBeTruthy();
     });
+    const monthCalendarRootStyle = StyleSheet.flatten(
+      getByTestId('stats-month-calendar').props.style,
+    );
+    const monthCalendarGridStyle = StyleSheet.flatten(
+      getByTestId('month-calendar-grid').props.style,
+    );
+    const monthDayStyle = StyleSheet.flatten(
+      getByTestId('month-day-2026-04-05-single').props.style,
+    );
+    const calendarWeekdayTextStyle = StyleSheet.flatten(
+      getByTestId('month-weekday-日').props.style,
+    );
+    const studiedMonthDayTextStyle = StyleSheet.flatten(
+      getByTestId('month-day-2026-04-05-text').props.style,
+    );
+    const futureMonthDayTextStyle = StyleSheet.flatten(
+      getByTestId('month-day-2026-04-30-text').props.style,
+    );
+    expect(monthCalendarRootStyle.width).toBe('100%');
+    expect(monthCalendarGridStyle.width).toBe('100%');
+    expect(monthDayStyle.flex).toBe(1);
+    expect(monthDayStyle.width).toBeUndefined();
+    expect(calendarWeekdayTextStyle.fontFamily).toBe('HiraginoSans-W6');
+    expect(calendarWeekdayTextStyle.color).toBe('#333333');
+    expect(studiedMonthDayTextStyle.fontFamily).toBe('HiraginoSans-W6');
+    expect(studiedMonthDayTextStyle.color).toBe('#5367FF');
+    expect(futureMonthDayTextStyle.color).toBe('#CFCFCF');
     expect(getByTestId('month-day-2026-04-05-single')).toBeTruthy();
     expect(getByTestId('month-day-2026-04-08-streak')).toBeTruthy();
     expect(getByTestId('month-day-2026-04-09-streak')).toBeTruthy();
@@ -1092,6 +1194,9 @@ describe('StatsScreen', () => {
     await waitFor(() => {
       expect(getByTestId('stats-output-history-empty')).toBeTruthy();
     });
-    expect(getByTestId('stats-session-badge').props.children.props.children).toEqual(['×', 0]);
+    const sessionBadgeRow = getByTestId('stats-session-badge').props.children;
+    const sessionBadgeChildren = sessionBadgeRow.props.children;
+    expect(sessionBadgeChildren[0].props.children.props.children).toBe('×');
+    expect(sessionBadgeChildren[1].props.children).toBe(0);
   });
 });

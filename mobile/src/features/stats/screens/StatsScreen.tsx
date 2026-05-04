@@ -8,7 +8,7 @@
  * 未認証 / 匿名ユーザーはこの画面のデータを取得できないため、`/(auth)/sign-in` に誘導する。
  * サインイン成功後に戻ってこられるよう `returnTo` を渡している。
  */
-import { Redirect } from 'expo-router';
+import { type Href, Redirect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -32,9 +32,10 @@ import { G, Line, Path, Rect, Svg, Text as SvgText } from 'react-native-svg';
 import { Button, Paragraph, SizableText, Spinner } from 'tamagui';
 
 import {
-  WEEK_DATE_STRIP_ARROW_BUTTON_WIDTH,
   WEEK_DATE_STRIP_DAY_CELL_MAX_WIDTH,
   WEEK_DATE_STRIP_HORIZONTAL_INSET,
+  WEEK_DATE_STRIP_HORIZONTAL_OUTSET,
+  WEEK_DATE_STRIP_LAYOUT_GUTTER_WIDTH,
   WeekDateStrip,
 } from '@/features/stats/components/WeekDateStrip';
 import { fetchWeeklyReport, updateOutputSubject } from '@/features/stats/api/statsApi';
@@ -55,6 +56,7 @@ import type {
   WeeklyReportResponse,
 } from '@/features/stats/types';
 import { AnnotatedOutputText } from '@/features/session/components/AnnotatedOutputText';
+import { SessionSettingsButton } from '@/features/session/components/SessionPhaseChrome';
 import type { OutputReviewItem } from '@/features/session/types';
 import { isApiError } from '@/shared/lib/api';
 import { useAuthStore } from '@/shared/stores/authStore';
@@ -72,6 +74,8 @@ const VOICE_MODE_ICON_BLACK = require('../../../../assets/images/icons/icon_mic_
 const VOICE_MODE_ICON_GRAY = require('../../../../assets/images/icons/icon_mic_gray.png');
 const COLOR_PICKER_CHECK_ICON = require('../../../../assets/images/icons/check.png');
 
+const SETTINGS_ROUTE = '/(tabs)/settings' as unknown as Href;
+const STATS_SETTINGS_BUTTON_RIGHT = 34;
 const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'] as const;
 const TOKYO_TIME_ZONE = 'Asia/Tokyo';
 const HISTORY_VISIBLE_ITEM_LIMIT = 3;
@@ -152,6 +156,7 @@ type WeeklyBarSegment = {
 const MONTH_DAY_SLOT_HEIGHT = 38;
 const MONTH_DAY_ROW_GAP = 2;
 const MONTH_CALENDAR_ARROW_HEIGHT = 58;
+const MONTH_CALENDAR_ARROW_OUTSET = 22;
 const WEEKLY_CHART_HEIGHT = 330;
 const WEEKLY_CHART_AXIS_Y = 288;
 const FIXED_HEADER_HORIZONTAL_PADDING = 24;
@@ -181,7 +186,12 @@ const WEEKLY_CHART_TOP_OVERFLOW = WEEKLY_CHART_TO_BOUNDARY_EXTENSION + 16;
 const WEEKLY_CHART_PLOT_HEIGHT = WEEKLY_CHART_AXIS_Y - WEEKLY_CHART_PLOT_TOP;
 const WEEKLY_HISTORY_UP_OFFSET = -32;
 const DAILY_HIGHLIGHT_CARD_HEIGHT_REDUCTION = -WEEKLY_HISTORY_UP_OFFSET;
+const DAILY_HIGHLIGHT_CARD_EXTRA_HEIGHT = 8;
+const DAILY_HIGHLIGHT_CARD_EXTRA_WIDTH = 4;
+const DAILY_HIGHLIGHT_CARD_TRANSLATE_Y = 4;
 const DAILY_HIGHLIGHT_METRICS_TRANSLATE_X = 16;
+const DAILY_HIGHLIGHT_TITLE_TRANSLATE_X = 4;
+const DAILY_HIGHLIGHT_TITLE_ROW_TRANSLATE_Y = 8;
 
 function CalendarMonthIcon() {
   return <Image source={CALENDAR_MONTH_ICON} style={styles.calendarToggleIcon} />;
@@ -677,14 +687,27 @@ function HighlightCard({
       testID="stats-highlight-card"
     >
       <View pointerEvents="none" style={styles.sessionBadge} testID="stats-session-badge">
-        <SizableText style={styles.sessionBadgeText}>×{summary.total_sessions}</SizableText>
+        <View style={styles.sessionBadgeTextRow}>
+          <View style={styles.sessionBadgeXOffset}>
+            <Text style={[styles.sessionBadgeText, styles.sessionBadgeXText]}>×</Text>
+          </View>
+          <SizableText style={[styles.sessionBadgeText, styles.sessionBadgeNumberText]}>
+            {summary.total_sessions}
+          </SizableText>
+        </View>
       </View>
       <View style={styles.highlightContent}>
         <SizableText style={styles.highlightCaption}>勉強時間合計</SizableText>
         <View style={styles.totalTimeRow}>
-          <SizableText style={styles.totalTimeNumber}>{total.hours}</SizableText>
-          <SizableText style={styles.totalTimeUnit}>時間</SizableText>
-          <SizableText style={styles.totalTimeNumber}>{total.minutes}</SizableText>
+          <SizableText style={[styles.totalTimeNumber, styles.totalTimeHoursSegment]}>
+            {total.hours}
+          </SizableText>
+          <SizableText style={[styles.totalTimeUnit, styles.totalTimeHoursSegment]}>
+            時間
+          </SizableText>
+          <SizableText style={[styles.totalTimeNumber, styles.totalTimeMinutesNumber]}>
+            {total.minutes}
+          </SizableText>
           <SizableText style={styles.totalTimeUnit}>分</SizableText>
         </View>
 
@@ -746,7 +769,9 @@ function MonthlyCalendar({
       <View style={styles.calendarWeekdayRow}>
         {WEEKDAY_LABELS.map((weekday) => (
           <View key={weekday} style={styles.calendarWeekdayCell}>
-            <SizableText style={styles.calendarWeekdayText}>{weekday}</SizableText>
+            <SizableText style={styles.calendarWeekdayText} testID={`month-weekday-${weekday}`}>
+              {weekday}
+            </SizableText>
           </View>
         ))}
       </View>
@@ -763,7 +788,7 @@ function MonthlyCalendar({
         >
           <ArrowIcon direction="left" />
         </Pressable>
-        <View style={styles.monthCalendarGrid}>
+        <View style={styles.monthCalendarGrid} testID="month-calendar-grid">
           {rows.map((row, rowIndex) => (
             <View key={`month-week-${rowIndex}`} style={styles.calendarWeekRow}>
               {row.map((dateKey, dayIndex) => {
@@ -816,6 +841,7 @@ function MonthlyCalendar({
                           isFuture && !isStudied ? styles.monthDayMutedText : null,
                           isStudied ? styles.monthDayStudiedText : null,
                         ]}
+                        testID={`month-day-${dateKey}-text`}
                       >
                         {getDateNumberLabel(dateKey)}
                       </SizableText>
@@ -901,9 +927,12 @@ function WeeklyBarChart({
   barSegmentsByDateKey?: Readonly<Record<string, readonly WeeklyBarSegment[]>>;
 }) {
   const { width } = useWindowDimensions();
-  const chartWidth = Math.max(0, width - WEEK_DATE_STRIP_HORIZONTAL_INSET * 2);
-  const plotLeft = WEEK_DATE_STRIP_ARROW_BUTTON_WIDTH;
-  const plotWidth = Math.max(0, chartWidth - WEEK_DATE_STRIP_ARROW_BUTTON_WIDTH * 2);
+  const chartWidth = Math.max(
+    0,
+    width - WEEK_DATE_STRIP_HORIZONTAL_INSET * 2 + WEEK_DATE_STRIP_HORIZONTAL_OUTSET * 2,
+  );
+  const plotLeft = WEEK_DATE_STRIP_LAYOUT_GUTTER_WIDTH;
+  const plotWidth = Math.max(0, chartWidth - WEEK_DATE_STRIP_LAYOUT_GUTTER_WIDTH * 2);
   const axisY = WEEKLY_CHART_AXIS_Y;
   const chartSvgHeight = WEEKLY_CHART_HEIGHT + WEEKLY_CHART_TOP_OVERFLOW;
   const toSvgY = (y: number) => y + WEEKLY_CHART_TOP_OVERFLOW;
@@ -1585,6 +1614,7 @@ function OutputHistory({
           ) : (
             group.items.slice(0, HISTORY_VISIBLE_ITEM_LIMIT).map((item, index, visibleItems) => {
               const timeRange = getHistoryTimeRangeParts(item);
+              const timeRangeLabel = `${timeRange.start} - ${timeRange.end}`;
               return (
                 <Pressable
                   key={item.output.id}
@@ -1597,15 +1627,14 @@ function OutputHistory({
                   testID={`stats-output-history-item-${item.output.id}`}
                 >
                   <View style={styles.historyTimeRange}>
-                    <SizableText style={styles.historyTimePart} numberOfLines={1}>
-                      {timeRange.start}
-                    </SizableText>
-                    <SizableText style={styles.historyTimeSeparator} numberOfLines={1}>
-                      -
-                    </SizableText>
-                    <SizableText style={styles.historyTimePart} numberOfLines={1}>
-                      {timeRange.end}
-                    </SizableText>
+                    <Text
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.82}
+                      numberOfLines={1}
+                      style={styles.historyTimeText}
+                    >
+                      {timeRangeLabel}
+                    </Text>
                   </View>
                   <SizableText style={styles.historyCycleText} numberOfLines={1}>
                     サイクル{item.cycle_index}
@@ -1632,6 +1661,7 @@ function ErrorBody({ message, onRetry }: { message: string; onRetry: () => void 
 }
 
 export function StatsScreen() {
+  const router = useRouter();
   const uid = useAuthStore((s) => s.uid);
   const isAnonymous = useAuthStore((s) => s.isAnonymous);
   const queryClient = useQueryClient();
@@ -1682,9 +1712,24 @@ export function StatsScreen() {
   });
   const dailyReportQuery = useDailyReport(selectedDateKey);
   const weeklyReportQuery = useWeeklyReport(weekStart, {
-    enabled: reportViewMode === 'weekly',
+    enabled: reportViewMode !== 'monthly',
   });
   const monthlyReports = useMonthlyWeeklyReports(calendarMonthStart, reportViewMode === 'monthly');
+  const calendarStudiedDateKeys = useMemo(() => {
+    const dateKeys = new Set<string>();
+
+    weeklyReportQuery.data?.points.forEach((point) => {
+      if (point.study_minutes > 0) {
+        dateKeys.add(point.bucket);
+      }
+    });
+
+    if (dailyReportQuery.data && dailyReportQuery.data.summary.total_study_minutes > 0) {
+      dateKeys.add(dailyReportQuery.data.date);
+    }
+
+    return Array.from(dateKeys);
+  }, [dailyReportQuery.data, weeklyReportQuery.data]);
   const loadedHistoryItems = useMemo(
     () => [
       ...(dailyReportQuery.data?.output_history ?? []),
@@ -1719,8 +1764,8 @@ export function StatsScreen() {
 
     const height = Math.max(0, highlightCardSize.height - DAILY_HIGHLIGHT_CARD_HEIGHT_REDUCTION);
     return {
-      width: height * HIGHLIGHT_CARD_ASPECT_RATIO,
-      height,
+      width: height * HIGHLIGHT_CARD_ASPECT_RATIO + DAILY_HIGHLIGHT_CARD_EXTRA_WIDTH,
+      height: height + DAILY_HIGHLIGHT_CARD_EXTRA_HEIGHT,
     };
   }, [highlightCardSize.height]);
   const dailyHighlightViewFrameStyle = useMemo<StyleProp<ViewStyle>>(() => {
@@ -1848,6 +1893,13 @@ export function StatsScreen() {
     selectedHistoryItem === null
       ? null
       : (selectedSubjectByOutputId[selectedHistoryItem.output.id] ?? null);
+  const settingsButton = (
+    <SessionSettingsButton
+      onPress={() => router.push(SETTINGS_ROUTE)}
+      testID="stats-settings-button"
+      rowStyle={styles.settingsButtonRow}
+    />
+  );
 
   const monthlyBody = (() => {
     if (monthlyReports.isPending) {
@@ -1967,33 +2019,38 @@ export function StatsScreen() {
     return (
       <SafeAreaView style={styles.safeArea} testID="stats-root">
         <StatusBar style="dark" />
-        <ScrollView
-          style={styles.monthlyScrollArea}
-          contentContainerStyle={styles.monthlyContent}
-          showsVerticalScrollIndicator={false}
-          testID="stats-monthly-content"
-        >
-          <View style={styles.monthRow}>
-            <SizableText style={styles.monthText}>{getMonthLabel(calendarMonthStart)}</SizableText>
-            <Pressable
-              accessibilityRole="button"
-              hitSlop={10}
-              onPress={handleCloseMonthlyCalendar}
-              style={styles.calendarButton}
-              testID="stats-calendar-toggle"
-            >
-              <CalendarMonthIcon />
-            </Pressable>
-          </View>
-          {monthlyBody}
-        </ScrollView>
-        <HistoryDetailSheet
-          item={selectedHistoryItem}
-          onClose={handleCloseHistorySheet}
-          subjectOptions={subjectOptions}
-          selectedSubject={selectedHistorySubject}
-          onSelectSubject={handleSelectHistorySubject}
-        />
+        <View style={styles.container}>
+          <ScrollView
+            style={styles.monthlyScrollArea}
+            contentContainerStyle={styles.monthlyContent}
+            showsVerticalScrollIndicator={false}
+            testID="stats-monthly-content"
+          >
+            <View style={styles.monthRow}>
+              <SizableText style={styles.monthText}>
+                {getMonthLabel(calendarMonthStart)}
+              </SizableText>
+              <Pressable
+                accessibilityRole="button"
+                hitSlop={10}
+                onPress={handleCloseMonthlyCalendar}
+                style={styles.calendarButton}
+                testID="stats-calendar-toggle"
+              >
+                <CalendarMonthIcon />
+              </Pressable>
+            </View>
+            {monthlyBody}
+          </ScrollView>
+          {settingsButton}
+          <HistoryDetailSheet
+            item={selectedHistoryItem}
+            onClose={handleCloseHistorySheet}
+            subjectOptions={subjectOptions}
+            selectedSubject={selectedHistorySubject}
+            onSelectSubject={handleSelectHistorySubject}
+          />
+        </View>
       </SafeAreaView>
     );
   }
@@ -2002,7 +2059,85 @@ export function StatsScreen() {
     return (
       <SafeAreaView style={styles.safeArea} testID="stats-root">
         <StatusBar style="dark" />
-        <View style={[styles.fixedHeader, styles.weeklyFixedHeader]}>
+        <View style={styles.container}>
+          <View style={[styles.fixedHeader, styles.weeklyFixedHeader]}>
+            <View style={styles.monthRow}>
+              <SizableText style={styles.monthText}>{getMonthLabel(weekStart)}</SizableText>
+              <Pressable
+                accessibilityRole="button"
+                hitSlop={10}
+                onPress={handleOpenMonthlyCalendar}
+                style={styles.calendarButton}
+                testID="stats-calendar-toggle"
+              >
+                <CalendarDateIcon />
+              </Pressable>
+            </View>
+            <View style={styles.dailyWeeklyCalendarStrip}>
+              <WeekDateStrip
+                weekStart={weekStart}
+                onWeekChange={handleWeekChange}
+                selectedDateKey={selectedDateKey}
+                onSelectDate={handleSelectDate}
+                studiedDateKeys={calendarStudiedDateKeys}
+              />
+            </View>
+            <View style={styles.weeklyCalendarGraphBoundaryWrap}>
+              <View
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                pointerEvents="none"
+              >
+                <View style={[styles.highlightTitleRow, styles.hiddenHighlightTitleRow]} />
+              </View>
+              <View
+                pointerEvents="none"
+                style={[styles.scrollBoundary, styles.weeklyCalendarGraphBoundary]}
+                testID="stats-weekly-calendar-graph-boundary"
+              />
+            </View>
+            {weeklyReportQuery.data ? (
+              <View style={weeklyChartSlotStyle}>
+                <WeeklyBarChart
+                  points={weeklyReportQuery.data.points}
+                  barSegmentsByDateKey={weeklyBarSegmentsByDateKey}
+                />
+              </View>
+            ) : (
+              <View
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                pointerEvents="none"
+                style={weeklyChartSlotStyle}
+              />
+            )}
+          </View>
+          {settingsButton}
+          <ScrollView
+            style={styles.scrollArea}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            testID="stats-weekly-content"
+          >
+            {weeklyBody}
+          </ScrollView>
+          <HistoryDetailSheet
+            item={selectedHistoryItem}
+            onClose={handleCloseHistorySheet}
+            subjectOptions={subjectOptions}
+            selectedSubject={selectedHistorySubject}
+            onSelectSubject={handleSelectHistorySubject}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.safeArea} testID="stats-root">
+      <StatusBar style="dark" />
+      <View style={styles.container}>
+        <View style={styles.fixedHeader}>
           <View style={styles.monthRow}>
             <SizableText style={styles.monthText}>{getMonthLabel(weekStart)}</SizableText>
             <Pressable
@@ -2015,50 +2150,47 @@ export function StatsScreen() {
               <CalendarDateIcon />
             </Pressable>
           </View>
-          <WeekDateStrip
-            weekStart={weekStart}
-            onWeekChange={handleWeekChange}
-            selectedDateKey={selectedDateKey}
-            onSelectDate={handleSelectDate}
-          />
-          <View style={styles.weeklyCalendarGraphBoundaryWrap}>
-            <View
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants"
-              pointerEvents="none"
-            >
-              <View style={[styles.highlightTitleRow, styles.hiddenHighlightTitleRow]} />
-            </View>
-            <View
-              pointerEvents="none"
-              style={[styles.scrollBoundary, styles.weeklyCalendarGraphBoundary]}
-              testID="stats-weekly-calendar-graph-boundary"
+          <View style={styles.dailyWeeklyCalendarStrip}>
+            <WeekDateStrip
+              weekStart={weekStart}
+              onWeekChange={handleWeekChange}
+              selectedDateKey={selectedDateKey}
+              onSelectDate={handleSelectDate}
+              studiedDateKeys={calendarStudiedDateKeys}
             />
           </View>
-          {weeklyReportQuery.data ? (
-            <View style={weeklyChartSlotStyle}>
-              <WeeklyBarChart
-                points={weeklyReportQuery.data.points}
-                barSegmentsByDateKey={weeklyBarSegmentsByDateKey}
-              />
-            </View>
-          ) : (
-            <View
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants"
-              pointerEvents="none"
-              style={weeklyChartSlotStyle}
+          <View
+            style={[
+              styles.highlightTitleRow,
+              styles.dailyHighlightTitleRow,
+              dailyHighlightViewFrameStyle,
+            ]}
+            testID="stats-highlight-title-row"
+          >
+            <SizableText style={[styles.highlightTitle, styles.dailyHighlightTitle]}>
+              {highlightTitle}
+            </SizableText>
+            <ShareIconButton />
+          </View>
+          {dailyReportQuery.data ? (
+            <HighlightCard
+              summary={dailyReportQuery.data.summary}
+              style={[dailyHighlightCardStyle, styles.dailyHighlightCardOffset]}
             />
+          ) : (
+            <HighlightPlaceholder style={dailyHighlightCardStyle} />
           )}
         </View>
+        <View style={styles.scrollBoundary} />
         <ScrollView
           style={styles.scrollArea}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
-          testID="stats-weekly-content"
+          testID="stats-scroll-content"
         >
-          {weeklyBody}
+          {dailyBody}
         </ScrollView>
+        {settingsButton}
         <HistoryDetailSheet
           item={selectedHistoryItem}
           onClose={handleCloseHistorySheet}
@@ -2066,60 +2198,7 @@ export function StatsScreen() {
           selectedSubject={selectedHistorySubject}
           onSelectSubject={handleSelectHistorySubject}
         />
-      </SafeAreaView>
-    );
-  }
-
-  return (
-    <SafeAreaView style={styles.safeArea} testID="stats-root">
-      <StatusBar style="dark" />
-      <View style={styles.fixedHeader}>
-        <View style={styles.monthRow}>
-          <SizableText style={styles.monthText}>{getMonthLabel(weekStart)}</SizableText>
-          <Pressable
-            accessibilityRole="button"
-            hitSlop={10}
-            onPress={handleOpenMonthlyCalendar}
-            style={styles.calendarButton}
-            testID="stats-calendar-toggle"
-          >
-            <CalendarDateIcon />
-          </Pressable>
-        </View>
-        <WeekDateStrip
-          weekStart={weekStart}
-          onWeekChange={handleWeekChange}
-          selectedDateKey={selectedDateKey}
-          onSelectDate={handleSelectDate}
-        />
-        <View style={[styles.highlightTitleRow, dailyHighlightViewFrameStyle]}>
-          <SizableText style={[styles.highlightTitle, styles.dailyHighlightTitle]}>
-            {highlightTitle}
-          </SizableText>
-          <ShareIconButton />
-        </View>
-        {dailyReportQuery.data ? (
-          <HighlightCard summary={dailyReportQuery.data.summary} style={dailyHighlightCardStyle} />
-        ) : (
-          <HighlightPlaceholder style={dailyHighlightCardStyle} />
-        )}
       </View>
-      <View style={styles.scrollBoundary} />
-      <ScrollView
-        style={styles.scrollArea}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        testID="stats-scroll-content"
-      >
-        {dailyBody}
-      </ScrollView>
-      <HistoryDetailSheet
-        item={selectedHistoryItem}
-        onClose={handleCloseHistorySheet}
-        subjectOptions={subjectOptions}
-        selectedSubject={selectedHistorySubject}
-        onSelectSubject={handleSelectHistorySubject}
-      />
     </SafeAreaView>
   );
 }
@@ -2128,6 +2207,12 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  container: {
+    flex: 1,
+  },
+  settingsButtonRow: {
+    right: STATS_SETTINGS_BUTTON_RIGHT,
   },
   fixedHeader: {
     paddingHorizontal: FIXED_HEADER_HORIZONTAL_PADDING,
@@ -2142,26 +2227,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginLeft: 28,
+    marginLeft: 20,
     marginBottom: 2,
+    transform: [{ translateY: -7 }],
   },
   calendarButton: {
     width: 30,
     height: 30,
     alignItems: 'center',
     justifyContent: 'center',
+    transform: [{ translateX: -5 }, { translateY: -1 }],
   },
   calendarToggleIcon: {
-    width: 22,
-    height: 22,
+    width: 24,
+    height: 24,
     resizeMode: 'contain',
+  },
+  dailyWeeklyCalendarStrip: {
+    transform: [{ translateY: -4 }],
+    marginHorizontal: -9,
   },
   monthText: {
     color: '#333333',
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 26,
-    fontWeight: '800',
-    lineHeight: 32,
+    fontSize: 23,
+    fontWeight: '700',
+    lineHeight: 29,
   },
   weeklyCalendarGraphBoundaryWrap: {
     position: 'relative',
@@ -2182,36 +2273,40 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   monthCalendarRoot: {
-    alignItems: 'center',
+    width: '100%',
+    alignItems: 'stretch',
     marginTop: 18,
   },
   calendarWeekdayRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    width: '100%',
   },
   calendarWeekdayCell: {
-    width: 38,
+    flex: 1,
+    minWidth: 0,
     height: 26,
     alignItems: 'center',
     justifyContent: 'center',
   },
   calendarWeekdayText: {
     color: '#333333',
+    fontFamily: 'HiraginoSans-W6',
     fontSize: 15,
     fontWeight: '800',
     lineHeight: 20,
   },
   monthCalendarGridWrap: {
     position: 'relative',
-    alignSelf: 'center',
+    alignSelf: 'stretch',
+    width: '100%',
     marginTop: 10,
   },
   monthCalendarGrid: {
-    alignItems: 'center',
+    width: '100%',
   },
   calendarWeekRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    width: '100%',
   },
   monthCalendarArrow: {
     position: 'absolute',
@@ -2222,20 +2317,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   monthCalendarArrowLeft: {
-    left: -48,
+    left: -MONTH_CALENDAR_ARROW_OUTSET,
   },
   monthCalendarArrowRight: {
-    right: -48,
+    right: -MONTH_CALENDAR_ARROW_OUTSET,
   },
   monthDaySlot: {
-    width: 38,
+    flex: 1,
+    minWidth: 0,
     height: MONTH_DAY_SLOT_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: MONTH_DAY_ROW_GAP,
   },
   monthDayMarker: {
-    width: 38,
+    width: '100%',
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2261,6 +2357,7 @@ const styles = StyleSheet.create({
   },
   monthDayText: {
     color: '#333333',
+    fontFamily: 'HiraginoSans-W6',
     fontSize: 20,
     fontWeight: '700',
     lineHeight: 24,
@@ -2284,6 +2381,9 @@ const styles = StyleSheet.create({
   hiddenHighlightTitleRow: {
     height: 30,
   },
+  dailyHighlightTitleRow: {
+    transform: [{ translateY: DAILY_HIGHLIGHT_TITLE_ROW_TRANSLATE_Y }],
+  },
   highlightTitle: {
     color: '#333333',
     fontFamily: 'HiraginoSans-W6',
@@ -2293,7 +2393,12 @@ const styles = StyleSheet.create({
     paddingLeft: 9,
   },
   dailyHighlightTitle: {
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 17,
+    fontWeight: '700',
+    lineHeight: 23,
     paddingLeft: 0,
+    transform: [{ translateX: DAILY_HIGHLIGHT_TITLE_TRANSLATE_X }],
   },
   shareButton: {
     width: 30,
@@ -2323,6 +2428,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   highlightBackground: {},
+  dailyHighlightCardOffset: {
+    transform: [
+      { translateX: DAILY_HIGHLIGHT_CARD_EXTRA_WIDTH / 2 },
+      { translateY: DAILY_HIGHLIGHT_CARD_TRANSLATE_Y },
+    ],
+  },
   monthlyHighlightCard: {
     width: '96%',
     maxWidth: 330,
@@ -2388,7 +2499,7 @@ const styles = StyleSheet.create({
     color: '#333333',
     fontFamily: 'HiraginoSans-W6',
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '700',
     lineHeight: 20,
     textAlign: 'center',
   },
@@ -2398,20 +2509,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 5,
     marginTop: 8,
+    transform: [{ translateX: 2 }],
   },
   totalTimeNumber: {
     color: '#333333',
-    fontFamily: 'HiraginoSans-W6',
+    fontFamily: 'HiraginoSans-W7',
     fontSize: 36,
-    fontWeight: '900',
+    fontWeight: '700',
     lineHeight: 40,
+  },
+  totalTimeHoursSegment: {
+    transform: [{ translateX: 4 }],
+  },
+  totalTimeMinutesNumber: {
+    marginLeft: 8,
   },
   totalTimeUnit: {
     color: '#333333',
     fontFamily: 'HiraginoSans-W6',
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '700',
     lineHeight: 28,
+    marginLeft: 2,
   },
   highlightBody: {
     alignItems: 'center',
@@ -2437,9 +2556,29 @@ const styles = StyleSheet.create({
   },
   sessionBadgeText: {
     color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '800',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 16,
+    fontWeight: '600',
     lineHeight: 22,
+  },
+  sessionBadgeTextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 22,
+    transform: [{ translateY: -1 }],
+  },
+  sessionBadgeXOffset: {
+    position: 'relative',
+    left: -2,
+    top: 0,
+  },
+  sessionBadgeXText: {
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  sessionBadgeNumberText: {
+    transform: [{ translateX: -2 }],
   },
   metricLine: {
     gap: 2,
@@ -2459,6 +2598,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     marginLeft: -36,
+    transform: [{ translateY: -3 }],
   },
   metricConnector: {
     width: 54,
@@ -2481,6 +2621,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     lineHeight: 25,
+    transform: [{ translateY: 4 }],
   },
   breakPill: {
     alignSelf: 'flex-start',
@@ -2494,6 +2635,7 @@ const styles = StyleSheet.create({
   },
   lowerBreakPill: {
     marginTop: 4,
+    transform: [{ translateY: -10 }],
   },
   breakPillText: {
     color: '#999999',
@@ -3033,24 +3175,17 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    minWidth: 0,
   },
-  historyTimePart: {
-    width: 46,
+  historyTimeText: {
+    flexShrink: 1,
     color: '#111111',
     fontFamily: 'HiraginoSans-W6',
     fontSize: 14,
     fontWeight: '800',
     lineHeight: 18,
     fontVariant: ['tabular-nums'],
-  },
-  historyTimeSeparator: {
-    width: 14,
-    color: '#111111',
-    fontFamily: 'HiraginoSans-W6',
-    fontSize: 14,
-    fontWeight: '800',
-    lineHeight: 18,
-    textAlign: 'center',
+    includeFontPadding: false,
   },
   historyCycleText: {
     flexShrink: 0,

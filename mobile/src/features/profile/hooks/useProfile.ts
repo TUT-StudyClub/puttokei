@@ -1,6 +1,6 @@
 /**
  * 現在のユーザのプロフィールを取得する hook。
- * 未認証時（idToken が無い）は fetch しない。
+ * 未認証 / 匿名認証時は fetch しない。
  */
 import { useQuery } from '@tanstack/react-query';
 
@@ -12,10 +12,11 @@ export const PROFILE_QUERY_KEY = ['profile', 'me'] as const;
 
 export function useProfile() {
   const idToken = useAuthStore((s) => s.idToken);
+  const isAnonymous = useAuthStore((s) => s.isAnonymous);
   return useQuery<UserProfile>({
     queryKey: PROFILE_QUERY_KEY,
     queryFn: fetchMyProfile,
-    enabled: idToken !== null,
+    enabled: idToken !== null && !isAnonymous,
     staleTime: 60 * 1000,
   });
 }
