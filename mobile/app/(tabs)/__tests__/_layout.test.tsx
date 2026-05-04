@@ -1,9 +1,15 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
+import type { ReactElement } from 'react';
+import { Image, StyleSheet } from 'react-native';
 
 import { useTimerStore, type TimerPhase } from '@/shared/stores/timerStore';
 
 import TabsLayout, { isReportTabNavigationBlocked, isTimerTabIconHighlighted } from '../_layout';
+
+const TIMER_ICON_BLUE = require('../../../assets/images/icons/icon_timer_blue.png');
+const TIMER_ICON_GRAY = require('../../../assets/images/icons/icon_timer_gray.png');
+const REPORT_ICON_BLUE = require('../../../assets/images/icons/icon_report_blue.png');
+const REPORT_ICON_GRAY = require('../../../assets/images/icons/icon_report_gray.png');
 
 type TabPressEvent = {
   preventDefault: jest.Mock;
@@ -12,8 +18,8 @@ type TabPressEvent = {
 type MockScreenProps = {
   name?: string;
   options?: {
-    tabBarLabel?: (props: { color: string }) => unknown;
-    tabBarIcon?: (props: { color: string }) => unknown;
+    tabBarLabel?: (props: { color: string; focused: boolean }) => unknown;
+    tabBarIcon?: (props: { color: string; focused: boolean }) => unknown;
   };
   listeners?: {
     tabPress?: (event: TabPressEvent) => void;
@@ -57,6 +63,23 @@ function renderTimerTabScreen() {
     throw new Error('timer tab is not registered');
   }
   return { ...result, timerTab };
+}
+
+function renderMainTabScreens() {
+  const result = render(<TabsLayout />);
+  const timerTab = mockTabScreens.find((screen) => screen.name === 'index');
+  const statsTab = mockTabScreens.find((screen) => screen.name === 'stats');
+  if (!timerTab || !statsTab) {
+    throw new Error('main tabs are not registered');
+  }
+  return { ...result, timerTab, statsTab };
+}
+
+function getRenderedImageProps(element: unknown) {
+  const { UNSAFE_getByType, unmount } = render(element as ReactElement);
+  const imageProps = UNSAFE_getByType(Image).props as { source?: unknown; style?: unknown };
+  unmount();
+  return imageProps;
 }
 
 describe('TabsLayout', () => {
@@ -143,15 +166,28 @@ describe('TabsLayout', () => {
   });
 
   it.each([
-    [['(tabs)'], true],
-    [['(tabs)', 'index'], true],
-    [['(tabs)', 'session', '[id]', 'input'], true],
-    [['(tabs)', 'session', '[id]', 'output'], true],
-    [['(tabs)', 'session', '[id]', 'break'], true],
-    [['(tabs)', 'session', '[id]', 'result'], false],
-    [['(tabs)', 'stats'], false],
-  ] as const)('isTimerTabIconHighlighted(%j) は %s を返す', (segments, expected) => {
-    expect(isTimerTabIconHighlighted(segments)).toBe(expected);
+    [['(tabs)'], true, true],
+    [['(tabs)'], false, false],
+    [['(tabs)', 'index'], true, true],
+    [['(tabs)', 'session', '[id]', 'input'], false, true],
+    [['(tabs)', 'session', '[id]', 'output'], false, true],
+    [['(tabs)', 'session', '[id]', 'break'], false, true],
+    [['(tabs)', 'session', '[id]', 'result'], false, false],
+    [['(tabs)', 'stats'], false, false],
+  ] as const)(
+    'isTimerTabIconHighlighted(%j, focused: %s) は %s を返す',
+    (segments, focused, expected) => {
+      expect(isTimerTabIconHighlighted(segments, focused)).toBe(expected);
+    },
+  );
+
+  it('タイマータブが非フォーカスなら segments が root でもタイマーアイコンをグレーにする', () => {
+    mockSegments = ['(tabs)'];
+    const { timerTab } = renderTimerTabScreen();
+
+    const timerIcon = timerTab.options?.tabBarIcon?.({ color: '#9CA3AF', focused: false });
+
+    expect(getRenderedImageProps(timerIcon).source).toBe(TIMER_ICON_GRAY);
   });
 
   it.each([
@@ -162,20 +198,46 @@ describe('TabsLayout', () => {
   ] as const)('%s画面ではタイマーアイコンとラベルを青にする', (_screen, segments) => {
     mockSegments = [...segments];
     const { timerTab } = renderTimerTabScreen();
+    const isHomeScreen = segments.length === 1;
 
-    const icon = timerTab.options?.tabBarIcon?.({ color: '#9CA3AF' });
-    const label = timerTab.options?.tabBarLabel?.({ color: '#9CA3AF' });
+    const icon = timerTab.options?.tabBarIcon?.({ color: '#9CA3AF', focused: isHomeScreen });
+    const label = timerTab.options?.tabBarLabel?.({ color: '#9CA3AF', focused: isHomeScreen });
+    const iconProps = getRenderedImageProps(icon);
+    const iconStyle = StyleSheet.flatten(iconProps.style);
 
-    expect((icon as { props?: { color?: string } }).props?.color).toBe('#4B5CFF');
+    expect(iconProps.source).toBe(TIMER_ICON_BLUE);
+    expect(iconStyle).toMatchObject({ width: 39, height: 39 });
     expect((label as { props?: { style?: { color?: string } } }).props?.style?.color).toBe(
       '#4B5CFF',
     );
   });
 
+  it('タイマー画面ではタイマーアイコンを青、レポートアイコンをグレーにする', () => {
+    mockSegments = ['(tabs)', 'index'];
+    const { timerTab, statsTab } = renderMainTabScreens();
+
+    const timerIcon = timerTab.options?.tabBarIcon?.({ color: '#9CA3AF', focused: true });
+    const reportIcon = statsTab.options?.tabBarIcon?.({ color: '#9CA3AF', focused: false });
+
+    expect(getRenderedImageProps(timerIcon).source).toBe(TIMER_ICON_BLUE);
+    expect(getRenderedImageProps(reportIcon).source).toBe(REPORT_ICON_GRAY);
+  });
+
+  it('レポート画面ではタイマーアイコンをグレー、レポートアイコンを青にする', () => {
+    mockSegments = ['(tabs)', 'stats'];
+    const { timerTab, statsTab } = renderMainTabScreens();
+
+    const timerIcon = timerTab.options?.tabBarIcon?.({ color: '#9CA3AF', focused: false });
+    const reportIcon = statsTab.options?.tabBarIcon?.({ color: '#4B5CFF', focused: true });
+
+    expect(getRenderedImageProps(timerIcon).source).toBe(TIMER_ICON_GRAY);
+    expect(getRenderedImageProps(reportIcon).source).toBe(REPORT_ICON_BLUE);
+  });
+
   it('レポートタブの文字色はナビゲーションから渡された色を使う', () => {
     const { statsTab } = renderStatsTabScreen();
 
-    const label = statsTab.options?.tabBarLabel?.({ color: '#4B5CFF' });
+    const label = statsTab.options?.tabBarLabel?.({ color: '#4B5CFF', focused: true });
     const labelStyle = StyleSheet.flatten((label as { props?: { style?: unknown } }).props?.style);
 
     expect(labelStyle).toMatchObject({
