@@ -191,6 +191,9 @@ describe('StatsScreen', () => {
           updated_at: '2026-05-03T12:00:00Z',
         }),
     );
+    (statsApi.fetchWeeklyReport as jest.Mock).mockImplementation((weekStart: string) =>
+      Promise.resolve(makeWeeklyResponseForDates(weekStart, {})),
+    );
     act(() => {
       useAuthStore.setState({ uid: 'u-1', idToken: 'token-1', isAnonymous: false });
     });
@@ -764,6 +767,28 @@ describe('StatsScreen', () => {
     await waitFor(() => {
       expect(statsApi.fetchDailyReport).toHaveBeenCalledWith('2026-05-06');
     });
+  });
+
+  it('画面上部カレンダーで学習済み日を薄い青にする', async () => {
+    (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(makeDailyResponse());
+    (statsApi.fetchWeeklyReport as jest.Mock).mockImplementation((weekStart: string) =>
+      Promise.resolve(makeWeeklyResponseForDates(weekStart, { '2026-04-28': 30 })),
+    );
+
+    const { getByTestId } = renderWithProviders(<StatsScreen />);
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(statsApi.fetchWeeklyReport).toHaveBeenCalledWith('2026-04-26');
+    });
+    await waitFor(() => {
+      expect(getByTestId('week-date-2026-04-28-studied-background')).toBeTruthy();
+    });
+
+    const studiedBackgroundStyle = StyleSheet.flatten(
+      getByTestId('week-date-2026-04-28-studied-background').props.style,
+    );
+    expect(studiedBackgroundStyle.backgroundColor).toBe('#DBE3FF');
   });
 
   it('カレンダーアイコン押下で月間カレンダーと今月のハイライトを表示する', async () => {

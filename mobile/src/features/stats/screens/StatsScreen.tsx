@@ -1682,9 +1682,24 @@ export function StatsScreen() {
   });
   const dailyReportQuery = useDailyReport(selectedDateKey);
   const weeklyReportQuery = useWeeklyReport(weekStart, {
-    enabled: reportViewMode === 'weekly',
+    enabled: reportViewMode !== 'monthly',
   });
   const monthlyReports = useMonthlyWeeklyReports(calendarMonthStart, reportViewMode === 'monthly');
+  const calendarStudiedDateKeys = useMemo(() => {
+    const dateKeys = new Set<string>();
+
+    weeklyReportQuery.data?.points.forEach((point) => {
+      if (point.study_minutes > 0) {
+        dateKeys.add(point.bucket);
+      }
+    });
+
+    if (dailyReportQuery.data && dailyReportQuery.data.summary.total_study_minutes > 0) {
+      dateKeys.add(dailyReportQuery.data.date);
+    }
+
+    return Array.from(dateKeys);
+  }, [dailyReportQuery.data, weeklyReportQuery.data]);
   const loadedHistoryItems = useMemo(
     () => [
       ...(dailyReportQuery.data?.output_history ?? []),
@@ -2015,12 +2030,15 @@ export function StatsScreen() {
               <CalendarDateIcon />
             </Pressable>
           </View>
-          <WeekDateStrip
-            weekStart={weekStart}
-            onWeekChange={handleWeekChange}
-            selectedDateKey={selectedDateKey}
-            onSelectDate={handleSelectDate}
-          />
+          <View style={styles.dailyWeeklyCalendarStrip}>
+            <WeekDateStrip
+              weekStart={weekStart}
+              onWeekChange={handleWeekChange}
+              selectedDateKey={selectedDateKey}
+              onSelectDate={handleSelectDate}
+              studiedDateKeys={calendarStudiedDateKeys}
+            />
+          </View>
           <View style={styles.weeklyCalendarGraphBoundaryWrap}>
             <View
               accessibilityElementsHidden
@@ -2086,12 +2104,15 @@ export function StatsScreen() {
             <CalendarDateIcon />
           </Pressable>
         </View>
-        <WeekDateStrip
-          weekStart={weekStart}
-          onWeekChange={handleWeekChange}
-          selectedDateKey={selectedDateKey}
-          onSelectDate={handleSelectDate}
-        />
+        <View style={styles.dailyWeeklyCalendarStrip}>
+          <WeekDateStrip
+            weekStart={weekStart}
+            onWeekChange={handleWeekChange}
+            selectedDateKey={selectedDateKey}
+            onSelectDate={handleSelectDate}
+            studiedDateKeys={calendarStudiedDateKeys}
+          />
+        </View>
         <View style={[styles.highlightTitleRow, dailyHighlightViewFrameStyle]}>
           <SizableText style={[styles.highlightTitle, styles.dailyHighlightTitle]}>
             {highlightTitle}
@@ -2157,6 +2178,10 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     resizeMode: 'contain',
+  },
+  dailyWeeklyCalendarStrip: {
+    transform: [{ translateY: -4 }],
+    marginHorizontal: -FIXED_HEADER_HORIZONTAL_PADDING / 2,
   },
   monthText: {
     color: '#333333',

@@ -41,4 +41,33 @@ describe('WeekDateStrip', () => {
     expect(scrollerStyle.width).toBe(281);
     expect(selectedDayStyle.width).toBeCloseTo(281 / 7);
   });
+
+  it('選択日を中央に表示し、未学習の選択日は枠だけ、学習済み日は指定色で表示する', () => {
+    const { getByTestId } = renderWithProvider(
+      <WeekDateStrip
+        weekStart="2026-05-10"
+        onWeekChange={jest.fn()}
+        selectedDateKey="2026-05-13"
+        studiedDateKeys={['2026-05-12']}
+        onSelectDate={jest.fn()}
+      />,
+    );
+
+    const currentPageChildren = getByTestId('week-date-page-2026-05-13').props.children;
+    const selectedBackgroundStyle = StyleSheet.flatten(
+      getByTestId('week-date-2026-05-13-selected-background').props.style,
+    );
+    const studiedBackgroundStyle = StyleSheet.flatten(
+      getByTestId('week-date-2026-05-12-studied-background').props.style,
+    );
+
+    expect(currentPageChildren[3].props.testID).toBe('week-date-2026-05-13');
+    expect(currentPageChildren).toHaveLength(7);
+    expect(selectedBackgroundStyle.left).toBe(-3);
+    expect(selectedBackgroundStyle.right).toBe(-3);
+    expect(selectedBackgroundStyle.backgroundColor).toBeUndefined();
+    expect(selectedBackgroundStyle.borderColor).toBe('#475FFF');
+    expect(selectedBackgroundStyle.borderWidth).toBe(3);
+    expect(studiedBackgroundStyle.backgroundColor).toBe('#DBE3FF');
+  });
 });
