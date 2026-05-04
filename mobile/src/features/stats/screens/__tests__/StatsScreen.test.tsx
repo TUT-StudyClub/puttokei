@@ -819,6 +819,33 @@ describe('StatsScreen', () => {
     await waitFor(() => {
       expect(getByTestId('stats-month-calendar')).toBeTruthy();
     });
+    const monthCalendarRootStyle = StyleSheet.flatten(
+      getByTestId('stats-month-calendar').props.style,
+    );
+    const monthCalendarGridStyle = StyleSheet.flatten(
+      getByTestId('month-calendar-grid').props.style,
+    );
+    const monthDayStyle = StyleSheet.flatten(
+      getByTestId('month-day-2026-04-05-single').props.style,
+    );
+    const calendarWeekdayTextStyle = StyleSheet.flatten(
+      getByTestId('month-weekday-日').props.style,
+    );
+    const studiedMonthDayTextStyle = StyleSheet.flatten(
+      getByTestId('month-day-2026-04-05-text').props.style,
+    );
+    const futureMonthDayTextStyle = StyleSheet.flatten(
+      getByTestId('month-day-2026-04-30-text').props.style,
+    );
+    expect(monthCalendarRootStyle.width).toBe('100%');
+    expect(monthCalendarGridStyle.width).toBe('100%');
+    expect(monthDayStyle.flex).toBe(1);
+    expect(monthDayStyle.width).toBeUndefined();
+    expect(calendarWeekdayTextStyle.fontFamily).toBe('HiraginoSans-W6');
+    expect(calendarWeekdayTextStyle.color).toBe('#333333');
+    expect(studiedMonthDayTextStyle.fontFamily).toBe('HiraginoSans-W6');
+    expect(studiedMonthDayTextStyle.color).toBe('#5367FF');
+    expect(futureMonthDayTextStyle.color).toBe('#CFCFCF');
     expect(getByTestId('month-day-2026-04-05-single')).toBeTruthy();
     expect(getByTestId('month-day-2026-04-08-streak')).toBeTruthy();
     expect(getByTestId('month-day-2026-04-09-streak')).toBeTruthy();

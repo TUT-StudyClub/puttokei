@@ -32,9 +32,10 @@ import { G, Line, Path, Rect, Svg, Text as SvgText } from 'react-native-svg';
 import { Button, Paragraph, SizableText, Spinner } from 'tamagui';
 
 import {
-  WEEK_DATE_STRIP_ARROW_BUTTON_WIDTH,
   WEEK_DATE_STRIP_DAY_CELL_MAX_WIDTH,
   WEEK_DATE_STRIP_HORIZONTAL_INSET,
+  WEEK_DATE_STRIP_HORIZONTAL_OUTSET,
+  WEEK_DATE_STRIP_LAYOUT_GUTTER_WIDTH,
   WeekDateStrip,
 } from '@/features/stats/components/WeekDateStrip';
 import { fetchWeeklyReport, updateOutputSubject } from '@/features/stats/api/statsApi';
@@ -152,6 +153,7 @@ type WeeklyBarSegment = {
 const MONTH_DAY_SLOT_HEIGHT = 38;
 const MONTH_DAY_ROW_GAP = 2;
 const MONTH_CALENDAR_ARROW_HEIGHT = 58;
+const MONTH_CALENDAR_ARROW_OUTSET = 22;
 const WEEKLY_CHART_HEIGHT = 330;
 const WEEKLY_CHART_AXIS_Y = 288;
 const FIXED_HEADER_HORIZONTAL_PADDING = 24;
@@ -746,7 +748,9 @@ function MonthlyCalendar({
       <View style={styles.calendarWeekdayRow}>
         {WEEKDAY_LABELS.map((weekday) => (
           <View key={weekday} style={styles.calendarWeekdayCell}>
-            <SizableText style={styles.calendarWeekdayText}>{weekday}</SizableText>
+            <SizableText style={styles.calendarWeekdayText} testID={`month-weekday-${weekday}`}>
+              {weekday}
+            </SizableText>
           </View>
         ))}
       </View>
@@ -763,7 +767,7 @@ function MonthlyCalendar({
         >
           <ArrowIcon direction="left" />
         </Pressable>
-        <View style={styles.monthCalendarGrid}>
+        <View style={styles.monthCalendarGrid} testID="month-calendar-grid">
           {rows.map((row, rowIndex) => (
             <View key={`month-week-${rowIndex}`} style={styles.calendarWeekRow}>
               {row.map((dateKey, dayIndex) => {
@@ -816,6 +820,7 @@ function MonthlyCalendar({
                           isFuture && !isStudied ? styles.monthDayMutedText : null,
                           isStudied ? styles.monthDayStudiedText : null,
                         ]}
+                        testID={`month-day-${dateKey}-text`}
                       >
                         {getDateNumberLabel(dateKey)}
                       </SizableText>
@@ -901,9 +906,12 @@ function WeeklyBarChart({
   barSegmentsByDateKey?: Readonly<Record<string, readonly WeeklyBarSegment[]>>;
 }) {
   const { width } = useWindowDimensions();
-  const chartWidth = Math.max(0, width - WEEK_DATE_STRIP_HORIZONTAL_INSET * 2);
-  const plotLeft = WEEK_DATE_STRIP_ARROW_BUTTON_WIDTH;
-  const plotWidth = Math.max(0, chartWidth - WEEK_DATE_STRIP_ARROW_BUTTON_WIDTH * 2);
+  const chartWidth = Math.max(
+    0,
+    width - WEEK_DATE_STRIP_HORIZONTAL_INSET * 2 + WEEK_DATE_STRIP_HORIZONTAL_OUTSET * 2,
+  );
+  const plotLeft = WEEK_DATE_STRIP_LAYOUT_GUTTER_WIDTH;
+  const plotWidth = Math.max(0, chartWidth - WEEK_DATE_STRIP_LAYOUT_GUTTER_WIDTH * 2);
   const axisY = WEEKLY_CHART_AXIS_Y;
   const chartSvgHeight = WEEKLY_CHART_HEIGHT + WEEKLY_CHART_TOP_OVERFLOW;
   const toSvgY = (y: number) => y + WEEKLY_CHART_TOP_OVERFLOW;
@@ -2209,36 +2217,40 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   monthCalendarRoot: {
-    alignItems: 'center',
+    width: '100%',
+    alignItems: 'stretch',
     marginTop: 18,
   },
   calendarWeekdayRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    width: '100%',
   },
   calendarWeekdayCell: {
-    width: 38,
+    flex: 1,
+    minWidth: 0,
     height: 26,
     alignItems: 'center',
     justifyContent: 'center',
   },
   calendarWeekdayText: {
     color: '#333333',
+    fontFamily: 'HiraginoSans-W6',
     fontSize: 15,
     fontWeight: '800',
     lineHeight: 20,
   },
   monthCalendarGridWrap: {
     position: 'relative',
-    alignSelf: 'center',
+    alignSelf: 'stretch',
+    width: '100%',
     marginTop: 10,
   },
   monthCalendarGrid: {
-    alignItems: 'center',
+    width: '100%',
   },
   calendarWeekRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    width: '100%',
   },
   monthCalendarArrow: {
     position: 'absolute',
@@ -2249,20 +2261,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   monthCalendarArrowLeft: {
-    left: -48,
+    left: -MONTH_CALENDAR_ARROW_OUTSET,
   },
   monthCalendarArrowRight: {
-    right: -48,
+    right: -MONTH_CALENDAR_ARROW_OUTSET,
   },
   monthDaySlot: {
-    width: 38,
+    flex: 1,
+    minWidth: 0,
     height: MONTH_DAY_SLOT_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: MONTH_DAY_ROW_GAP,
   },
   monthDayMarker: {
-    width: 38,
+    width: '100%',
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2288,6 +2301,7 @@ const styles = StyleSheet.create({
   },
   monthDayText: {
     color: '#333333',
+    fontFamily: 'HiraginoSans-W6',
     fontSize: 20,
     fontWeight: '700',
     lineHeight: 24,

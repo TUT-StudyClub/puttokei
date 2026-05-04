@@ -18,9 +18,11 @@ import {
 } from '@/features/stats/lib/week';
 
 const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'] as const;
-export const WEEK_DATE_STRIP_ARROW_BUTTON_WIDTH = 32;
-export const WEEK_DATE_STRIP_DAY_CELL_MAX_WIDTH = 43;
+export const WEEK_DATE_STRIP_ARROW_BUTTON_WIDTH = 18;
+export const WEEK_DATE_STRIP_LAYOUT_GUTTER_WIDTH = 32;
+export const WEEK_DATE_STRIP_DAY_CELL_MAX_WIDTH = 100;
 export const WEEK_DATE_STRIP_HORIZONTAL_INSET = 24;
+export const WEEK_DATE_STRIP_HORIZONTAL_OUTSET = 8;
 
 type Props = {
   weekStart: string;
@@ -65,9 +67,12 @@ export function WeekDateStrip({
 }: Props) {
   const { width } = useWindowDimensions();
   const [stripWidth, setStripWidth] = useState(0);
-  const fallbackStripWidth = Math.max(0, width - WEEK_DATE_STRIP_HORIZONTAL_INSET * 2);
+  const fallbackStripWidth = Math.max(
+    0,
+    width - WEEK_DATE_STRIP_HORIZONTAL_INSET * 2 + WEEK_DATE_STRIP_HORIZONTAL_OUTSET * 2,
+  );
   const resolvedStripWidth = stripWidth > 0 ? stripWidth : fallbackStripWidth;
-  const pageWidth = Math.max(0, resolvedStripWidth - WEEK_DATE_STRIP_ARROW_BUTTON_WIDTH * 2);
+  const pageWidth = Math.max(0, resolvedStripWidth - WEEK_DATE_STRIP_LAYOUT_GUTTER_WIDTH * 2);
   const dayCellWidth = Math.min(WEEK_DATE_STRIP_DAY_CELL_MAX_WIDTH, pageWidth / 7);
   const todayKey = getTokyoDateKey();
   const studiedDateKeySet = useMemo(() => new Set(studiedDateKeys), [studiedDateKeys]);
@@ -86,15 +91,17 @@ export function WeekDateStrip({
 
   return (
     <View onLayout={handleLayout} style={styles.root} testID="week-date-strip">
-      <Pressable
-        accessibilityRole="button"
-        hitSlop={{ left: 18, right: 18, top: 8, bottom: 8 }}
-        onPress={() => handleShiftWeek(-7)}
-        style={[styles.arrowButton, styles.arrowButtonLeft]}
-        testID="week-date-prev"
-      >
-        <ArrowIcon direction="left" />
-      </Pressable>
+      <View style={[styles.arrowSlot, styles.arrowSlotLeft]} testID="week-date-prev-slot">
+        <Pressable
+          accessibilityRole="button"
+          hitSlop={{ left: 18, right: 18, top: 8, bottom: 8 }}
+          onPress={() => handleShiftWeek(-7)}
+          style={[styles.arrowButton, styles.arrowButtonLeft]}
+          testID="week-date-prev"
+        >
+          <ArrowIcon direction="left" />
+        </Pressable>
+      </View>
       <ScrollView
         horizontal
         pagingEnabled
@@ -115,6 +122,12 @@ export function WeekDateStrip({
             const isToday = dateKey === todayKey;
             const isSelected = dateKey === selectedDateKey;
             const isStudied = studiedDateKeySet.has(dateKey);
+            const isFuture = dateKey > todayKey;
+            const dayTextColorStyle = isStudied
+              ? styles.dayTextStudied
+              : isFuture
+                ? styles.dayTextFuture
+                : null;
             const weekdayLabel = WEEKDAY_LABELS[date.getDay()] ?? '';
             return (
               <Pressable
@@ -146,18 +159,18 @@ export function WeekDateStrip({
                 <SizableText
                   style={[
                     styles.dayNumber,
-                    isSelected || isStudied ? styles.dayTextHighlighted : null,
-                    isToday && !isSelected && !isStudied ? styles.dayTextToday : null,
+                    dayTextColorStyle,
                   ]}
+                  testID={`week-date-${dateKey}-number`}
                 >
                   {getDateNumberLabel(dateKey)}
                 </SizableText>
                 <SizableText
                   style={[
                     styles.weekday,
-                    isSelected || isStudied ? styles.dayTextHighlighted : null,
-                    isToday && !isSelected && !isStudied ? styles.dayTextToday : null,
+                    dayTextColorStyle,
                   ]}
+                  testID={`week-date-${dateKey}-weekday`}
                 >
                   {weekdayLabel}
                 </SizableText>
@@ -166,15 +179,17 @@ export function WeekDateStrip({
           })}
         </View>
       </ScrollView>
-      <Pressable
-        accessibilityRole="button"
-        hitSlop={{ left: 18, right: 18, top: 8, bottom: 8 }}
-        onPress={() => handleShiftWeek(7)}
-        style={[styles.arrowButton, styles.arrowButtonRight]}
-        testID="week-date-next"
-      >
-        <ArrowIcon direction="right" />
-      </Pressable>
+      <View style={[styles.arrowSlot, styles.arrowSlotRight]} testID="week-date-next-slot">
+        <Pressable
+          accessibilityRole="button"
+          hitSlop={{ left: 18, right: 18, top: 8, bottom: 8 }}
+          onPress={() => handleShiftWeek(7)}
+          style={[styles.arrowButton, styles.arrowButtonRight]}
+          testID="week-date-next"
+        >
+          <ArrowIcon direction="right" />
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -182,6 +197,18 @@ export function WeekDateStrip({
 const styles = StyleSheet.create({
   root: {
     flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: -WEEK_DATE_STRIP_HORIZONTAL_OUTSET,
+  },
+  arrowSlot: {
+    width: WEEK_DATE_STRIP_LAYOUT_GUTTER_WIDTH,
+    height: 52,
+    justifyContent: 'center',
+  },
+  arrowSlotLeft: {
+    alignItems: 'center',
+  },
+  arrowSlotRight: {
     alignItems: 'center',
   },
   arrowButton: {
@@ -237,21 +264,23 @@ const styles = StyleSheet.create({
   },
   dayNumber: {
     color: '#333333',
+    fontFamily: 'HiraginoSans-W6',
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     lineHeight: 22,
   },
   weekday: {
-    color: '#B8B8B8',
+    color: '#333333',
+    fontFamily: 'HiraginoSans-W6',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     lineHeight: 16,
   },
-  dayTextHighlighted: {
+  dayTextFuture: {
+    color: '#B8B8B8',
+  },
+  dayTextStudied: {
     color: '#475FFF',
     fontFamily: 'HiraginoSans-W6',
-  },
-  dayTextToday: {
-    color: '#4B5CFF',
   },
 });
