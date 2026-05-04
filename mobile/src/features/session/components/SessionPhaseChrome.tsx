@@ -1039,23 +1039,26 @@ function PhaseTabDot({
   return (
     <View
       testID={testID}
-      style={{
-        width: PHASE_TAB_DOT_SIZE,
-        height: PHASE_TAB_DOT_SIZE,
-        borderRadius: PHASE_TAB_DOT_SIZE / 2,
-        backgroundColor: filled ? color : 'transparent',
-        borderColor: color,
-        borderWidth: 0,
-        ...(filled
-          ? {
-              shadowColor: color,
-              shadowOpacity: 1,
-              shadowRadius: 2,
-              shadowOffset: { width: 0, height: 0 },
-              elevation: 3,
-            }
-          : null),
-      }}
+      style={[
+        {
+          width: PHASE_TAB_DOT_SIZE,
+          height: PHASE_TAB_DOT_SIZE,
+          borderRadius: PHASE_TAB_DOT_SIZE / 2,
+          backgroundColor: filled ? color : 'transparent',
+          borderColor: color,
+          borderWidth: 0,
+          ...(filled
+            ? {
+                shadowColor: color,
+                shadowOpacity: 1,
+                shadowRadius: 2,
+                shadowOffset: { width: 0, height: 0 },
+                elevation: 3,
+              }
+            : null),
+        },
+        dotStyle,
+      ]}
     >
       {!filled && (
         <Svg width={PHASE_TAB_DOT_SIZE} height={PHASE_TAB_DOT_SIZE}>
