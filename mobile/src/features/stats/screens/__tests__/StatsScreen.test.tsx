@@ -806,6 +806,42 @@ describe('StatsScreen', () => {
     expect(getByText('最高連続日数')).toBeTruthy();
   });
 
+  it('月間カレンダーの日付セルをタップするとその日の日別サマリーに戻る', async () => {
+    (statsApi.fetchDailyReport as jest.Mock).mockImplementation((date: string) =>
+      Promise.resolve(makeDailyResponse({ date })),
+    );
+    (statsApi.fetchWeeklyReport as jest.Mock).mockImplementation((weekStart: string) =>
+      Promise.resolve(
+        makeWeeklyResponseForDates(weekStart, {
+          '2026-04-12': 50,
+        }),
+      ),
+    );
+
+    const { getByTestId, getByText, queryByTestId } = renderWithProviders(<StatsScreen />);
+    await flushAsyncUpdates();
+
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-calendar-toggle'));
+    });
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(getByTestId('month-day-2026-04-12-single')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('month-day-2026-04-12-single'));
+    });
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(statsApi.fetchDailyReport).toHaveBeenCalledWith('2026-04-12');
+    });
+    expect(queryByTestId('stats-monthly-content')).toBeNull();
+    expect(getByText('4月12日のハイライト')).toBeTruthy();
+  });
+
   it('取得失敗時は error メッセージと retry ボタンが表示される', async () => {
     (statsApi.fetchDailyReport as jest.Mock).mockRejectedValue(
       new ApiError(500, {
