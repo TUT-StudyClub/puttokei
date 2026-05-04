@@ -2181,7 +2181,7 @@ const styles = StyleSheet.create({
   },
   dailyWeeklyCalendarStrip: {
     transform: [{ translateY: -4 }],
-    marginHorizontal: -FIXED_HEADER_HORIZONTAL_PADDING / 2,
+    marginHorizontal: -9,
   },
   monthText: {
     color: '#333333',

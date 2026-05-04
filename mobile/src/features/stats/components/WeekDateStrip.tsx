@@ -34,7 +34,13 @@ function ArrowIcon({ direction }: { direction: 'left' | 'right' }) {
   const path = direction === 'left' ? 'M15 5 L8 12 L15 19' : 'M9 5 L16 12 L9 19';
   const preserveAspectRatio = direction === 'left' ? 'xMinYMid meet' : 'xMaxYMid meet';
   return (
-    <Svg width={200} height={24} viewBox="0 0 24 24" fill="none" preserveAspectRatio={preserveAspectRatio}>
+    <Svg
+      width={200}
+      height={24}
+      viewBox="0 0 24 24"
+      fill="none"
+      preserveAspectRatio={preserveAspectRatio}
+    >
       <Path
         d={path}
         stroke="#C9C9C9"
