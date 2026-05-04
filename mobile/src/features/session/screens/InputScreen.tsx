@@ -460,6 +460,7 @@ export function InputScreen() {
               testID="input-circular-timer"
               compact={isDetailVisible}
               enabled={isFocused}
+              timerTextStyle={styles.inputTimerText}
             />
             {isDetailVisible || hasOutputReview ? null : (
               <Text style={styles.timerCaption} testID="input-timer-caption">
@@ -532,6 +533,9 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 12,
     paddingBottom: 0,
+  },
+  inputTimerText: {
+    transform: [{ translateY: -5 }],
   },
   timerCaption: {
     color: '#9D9D9D',

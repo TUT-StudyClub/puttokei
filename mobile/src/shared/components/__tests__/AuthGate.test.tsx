@@ -175,6 +175,28 @@ describe('AuthGate', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
+  it('匿名認証中はプロフィール取得エラーが残っていても全画面エラーを表示しない', async () => {
+    mockProfileQuery({
+      isError: true,
+      error: new Error('profile failed'),
+      refetch: jest.fn(),
+    });
+    act(() => {
+      useAuthStore.setState({
+        uid: 'anonymous-user',
+        idToken: 'anonymous-token',
+        isAnonymous: true,
+      });
+      useTutorialStore.getState().markCompleted();
+    });
+    mockSegments = ['(tabs)'];
+
+    const screen = renderAuthGate();
+
+    expect(screen.queryByTestId('profile-error-screen')).toBeNull();
+    expect(screen.getByText('child')).toBeTruthy();
+  });
+
   it('チュートリアル完了 & 認証済 & (auth) 配下 & returnTo 指定あり → returnTo へ抜ける', async () => {
     act(() => {
       useAuthStore.setState({ uid: 'apple-user', idToken: 'apple-token' });
