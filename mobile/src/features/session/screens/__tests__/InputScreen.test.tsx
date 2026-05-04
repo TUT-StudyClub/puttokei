@@ -95,7 +95,7 @@ describe('InputScreen', () => {
     expect(getByTestId('timer-display')).toBeTruthy();
     expect(getByTestId('input-circular-timer')).toBeTruthy();
     expect(getByTestId('input-cancel-button')).toBeTruthy();
-    expect(getByTestId('input-extend-button')).toBeTruthy();
+    expect(queryByTestId('input-extend-button')).toBeNull();
     expect(queryByTestId('input-settings-button')).toBeNull();
     expect(queryByLabelText('設定')).toBeNull();
     expect(useTimerStore.getState().phase).toBe('input');

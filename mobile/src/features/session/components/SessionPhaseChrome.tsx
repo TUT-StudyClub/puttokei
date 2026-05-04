@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import type { LayoutChangeEvent, StyleProp, ViewStyle } from 'react-native';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -1041,6 +1041,15 @@ function PhaseTabDot({
         backgroundColor: filled ? color : 'transparent',
         borderColor: color,
         borderWidth: 0,
+        ...(filled
+          ? {
+              shadowColor: color,
+              shadowOpacity: 1,
+              shadowRadius: 2,
+              shadowOffset: { width: 0, height: 0 },
+              elevation: 3,
+            }
+          : null),
       }}
     >
       {!filled && (
@@ -1115,8 +1124,8 @@ export function PhaseTabs({
                 styles.phaseTabLabel,
                 { color: phaseInactiveTextColor },
                 isActive
-                  ? { color: activeTextColor, fontFamily: 'HiraginoSans-W6', fontWeight: '700' }
-                  : null,
+                  ? { color: activeTextColor, fontFamily: 'HiraginoSans-W6' }
+                  : { fontSize: 10 },
               ]}
             >
               {SESSION_PHASE_LABELS[phase]}
@@ -1243,8 +1252,8 @@ export function CircularPhaseTimer({
   const smoothRemainingSeconds = useSmoothRemainingSeconds(enabled);
   const totalSeconds = useTimerStore((s) => s.totalSeconds);
 
-  const size = compact ? 156 : 260;
-  const strokeWidth = compact ? 10 : 14;
+  const size = compact ? 156 : 290;
+  const strokeWidth = compact ? 10 : 11;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const displayRemainingSeconds = Math.max(0, Math.ceil(smoothRemainingSeconds));
@@ -1280,7 +1289,7 @@ export function CircularPhaseTimer({
         style={[styles.timerCenter, compact ? styles.timerCenterCompact : null]}
         pointerEvents="none"
       >
-        <SizableText
+        <Text
           style={[
             styles.timerPhaseLabel,
             { color: primaryColor },
@@ -1288,8 +1297,8 @@ export function CircularPhaseTimer({
           ]}
         >
           {SESSION_PHASE_LABELS[phase]}
-        </SizableText>
-        <SizableText
+        </Text>
+        <Text
           style={[
             styles.timerText,
             { color: primaryColor },
@@ -1298,7 +1307,7 @@ export function CircularPhaseTimer({
           testID={textTestID}
         >
           {formatMmSs(displayRemainingSeconds)}
-        </SizableText>
+        </Text>
       </View>
     </View>
   );
@@ -1363,8 +1372,7 @@ const styles = StyleSheet.create({
   },
   phaseTabLabel: {
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 10,
   },
   phaseTabSeparator: {
     width: 14,
@@ -1412,22 +1420,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
+    paddingBottom: '0%',
   },
   timerCenterCompact: {
     gap: 2,
   },
   timerPhaseLabel: {
-    fontSize: 18,
-    fontWeight: '700',
-    lineHeight: 22,
+    position: 'absolute',
+    top: '30.3%',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 14,
+    lineHeight: 24,
   },
   timerPhaseLabelCompact: {
     fontSize: 12,
     lineHeight: 16,
   },
   timerText: {
-    fontSize: 56,
-    fontWeight: '900',
+    position: 'absolute',
+    top: '41%',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 54,
+    fontWeight: '700',
     lineHeight: 64,
   },
   timerTextCompact: {
