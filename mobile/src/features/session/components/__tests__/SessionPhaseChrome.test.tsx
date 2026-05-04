@@ -100,7 +100,7 @@ describe('SessionPhaseChrome', () => {
     expect(getByText('0サイクル')).toBeTruthy();
     expect(StyleSheet.flatten(getByTestId('home-cycle-label').props.style).color).toBe('#9D9D9D');
     expect(StyleSheet.flatten(getByTestId('home-phase-tabs-wrapper').props.style).top).toBe(
-      '19.4%',
+      '19.1%',
     );
   });
 
