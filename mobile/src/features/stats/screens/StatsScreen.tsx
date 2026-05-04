@@ -692,9 +692,15 @@ function HighlightCard({
       <View style={styles.highlightContent}>
         <SizableText style={styles.highlightCaption}>勉強時間合計</SizableText>
         <View style={styles.totalTimeRow}>
-          <SizableText style={styles.totalTimeNumber}>{total.hours}</SizableText>
-          <SizableText style={styles.totalTimeUnit}>時間</SizableText>
-          <SizableText style={styles.totalTimeNumber}>{total.minutes}</SizableText>
+          <SizableText style={[styles.totalTimeNumber, styles.totalTimeHoursSegment]}>
+            {total.hours}
+          </SizableText>
+          <SizableText style={[styles.totalTimeUnit, styles.totalTimeHoursSegment]}>
+            時間
+          </SizableText>
+          <SizableText style={[styles.totalTimeNumber, styles.totalTimeMinutesNumber]}>
+            {total.minutes}
+          </SizableText>
           <SizableText style={styles.totalTimeUnit}>分</SizableText>
         </View>
 
@@ -2486,7 +2492,7 @@ const styles = StyleSheet.create({
     color: '#333333',
     fontFamily: 'HiraginoSans-W6',
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '700',
     lineHeight: 20,
     textAlign: 'center',
   },
@@ -2496,20 +2502,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 5,
     marginTop: 8,
+    transform: [{ translateX: 2 }],
   },
   totalTimeNumber: {
     color: '#333333',
-    fontFamily: 'HiraginoSans-W6',
+    fontFamily: 'HiraginoSans-W7',
     fontSize: 36,
-    fontWeight: '900',
+    fontWeight: '700',
     lineHeight: 40,
+  },
+  totalTimeHoursSegment: {
+    transform: [{ translateX: 4 }],
+  },
+  totalTimeMinutesNumber: {
+    marginLeft: 8,
   },
   totalTimeUnit: {
     color: '#333333',
     fontFamily: 'HiraginoSans-W6',
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '700',
     lineHeight: 28,
+    marginLeft: 2,
   },
   highlightBody: {
     alignItems: 'center',
