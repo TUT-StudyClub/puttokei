@@ -24,9 +24,12 @@ export async function transcribeAudio(
     // React Native の FormData は any 互換が必要
   } as unknown as Blob);
 
+  // Cloud STT のバックエンドタイムアウトが最大 120 秒のため、
+  // モバイル側は余裕を持って 130 秒に設定する。
   const { data } = await api.postMultipart<TranscribeAudioResponse>(
     `/sessions/${sessionId}/audio/transcribe`,
     form,
+    { timeoutMs: 130_000 },
   );
   return data;
 }
