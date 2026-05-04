@@ -26,6 +26,7 @@ from src.application.use_cases.get_weekly_report import GetWeeklyReport
 from src.application.use_cases.list_today_outputs import ListTodayOutputs
 from src.application.use_cases.submit_image_output import SubmitImageOutput
 from src.application.use_cases.submit_text_output import SubmitTextOutput
+from src.application.use_cases.transcribe_audio import TranscribeAudio
 from src.application.use_cases.update_output_subject import UpdateOutputSubject
 from src.application.use_cases.update_session_status import UpdateSessionStatus
 from src.application.use_cases.update_user_profile import UpdateUserProfile
@@ -33,6 +34,7 @@ from src.application.use_cases.update_user_settings import UpdateUserSettings
 from src.config import Settings
 from src.container import Container
 from src.infrastructure.persistence.database import Database
+from src.infrastructure.speech.local_stt_service import LocalSttService
 from src.main import create_app
 from tests.fakes.fake_auth_verifier import FakeAuthVerifier
 from tests.fakes.fake_judgment_progress_repository import FakeJudgmentProgressRepository
@@ -140,6 +142,11 @@ def container(
         list_today_outputs=ListTodayOutputs(unit_of_work_factory=unit_of_work_factory),
         get_weekly_report=GetWeeklyReport(unit_of_work_factory=unit_of_work_factory),
         get_daily_report=GetDailyReport(unit_of_work_factory=unit_of_work_factory),
+        transcribe_audio=TranscribeAudio(
+            speech_service=LocalSttService(mock_transcript="テスト文字起こし"),
+            max_bytes=settings.audio_max_bytes,
+            allowed_mime_types=settings.audio_allowed_mime_types,
+        ),
     )
 
 

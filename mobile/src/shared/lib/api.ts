@@ -119,6 +119,14 @@ class ApiClient {
     });
   }
 
+  async postMultipart<T>(path: string, form: FormData): Promise<ApiResponse<T>> {
+    // Content-Type は指定しない: FormData が boundary 付きで自動設定する。
+    return this.request<T>(path, {
+      method: 'POST',
+      body: form as unknown as BodyInit,
+    });
+  }
+
   async patch<T>(path: string, body?: unknown): Promise<ApiResponse<T>> {
     return this.request<T>(path, {
       method: 'PATCH',
