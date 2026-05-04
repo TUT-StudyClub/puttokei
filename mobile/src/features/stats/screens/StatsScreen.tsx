@@ -2571,6 +2571,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     marginLeft: -36,
+    transform: [{ translateY: -3 }],
   },
   metricConnector: {
     width: 54,
@@ -2593,7 +2594,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     lineHeight: 25,
-    transform: [{ translateY: 2 }],
+    transform: [{ translateY: 4 }],
   },
   breakPill: {
     alignSelf: 'flex-start',
