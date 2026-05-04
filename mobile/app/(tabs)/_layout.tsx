@@ -137,20 +137,26 @@ export default function TabsLayout() {
           name="index"
           options={{
             title: 'タイマー',
-            tabBarLabel: () => (
-              <Text
-                style={{
-                  color: shouldHighlightTimerTabIcon ? '#475FFF' : INACTIVE_COLOR,
-                  fontSize: 11,
-                  fontFamily: 'HiraginoSans-W6',
-                  marginTop: 1,
-                }}
-              >
-                タイマー
-              </Text>
-            ),
-            tabBarIcon: ({ color }) => (
-              <TimerTabIcon color={shouldHighlightTimerTabIcon ? ACTIVE_COLOR : color} size={39} />
+            tabBarLabel: ({ focused }) => {
+              const active = isTimerTabIconHighlighted(segments, focused, timerPhase, pathname);
+              return (
+                <Text
+                  style={{
+                    color: active ? '#475FFF' : INACTIVE_COLOR,
+                    fontSize: 11,
+                    fontFamily: 'HiraginoSans-W6',
+                    marginTop: 1,
+                  }}
+                >
+                  タイマー
+                </Text>
+              );
+            },
+            tabBarIcon: ({ focused }) => (
+              <TimerTabIcon
+                active={isTimerTabIconHighlighted(segments, focused, timerPhase, pathname)}
+                size={39}
+              />
             ),
           }}
         />
