@@ -1045,9 +1045,9 @@ function PhaseTabDot({
           ? {
               shadowColor: color,
               shadowOpacity: 1,
-              shadowRadius: 6,
+              shadowRadius: 2,
               shadowOffset: { width: 0, height: 0 },
-              elevation: 8,
+              elevation: 3,
             }
           : null),
       }}
@@ -1124,8 +1124,8 @@ export function PhaseTabs({
                 styles.phaseTabLabel,
                 { color: phaseInactiveTextColor },
                 isActive
-                  ? { color: activeTextColor, fontFamily: 'HiraginoSans-W6', fontWeight: '700' }
-                  : null,
+                  ? { color: activeTextColor, fontFamily: 'HiraginoSans-W6' }
+                  : { fontSize: 10 },
               ]}
             >
               {SESSION_PHASE_LABELS[phase]}
@@ -1252,8 +1252,8 @@ export function CircularPhaseTimer({
   const smoothRemainingSeconds = useSmoothRemainingSeconds(enabled);
   const totalSeconds = useTimerStore((s) => s.totalSeconds);
 
-  const size = compact ? 156 : 260;
-  const strokeWidth = compact ? 10 : 14;
+  const size = compact ? 156 : 290;
+  const strokeWidth = compact ? 10 : 11;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const displayRemainingSeconds = Math.max(0, Math.ceil(smoothRemainingSeconds));
@@ -1372,8 +1372,7 @@ const styles = StyleSheet.create({
   },
   phaseTabLabel: {
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 10,
   },
   phaseTabSeparator: {
     width: 14,
@@ -1421,13 +1420,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
+    paddingBottom: '0%',
   },
   timerCenterCompact: {
     gap: 2,
   },
   timerPhaseLabel: {
+    position: 'absolute',
+    top: '30.3%',
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 17,
+    fontSize: 14,
     lineHeight: 24,
   },
   timerPhaseLabelCompact: {
@@ -1435,10 +1437,12 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   timerText: {
+    position: 'absolute',
+    top: '41%',
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 58,
-    fontWeight: '600',
-    lineHeight: 70,
+    fontSize: 54,
+    fontWeight: '700',
+    lineHeight: 64,
   },
   timerTextCompact: {
     fontSize: 34,

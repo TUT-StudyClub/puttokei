@@ -48,6 +48,12 @@ class PgOutputRepository(OutputRepository):
         model = result.scalar_one_or_none()
         return _to_output(model) if model is not None else None
 
+    async def find_by_id(self, output_id: UUID) -> Output | None:
+        stmt = select(OutputModel).where(OutputModel.id == output_id)
+        result = await self._session.execute(stmt)
+        model = result.scalar_one_or_none()
+        return _to_output(model) if model is not None else None
+
 
 def _to_output(model: OutputModel) -> Output:
     return Output(

@@ -12,7 +12,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Path, Svg } from 'react-native-svg';
 import { SizableText } from 'tamagui';
 
@@ -51,7 +51,6 @@ const TEXT_ACTIVE = '#2F2F2F';
 const TEXT_INACTIVE = '#9CA3AF';
 const DOT_INACTIVE = '#D9D9D9';
 const BORDER_COLOR = '#E5E7EB';
-const CAPTION_COLOR = '#777777';
 const ERROR_COLOR = '#D92D20';
 const PANEL_BORDER_COLOR = '#D0D0D0';
 const REVIEW_TEXT_MUTED = '#6B6B6B';
@@ -441,27 +440,32 @@ export function InputScreen() {
           }}
           phaseTabs={{
             activePhase: CURRENT_PHASE,
-            activeDotColor: '#148BFF',
-            activeTextColor: '#148BFF',
+            activeDotColor: PRIMARY_COLOR,
+            activeTextColor: PRIMARY_COLOR,
             inactiveDotColor: DOT_INACTIVE,
           }}
         />
 
         <View style={styles.contentArea}>
-          <View style={[styles.timerStage, isDetailVisible ? styles.timerStageDetail : null]}>
+          <View
+            style={[
+              styles.timerStage,
+              isDetailVisible || hasOutputReview ? styles.timerStageDetail : null,
+            ]}
+          >
             <CircularPhaseTimer
               phase={CURRENT_PHASE}
               primaryColor={PRIMARY_COLOR}
               trackColor="#E9F9FF"
               testID="input-circular-timer"
-              compact={false}
+              compact={isDetailVisible}
               enabled={isFocused}
             />
             {isDetailVisible || hasOutputReview ? null : (
-              <SizableText style={styles.timerCaption} testID="input-timer-caption">
+              <Text style={styles.timerCaption} testID="input-timer-caption">
                 終了後{outputMinutes}分間でアウトプットです{'\n'}
                 アウトプットへは自動で切り替わります
-              </SizableText>
+              </Text>
             )}
           </View>
 
@@ -485,13 +489,13 @@ export function InputScreen() {
             disabled={cancelMutation.isPending}
             onPress={handleCancel}
             style={({ pressed }) => [
-              styles.cancelButton,
+              hasOutputReview ? styles.cancelButtonFlow : styles.cancelButton,
               pressed ? styles.buttonPressed : null,
               cancelMutation.isPending ? styles.buttonDisabled : null,
             ]}
             testID="input-cancel-button"
           >
-            <SizableText style={styles.cancelButtonText}>中断する</SizableText>
+            <Text style={styles.cancelButtonText}>中断する</Text>
           </Pressable>
         </View>
       </View>
@@ -521,18 +525,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-start',
     gap: 20,
-    paddingTop: '5%',
+    paddingBottom: '38.3%',
   },
   timerStageDetail: {
     flex: 0,
     gap: 10,
     marginBottom: 12,
+    paddingBottom: 0,
   },
   timerCaption: {
-    color: CAPTION_COLOR,
-    fontSize: 13,
-    lineHeight: 20,
+    color: '#9D9D9D',
+    fontFamily: 'HiraginoSans-W4',
+    fontSize: 11,
+    lineHeight: 18,
     textAlign: 'center',
+    marginTop: 8,
   },
   todayOutputsSection: {
     gap: 8,
@@ -756,25 +763,35 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 8,
   },
-  actionArea: {
-    flexDirection: 'row',
-    gap: 12,
-  },
+  actionArea: {},
   cancelButton: {
-    alignSelf: 'center',
-    width: '80%',
+    position: 'absolute',
+    bottom: '21%',
+    left: '15.8%',
+    right: '16.3%',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 56,
-    borderRadius: 18,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#D0D5DD',
+    paddingVertical: '3.2%',
+    borderRadius: 20,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#6D6D6D',
+  },
+  cancelButtonFlow: {
+    alignSelf: 'center',
+    width: '68.4%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: '4.6%',
+    borderRadius: 20,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#6D6D6D',
   },
   cancelButtonText: {
-    color: TEXT_ACTIVE,
-    fontSize: 16,
-    fontWeight: '700',
+    color: '#6D6D6D',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 14,
     lineHeight: 22,
   },
   buttonPressed: {

@@ -141,7 +141,12 @@ export default function TabsLayout() {
             tabBarLabel: () => (
               <Text
                 allowFontScaling={false}
-                style={{ color: '#475FFF', fontSize: 11, fontFamily: 'HiraginoSans-W3' }}
+                style={{
+                  color: '#475FFF',
+                  fontSize: 11,
+                  fontFamily: 'HiraginoSans-W6',
+                  marginTop: 4,
+                }}
               >
                 タイマー
               </Text>
@@ -152,15 +157,12 @@ export default function TabsLayout() {
           name="stats"
           options={{
             title: 'レポート',
-            tabBarLabel: () => (
-              <Text
-                allowFontScaling={false}
-                style={{ color: '#676767', fontSize: 11, fontFamily: 'HiraginoSans-W6' }}
-              >
+            tabBarLabel: ({ color }) => (
+              <Text allowFontScaling={false} style={[styles.tabBarLabel, { color, marginTop: 4 }]}>
                 レポート
               </Text>
             ),
-            tabBarIcon: ({ color }) => <ReportTabIcon color={color} size={39} />,
+            tabBarIcon: () => <ReportTabIcon color="#9D9D9D" size={39} />,
           }}
           listeners={{
             tabPress: (event) => {
@@ -187,6 +189,10 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
+  tabBarLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
   dialogBackdrop: {
     flex: 1,
     alignItems: 'center',

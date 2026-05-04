@@ -19,6 +19,7 @@ from src.application.use_cases.run_image_judgment import RunImageJudgment
 from src.application.use_cases.run_text_judgment import RunTextJudgment
 from src.application.use_cases.submit_image_output import SubmitImageOutput
 from src.application.use_cases.submit_text_output import SubmitTextOutput
+from src.application.use_cases.update_output_subject import UpdateOutputSubject
 from src.application.use_cases.update_session_status import UpdateSessionStatus
 from src.application.use_cases.update_user_profile import UpdateUserProfile
 from src.application.use_cases.update_user_settings import UpdateUserSettings
@@ -48,6 +49,7 @@ class Container(BaseModel):
     update_session_status: UpdateSessionStatus
     submit_text_output: SubmitTextOutput
     submit_image_output: SubmitImageOutput
+    update_output_subject: UpdateOutputSubject
     # 画像アップロード URL 発行は GCS 設定が無いと提供できない。
     issue_output_image_upload_url: IssueOutputImageUploadUrl | None
     # `local_judgment_enabled=False` の環境では未注入。
@@ -122,6 +124,7 @@ def build_container(settings: Settings) -> Container:
             unit_of_work_factory=unit_of_work_factory,
             image_storage=image_storage,
         ),
+        update_output_subject=UpdateOutputSubject(unit_of_work_factory=unit_of_work_factory),
         issue_output_image_upload_url=issue_output_image_upload_url,
         run_text_judgment=run_text_judgment,
         run_image_judgment=run_image_judgment,
