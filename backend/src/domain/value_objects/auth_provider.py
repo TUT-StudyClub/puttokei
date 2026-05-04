@@ -8,3 +8,4 @@ class AuthProvider(str, Enum):
 
     APPLE = "apple"
     GOOGLE = "google"
+    ANONYMOUS = "anonymous"

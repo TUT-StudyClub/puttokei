@@ -4,6 +4,7 @@
  */
 import {
   refreshIdToken,
+  ensureAnonymousSession,
   registerAuthImpl,
   resetAuthImpl,
   subscribeIdTokenChanged,
@@ -27,22 +28,31 @@ describe('firebase auth 差し込み', () => {
     await expect(refreshIdToken()).resolves.toBeNull();
   });
 
+  it('未登録のとき ensureAnonymousSession は何もしない', async () => {
+    await expect(ensureAnonymousSession()).resolves.toBeUndefined();
+  });
+
   it('registerAuthImpl で差し込んだ subscribe が呼ばれ、listener に session が届く', () => {
     const listener = jest.fn();
     const unsubscribeSpy = jest.fn();
     const subscribeSpy = jest.fn((l: (session: AuthSession | null) => void) => {
-      l({ uid: 'u1', idToken: 'token-1' });
+      l({ uid: 'u1', idToken: 'token-1', isAnonymous: false });
       return unsubscribeSpy;
     });
 
     registerAuthImpl({
       subscribeIdTokenChanged: subscribeSpy,
       refreshIdToken: async () => null,
+      ensureAnonymousSession: async () => {},
     });
 
     const unsubscribe = subscribeIdTokenChanged(listener);
     expect(subscribeSpy).toHaveBeenCalledTimes(1);
-    expect(listener).toHaveBeenCalledWith({ uid: 'u1', idToken: 'token-1' });
+    expect(listener).toHaveBeenCalledWith({
+      uid: 'u1',
+      idToken: 'token-1',
+      isAnonymous: false,
+    });
 
     unsubscribe();
     expect(unsubscribeSpy).toHaveBeenCalledTimes(1);
@@ -53,16 +63,31 @@ describe('firebase auth 差し込み', () => {
     registerAuthImpl({
       subscribeIdTokenChanged: () => () => {},
       refreshIdToken: refreshSpy,
+      ensureAnonymousSession: async () => {},
     });
 
     await expect(refreshIdToken()).resolves.toBe('token-fresh');
     expect(refreshSpy).toHaveBeenCalledTimes(1);
   });
 
+  it('registerAuthImpl で差し込んだ ensureAnonymousSession が呼ばれる', async () => {
+    const ensureAnonymousSessionSpy = jest.fn<Promise<void>, []>().mockResolvedValue(undefined);
+    registerAuthImpl({
+      subscribeIdTokenChanged: () => () => {},
+      refreshIdToken: async () => null,
+      ensureAnonymousSession: ensureAnonymousSessionSpy,
+    });
+
+    await ensureAnonymousSession();
+
+    expect(ensureAnonymousSessionSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('resetAuthImpl で差し込みが初期状態に戻る', async () => {
     registerAuthImpl({
       subscribeIdTokenChanged: () => () => {},
       refreshIdToken: async () => 'token-fresh',
+      ensureAnonymousSession: async () => {},
     });
 
     resetAuthImpl();

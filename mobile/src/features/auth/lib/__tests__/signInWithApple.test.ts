@@ -20,16 +20,20 @@ jest.mock('expo-apple-authentication', () => ({
 }));
 
 jest.mock('@react-native-firebase/auth', () => {
-  const signInWithCredential = jest.fn().mockResolvedValue({});
-  const authFn = () => ({ signInWithCredential });
+  const authFn = () => ({});
   authFn.AppleAuthProvider = {
-    credential: jest.fn().mockReturnValue({}),
+    credential: jest.fn().mockReturnValue({ providerId: 'apple.com' }),
   };
   return { __esModule: true, default: authFn };
 });
 
+jest.mock('@/features/auth/lib/linkOrSignInWithCredential', () => ({
+  linkOrSignInWithCredential: jest.fn().mockResolvedValue(undefined),
+}));
+
 const AppleAuthentication = require('expo-apple-authentication');
 const authModule = require('@react-native-firebase/auth');
+const linkHelper = require('@/features/auth/lib/linkOrSignInWithCredential');
 const { signInWithApple } = require('@/features/auth/lib/signInWithApple');
 
 describe('signInWithApple', () => {
@@ -49,6 +53,9 @@ describe('signInWithApple', () => {
       'apple-id-token',
       expect.any(String),
     );
+    expect(linkHelper.linkOrSignInWithCredential).toHaveBeenCalledWith({
+      providerId: 'apple.com',
+    });
   });
 
   it('ネイティブの ERR_REQUEST_CANCELED を AuthFlowCancelledError に変換する', async () => {

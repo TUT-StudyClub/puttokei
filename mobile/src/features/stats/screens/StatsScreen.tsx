@@ -5,7 +5,7 @@
  * 履歴は選択日のものを表示する。月単位の集計とカレンダーは
  * カレンダーボタンから切り替える。
  *
- * 未認証ユーザーはこの画面のデータを取得できないため、`/(auth)/sign-in` に誘導する。
+ * 未認証 / 匿名ユーザーはこの画面のデータを取得できないため、`/(auth)/sign-in` に誘導する。
  * サインイン成功後に戻ってこられるよう `returnTo` を渡している。
  */
 import { Redirect } from 'expo-router';
@@ -578,12 +578,13 @@ function buildMonthlyHighlightSummary(
 
 function useMonthlyWeeklyReports(monthStartKey: string, enabled: boolean) {
   const idToken = useAuthStore((s) => s.idToken);
+  const isAnonymous = useAuthStore((s) => s.isAnonymous);
   const weekStarts = useMemo(() => getMonthWeekStartKeys(monthStartKey), [monthStartKey]);
   const queries = useQueries({
     queries: weekStarts.map((weekStart) => ({
       queryKey: WEEKLY_REPORT_QUERY_KEY(weekStart),
       queryFn: () => fetchWeeklyReport(weekStart),
-      enabled: enabled && idToken !== null,
+      enabled: enabled && idToken !== null && !isAnonymous,
       staleTime: 5 * 60 * 1000,
       retry: false,
     })),
@@ -1632,6 +1633,7 @@ function ErrorBody({ message, onRetry }: { message: string; onRetry: () => void 
 
 export function StatsScreen() {
   const uid = useAuthStore((s) => s.uid);
+  const isAnonymous = useAuthStore((s) => s.isAnonymous);
   const queryClient = useQueryClient();
   const { width: viewportWidth } = useWindowDimensions();
   const todayKey = getTokyoDateKey();
@@ -1818,7 +1820,7 @@ export function StatsScreen() {
     [reportViewMode, selectedDateKey],
   );
 
-  if (uid === null) {
+  if (uid === null || isAnonymous) {
     return (
       <Redirect
         href={{

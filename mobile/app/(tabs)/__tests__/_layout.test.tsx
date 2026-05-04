@@ -12,8 +12,8 @@ type TabPressEvent = {
 type MockScreenProps = {
   name?: string;
   options?: {
-    tabBarIcon?: (props: { color: string }) => unknown;
     tabBarLabel?: (props: { color: string }) => unknown;
+    tabBarIcon?: (props: { color: string }) => unknown;
   };
   listeners?: {
     tabPress?: (event: TabPressEvent) => void;
@@ -159,13 +159,17 @@ describe('TabsLayout', () => {
     ['インプット', ['(tabs)', 'session', '[id]', 'input']],
     ['アウトプット', ['(tabs)', 'session', '[id]', 'output']],
     ['休憩', ['(tabs)', 'session', '[id]', 'break']],
-  ] as const)('%s画面ではタイマーアイコンを青にする', (_screen, segments) => {
+  ] as const)('%s画面ではタイマーアイコンとラベルを青にする', (_screen, segments) => {
     mockSegments = [...segments];
     const { timerTab } = renderTimerTabScreen();
 
     const icon = timerTab.options?.tabBarIcon?.({ color: '#9CA3AF' });
+    const label = timerTab.options?.tabBarLabel?.({ color: '#9CA3AF' });
 
     expect((icon as { props?: { color?: string } }).props?.color).toBe('#4B5CFF');
+    expect((label as { props?: { style?: { color?: string } } }).props?.style?.color).toBe(
+      '#4B5CFF',
+    );
   });
 
   it('レポートタブの文字色はナビゲーションから渡された色を使う', () => {

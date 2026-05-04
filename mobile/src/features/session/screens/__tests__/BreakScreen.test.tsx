@@ -5,7 +5,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
-import { Path, Rect } from 'react-native-svg';
+import { StyleSheet } from 'react-native';
+import { Circle, Path, Rect } from 'react-native-svg';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../../tamagui.config';
@@ -15,8 +16,49 @@ import { BreakScreen } from '@/features/session/screens/BreakScreen';
 import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
+const HOME_TIMER_CIRCLE_WIDTH_RATIO = 1 - 0.13 - 0.13;
+const TIMER_STAGE_PADDING_TOP = 10;
+const TIMER_CAPTION_LINE_HEIGHT = 20;
+const PROGRESS_BAR_WIDTH = '86%';
+const PROGRESS_BAR_HEIGHT = 8;
+const PROGRESS_BAR_PADDING = 1;
+const PROGRESS_CARD_HEIGHT = 168;
+const PROGRESS_CARD_MARGIN_TOP = 22;
+const PROGRESS_CARD_MARGIN_BOTTOM = 2;
+const PROGRESS_CARD_VERTICAL_PADDING = 14;
+const PROGRESS_METER_GAP = 6;
+const PROGRESS_STATUS_TITLE_FONT_SIZE = 14;
+const PROGRESS_STATUS_TITLE_LINE_HEIGHT = 20;
+const PROGRESS_PROCESSING_TITLE_TRANSLATE_Y = 1;
+const PROGRESS_READY_SUB_FONT_SIZE = 12;
+const PROGRESS_READY_SUB_LINE_HEIGHT = 17;
+const PROGRESS_READY_SUB_TRANSLATE_Y = 4;
+const PROGRESS_STATUS_SUB_FONT_SIZE = PROGRESS_READY_SUB_FONT_SIZE;
+const PROGRESS_STATUS_SUB_LINE_HEIGHT = PROGRESS_READY_SUB_LINE_HEIGHT;
+const PROGRESS_PROCESSING_SUB_TRANSLATE_Y = 8;
+const PROGRESS_READY_BLOCK_TRANSLATE_Y = 4;
+const PROGRESS_READY_TITLE_FONT_SIZE = 14;
+const PROGRESS_READY_TITLE_LINE_HEIGHT = 20;
+const PROGRESS_READY_CHECK_ICON_WIDTH = 12;
+const PROGRESS_READY_CHECK_ICON_HEIGHT = 9;
+const PROGRESS_READY_TITLE_ROW_GAP = 8;
+const PROGRESS_READY_TITLE_ROW_TRANSLATE_X =
+  -(PROGRESS_READY_CHECK_ICON_WIDTH + PROGRESS_READY_TITLE_ROW_GAP) / 2;
+const PROGRESS_READY_TITLE_ROW_TRANSLATE_Y = -2;
+const PROGRESS_READY_TITLE_TRANSLATE_Y = -1;
+const BREAK_TIMER_COLOR = '#9D9D9D';
+const HOME_TIMER_TEXT_FONT_SIZE = 58;
+const HOME_TIMER_TEXT_LINE_HEIGHT = 64;
+const HOME_CYCLE_LABEL_FONT_SIZE = 10;
+const HOME_CYCLE_LABEL_LINE_HEIGHT = 14;
+const BREAK_CYCLE_LABEL_MARGIN_BOTTOM = 0;
+const HOME_CYCLE_LABEL_TRANSLATE_Y = 18;
+const CLOSE_CYCLE_HOURGLASS_ROW_MARGIN_TOP = 22;
+const TIMER_CAPTION_GAP_CENTER_OFFSET = PROGRESS_CARD_MARGIN_TOP / 2;
+
 const mockReplace = jest.fn();
 const mockPush = jest.fn();
+const INPUT_PHASE_STATUS_COLOR = 'rgba(20, 139, 255, 0.3)';
 jest.mock('expo-router', () => ({
   useRouter: () => ({ replace: mockReplace, push: mockPush }),
   useLocalSearchParams: () => ({
@@ -134,14 +176,98 @@ describe('BreakScreen', () => {
   });
 
   it('マウントで phase=break のタイマーが開始され、主要 UI が表示される', () => {
-    const { getAllByText, getByTestId, queryByLabelText, queryByTestId } = renderWithProviders(
-      <BreakScreen />,
-    );
+    const {
+      UNSAFE_getAllByType,
+      getAllByText,
+      getByTestId,
+      getByText,
+      queryByLabelText,
+      queryByTestId,
+    } = renderWithProviders(<BreakScreen />);
     // 画面タイトル / フェーズタブ / タイマー中央ラベルで複数回「休憩」が出現する
     expect(getAllByText('休憩').length).toBeGreaterThan(0);
     expect(queryByTestId('break-settings-button')).toBeNull();
     expect(queryByLabelText('設定')).toBeNull();
     expect(getByTestId('break-progress-card')).toBeTruthy();
+    expect(
+      getAllByText('休憩').some((node) => StyleSheet.flatten(node.props.style).color === '#676767'),
+    ).toBe(true);
+    expect(StyleSheet.flatten(getByText('インプット').props.style).color).toBe(
+      INPUT_PHASE_STATUS_COLOR,
+    );
+    expect(StyleSheet.flatten(getByText('アウトプット').props.style).color).toBe('#FFE4EC');
+    const inputDotStyle = StyleSheet.flatten(getByTestId('break-phase-tab-input-dot').props.style);
+    const outputDotStyle = StyleSheet.flatten(
+      getByTestId('break-phase-tab-output-dot').props.style,
+    );
+    expect(inputDotStyle.borderColor).toBe(INPUT_PHASE_STATUS_COLOR);
+    expect(outputDotStyle.borderColor).toBe('#FFE4EC');
+    expect(inputDotStyle.backgroundColor).toBe(INPUT_PHASE_STATUS_COLOR);
+    expect(outputDotStyle.backgroundColor).toBe('#FFE4EC');
+    const breakDotStyle = StyleSheet.flatten(getByTestId('break-phase-tab-break-dot').props.style);
+    expect(breakDotStyle.backgroundColor).toBe('#9D9D9D');
+    expect(breakDotStyle.shadowColor).toBe('#000000');
+    expect(breakDotStyle.elevation).toBe(4);
+    expect(UNSAFE_getAllByType(Circle).some((circle) => circle.props.stroke === '#9D9D9D')).toBe(
+      true,
+    );
+    expect(UNSAFE_getAllByType(Circle).some((circle) => circle.props.stroke === '#EFEFEF')).toBe(
+      true,
+    );
+    const timerCaptionStyle = StyleSheet.flatten(getByTestId('break-timer-caption').props.style);
+    const timerCaptionSlotStyle = StyleSheet.flatten(
+      getByTestId('break-timer-caption-slot').props.style,
+    );
+    const timerDisplayStyle = StyleSheet.flatten(getByTestId('break-timer-display').props.style);
+    const timerPhaseLabelStyle = StyleSheet.flatten(
+      getByTestId('break-timer-phase-label').props.style,
+    );
+    const circularTimerStyle = StyleSheet.flatten(getByTestId('break-circular-timer').props.style);
+    const progressCardStyle = StyleSheet.flatten(getByTestId('break-progress-card').props.style);
+    const timerStageStyle = StyleSheet.flatten(getByTestId('break-timer-stage').props.style);
+    const cycleLabelStyle = StyleSheet.flatten(getByTestId('break-cycle-label').props.style);
+    const hourglassRowStyle = StyleSheet.flatten(getByTestId('break-hourglass-row').props.style);
+    const timerProgressCircle = UNSAFE_getAllByType(Circle).find(
+      (circle) => circle.props.stroke === '#9D9D9D' && circle.props.strokeDasharray,
+    );
+    const timerTrackCircle = UNSAFE_getAllByType(Circle).find(
+      (circle) => circle.props.stroke === '#EFEFEF' && !circle.props.strokeDasharray,
+    );
+    expect(timerCaptionStyle.color).toBe('#9D9D9D');
+    expect(timerCaptionStyle.width).toBe('100%');
+    expect(timerCaptionStyle.transform).toEqual([{ translateY: TIMER_CAPTION_GAP_CENTER_OFFSET }]);
+    expect(timerPhaseLabelStyle.fontWeight).toBe('600');
+    expect(timerDisplayStyle.color).toBe(BREAK_TIMER_COLOR);
+    expect(timerDisplayStyle.fontFamily).toBe('HiraginoSans-W6');
+    expect(timerDisplayStyle.fontSize).toBe(HOME_TIMER_TEXT_FONT_SIZE);
+    expect(timerDisplayStyle.fontWeight).toBe('500');
+    expect(timerDisplayStyle.lineHeight).toBe(HOME_TIMER_TEXT_LINE_HEIGHT);
+    expect(cycleLabelStyle.fontFamily).toBe('HiraginoSans-W6');
+    expect(cycleLabelStyle.fontSize).toBe(HOME_CYCLE_LABEL_FONT_SIZE);
+    expect(cycleLabelStyle.fontWeight).toBe('700');
+    expect(cycleLabelStyle.lineHeight).toBe(HOME_CYCLE_LABEL_LINE_HEIGHT);
+    expect(cycleLabelStyle.marginBottom).toBe(BREAK_CYCLE_LABEL_MARGIN_BOTTOM);
+    expect(cycleLabelStyle.transform).toEqual([{ translateY: HOME_CYCLE_LABEL_TRANSLATE_Y }]);
+    expect(hourglassRowStyle.marginTop).toBe(CLOSE_CYCLE_HOURGLASS_ROW_MARGIN_TOP);
+    expect(timerCaptionSlotStyle.width).toBeGreaterThan(0);
+    expect(timerCaptionSlotStyle.width).toBeCloseTo(750 * HOME_TIMER_CIRCLE_WIDTH_RATIO, 5);
+    expect(timerCaptionSlotStyle.flex).toBe(1);
+    expect(timerCaptionSlotStyle.justifyContent).toBe('center');
+    expect(circularTimerStyle.width).toBe(timerCaptionSlotStyle.width);
+    expect(circularTimerStyle.height).toBe(timerCaptionSlotStyle.width);
+    expect(progressCardStyle.width).toBe(timerCaptionSlotStyle.width);
+    expect(progressCardStyle.alignSelf).toBe('center');
+    expect(progressCardStyle.marginTop).toBe(PROGRESS_CARD_MARGIN_TOP);
+    expect(progressCardStyle.marginBottom).toBe(PROGRESS_CARD_MARGIN_BOTTOM);
+    expect(timerProgressCircle?.props.strokeWidth).toBe(11);
+    expect(timerTrackCircle?.props.strokeWidth).toBe(11);
+    expect(timerStageStyle.justifyContent).toBe('flex-start');
+    expect(timerStageStyle.paddingTop).toBe(10);
+    expect(timerStageStyle.minHeight).toBeCloseTo(
+      750 * HOME_TIMER_CIRCLE_WIDTH_RATIO + TIMER_STAGE_PADDING_TOP + TIMER_CAPTION_LINE_HEIGHT,
+      5,
+    );
+    expect(getByTestId('break-timer-caption').props.numberOfLines).toBe(1);
     expect(useTimerStore.getState().phase).toBe('break');
     expect(useTimerStore.getState().totalSeconds).toBe(60);
   });
@@ -157,26 +283,127 @@ describe('BreakScreen', () => {
       },
     });
 
-    const { getByTestId, getByText } = renderWithProviders(<BreakScreen />);
+    const { getByTestId, getByText, queryByTestId } = renderWithProviders(<BreakScreen />);
 
     await waitFor(() => {
       expect(getByTestId('break-progress-status')).toBeTruthy();
     });
-    expect(getByTestId('break-progress-status').props.children).toBe('採点中');
-    expect(getByTestId('break-progress-message').props.children).toBe(
-      'AI に判定を依頼しています。',
+    const progressCardStyle = StyleSheet.flatten(getByTestId('break-progress-card').props.style);
+    expect(progressCardStyle.backgroundColor).toBe('#363636');
+    expect(progressCardStyle.height).toBe(PROGRESS_CARD_HEIGHT);
+    expect(progressCardStyle.marginTop).toBe(PROGRESS_CARD_MARGIN_TOP);
+    expect(progressCardStyle.marginBottom).toBe(PROGRESS_CARD_MARGIN_BOTTOM);
+    expect(progressCardStyle.paddingVertical).toBe(PROGRESS_CARD_VERTICAL_PADDING);
+    expect(progressCardStyle.justifyContent).toBe('flex-start');
+    const progressBarOuterStyle = StyleSheet.flatten(
+      getByTestId('break-progress-bar-outer').props.style,
     );
+    const progressHeaderRowStyle = StyleSheet.flatten(
+      getByTestId('break-progress-meter-block').props.children[0].props.style,
+    );
+    const progressMeterBlockStyle = StyleSheet.flatten(
+      getByTestId('break-progress-meter-block').props.style,
+    );
+    const progressTrackStyle = StyleSheet.flatten(getByTestId('break-progress-track').props.style);
+    const progressFillStyle = StyleSheet.flatten(getByTestId('break-progress-fill').props.style);
+    expect(progressMeterBlockStyle.gap).toBe(PROGRESS_METER_GAP);
+    expect(progressHeaderRowStyle.width).toBe(PROGRESS_BAR_WIDTH);
+    expect(progressHeaderRowStyle.alignSelf).toBe('center');
+    expect(progressBarOuterStyle.width).toBe(PROGRESS_BAR_WIDTH);
+    expect(progressBarOuterStyle.height).toBe(PROGRESS_BAR_HEIGHT);
+    expect(progressBarOuterStyle.padding).toBe(PROGRESS_BAR_PADDING);
+    expect(progressBarOuterStyle.borderRadius).toBe(PROGRESS_BAR_HEIGHT / 2);
+    expect(progressBarOuterStyle.alignSelf).toBe('center');
+    expect(progressBarOuterStyle.backgroundColor).toBe('#EFEFEF');
+    expect(progressBarOuterStyle.shadowColor).toBe('#000000');
+    expect(progressBarOuterStyle.elevation).toBe(6);
+    expect(progressTrackStyle.backgroundColor).toBe('#CDCDCD');
+    expect(progressTrackStyle.borderRadius).toBe(
+      (PROGRESS_BAR_HEIGHT - PROGRESS_BAR_PADDING * 2) / 2,
+    );
+    expect(progressFillStyle.backgroundColor).toBe('#475FFF');
+    expect(progressFillStyle.borderRadius).toBe(
+      (PROGRESS_BAR_HEIGHT - PROGRESS_BAR_PADDING * 2) / 2,
+    );
+    expect(getByTestId('break-progress-status').props.children).toBe('テキストの解析...');
+    expect(getByTestId('break-progress-processing-title').props.children).toBe('採点中...');
+    expect(getByTestId('break-progress-processing-sub').props.children).toEqual([
+      'あなたのアウトプットを',
+      '\n',
+      'AIが採点しています。',
+    ]);
+    expect(queryByTestId('break-progress-message')).toBeNull();
+    const processingTitleStyle = StyleSheet.flatten(
+      getByTestId('break-progress-processing-title').props.style,
+    );
+    const processingSubStyle = StyleSheet.flatten(
+      getByTestId('break-progress-processing-sub').props.style,
+    );
+    const processingSubOffsetStyle = StyleSheet.flatten(
+      getByTestId('break-progress-processing-sub-offset').props.style,
+    );
+    expect(processingTitleStyle.color).toBe('#FFFFFF');
+    expect(processingTitleStyle.fontFamily).toBe('HiraginoSans-W3');
+    expect(processingTitleStyle.fontSize).toBe(PROGRESS_STATUS_TITLE_FONT_SIZE);
+    expect(processingTitleStyle.fontWeight).toBe('600');
+    expect(processingTitleStyle.lineHeight).toBe(PROGRESS_STATUS_TITLE_LINE_HEIGHT);
+    expect(processingTitleStyle.transform).toEqual([
+      { translateY: PROGRESS_PROCESSING_TITLE_TRANSLATE_Y },
+    ]);
+    expect(processingSubStyle.fontSize).toBe(PROGRESS_STATUS_SUB_FONT_SIZE);
+    expect(processingSubStyle.lineHeight).toBe(PROGRESS_STATUS_SUB_LINE_HEIGHT);
+    expect(processingSubStyle.transform).toBeUndefined();
+    expect(processingSubOffsetStyle.marginTop).toBe(PROGRESS_PROCESSING_SUB_TRANSLATE_Y);
     expect(getByText('42%')).toBeTruthy();
   });
 
-  it('useJudgment が ready のときは進捗を 100% で表示する', async () => {
-    const { getByTestId, getByText } = renderWithProviders(<BreakScreen />);
+  it('useJudgment が ready のときは進捗を 100% で表示し、上部 status / message を出さない', async () => {
+    const { getByTestId, getByText, queryByTestId } = renderWithProviders(<BreakScreen />);
 
     await waitFor(() => {
       expect(getByTestId('break-progress-ready')).toBeTruthy();
     });
+    expect(StyleSheet.flatten(getByTestId('break-progress-card').props.style).height).toBe(
+      PROGRESS_CARD_HEIGHT,
+    );
+    expect(StyleSheet.flatten(getByTestId('break-progress-card').props.style).justifyContent).toBe(
+      'flex-start',
+    );
+    expect(StyleSheet.flatten(getByTestId('break-timer-caption').props.style).color).toBe(
+      '#9D9D9D',
+    );
     expect(getByText('100%')).toBeTruthy();
-    expect(getByTestId('break-progress-status').props.children).toBe('採点完了');
+    expect(queryByTestId('break-progress-status')).toBeNull();
+    expect(queryByTestId('break-progress-message')).toBeNull();
+    const readyCheckIconStyle = StyleSheet.flatten(
+      getByTestId('break-progress-ready-check-icon').props.style,
+    );
+    const readyBlockStyle = StyleSheet.flatten(getByTestId('break-progress-ready').props.style);
+    const readyTitleRowStyle = StyleSheet.flatten(
+      getByTestId('break-progress-ready-title-row').props.style,
+    );
+    expect(readyBlockStyle.transform).toEqual([{ translateY: PROGRESS_READY_BLOCK_TRANSLATE_Y }]);
+    expect(readyCheckIconStyle.width).toBe(PROGRESS_READY_CHECK_ICON_WIDTH);
+    expect(readyCheckIconStyle.height).toBe(PROGRESS_READY_CHECK_ICON_HEIGHT);
+    expect(readyTitleRowStyle.gap).toBe(PROGRESS_READY_TITLE_ROW_GAP);
+    expect(readyTitleRowStyle.transform).toEqual([
+      { translateX: PROGRESS_READY_TITLE_ROW_TRANSLATE_X },
+      { translateY: PROGRESS_READY_TITLE_ROW_TRANSLATE_Y },
+    ]);
+    const readyTitleStyle = StyleSheet.flatten(getByText('採点完了').props.style);
+    const readySubStyle = StyleSheet.flatten(getByTestId('break-progress-ready-sub').props.style);
+    expect(readyTitleStyle.color).toBe('#FFFFFF');
+    expect(readyTitleStyle.fontFamily).toBe('HiraginoSans-W3');
+    expect(readyTitleStyle.fontSize).toBe(PROGRESS_READY_TITLE_FONT_SIZE);
+    expect(readyTitleStyle.fontWeight).toBe('600');
+    expect(readyTitleStyle.lineHeight).toBe(PROGRESS_READY_TITLE_LINE_HEIGHT);
+    expect(readyTitleStyle.transform).toEqual([{ translateY: PROGRESS_READY_TITLE_TRANSLATE_Y }]);
+    expect(readyTitleStyle.textShadowColor).toBeUndefined();
+    expect(readyTitleStyle.textShadowRadius).toBeUndefined();
+    expect(readySubStyle.color).toBe('#EFEFEF');
+    expect(readySubStyle.fontSize).toBe(PROGRESS_READY_SUB_FONT_SIZE);
+    expect(readySubStyle.lineHeight).toBe(PROGRESS_READY_SUB_LINE_HEIGHT);
+    expect(readySubStyle.transform).toEqual([{ translateY: PROGRESS_READY_SUB_TRANSLATE_Y }]);
   });
 
   it('休憩中の砂時計は上部が白のみ・下部に青/ピンク/白が積もり、ストリームは白色', () => {
@@ -259,6 +486,14 @@ describe('BreakScreen', () => {
     });
     expect(getByText('お疲れ様でした！')).toBeTruthy();
     expect(getByText('記念すべき1サイクル目です！')).toBeTruthy();
+    const completedTitleStyle = StyleSheet.flatten(getByText('お疲れ様でした！').props.style);
+    const completedCycleTitleStyle = StyleSheet.flatten(
+      getByText('記念すべき1サイクル目です！').props.style,
+    );
+    expect(completedTitleStyle.fontFamily).toBe('HiraginoSans-W6');
+    expect(completedTitleStyle.fontWeight).toBe('600');
+    expect(completedCycleTitleStyle.fontFamily).toBe('HiraginoSans-W6');
+    expect(completedCycleTitleStyle.fontWeight).toBe('600');
     expect(mockReplace).not.toHaveBeenCalled();
   });
 

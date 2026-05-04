@@ -76,6 +76,7 @@ class PgUserRepository(UserRepository):
         result = await self._session.execute(stmt)
         model = result.scalar_one()
         model.display_name = user.display_name
+        model.auth_provider = user.auth_provider.value
         model.age_group = age_group_value
         model.onboarding_completed = user.onboarding_completed
         model.fcm_token = user.fcm_token
