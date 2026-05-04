@@ -9,6 +9,7 @@ from src.application.use_cases.get_daily_report import GetDailyReport
 from src.application.use_cases.get_judgment import GetJudgment
 from src.application.use_cases.get_judgment_detail import GetJudgmentDetail
 from src.application.use_cases.get_judgment_progress import GetJudgmentProgress
+from src.application.use_cases.get_stats import GetStatsPeriod, GetStatsSummary
 from src.application.use_cases.get_user_profile import GetUserProfile
 from src.application.use_cases.get_user_settings import GetUserSettings
 from src.application.use_cases.get_weekly_report import GetWeeklyReport
@@ -64,6 +65,8 @@ class Container(BaseModel):
     get_judgment_progress: GetJudgmentProgress
     list_judgments: ListJudgments
     list_today_outputs: ListTodayOutputs
+    get_stats_summary: GetStatsSummary
+    get_stats_period: GetStatsPeriod
     get_weekly_report: GetWeeklyReport
     get_daily_report: GetDailyReport
 
@@ -141,6 +144,8 @@ def build_container(settings: Settings) -> Container:
             image_storage=image_storage,
             download_url_ttl_seconds=settings.gcs_signed_download_url_ttl_seconds,
         ),
+        get_stats_summary=GetStatsSummary(unit_of_work_factory=unit_of_work_factory),
+        get_stats_period=GetStatsPeriod(unit_of_work_factory=unit_of_work_factory),
         get_weekly_report=GetWeeklyReport(
             unit_of_work_factory=unit_of_work_factory,
             image_storage=image_storage,
