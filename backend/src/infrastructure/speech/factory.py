@@ -28,6 +28,7 @@ def build_speech_to_text_service(settings: Settings) -> SpeechToTextService:
             enable_punctuation=settings.stt_enable_punctuation,
             timeout_seconds=settings.stt_timeout_seconds,
             credentials_path=settings.stt_credentials_path,
+            recognizer_id=settings.stt_recognizer_id,
         )
 
     raise ValueError(f"unsupported stt provider: {settings.stt_provider}")

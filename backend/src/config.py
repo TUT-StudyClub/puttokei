@@ -157,16 +157,26 @@ class Settings(BaseSettings):
             "Cloud Speech-to-Text のロケーション。"
             "ad-hoc recognizer (`_`) を使う場合は global 限定。"
             "リージョン固定 (asia-southeast1 等) で運用するなら、事前に "
-            "recognizers.create で recognizer リソースを作成して名前を渡す必要がある。"
+            "recognizers.create で recognizer リソースを作成し、その ID を "
+            "STT_RECOGNIZER_ID に指定する。"
+        ),
+    )
+    stt_recognizer_id: str | None = Field(
+        default=None,
+        description=(
+            "事前作成した Cloud Speech-to-Text recognizer の ID。"
+            "未指定時は ad-hoc recognizer (`_`, global 限定) を使う。"
+            "chirp_2 等の global で提供されないモデルを使うには、リージョン上に "
+            "recognizer リソースを作成し、ここで ID を指定する。"
         ),
     )
     stt_model: str = Field(
         default="latest_long",
         description=(
             "Cloud Speech-to-Text のモデル名。"
-            "ad-hoc recognizer (`_`) で global location を使うため "
-            "global 提供モデル (latest_long / latest_short / long / short) のみ採用可。"
-            "chirp_2 を使うには事前作成した recognizer + リージョナル endpoint が必要。"
+            "ad-hoc recognizer (`_`) + global location の場合は "
+            "latest_long / latest_short / long / short のみ採用可。"
+            "STT_RECOGNIZER_ID を指定する場合は recognizer リソースに保存されたモデルが優先される。"
         ),
     )
     stt_language: str = Field(
