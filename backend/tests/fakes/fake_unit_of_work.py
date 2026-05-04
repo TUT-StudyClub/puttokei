@@ -33,6 +33,7 @@ class FakeUnitOfWork(ApplicationUnitOfWork):
         self.study_subjects = study_subjects or FakeStudySubjectRepository()
         self.judgments = judgments or FakeJudgmentRepository()
         self.judgment_progresses = judgment_progresses or FakeJudgmentProgressRepository()
+        self.judgments.bind_sessions(self.sessions)
         self.commit_count = 0
         self.rollback_count = 0
         self.enter_count = 0
