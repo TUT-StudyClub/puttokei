@@ -25,7 +25,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { Circle, Path, Svg } from 'react-native-svg';
+import { Circle, Path, Rect, Svg } from 'react-native-svg';
 import { SizableText } from 'tamagui';
 
 import { OutputEditor } from '@/features/session/components/OutputEditor';
@@ -50,8 +50,8 @@ import { useTimerStore } from '@/shared/stores/timerStore';
 const CURRENT_PHASE: SessionPhase = 'output';
 
 // ピンク基調 (アウトプットフェーズ用)
-const PRIMARY_COLOR = '#EC4899';
-const PRIMARY_SOFT_COLOR = '#FBE4EF';
+const PRIMARY_COLOR = '#F24D7E';
+const PRIMARY_SOFT_COLOR = '#FFE4EC';
 const ACTION_COLOR = '#4B5CFF';
 const INPUT_PHASE_SOFT_COLOR = '#B9DFFF';
 // 砂時計バッジに積む 3 色 (input=青 / output=ピンク / break=白)。
@@ -119,61 +119,58 @@ function InputMethodIcon({
   switch (method) {
     case 'text':
       return (
-        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
           <Path
-            d="M4 18 L14 8 L16 10 L6 20 H4 Z"
+            d="M10.6973 4.25391C11.056 4.13455 11.444 4.13455 11.8027 4.25391C12.0441 4.33428 12.2342 4.46901 12.3945 4.60547C12.5484 4.7364 12.7189 4.90834 12.9053 5.09473C13.0917 5.28111 13.2636 5.45161 13.3945 5.60547C13.531 5.76581 13.6657 5.95586 13.7461 6.19727C13.8655 6.55596 13.8655 6.94404 13.7461 7.30273C13.6657 7.54414 13.531 7.73418 13.3945 7.89453C13.2636 8.04839 13.0917 8.21889 12.9053 8.40527L7.67188 13.6387C7.50541 13.8051 7.32789 13.9914 7.10059 14.1201C6.87333 14.2487 6.62283 14.3052 6.39453 14.3623L4.77637 14.7656L4.77344 14.7676L4.74023 14.7754C4.58421 14.8144 4.38429 14.867 4.21289 14.8838C4.03218 14.9015 3.67581 14.9024 3.38672 14.6133C3.09762 14.3242 3.09853 13.9678 3.11621 13.7871C3.13298 13.6157 3.1856 13.4158 3.22461 13.2598L3.6377 11.6055C3.69477 11.3772 3.75131 11.1267 3.87988 10.8994C4.00858 10.6721 4.19486 10.4946 4.36133 10.3281L9.59473 5.09473C9.78111 4.90834 9.95161 4.7364 10.1055 4.60547C10.2658 4.46901 10.4559 4.33428 10.6973 4.25391Z"
             stroke={color}
-            strokeWidth={1.8}
-            strokeLinejoin="round"
-            fill="none"
+            strokeWidth={1.5}
           />
-          <Path
-            d="M14 8 L17 5 L19 7 L16 10"
-            stroke={color}
-            strokeWidth={1.8}
-            strokeLinejoin="round"
-            fill="none"
-          />
+          <Path d="M9.375 5.625L11.625 4.125L13.875 6.375L12.375 8.625L9.375 5.625Z" fill={color} />
         </Svg>
       );
     case 'image':
       return (
-        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
           <Path
-            d="M4 5 H20 V19 H4 Z"
+            d="M2.25 6.25C2.25 4.04086 4.04086 2.25 6.25 2.25H11.75C13.9591 2.25 15.75 4.04086 15.75 6.25V11.75C15.75 13.9591 13.9591 15.75 11.75 15.75H6.25C4.04086 15.75 2.25 13.9591 2.25 11.75V6.25Z"
             stroke={color}
-            strokeWidth={1.8}
-            strokeLinejoin="round"
-            fill="none"
+            strokeWidth={1.5}
           />
-          <Circle cx={9} cy={10} r={1.6} stroke={color} strokeWidth={1.6} fill="none" />
           <Path
-            d="M5 18 L10 13 L14 16 L17 13 L19 15"
+            d="M2.25 11.25L3.9305 9.5695C4.81282 8.68718 6.2788 8.81935 6.98908 9.84526L7.76644 10.9681C8.43112 11.9281 9.77349 12.117 10.6773 11.3776L11.7241 10.521C12.5194 9.87039 13.6783 9.92821 14.4048 10.6548L15.75 12"
             stroke={color}
-            strokeWidth={1.6}
-            strokeLinejoin="round"
-            fill="none"
+            strokeWidth={1.5}
           />
+          <Circle cx={12} cy={6} r={1.5} fill={color} />
         </Svg>
       );
     case 'voice':
       return (
-        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-          <Path
-            d="M12 4 C10.3 4 9 5.3 9 7 V12 C9 13.7 10.3 15 12 15 C13.7 15 15 13.7 15 12 V7 C15 5.3 13.7 4 12 4 Z"
+        <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
+          <Rect
+            x={6.75}
+            y={2.25}
+            width={4.5}
+            height={8.25}
+            rx={2.25}
             stroke={color}
-            strokeWidth={1.8}
+            strokeWidth={1.5}
             strokeLinejoin="round"
-            fill="none"
           />
           <Path
-            d="M6 12 C6 15.3 8.7 18 12 18 C15.3 18 18 15.3 18 12"
+            d="M3.75 8.25C3.75 9.64239 4.30312 10.9777 5.28769 11.9623C6.27226 12.9469 7.60761 13.5 9 13.5C10.3924 13.5 11.7277 12.9469 12.7123 11.9623C13.6969 10.9777 14.25 9.64239 14.25 8.25"
             stroke={color}
-            strokeWidth={1.8}
+            strokeWidth={1.5}
             strokeLinecap="round"
-            fill="none"
+            strokeLinejoin="round"
           />
-          <Path d="M12 18 V21" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+          <Path
+            d="M9 15.75V14.25"
+            stroke={color}
+            strokeWidth={1.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </Svg>
       );
   }
@@ -996,8 +993,9 @@ const styles = StyleSheet.create({
     gap: 0,
   },
   timerCaption: {
-    color: CAPTION_COLOR,
-    fontSize: 13,
+    color: '#9D9D9D',
+    fontFamily: 'HiraginoSans-W4',
+    fontSize: 11,
     lineHeight: 20,
     textAlign: 'center',
   },
