@@ -157,19 +157,13 @@ export function WeekDateStrip({
                   />
                 ) : null}
                 <SizableText
-                  style={[
-                    styles.dayNumber,
-                    dayTextColorStyle,
-                  ]}
+                  style={[styles.dayNumber, dayTextColorStyle]}
                   testID={`week-date-${dateKey}-number`}
                 >
                   {getDateNumberLabel(dateKey)}
                 </SizableText>
                 <SizableText
-                  style={[
-                    styles.weekday,
-                    dayTextColorStyle,
-                  ]}
+                  style={[styles.weekday, dayTextColorStyle]}
                   testID={`week-date-${dateKey}-weekday`}
                 >
                   {weekdayLabel}

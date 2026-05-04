@@ -187,6 +187,7 @@ const WEEKLY_CHART_PLOT_HEIGHT = WEEKLY_CHART_AXIS_Y - WEEKLY_CHART_PLOT_TOP;
 const WEEKLY_HISTORY_UP_OFFSET = -32;
 const DAILY_HIGHLIGHT_CARD_HEIGHT_REDUCTION = -WEEKLY_HISTORY_UP_OFFSET;
 const DAILY_HIGHLIGHT_METRICS_TRANSLATE_X = 16;
+const DAILY_HIGHLIGHT_TITLE_ROW_TRANSLATE_Y = 4;
 
 function CalendarMonthIcon() {
   return <Image source={CALENDAR_MONTH_ICON} style={styles.calendarToggleIcon} />;
@@ -2141,14 +2142,24 @@ export function StatsScreen() {
               studiedDateKeys={calendarStudiedDateKeys}
             />
           </View>
-          <View style={[styles.highlightTitleRow, dailyHighlightViewFrameStyle]}>
+          <View
+            style={[
+              styles.highlightTitleRow,
+              styles.dailyHighlightTitleRow,
+              dailyHighlightViewFrameStyle,
+            ]}
+            testID="stats-highlight-title-row"
+          >
             <SizableText style={[styles.highlightTitle, styles.dailyHighlightTitle]}>
               {highlightTitle}
             </SizableText>
             <ShareIconButton />
           </View>
           {dailyReportQuery.data ? (
-            <HighlightCard summary={dailyReportQuery.data.summary} style={dailyHighlightCardStyle} />
+            <HighlightCard
+              summary={dailyReportQuery.data.summary}
+              style={dailyHighlightCardStyle}
+            />
           ) : (
             <HighlightPlaceholder style={dailyHighlightCardStyle} />
           )}
@@ -2352,6 +2363,9 @@ const styles = StyleSheet.create({
   },
   hiddenHighlightTitleRow: {
     height: 30,
+  },
+  dailyHighlightTitleRow: {
+    transform: [{ translateY: DAILY_HIGHLIGHT_TITLE_ROW_TRANSLATE_Y }],
   },
   highlightTitle: {
     color: '#333333',

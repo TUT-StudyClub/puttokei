@@ -289,6 +289,9 @@ describe('StatsScreen', () => {
     expect(getByText('09：35 - 10：00')).toBeTruthy();
     expect(getByText('サイクル1')).toBeTruthy();
     expect(getByText('今日のハイライト')).toBeTruthy();
+    expect(
+      StyleSheet.flatten(getByTestId('stats-highlight-title-row').props.style).transform,
+    ).toEqual([{ translateY: 4 }]);
     expect(queryByText('教科')).toBeNull();
   });
 
