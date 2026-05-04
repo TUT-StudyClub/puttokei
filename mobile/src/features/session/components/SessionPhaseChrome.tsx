@@ -1039,17 +1039,23 @@ function PhaseTabDot({
   return (
     <View
       testID={testID}
-      style={[
-        {
-          width: PHASE_TAB_DOT_SIZE,
-          height: PHASE_TAB_DOT_SIZE,
-          borderRadius: PHASE_TAB_DOT_SIZE / 2,
-          backgroundColor: filled ? color : 'transparent',
-          borderColor: color,
-          borderWidth: 0,
-        },
-        dotStyle,
-      ]}
+      style={{
+        width: PHASE_TAB_DOT_SIZE,
+        height: PHASE_TAB_DOT_SIZE,
+        borderRadius: PHASE_TAB_DOT_SIZE / 2,
+        backgroundColor: filled ? color : 'transparent',
+        borderColor: color,
+        borderWidth: 0,
+        ...(filled
+          ? {
+              shadowColor: color,
+              shadowOpacity: 1,
+              shadowRadius: 2,
+              shadowOffset: { width: 0, height: 0 },
+              elevation: 3,
+            }
+          : null),
+      }}
     >
       {!filled && (
         <Svg width={PHASE_TAB_DOT_SIZE} height={PHASE_TAB_DOT_SIZE}>
@@ -1126,8 +1132,8 @@ export function PhaseTabs({
                 styles.phaseTabLabel,
                 { color: phaseInactiveTextColor },
                 isActive
-                  ? { color: activeTextColor, fontFamily: 'HiraginoSans-W6', fontWeight: '700' }
-                  : null,
+                  ? { color: activeTextColor, fontFamily: 'HiraginoSans-W6' }
+                  : { fontSize: 10 },
               ]}
             >
               {SESSION_PHASE_LABELS[phase]}
@@ -1271,9 +1277,8 @@ export function CircularPhaseTimer({
 }: CircularPhaseTimerProps) {
   const smoothRemainingSeconds = useSmoothRemainingSeconds(enabled);
   const totalSeconds = useTimerStore((s) => s.totalSeconds);
-
-  const size = customSize ?? (compact ? 156 : 260);
-  const strokeWidth = customStrokeWidth ?? (compact ? 10 : 14);
+  const size = customSize ?? (compact ? 156 : 290);
+  const strokeWidth = customStrokeWidth ?? (compact ? 10 : 11);
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const displayRemainingSeconds = Math.max(0, Math.ceil(smoothRemainingSeconds));
@@ -1286,7 +1291,7 @@ export function CircularPhaseTimer({
     compact ? styles.timerPhaseLabelCompact : null,
     phaseLabelFontWeight ? { fontWeight: phaseLabelFontWeight } : null,
     phaseLabelStyle,
-  ];
+  ];main
 
   return (
     <View style={[styles.timerWrap, { width: size, height: size }]} testID={testID}>
@@ -1400,8 +1405,7 @@ const styles = StyleSheet.create({
   },
   phaseTabLabel: {
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 10,
   },
   phaseTabSeparator: {
     width: 14,
@@ -1449,22 +1453,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
+    paddingBottom: '0%',
   },
   timerCenterCompact: {
     gap: 2,
   },
   timerPhaseLabel: {
-    fontSize: 18,
-    fontWeight: '700',
-    lineHeight: 22,
+    position: 'absolute',
+    top: '30.3%',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 14,
+    lineHeight: 24,
   },
   timerPhaseLabelCompact: {
     fontSize: 12,
     lineHeight: 16,
   },
   timerText: {
-    fontSize: 56,
-    fontWeight: '900',
+    position: 'absolute',
+    top: '41%',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 54,
+    fontWeight: '700',
     lineHeight: 64,
   },
   timerTextCompact: {
