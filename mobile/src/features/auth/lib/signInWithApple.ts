@@ -10,6 +10,7 @@ import * as Crypto from 'expo-crypto';
 import auth from '@react-native-firebase/auth';
 
 import { AuthFlowCancelledError, isNativeAuthCancelledError } from './authErrors';
+import { linkOrSignInWithCredential } from './linkOrSignInWithCredential';
 
 export async function signInWithApple(): Promise<void> {
   const rawNonce = generateNonce();
@@ -23,7 +24,7 @@ export async function signInWithApple(): Promise<void> {
 
   const credential = auth.AppleAuthProvider.credential(appleCredential.identityToken, rawNonce);
 
-  await auth().signInWithCredential(credential);
+  await linkOrSignInWithCredential(credential);
 }
 
 async function signInWithAppleId(

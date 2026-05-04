@@ -55,8 +55,11 @@ export function installDevMockAuth(): void {
     refreshIdToken: async () => {
       return currentSession?.idToken ?? null;
     },
+    ensureAnonymousSession: async () => {
+      // dev-mock は固定 UID を返すだけで匿名サインインは行わない
+    },
   };
   registerAuthImpl(impl);
 
-  notify({ uid: DEV_MOCK_UID, idToken: `dev-mock-${DEV_MOCK_UID}` });
+  notify({ uid: DEV_MOCK_UID, idToken: `dev-mock-${DEV_MOCK_UID}`, isAnonymous: false });
 }

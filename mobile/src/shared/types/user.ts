@@ -6,7 +6,7 @@
 export const AGE_GROUPS = ['teen', '20s', '30s', '40s', '50s', '60s_plus'] as const;
 export type AgeGroup = (typeof AGE_GROUPS)[number];
 
-export const AUTH_PROVIDERS = ['apple', 'google'] as const;
+export const AUTH_PROVIDERS = ['apple', 'google', 'anonymous'] as const;
 export type AuthProvider = (typeof AUTH_PROVIDERS)[number];
 
 export type UserProfile = {

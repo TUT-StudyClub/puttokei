@@ -13,5 +13,5 @@ htmlcov/
 *.sqlite3
 
 # シークレット類
-firebase-service-account.json
-hourglass-f10ca-9b4b2a15f93c.json
+secrets/*
+!secrets/.gitkeep
