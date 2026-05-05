@@ -11,9 +11,13 @@ import { createElement } from 'react';
 import * as settingsApi from '@/features/settings/api/settingsApi';
 import { SETTINGS_QUERY_KEY } from '@/features/settings/hooks/useSettings';
 import { useUpdateSettings } from '@/features/settings/hooks/useUpdateSettings';
+import * as notifications from '@/shared/lib/notifications';
 import type { UserSettings } from '@/shared/types/userSettings';
 
 jest.mock('@/features/settings/api/settingsApi');
+jest.mock('@/shared/lib/notifications', () => ({
+  cancelAllScheduledSessionNotifications: jest.fn().mockResolvedValue(undefined),
+}));
 
 function buildWrapper() {
   const queryClient = new QueryClient({
@@ -61,5 +65,29 @@ describe('useUpdateSettings', () => {
     await waitFor(() => {
       expect(queryClient.getQueryData<UserSettings>(SETTINGS_QUERY_KEY)).toEqual(updated);
     });
+    expect(notifications.cancelAllScheduledSessionNotifications).not.toHaveBeenCalled();
+  });
+
+  it('notification_enabled=false へ切り替わった成功レスポンスでは予約済み通知をキャンセルする', async () => {
+    const updated: UserSettings = {
+      input_minutes: 20,
+      output_minutes: 5,
+      break_minutes: 5,
+      notification_enabled: false,
+      updated_at: '2026-04-16T00:00:00Z',
+    };
+    (settingsApi.updateMySettings as jest.Mock).mockResolvedValue(updated);
+    const { wrapper } = buildWrapper();
+
+    const { result } = renderHook(() => useUpdateSettings(), { wrapper });
+
+    act(() => {
+      result.current.mutate({ notification_enabled: false });
+    });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+    expect(notifications.cancelAllScheduledSessionNotifications).toHaveBeenCalledTimes(1);
   });
 });

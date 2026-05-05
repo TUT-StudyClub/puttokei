@@ -3,18 +3,22 @@
  *
  * 責務:
  * - `timerStore` の状態 (phase / status / 残秒数) を React 側に橋渡しする
- * - `status === 'running'` の間だけ 1 秒ごとに `store.tick()` を呼ぶ interval を回す
+ * - `status === 'running'` の間だけ 1 秒ごとに `store.recomputeRemaining()` を呼ぶ
+ *   interval を回す。store が `Date.now()` アンカー方式で再計算するため、
+ *   JS がフォアグラウンドにある限り正確な残秒数が表示される。
  * - フェーズ完了 (`completionToken` の増加) を検知して `onComplete` を 1 度だけ呼ぶ
+ * - AppState が background → active に戻った瞬間に即時 `recomputeRemaining()` を
+ *   叩いて、画面復帰直後に最新の残秒数へ追いつかせる。これにより background
+ *   中も実時間でタイマーが進んでいるように見える。
  *
  * 運用上の注意:
  * - 同一画面で `useTimer({ onComplete })` を呼ぶのは 1 箇所に絞ること。複数の hook
- *   インスタンスが interval を個別に所有すると、1 秒に複数回 tick が走る可能性がある。
+ *   インスタンスが interval を個別に所有すると、AppState listener も多重登録される。
  *   UI の時刻表示は `Timer` コンポーネントのように `useTimerStore` を直接購読する
  *   形で実装する。
- * - JS がバックグラウンドに入ると `setInterval` が止まる問題は本タスクのスコープ外。
- *   後続タスクで `Date.now()` ベースの再計算を導入する想定。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 
 import { useTimerStore, type TimerPhase, type TimerStatus } from '@/shared/stores/timerStore';
 
@@ -152,7 +156,7 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerResult {
   const start = useTimerStore((s) => s.start);
   const pause = useTimerStore((s) => s.pause);
   const resume = useTimerStore((s) => s.resume);
-  const tick = useTimerStore((s) => s.tick);
+  const recomputeRemaining = useTimerStore((s) => s.recomputeRemaining);
   const complete = useTimerStore((s) => s.complete);
   const reset = useTimerStore((s) => s.reset);
 
@@ -164,10 +168,23 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerResult {
   useEffect(() => {
     if (!enabled || status !== 'running') return;
     const id = setInterval(() => {
-      tick();
+      recomputeRemaining();
     }, 1000);
     return () => clearInterval(id);
-  }, [enabled, status, tick]);
+  }, [enabled, status, recomputeRemaining]);
+
+  // AppState が active に戻った瞬間に即時再計算する。
+  // background 中も `Date.now()` 基準で時計は進んでいるので、ここで recompute
+  // すれば画面復帰直後にユーザーが見る remainingSeconds は実時間に追いつく。
+  useEffect(() => {
+    if (!enabled) return;
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        recomputeRemaining();
+      }
+    });
+    return () => subscription.remove();
+  }, [enabled, recomputeRemaining]);
 
   const previousTokenRef = useRef(completionToken);
   useEffect(() => {

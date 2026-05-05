@@ -50,8 +50,10 @@ import {
 import { DEFAULT_TIMER } from '@/features/session/config';
 import { useJudgment } from '@/features/session/hooks/useJudgment';
 import { useJudgmentProgress } from '@/features/session/hooks/useJudgmentProgress';
+import { useScheduleSessionPhaseNotification } from '@/features/session/hooks/useScheduleSessionPhaseNotification';
 import { useThrottledRemainingSeconds, useTimer } from '@/features/session/hooks/useTimer';
 import type { CreateSessionInput, JudgmentProgressStatus, Session } from '@/features/session/types';
+import { useSettings } from '@/features/settings/hooks/useSettings';
 import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
@@ -1016,6 +1018,8 @@ type SessionRouteParams = {
   input?: string;
   output?: string;
   break?: string;
+  /** 通知タップ起動時に "1"。休憩タイマーを再起動せず最初から完了モードで開く。 */
+  done?: string;
 };
 
 export function BreakScreen() {
@@ -1025,13 +1029,16 @@ export function BreakScreen() {
   const inputMinutes = Number(params.input) || DEFAULT_TIMER.input_minutes;
   const outputMinutes = Number(params.output) || DEFAULT_TIMER.output_minutes;
   const breakMinutes = Number(params.break) || DEFAULT_TIMER.break_minutes;
+  const arrivedFromNotification = params.done === '1';
 
   const router = useRouter();
   const isFocused = useIsFocused();
   const currentLoop = useLoopStore((s) => s.currentLoop);
   const incrementLoop = useLoopStore((s) => s.incrementLoop);
   const resetLoop = useLoopStore((s) => s.reset);
-  const [screenMode, setScreenMode] = useState<BreakScreenMode>('resting');
+  const [screenMode, setScreenMode] = useState<BreakScreenMode>(
+    arrivedFromNotification ? 'completed' : 'resting',
+  );
   // 進行中サイクルの砂時計バッジ (= currentLoop 番目の砂時計) の位置を window 座標で測ってキャッシュする。
   // 「次のサイクルへ」押下時にこのキャッシュを entranceOrigin に流し込む。
   const badgeStackRef = useRef<View>(null);
@@ -1095,6 +1102,18 @@ export function BreakScreen() {
     },
   });
 
+  const settingsQuery = useSettings();
+  const notificationEnabled = settingsQuery.data?.notification_enabled ?? false;
+  useScheduleSessionPhaseNotification({
+    kind: 'break',
+    enabled:
+      isFocused && screenMode === 'resting' && timerStatus === 'running' && notificationEnabled,
+    sessionId,
+    inputMinutes,
+    outputMinutes,
+    breakMinutes,
+  });
+
   const createNextCycle = useMutation<Session, Error, CreateSessionInput>({
     mutationFn: createSession,
     onSuccess: (session) => {
@@ -1113,12 +1132,18 @@ export function BreakScreen() {
   });
 
   useEffect(() => {
+    if (arrivedFromNotification) {
+      // 通知タップ起動: 既に completed 表示で開始済み。タイマーは始動しないが、
+      // JS が background で停止していた間の中途半端な秒数を 0 にジャンプさせる。
+      useTimerStore.getState().complete();
+      return;
+    }
     setScreenMode('resting');
     start('break', breakMinutes * 60);
     return () => {
       reset();
     };
-  }, [breakMinutes, reset, sessionId, start]);
+  }, [arrivedFromNotification, breakMinutes, reset, sessionId, start]);
 
   const handleStartNextCycle = () => {
     if (createNextCycle.isPending) return;

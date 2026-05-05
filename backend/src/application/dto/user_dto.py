@@ -35,3 +35,12 @@ class UpdateUserProfileCommand(FrozenModel):
 
     display_name: str | None
     age_group: AgeGroup | None
+
+
+class UpdatePushTokenCommand(FrozenModel):
+    """PUT /users/me/push-token の入力コマンド。
+
+    `fcm_token` に None を渡すとサーバ側のトークンをクリアする。
+    """
+
+    fcm_token: str | None

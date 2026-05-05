@@ -26,6 +26,7 @@ from src.application.use_cases.run_text_judgment import RunTextJudgment
 from src.application.use_cases.submit_image_output import SubmitImageOutput
 from src.application.use_cases.submit_text_output import SubmitTextOutput
 from src.application.use_cases.update_output_subject import UpdateOutputSubject
+from src.application.use_cases.update_push_token import UpdatePushToken
 from src.application.use_cases.update_session_status import UpdateSessionStatus
 from src.application.use_cases.update_user_profile import UpdateUserProfile
 from src.application.use_cases.update_user_settings import UpdateUserSettings
@@ -46,6 +47,7 @@ class PresentationContainer(ABC):
     authenticate_user: AuthenticateUser
     get_user_profile: GetUserProfile
     update_user_profile: UpdateUserProfile
+    update_push_token: UpdatePushToken
     get_user_settings: GetUserSettings
     update_user_settings: UpdateUserSettings
     delete_account: DeleteAccount

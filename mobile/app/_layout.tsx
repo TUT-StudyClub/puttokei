@@ -15,6 +15,8 @@ import { TamaguiProvider } from 'tamagui';
 
 import config from '../tamagui.config';
 import { configureGoogleSignIn } from '@/features/auth/lib/signInWithGoogle';
+import { SessionNotificationResponder } from '@/features/session/components/SessionNotificationResponder';
+import { PushTokenRegistrar } from '@/features/settings/components/PushTokenRegistrar';
 import { AuthGate } from '@/shared/components/AuthGate';
 import {
   ensureAnonymousSession,
@@ -24,6 +26,7 @@ import {
 import { installDevMockAuth } from '@/shared/lib/devMockAuth';
 import { initializeFirebaseAuth } from '@/shared/lib/firebaseAuth';
 import { setTokenProvider, setTokenRefresher } from '@/shared/lib/api';
+import { installNotificationHandler } from '@/shared/lib/notifications';
 import { queryClient } from '@/shared/lib/queryClient';
 import { getAuthIdToken, useAuthStore } from '@/shared/stores/authStore';
 
@@ -37,6 +40,7 @@ export default function RootLayout() {
       initializeFirebaseAuth();
     }
     configureGoogleSignIn();
+    installNotificationHandler();
     setTokenProvider(() => getAuthIdToken());
     setTokenRefresher(() => refreshIdToken());
 
@@ -62,6 +66,8 @@ export default function RootLayout() {
     <TamaguiProvider config={config} defaultTheme="light">
       <QueryClientProvider client={queryClient}>
         <AuthGate>
+          <PushTokenRegistrar />
+          <SessionNotificationResponder />
           <Stack screenOptions={{ headerShown: false, animation: 'none' }} />
         </AuthGate>
       </QueryClientProvider>

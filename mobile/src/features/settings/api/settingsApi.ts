@@ -1,5 +1,6 @@
 /**
- * GET / PATCH /api/v1/users/me/settings と DELETE /api/v1/users/me の API 呼び出し。
+ * GET / PATCH /api/v1/users/me/settings と DELETE /api/v1/users/me、
+ * PUT /api/v1/users/me/push-token の API 呼び出し。
  */
 import { api } from '@/shared/lib/api';
 import type { UpdateUserSettingsInput, UserSettings } from '@/shared/types/userSettings';
@@ -16,4 +17,8 @@ export async function updateMySettings(input: UpdateUserSettingsInput): Promise<
 
 export async function deleteMyAccount(): Promise<void> {
   await api.delete<void>('/users/me');
+}
+
+export async function updateMyPushToken(fcmToken: string | null): Promise<void> {
+  await api.put<void>('/users/me/push-token', { fcm_token: fcmToken });
 }

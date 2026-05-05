@@ -39,10 +39,12 @@ import {
   SessionTopChrome,
 } from '@/features/session/components/SessionPhaseChrome';
 import { DEFAULT_TIMER } from '@/features/session/config';
+import { useScheduleSessionPhaseNotification } from '@/features/session/hooks/useScheduleSessionPhaseNotification';
 import { useThrottledRemainingSeconds, useTimer } from '@/features/session/hooks/useTimer';
 import { useSubmitOutput } from '@/features/session/hooks/useSubmitOutput';
 import { useVoiceRecognition } from '@/features/session/hooks/useVoiceRecognition';
 import { uploadOutputImage } from '@/features/session/lib/uploadOutputImage';
+import { useSettings } from '@/features/settings/hooks/useSettings';
 import { isApiError } from '@/shared/lib/api';
 import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
@@ -450,6 +452,8 @@ type SessionRouteParams = {
   input?: string;
   output?: string;
   break?: string;
+  /** 通知タップ起動時に "1"。タイマー再起動を抑止し「時間になりました」だけ案内する。 */
+  done?: string;
 };
 
 export function OutputScreen() {
@@ -458,6 +462,7 @@ export function OutputScreen() {
   const inputMinutes = Number(params.input) || DEFAULT_TIMER.input_minutes;
   const outputMinutes = Number(params.output) || DEFAULT_TIMER.output_minutes;
   const breakMinutes = Number(params.break) || DEFAULT_TIMER.break_minutes;
+  const arrivedFromNotification = params.done === '1';
 
   const router = useRouter();
   const isFocused = useIsFocused();
@@ -721,6 +726,17 @@ export function OutputScreen() {
     },
   });
 
+  const settingsQuery = useSettings();
+  const notificationEnabled = settingsQuery.data?.notification_enabled ?? false;
+  useScheduleSessionPhaseNotification({
+    kind: 'output',
+    enabled: isFocused && timerStatus === 'running' && notificationEnabled,
+    sessionId,
+    inputMinutes,
+    outputMinutes,
+    breakMinutes,
+  });
+
   useEffect(() => {
     setContent('');
     setInputMethod('text');
@@ -730,12 +746,35 @@ export function OutputScreen() {
     setIsImageMenuOpen(false);
     resetVoiceRecognition();
     resetSubmit();
-    start('output', outputMinutes * 60);
+    if (arrivedFromNotification) {
+      // 通知タップ起動: タイマーを再開せず「時間になった」状態として案内する。
+      // JS が background で停止していた間に残った中途半端な秒数で再開しないよう、
+      // 明示的に completed 状態へジャンプさせる。complete() は既に completed なら no-op。
+      useTimerStore.getState().complete();
+      setIsImageMenuOpen(false);
+      setLocalErrorMessage('時間になりました。内容を確認して送信してください。');
+    } else {
+      setLocalErrorMessage(null);
+      setIsImageMenuOpen(false);
+      // input 通知タップ経由で来た直後は、background で止まっていた input フェーズの
+      // 残骸が timerStore に残ることがある。start() で上書きされるが、completionToken
+      // のズレや一瞬の表示崩れを避けるため明示的に reset してから start する。
+      useTimerStore.getState().reset();
+      start('output', outputMinutes * 60);
+    }
     return () => {
       resetVoiceRecognition();
       reset();
     };
-  }, [outputMinutes, reset, resetSubmit, resetVoiceRecognition, sessionId, start]);
+  }, [
+    arrivedFromNotification,
+    outputMinutes,
+    reset,
+    resetSubmit,
+    resetVoiceRecognition,
+    sessionId,
+    start,
+  ]);
 
   useEffect(() => {
     if (!isFocused) {

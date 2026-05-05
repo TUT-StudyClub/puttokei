@@ -94,6 +94,13 @@
           "resizeMode": "contain"
         }
       ],
+      [
+        "expo-notifications",
+        {
+          "color": "#4B5CFF",
+          "defaultChannel": "default"
+        }
+      ],
       "./plugins/withFmtCompat"
     ],
     "experiments": {
