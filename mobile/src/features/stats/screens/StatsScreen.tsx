@@ -1619,7 +1619,7 @@ function OutputHistory({
           ) : (
             group.items.slice(0, HISTORY_VISIBLE_ITEM_LIMIT).map((item, index, visibleItems) => {
               const timeRange = getHistoryTimeRangeParts(item);
-              const timeRangeLabel = `${timeRange.start} - ${timeRange.end}`;
+              const timeRangeLabel = `${timeRange.start}  -  ${timeRange.end}`;
               return (
                 <Pressable
                   key={item.output.id}
@@ -1636,7 +1636,11 @@ function OutputHistory({
                       adjustsFontSizeToFit
                       minimumFontScale={0.82}
                       numberOfLines={1}
-                      style={styles.historyTimeText}
+                      style={[
+                        styles.historyTimeText,
+                        index < visibleItems.length - 1 ? styles.historyTimeTextUpperRows : null,
+                        index === visibleItems.length - 1 ? styles.historyTimeTextLastRow : null,
+                      ]}
                     >
                       {timeRangeLabel}
                     </Text>
@@ -3165,25 +3169,26 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 10,
     backgroundColor: '#FFFFFF',
-    transform: [{ translateY: 4 }],
+    transform: [{ translateY: 8 }],
   },
   historyDateText: {
     color: '#111111',
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 16,
-    fontWeight: '800',
-    lineHeight: 20,
-    marginBottom: 2,
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 19,
+    marginBottom: 6,
+    transform: [{ translateY: 3 }],
   },
   historyRow: {
-    minHeight: 30,
+    minHeight: 32,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 14,
   },
   historyRowBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 1,
     borderBottomColor: '#D0D0D0',
   },
   historyTimeRange: {
@@ -3196,18 +3201,27 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     color: '#111111',
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 14,
-    fontWeight: '800',
-    lineHeight: 18,
+    fontSize: 12.5,
+    fontWeight: '700',
+    lineHeight: 17,
     fontVariant: ['tabular-nums'],
     includeFontPadding: false,
+    transform: [{ translateY: -0.5 }],
+  },
+  historyTimeTextUpperRows: {
+    transform: [{ translateY: -0.25 }],
+  },
+  historyTimeTextLastRow: {
+    transform: [{ translateY: -0.75 }],
   },
   historyCycleText: {
     flexShrink: 0,
     color: '#6B6B6B',
-    fontSize: 13,
-    fontWeight: '600',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 12,
+    fontWeight: '500',
     lineHeight: 18,
+    transform: [{ translateX: -2 }],
   },
   emptyHistory: {
     minHeight: 30,
@@ -3215,6 +3229,7 @@ const styles = StyleSheet.create({
   },
   emptyHistoryText: {
     color: '#777777',
+    fontFamily: 'HiraginoSans-W6',
     fontSize: 13,
     fontWeight: '600',
     lineHeight: 18,
