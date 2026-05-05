@@ -28,10 +28,11 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { G, Line, Path, Rect, Svg, Text as SvgText } from 'react-native-svg';
+import { ClipPath, Defs, G, Line, Path, Rect, Svg, Text as SvgText } from 'react-native-svg';
 import { Button, Paragraph, SizableText, Spinner } from 'tamagui';
 
 import {
+  getCenteredDateKeys,
   WEEK_DATE_STRIP_DAY_CELL_MAX_WIDTH,
   WEEK_DATE_STRIP_HORIZONTAL_INSET,
   WEEK_DATE_STRIP_HORIZONTAL_OUTSET,
@@ -191,6 +192,7 @@ const DAILY_HIGHLIGHT_CARD_TRANSLATE_Y = 4;
 const DAILY_HIGHLIGHT_METRICS_TRANSLATE_X = 16;
 const DAILY_HIGHLIGHT_TITLE_TRANSLATE_X = 4;
 const DAILY_HIGHLIGHT_TITLE_ROW_TRANSLATE_Y = 8;
+const DAILY_WEEKLY_CALENDAR_STRIP_HORIZONTAL_OUTSET = 9;
 
 function CalendarMonthIcon() {
   return <Image source={CALENDAR_MONTH_ICON} style={styles.calendarToggleIcon} />;
@@ -924,16 +926,21 @@ function formatHourLabel(hours: number): string {
 }
 
 function WeeklyBarChart({
+  dateKeys,
   points,
   barSegmentsByDateKey,
 }: {
+  dateKeys: string[];
   points: WeeklyReportPoint[];
   barSegmentsByDateKey?: Readonly<Record<string, readonly WeeklyBarSegment[]>>;
 }) {
   const { width } = useWindowDimensions();
   const chartWidth = Math.max(
     0,
-    width - WEEK_DATE_STRIP_HORIZONTAL_INSET * 2 + WEEK_DATE_STRIP_HORIZONTAL_OUTSET * 2,
+    width -
+      WEEK_DATE_STRIP_HORIZONTAL_INSET * 2 +
+      DAILY_WEEKLY_CALENDAR_STRIP_HORIZONTAL_OUTSET * 2 +
+      WEEK_DATE_STRIP_HORIZONTAL_OUTSET * 2,
   );
   const plotLeft = WEEK_DATE_STRIP_LAYOUT_GUTTER_WIDTH;
   const plotWidth = Math.max(0, chartWidth - WEEK_DATE_STRIP_LAYOUT_GUTTER_WIDTH * 2);
@@ -943,7 +950,19 @@ function WeeklyBarChart({
   const dayCellWidth = Math.min(WEEK_DATE_STRIP_DAY_CELL_MAX_WIDTH, plotWidth / 7);
   const dayStep = plotWidth > 0 ? (plotWidth - dayCellWidth) / 6 : 0;
   const barWidth = Math.min(34, Math.max(16, dayCellWidth * 0.76));
-  const maxStudyMinutes = Math.max(...points.map((point) => point.study_minutes), 0);
+  const chartPoints = useMemo(() => {
+    const pointsByDateKey = new Map(points.map((point) => [point.bucket, point]));
+    return dateKeys.map(
+      (dateKey) =>
+        pointsByDateKey.get(dateKey) ?? {
+          bucket: dateKey,
+          label: getDateNumberLabel(dateKey),
+          study_minutes: 0,
+          sessions: 0,
+        },
+    );
+  }, [dateKeys, points]);
+  const maxStudyMinutes = Math.max(...chartPoints.map((point) => point.study_minutes), 0);
   const maxHours = maxStudyMinutes / 60;
   const stepValue = maxHours <= 1 ? 0.2 : Math.max(1, Math.ceil(maxHours / WEEKLY_CHART_SECTIONS));
   const yAxisMax = stepValue * WEEKLY_CHART_SECTIONS;
@@ -969,14 +988,16 @@ function WeeklyBarChart({
                   y1={toSvgY(y)}
                   x2={plotLeft + plotWidth}
                   y2={toSvgY(y)}
-                  stroke="#D6D6D6"
+                  stroke="#E8E8E8"
+                  strokeOpacity={1}
                   strokeWidth={1}
                 />
                 {label ? (
                   <SvgText
                     x={plotLeft - 8}
                     y={toSvgY(labelY)}
-                    fill="#777777"
+                    fill="#9D9D9D"
+                    fontFamily="HiraginoSans-W6"
                     fontSize={10}
                     fontWeight="600"
                     textAnchor="end"
@@ -987,7 +1008,7 @@ function WeeklyBarChart({
               </G>
             );
           })}
-          {points.map((_point, index) => {
+          {chartPoints.map((_point, index) => {
             const x = plotLeft + dayCellWidth / 2 + dayStep * index;
             return (
               <Line
@@ -996,16 +1017,18 @@ function WeeklyBarChart({
                 y1={toSvgY(WEEKLY_CHART_GRID_TOP)}
                 x2={x}
                 y2={toSvgY(axisY)}
-                stroke="#ECECEC"
+                stroke="#F6F6F6"
+                strokeOpacity={1}
                 strokeWidth={1}
               />
             );
           })}
-          {points.map((point, index) => {
+          {chartPoints.map((point, index) => {
             const value = point.study_minutes / 60;
             const barHeight = yAxisMax > 0 ? (value / yAxisMax) * WEEKLY_CHART_PLOT_HEIGHT : 0;
             const x = plotLeft + dayCellWidth / 2 + dayStep * index - barWidth / 2;
             const y = axisY - barHeight;
+            const barClipPathId = `weekly-chart-bar-clip-${point.bucket}`;
             const segments = barSegmentsByDateKey?.[point.bucket] ?? [];
             let cumulativeMinutes = 0;
             const visibleSegments = segments.flatMap((segment) => {
@@ -1022,37 +1045,47 @@ function WeeklyBarChart({
 
             return (
               <G key={point.bucket}>
-                <Rect
-                  x={x}
-                  y={toSvgY(y)}
-                  width={barWidth}
-                  height={barHeight}
-                  rx={4}
-                  ry={4}
-                  fill="#D6D6D6"
-                  testID={`stats-weekly-chart-bar-${point.bucket}`}
-                />
-                {visibleSegments.map((segment) => {
-                  const segmentHeight =
-                    yAxisMax > 0 ? (segment.minutes / 60 / yAxisMax) * WEEKLY_CHART_PLOT_HEIGHT : 0;
-                  const segmentY =
-                    axisY -
-                    (yAxisMax > 0
-                      ? (segment.cumulativeMinutes / 60 / yAxisMax) * WEEKLY_CHART_PLOT_HEIGHT
-                      : 0);
+                <Defs>
+                  <ClipPath id={barClipPathId}>
+                    <Rect x={x} y={toSvgY(y)} width={barWidth} height={barHeight} rx={4} ry={4} />
+                  </ClipPath>
+                </Defs>
+                <G clipPath={`url(#${barClipPathId})`}>
+                  <Rect
+                    x={x}
+                    y={toSvgY(y)}
+                    width={barWidth}
+                    height={barHeight}
+                    rx={4}
+                    ry={4}
+                    fill="#D6D6D6"
+                    testID={`stats-weekly-chart-bar-${point.bucket}`}
+                  />
+                  {visibleSegments.map((segment) => {
+                    const segmentHeight =
+                      yAxisMax > 0
+                        ? (segment.minutes / 60 / yAxisMax) * WEEKLY_CHART_PLOT_HEIGHT
+                        : 0;
+                    const segmentY =
+                      axisY -
+                      (yAxisMax > 0
+                        ? (segment.cumulativeMinutes / 60 / yAxisMax) * WEEKLY_CHART_PLOT_HEIGHT
+                        : 0);
 
-                  return (
-                    <Rect
-                      key={segment.outputId}
-                      x={x}
-                      y={toSvgY(segmentY)}
-                      width={barWidth}
-                      height={segmentHeight}
-                      fill={segment.color}
-                      testID={`stats-weekly-chart-bar-segment-${point.bucket}-${segment.outputId}`}
-                    />
-                  );
-                })}
+                    return (
+                      <Rect
+                        key={segment.outputId}
+                        x={x}
+                        y={toSvgY(segmentY)}
+                        width={barWidth}
+                        height={segmentHeight}
+                        clipPath={`url(#${barClipPathId})`}
+                        fill={segment.color}
+                        testID={`stats-weekly-chart-bar-segment-${point.bucket}-${segment.outputId}`}
+                      />
+                    );
+                  })}
+                </G>
               </G>
             );
           })}
@@ -1061,7 +1094,8 @@ function WeeklyBarChart({
             y1={toSvgY(axisY)}
             x2={plotLeft + plotWidth}
             y2={toSvgY(axisY)}
-            stroke="#D6D6D6"
+            stroke="#E8E8E8"
+            strokeOpacity={1}
             strokeWidth={1}
           />
         </Svg>
@@ -1771,6 +1805,10 @@ export function StatsScreen() {
       selectedSubjectByOutputId,
     );
   }, [selectedSubjectByOutputId, subjectOptions, weeklyReportQuery.data]);
+  const weeklyChartDateKeys = useMemo(
+    () => getCenteredDateKeys(selectedDateKey),
+    [selectedDateKey],
+  );
   const highlightCardSize = useMemo(() => getHighlightCardSize(viewportWidth), [viewportWidth]);
   const dailyHighlightCardStyle = useMemo<StyleProp<ViewStyle>>(() => {
     if (highlightCardSize.height === 0) return undefined;
@@ -1811,7 +1849,8 @@ export function StatsScreen() {
       FIXED_HEADER_BOTTOM_PADDING +
       SCROLL_BOUNDARY_HEIGHT -
       weeklyChartSlotHeight +
-      WEEKLY_HISTORY_UP_OFFSET
+      WEEKLY_HISTORY_UP_OFFSET +
+      DAILY_HIGHLIGHT_CARD_EXTRA_HEIGHT
     );
   }, [highlightCardSize.height]);
   const weeklyChartSlotStyle = useMemo(
@@ -2117,6 +2156,7 @@ export function StatsScreen() {
             {weeklyReportQuery.data ? (
               <View style={weeklyChartSlotStyle}>
                 <WeeklyBarChart
+                  dateKeys={weeklyChartDateKeys}
                   points={weeklyReportQuery.data.points}
                   barSegmentsByDateKey={weeklyBarSegmentsByDateKey}
                 />
@@ -2253,7 +2293,7 @@ const styles = StyleSheet.create({
   },
   dailyWeeklyCalendarStrip: {
     transform: [{ translateY: -4 }],
-    marginHorizontal: -9,
+    marginHorizontal: -DAILY_WEEKLY_CALENDAR_STRIP_HORIZONTAL_OUTSET,
   },
   monthText: {
     color: '#333333',

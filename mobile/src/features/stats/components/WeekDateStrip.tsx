@@ -56,7 +56,7 @@ function ArrowIcon({ direction }: { direction: 'left' | 'right' }) {
   );
 }
 
-function getCenteredDateKeys(centerDateKey: string): string[] {
+export function getCenteredDateKeys(centerDateKey: string): string[] {
   return Array.from({ length: 7 }, (_value, index) => addDaysToDateKey(centerDateKey, index - 3));
 }
 

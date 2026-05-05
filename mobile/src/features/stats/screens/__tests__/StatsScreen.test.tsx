@@ -1005,6 +1005,38 @@ describe('StatsScreen', () => {
     expect(queryByText('4月29日のハイライト')).toBeNull();
   });
 
+  it('週別グラフは画面上部カレンダーの日付順に合わせて描画する', async () => {
+    (statsApi.fetchDailyReport as jest.Mock).mockImplementation((date: string) =>
+      Promise.resolve(makeDailyResponse({ date })),
+    );
+    (statsApi.fetchWeeklyReport as jest.Mock).mockResolvedValue(
+      makeWeeklyResponseForDates('2026-04-26', { '2026-04-28': 60 }),
+    );
+
+    const { getByTestId, queryByTestId } = renderWithProviders(<StatsScreen />);
+    await flushAsyncUpdates();
+
+    await act(async () => {
+      fireEvent.press(getByTestId('week-date-2026-04-28'));
+    });
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(statsApi.fetchDailyReport).toHaveBeenCalledWith('2026-04-28');
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('week-date-2026-04-28'));
+    });
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(getByTestId('stats-weekly-chart-bar-2026-04-25')).toBeTruthy();
+    });
+    expect(getByTestId('stats-weekly-chart-bar-2026-04-28').props.height).toBeGreaterThan(0);
+    expect(queryByTestId('stats-weekly-chart-bar-2026-05-02')).toBeNull();
+  });
+
   it('週別グラフは履歴詳細で選択した教科の色を反映する', async () => {
     (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(
       makeDailyResponse({
@@ -1047,6 +1079,7 @@ describe('StatsScreen', () => {
       processColor('#457DFF'),
     );
     expect(secondSegment.props.fill.payload).toBe(processColor('#2BAAF3'));
+    expect(secondSegment.props.clipPath).toBe('weekly-chart-bar-clip-2026-04-29');
     expect(secondSegment.props.height / totalBarHeight).toBeCloseTo(45 / 70, 5);
 
     await act(async () => {
