@@ -78,17 +78,24 @@ async def test_patch_settings_rejects_out_of_range_minutes(
 
 
 @pytest.mark.asyncio
-async def test_patch_settings_rejects_non_numeric_string(client: AsyncClient):
-    """Pydantic は数値文字列 "20" を int に強制変換する（既存 session API と同じ挙動）が、
-    数値として解釈できない文字列は 422 で蹴ることを担保する。
-    """
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"input_minutes": "20"},
+        {"output_minutes": 5.5},
+        {"break_minutes": True},
+        {"notification_enabled": "false"},
+        {"notification_enabled": 0},
+    ],
+)
+async def test_patch_settings_rejects_invalid_types(client: AsyncClient, payload: dict):
     headers = {"Authorization": "Bearer settings-user-string"}
     await client.get("/api/v1/users/me/settings", headers=headers)
 
     response = await client.patch(
         "/api/v1/users/me/settings",
         headers=headers,
-        json={"input_minutes": "abc"},
+        json=payload,
     )
     assert response.status_code == 422
 
