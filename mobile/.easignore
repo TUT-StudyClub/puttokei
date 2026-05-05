@@ -1,0 +1,32 @@
+# EAS Build がクラウドビルダーへアップロードしないファイルを指定する。
+#
+# `.gitignore` との関係:
+# - `.easignore` が存在する場合、EAS は `.easignore` を使い `.gitignore` は無視する
+# - `.gitignore` で無視しているが EAS には送りたいファイル (= 個人秘匿だが build に
+#   必要なファイル) はここに **含めない** ことで EAS にアップロードされる
+#
+# このプロジェクトでの差分:
+# - `app.json` ... `app.config.ts` が `import './app.json'` で参照するため EAS に必須。
+#                  `.gitignore` では除外しているが `.easignore` では除外しない。
+# - `GoogleService-Info*.plist` ... 環境別の Firebase 設定。`.gitignore` では除外して
+#                                    いるが build 時に必要なため `.easignore` では除外しない。
+#
+# 以下は `.gitignore` の内容から `app.json` と `GoogleService-Info*.plist` を取り除いた
+# もの。
+
+node_modules/
+.expo/
+.expo-shared/
+dist/
+web-build/
+*.log
+.DS_Store
+.env
+.env.local
+!.env.example
+ios/
+android/
+.tamagui/
+coverage/
+google-services.json
+expo-env.d.ts
