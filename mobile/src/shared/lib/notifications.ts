@@ -27,17 +27,15 @@ export type SessionPhaseNotificationRoute = {
   breakMinutes: number;
 };
 
-const NOTIFICATION_CONTENT: Record<
-  SessionPhaseNotificationKind,
-  { title: string; body: string }
-> = {
-  input: { title: 'インプットが終わりました', body: 'アウトプットを始めましょう' },
-  output: {
-    title: 'アウトプットが終わりました',
-    body: 'アウトプットした内容を入力しましょう',
-  },
-  break: { title: '休憩が終わりました', body: '勉強を再開しましょう' },
-};
+const NOTIFICATION_CONTENT: Record<SessionPhaseNotificationKind, { title: string; body: string }> =
+  {
+    input: { title: 'インプットが終わりました', body: 'アウトプットを始めましょう' },
+    output: {
+      title: 'アウトプットが終わりました',
+      body: 'アウトプットした内容を入力しましょう',
+    },
+    break: { title: '休憩が終わりました', body: '勉強を再開しましょう' },
+  };
 
 const ANDROID_DEFAULT_CHANNEL_ID = 'default';
 

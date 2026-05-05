@@ -17,13 +17,19 @@ from httpx import ASGITransport, AsyncClient
 from src.application.use_cases.authenticate_user import AuthenticateUser
 from src.application.use_cases.create_session import CreateSession
 from src.application.use_cases.delete_account import DeleteAccount
+from src.application.use_cases.get_daily_report import GetDailyReport
 from src.application.use_cases.get_judgment import GetJudgment
+from src.application.use_cases.get_judgment_detail import GetJudgmentDetail
 from src.application.use_cases.get_judgment_progress import GetJudgmentProgress
+from src.application.use_cases.get_stats import GetStatsPeriod, GetStatsSummary
 from src.application.use_cases.get_user_profile import GetUserProfile
 from src.application.use_cases.get_user_settings import GetUserSettings
 from src.application.use_cases.get_weekly_report import GetWeeklyReport
+from src.application.use_cases.list_judgments import ListJudgments
 from src.application.use_cases.list_today_outputs import ListTodayOutputs
-from src.application.use_cases.submit_output import SubmitOutput
+from src.application.use_cases.submit_image_output import SubmitImageOutput
+from src.application.use_cases.submit_text_output import SubmitTextOutput
+from src.application.use_cases.update_output_subject import UpdateOutputSubject
 from src.application.use_cases.update_push_token import UpdatePushToken
 from src.application.use_cases.update_session_status import UpdateSessionStatus
 from src.application.use_cases.update_user_profile import UpdateUserProfile
@@ -38,6 +44,8 @@ from tests.fakes.fake_judgment_repository import FakeJudgmentRepository
 from tests.fakes.fake_notification_service import FakeNotificationService
 from tests.fakes.fake_output_repository import FakeOutputRepository
 from tests.fakes.fake_session_repository import FakeSessionRepository
+from tests.fakes.fake_stats_repository import FakeStatsRepository
+from tests.fakes.fake_study_subject_repository import FakeStudySubjectRepository
 from tests.fakes.fake_unit_of_work import FakeUnitOfWork
 from tests.fakes.fake_user_repository import FakeUserRepository
 
@@ -70,6 +78,11 @@ def fake_output_repository() -> FakeOutputRepository:
 
 
 @pytest.fixture
+def fake_study_subject_repository() -> FakeStudySubjectRepository:
+    return FakeStudySubjectRepository()
+
+
+@pytest.fixture
 def fake_judgment_repository() -> FakeJudgmentRepository:
     return FakeJudgmentRepository()
 
@@ -77,6 +90,11 @@ def fake_judgment_repository() -> FakeJudgmentRepository:
 @pytest.fixture
 def fake_judgment_progress_repository() -> FakeJudgmentProgressRepository:
     return FakeJudgmentProgressRepository()
+
+
+@pytest.fixture
+def fake_stats_repository() -> FakeStatsRepository:
+    return FakeStatsRepository()
 
 
 @pytest.fixture
@@ -95,8 +113,10 @@ def container(
     fake_user_repository: FakeUserRepository,
     fake_session_repository: FakeSessionRepository,
     fake_output_repository: FakeOutputRepository,
+    fake_study_subject_repository: FakeStudySubjectRepository,
     fake_judgment_repository: FakeJudgmentRepository,
     fake_judgment_progress_repository: FakeJudgmentProgressRepository,
+    fake_stats_repository: FakeStatsRepository,
     fake_auth_verifier: FakeAuthVerifier,
     fake_notification_service: FakeNotificationService,
 ) -> Container:
@@ -108,8 +128,10 @@ def container(
             users=fake_user_repository,
             sessions=fake_session_repository,
             outputs=fake_output_repository,
+            study_subjects=fake_study_subject_repository,
             judgments=fake_judgment_repository,
             judgment_progresses=fake_judgment_progress_repository,
+            stats=fake_stats_repository,
         )
 
     return Container(
@@ -128,12 +150,21 @@ def container(
         delete_account=DeleteAccount(unit_of_work_factory=unit_of_work_factory),
         create_session=CreateSession(unit_of_work_factory=unit_of_work_factory),
         update_session_status=UpdateSessionStatus(unit_of_work_factory=unit_of_work_factory),
-        submit_output=SubmitOutput(unit_of_work_factory=unit_of_work_factory),
-        run_local_judgment=None,
+        submit_text_output=SubmitTextOutput(unit_of_work_factory=unit_of_work_factory),
+        submit_image_output=SubmitImageOutput(unit_of_work_factory=unit_of_work_factory),
+        update_output_subject=UpdateOutputSubject(unit_of_work_factory=unit_of_work_factory),
+        issue_output_image_upload_url=None,
+        run_text_judgment=None,
+        run_image_judgment=None,
         get_judgment=GetJudgment(unit_of_work_factory=unit_of_work_factory),
+        get_judgment_detail=GetJudgmentDetail(unit_of_work_factory=unit_of_work_factory),
         get_judgment_progress=GetJudgmentProgress(unit_of_work_factory=unit_of_work_factory),
+        list_judgments=ListJudgments(unit_of_work_factory=unit_of_work_factory),
         list_today_outputs=ListTodayOutputs(unit_of_work_factory=unit_of_work_factory),
+        get_stats_summary=GetStatsSummary(unit_of_work_factory=unit_of_work_factory),
+        get_stats_period=GetStatsPeriod(unit_of_work_factory=unit_of_work_factory),
         get_weekly_report=GetWeeklyReport(unit_of_work_factory=unit_of_work_factory),
+        get_daily_report=GetDailyReport(unit_of_work_factory=unit_of_work_factory),
     )
 
 

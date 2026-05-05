@@ -4,7 +4,11 @@ import { StyleSheet } from 'react-native';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../../tamagui.config';
-import { CircularPhaseTimer, PhaseTabs } from '@/features/session/components/SessionPhaseChrome';
+import {
+  CircularPhaseTimer,
+  PhaseTabs,
+  SessionTopChrome,
+} from '@/features/session/components/SessionPhaseChrome';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
 function renderWithProvider(ui: ReactNode) {
@@ -79,6 +83,44 @@ describe('SessionPhaseChrome', () => {
     expect(inputDotStyle.backgroundColor).toBe('#B9DFFF');
     expect(inputDotStyle.borderColor).toBe('#B9DFFF');
     expect(breakDotStyle.backgroundColor).toBe('transparent');
+  });
+
+  it('SessionTopChrome はホームではサイクル表示をグレーにする', () => {
+    const { getByTestId, getByText } = renderWithProvider(
+      <SessionTopChrome
+        testIDPrefix="home"
+        hourglass={{ currentLoop: 1 }}
+        phaseTabs={{
+          activePhase: 'input',
+          activeDotColor: '#9CA3AF',
+        }}
+      />,
+    );
+
+    expect(getByText('0サイクル')).toBeTruthy();
+    expect(StyleSheet.flatten(getByTestId('home-cycle-label').props.style).color).toBe('#9D9D9D');
+    expect(StyleSheet.flatten(getByTestId('home-phase-tabs-wrapper').props.style).top).toBe(
+      '19.1%',
+    );
+  });
+
+  it('SessionTopChrome はセッション画面ではサイクル表示を黒にする', () => {
+    const { getByTestId, getByText } = renderWithProvider(
+      <SessionTopChrome
+        testIDPrefix="input"
+        hourglass={{
+          currentLoop: 2,
+          variant: 'blue',
+        }}
+        phaseTabs={{
+          activePhase: 'input',
+          activeDotColor: '#4B5CFF',
+        }}
+      />,
+    );
+
+    expect(getByText('2サイクル')).toBeTruthy();
+    expect(StyleSheet.flatten(getByTestId('input-cycle-label').props.style).color).toBe('#2F2F2F');
   });
 
   it('CircularPhaseTimer は timerStore の残秒数を MM:SS 形式で表示する', () => {

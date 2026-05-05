@@ -16,6 +16,8 @@ class JudgmentProgressStage(str, Enum):
     """backend が観測できる判定処理の段階。"""
 
     QUEUED = "queued"
+    DOWNLOADING_IMAGE = "downloading_image"
+    ENCODING_IMAGE = "encoding_image"
     PREPARING_PROMPT = "preparing_prompt"
     REQUESTING_LLM = "requesting_llm"
     RECEIVING_LLM = "receiving_llm"

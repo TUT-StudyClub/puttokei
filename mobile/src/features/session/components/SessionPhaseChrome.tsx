@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import type { StyleProp, ViewStyle } from 'react-native';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import type { LayoutChangeEvent, StyleProp, TextStyle, ViewStyle } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -29,7 +29,8 @@ export const SESSION_PHASE_LABELS: Record<SessionPhase, string> = {
 const TEXT_ACTIVE = '#2F2F2F';
 const DOT_INACTIVE = '#D9D9D9';
 const BORDER_COLOR = '#E5E7EB';
-const SETTINGS_ICON_HEX_PATH = 'M12 3 L20 7.5 V16.5 L12 21 L4 16.5 V7.5 Z';
+const CYCLE_LABEL_HOME_COLOR = '#9D9D9D';
+const SETTINGS_ICON_ASSET = require('../../../../assets/images/icons/icon_setting.png');
 export const HOURGLASS_BADGE_ACTIVE_SCALE = 1.45;
 
 /**
@@ -538,31 +539,25 @@ export function useHourglassBadgeXml(asset: number) {
 
 type SettingsIconProps = {
   size?: number;
-  color?: string;
 };
 
-function SettingsIcon({ size = 24, color = TEXT_ACTIVE }: SettingsIconProps) {
+function SettingsIcon({ size = 24 }: SettingsIconProps) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d={SETTINGS_ICON_HEX_PATH} stroke={color} strokeWidth={2} fill="none" />
-      <Circle cx={12} cy={12} r={3} stroke={color} strokeWidth={2} fill="none" />
-    </Svg>
+    <Image
+      source={SETTINGS_ICON_ASSET}
+      resizeMode="contain"
+      style={[styles.settingsIcon, { width: size, height: size }]}
+    />
   );
 }
 
 type SessionSettingsButtonProps = {
   onPress: () => void;
   testID: string;
-  color?: string;
   rowStyle?: StyleProp<ViewStyle>;
 };
 
-export function SessionSettingsButton({
-  onPress,
-  testID,
-  color = TEXT_ACTIVE,
-  rowStyle,
-}: SessionSettingsButtonProps) {
+export function SessionSettingsButton({ onPress, testID, rowStyle }: SessionSettingsButtonProps) {
   return (
     <View style={[styles.settingsRow, rowStyle]}>
       <Pressable
@@ -573,7 +568,7 @@ export function SessionSettingsButton({
         hitSlop={8}
         testID={testID}
       >
-        <SettingsIcon color={color} />
+        <SettingsIcon />
       </Pressable>
     </View>
   );
@@ -904,6 +899,13 @@ type HourglassBadgeProps = {
   /** バッジ画像のバリアント。ホーム画面は `gray`、セッション系画面は `blue` を指定する。 */
   variant?: HourglassBadgeVariant;
   /**
+   * variant の `baseWidth` を上書きする。`SessionTopChrome` 配下では Home の gray に揃えるため
+   * 全画面で同じ値を渡し、バッジ全体の高さを統一する。指定がなければ variant の baseWidth を使う。
+   */
+  iconBaseWidth?: number;
+  /** variant の `baseHeight` を上書きする。`iconBaseWidth` と対で使う。 */
+  iconBaseHeight?: number;
+  /**
    * `currentLoop` 番目（= 進行中サイクル）の砂時計を覆う Wrapper View に当てる ref。
    * バッジ列の中で active バッジだけの位置を `measureInWindow` 等で取得したいときに使う。
    */
@@ -943,6 +945,8 @@ export function HourglassBadge({
   activeLayerIndex = 0,
   showSandStream = false,
   variant = DEFAULT_HOURGLASS_VARIANT,
+  iconBaseWidth,
+  iconBaseHeight,
   activeIconRef,
 }: HourglassBadgeProps) {
   const grayXml = useHourglassBadgeXml(HOURGLASS_VARIANTS.gray.asset);
@@ -964,7 +968,10 @@ export function HourglassBadge({
   }, [sandLayers, sandColor, sandProgress]);
 
   return (
-    <View style={[styles.badgeRow, { marginBottom }, rowStyle]}>
+    <View
+      style={[styles.badgeRow, { marginBottom }, rowStyle]}
+      testID={`${testIDPrefix}-hourglass-row`}
+    >
       <View
         style={[styles.badge, { borderColor }, badgeStyle]}
         testID={`${testIDPrefix}-hourglass-badge`}
@@ -974,6 +981,10 @@ export function HourglassBadge({
           const isActive = loopIndex === currentLoop;
           const iconVariant = resolveIconVariant(loopIndex, currentLoop, variant);
           const iconConfig = HOURGLASS_VARIANTS[iconVariant];
+          const baseWidth = iconBaseWidth ?? iconConfig.baseWidth;
+          const baseHeight = iconBaseHeight ?? iconConfig.baseHeight;
+          const iconWidth = isActive ? baseWidth * HOURGLASS_BADGE_ACTIVE_SCALE : baseWidth;
+          const iconHeight = isActive ? baseHeight * HOURGLASS_BADGE_ACTIVE_SCALE : baseHeight;
           const iconElement = (
             <HourglassBadgeIcon
               active={isActive}
@@ -983,20 +994,20 @@ export function HourglassBadge({
               xml={xmlByVariant[iconVariant]}
               testID={`${testIDPrefix}-hourglass-badge-icon-${index + 1}`}
               config={iconConfig}
+              width={iconWidth}
+              height={iconHeight}
             />
           );
           // active バッジには測定用の wrapper View を被せて ref を forward する。
           // wrapper には明示サイズを当てて、flex の暗黙縮小や collapse による 0 サイズ化を防ぐ
           // (= measureInWindow で確実にバッジ中心を取れるようにする)。
           if (isActive && activeIconRef) {
-            const activeWidth = iconConfig.baseWidth * HOURGLASS_BADGE_ACTIVE_SCALE;
-            const activeHeight = iconConfig.baseHeight * HOURGLASS_BADGE_ACTIVE_SCALE;
             return (
               <View
                 key={index}
                 ref={activeIconRef}
                 collapsable={false}
-                style={{ width: activeWidth, height: activeHeight }}
+                style={{ width: iconWidth, height: iconHeight }}
               >
                 {iconElement}
               </View>
@@ -1016,24 +1027,38 @@ function PhaseTabDot({
   color,
   filled,
   testID,
+  dotStyle,
 }: {
   color: string;
   filled: boolean;
   testID: string;
+  dotStyle?: StyleProp<ViewStyle>;
 }) {
   const r = PHASE_TAB_DOT_SIZE / 2 - PHASE_TAB_DOT_STROKE / 2;
   const c = PHASE_TAB_DOT_SIZE / 2;
   return (
     <View
       testID={testID}
-      style={{
-        width: PHASE_TAB_DOT_SIZE,
-        height: PHASE_TAB_DOT_SIZE,
-        borderRadius: PHASE_TAB_DOT_SIZE / 2,
-        backgroundColor: filled ? color : 'transparent',
-        borderColor: color,
-        borderWidth: 0,
-      }}
+      style={[
+        {
+          width: PHASE_TAB_DOT_SIZE,
+          height: PHASE_TAB_DOT_SIZE,
+          borderRadius: PHASE_TAB_DOT_SIZE / 2,
+          backgroundColor: filled ? color : 'transparent',
+          borderColor: color,
+          borderWidth: 0,
+          ...(filled
+            ? {
+                shadowColor: color,
+                shadowOpacity: 1,
+                shadowRadius: 2,
+                shadowOffset: { width: 0, height: 0 },
+                elevation: 3,
+              }
+            : null),
+        },
+        dotStyle,
+      ]}
     >
       {!filled && (
         <Svg width={PHASE_TAB_DOT_SIZE} height={PHASE_TAB_DOT_SIZE}>
@@ -1062,6 +1087,7 @@ type PhaseTabsProps = {
   inactiveDotFilledPhases?: Partial<Record<SessionPhase, boolean>>;
   inactiveDotColor?: string;
   inactiveDotColors?: Partial<Record<SessionPhase, string>>;
+  activeDotStyle?: StyleProp<ViewStyle>;
   activeTextColor?: string;
   inactiveTextColor?: string;
   inactiveTextColors?: Partial<Record<SessionPhase, string>>;
@@ -1079,6 +1105,7 @@ export function PhaseTabs({
   inactiveDotFilledPhases,
   inactiveDotColor = DOT_INACTIVE,
   inactiveDotColors,
+  activeDotStyle,
   activeTextColor = TEXT_ACTIVE,
   inactiveTextColor = DOT_INACTIVE,
   inactiveTextColors,
@@ -1100,6 +1127,7 @@ export function PhaseTabs({
               color={isActive ? activeDotColor : phaseInactiveDotColor}
               filled={isActive ? activeDotFilled : phaseInactiveDotFilled}
               testID={`${testIDPrefix}-phase-tab-${phase}-dot`}
+              dotStyle={isActive ? activeDotStyle : undefined}
             />
             <SizableText
               size="$3"
@@ -1107,8 +1135,8 @@ export function PhaseTabs({
                 styles.phaseTabLabel,
                 { color: phaseInactiveTextColor },
                 isActive
-                  ? { color: activeTextColor, fontFamily: 'HiraginoSans-W6', fontWeight: '700' }
-                  : null,
+                  ? { color: activeTextColor, fontFamily: 'HiraginoSans-W6' }
+                  : { fontSize: 10 },
               ]}
             >
               {SESSION_PHASE_LABELS[phase]}
@@ -1143,6 +1171,82 @@ export function PhaseTabs({
   );
 }
 
+/**
+ * 4 画面 (Home / Input / Output / Break) で共通利用する画面上部の固定 chrome。
+ *
+ * Home の絶対配置座標 (`top: 7.9%` / `top: 19.4%`) を 4 画面で揃えるための wrapper。
+ * 砂時計バッジ・PhaseTabs を SafeAreaView 配下の親 View に対して絶対配置する想定。
+ * `showHeader` が `false` のときは砂時計バッジを非表示にし、PhaseTabs だけ常に表示する。
+ *
+ * 画面側のメインコンテンツは `SESSION_TOP_CHROME_CONTENT_TOP` を `top` に当てた
+ * 絶対配置 View でラップして、chrome と重ならない位置から始める。
+ */
+export const SESSION_TOP_CHROME_CONTENT_TOP = '26.1%' as const;
+export const SESSION_TOP_CHROME_HOURGLASS_WIDTH_RATIO = 1 - 0.1318 - 0.1294;
+export const SESSION_TOP_CHROME_PHASE_TABS_TOP = '19.1%' as const;
+
+type SessionTopChromeProps = {
+  testIDPrefix: string;
+  /** 砂時計バッジを表示するか。`false` でも PhaseTabs は表示される。 */
+  showHeader?: boolean;
+  cycleLabelStyle?: StyleProp<TextStyle>;
+  hourglassRowStyle?: StyleProp<ViewStyle>;
+  hourglass: Omit<HourglassBadgeProps, 'testIDPrefix' | 'rowStyle' | 'marginBottom'>;
+  phaseTabs: Omit<PhaseTabsProps, 'testIDPrefix' | 'marginBottom'>;
+  /** 砂時計バッジ wrapper の View ref。Break 画面のエントランスアニメ用。 */
+  hourglassWrapperRef?: React.Ref<View>;
+  onHourglassWrapperLayout?: (event: LayoutChangeEvent) => void;
+};
+
+export function SessionTopChrome({
+  testIDPrefix,
+  showHeader = true,
+  cycleLabelStyle,
+  hourglassRowStyle,
+  hourglass,
+  phaseTabs,
+  hourglassWrapperRef,
+  onHourglassWrapperLayout,
+}: SessionTopChromeProps) {
+  const hourglassVariant = hourglass.variant ?? DEFAULT_HOURGLASS_VARIANT;
+  const isHomeBadge = hourglassVariant === 'gray';
+  const cycleLabelCount = isHomeBadge
+    ? Math.max(0, hourglass.currentLoop - 1)
+    : hourglass.currentLoop;
+  const cycleLabelColor = isHomeBadge ? CYCLE_LABEL_HOME_COLOR : TEXT_ACTIVE;
+
+  return (
+    <>
+      {showHeader ? (
+        <View
+          ref={hourglassWrapperRef}
+          onLayout={onHourglassWrapperLayout}
+          style={styles.topChromeHourglassWrapper}
+        >
+          <SizableText
+            style={[styles.topChromeCycleLabel, { color: cycleLabelColor }, cycleLabelStyle]}
+            testID={`${testIDPrefix}-cycle-label`}
+          >
+            {cycleLabelCount}サイクル
+          </SizableText>
+          <HourglassBadge
+            {...hourglass}
+            testIDPrefix={testIDPrefix}
+            marginBottom={0}
+            rowStyle={[styles.topChromeHourglassRow, hourglassRowStyle]}
+            badgeStyle={[styles.topChromeHourglassBadge, hourglass.badgeStyle]}
+            iconBaseWidth={HOURGLASS_VARIANTS.gray.baseWidth}
+            iconBaseHeight={HOURGLASS_VARIANTS.gray.baseHeight}
+          />
+        </View>
+      ) : null}
+      <View style={styles.topChromePhaseTabsWrapper} testID={`${testIDPrefix}-phase-tabs-wrapper`}>
+        <PhaseTabs {...phaseTabs} testIDPrefix={testIDPrefix} marginBottom={0} />
+      </View>
+    </>
+  );
+}
+
 type CircularPhaseTimerProps = {
   phase: SessionPhase;
   primaryColor: string;
@@ -1150,7 +1254,13 @@ type CircularPhaseTimerProps = {
   testID: string;
   compact?: boolean;
   enabled?: boolean;
+  phaseLabelTestID?: string;
+  phaseLabelFontWeight?: TextStyle['fontWeight'];
+  phaseLabelStyle?: StyleProp<TextStyle>;
   textTestID?: string;
+  timerTextStyle?: StyleProp<TextStyle>;
+  size?: number;
+  strokeWidth?: number;
 };
 
 export function CircularPhaseTimer({
@@ -1160,19 +1270,31 @@ export function CircularPhaseTimer({
   testID,
   compact = false,
   enabled = true,
+  phaseLabelTestID,
+  phaseLabelFontWeight,
+  phaseLabelStyle,
   textTestID = 'timer-display',
+  timerTextStyle,
+  size: customSize,
+  strokeWidth: customStrokeWidth,
 }: CircularPhaseTimerProps) {
   const smoothRemainingSeconds = useSmoothRemainingSeconds(enabled);
   const totalSeconds = useTimerStore((s) => s.totalSeconds);
-
-  const size = compact ? 156 : 260;
-  const strokeWidth = compact ? 10 : 14;
+  const size = customSize ?? (compact ? 156 : 290);
+  const strokeWidth = customStrokeWidth ?? (compact ? 10 : 11);
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const displayRemainingSeconds = Math.max(0, Math.ceil(smoothRemainingSeconds));
   const remainingRatio =
     totalSeconds > 0 ? Math.min(1, Math.max(0, smoothRemainingSeconds / totalSeconds)) : 0;
   const dashOffset = -circumference * (1 - remainingRatio);
+  const phaseLabelStyles: StyleProp<TextStyle> = [
+    styles.timerPhaseLabel,
+    { color: primaryColor },
+    compact ? styles.timerPhaseLabelCompact : null,
+    phaseLabelFontWeight ? { fontWeight: phaseLabelFontWeight } : null,
+    phaseLabelStyle,
+  ];
 
   return (
     <View style={[styles.timerWrap, { width: size, height: size }]} testID={testID}>
@@ -1202,20 +1324,21 @@ export function CircularPhaseTimer({
         style={[styles.timerCenter, compact ? styles.timerCenterCompact : null]}
         pointerEvents="none"
       >
-        <SizableText
-          style={[
-            styles.timerPhaseLabel,
-            { color: primaryColor },
-            compact ? styles.timerPhaseLabelCompact : null,
-          ]}
-        >
-          {SESSION_PHASE_LABELS[phase]}
-        </SizableText>
+        {phaseLabelFontWeight ? (
+          <Text style={phaseLabelStyles} testID={phaseLabelTestID}>
+            {SESSION_PHASE_LABELS[phase]}
+          </Text>
+        ) : (
+          <SizableText style={phaseLabelStyles} testID={phaseLabelTestID}>
+            {SESSION_PHASE_LABELS[phase]}
+          </SizableText>
+        )}
         <SizableText
           style={[
             styles.timerText,
             { color: primaryColor },
             compact ? styles.timerTextCompact : null,
+            timerTextStyle,
           ]}
           testID={textTestID}
         >
@@ -1229,14 +1352,18 @@ export function CircularPhaseTimer({
 const styles = StyleSheet.create({
   settingsRow: {
     position: 'absolute',
-    top: '1%',
-    right: '10%',
+    top: -4.5,
+    right: 38,
   },
   settingsButton: {
     width: 24,
     height: 24,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  settingsIcon: {
+    width: 24,
+    height: 24,
   },
   pressed: {
     opacity: 0.6,
@@ -1264,7 +1391,7 @@ const styles = StyleSheet.create({
   phaseTabs: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     marginBottom: 24,
     paddingLeft: 0,
   },
@@ -1275,20 +1402,50 @@ const styles = StyleSheet.create({
   phaseTab: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 2,
     paddingVertical: 8,
-    paddingHorizontal: 4,
+    paddingHorizontal: 2,
   },
   phaseTabLabel: {
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 10,
   },
   phaseTabSeparator: {
-    width: 16,
+    width: 14,
     height: 1.5,
     borderRadius: 999,
-    marginHorizontal: 6,
+    marginHorizontal: 2,
+  },
+  topChromeHourglassWrapper: {
+    position: 'absolute',
+    top: '3%',
+    left: '13.18%',
+    right: '12.94%',
+    alignItems: 'flex-start',
+  },
+  topChromeCycleLabel: {
+    marginBottom: 8,
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 10,
+    fontWeight: '700',
+    lineHeight: 14,
+    transform: [{ translateY: 16 }],
+  },
+  topChromeHourglassRow: {
+    marginTop: 20,
+    width: '100%',
+  },
+  topChromeHourglassBadge: {
+    width: '100%',
+    justifyContent: 'space-between',
+    gap: 0,
+    paddingVertical: 10,
+  },
+  topChromePhaseTabsWrapper: {
+    position: 'absolute',
+    top: SESSION_TOP_CHROME_PHASE_TABS_TOP,
+    left: '12.68%',
+    right: '13.44%',
   },
   timerWrap: {
     alignItems: 'center',
@@ -1299,22 +1456,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
+    paddingBottom: '0%',
   },
   timerCenterCompact: {
     gap: 2,
   },
   timerPhaseLabel: {
-    fontSize: 18,
-    fontWeight: '700',
-    lineHeight: 22,
+    position: 'absolute',
+    top: '30.3%',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 14,
+    lineHeight: 24,
   },
   timerPhaseLabelCompact: {
     fontSize: 12,
     lineHeight: 16,
   },
   timerText: {
-    fontSize: 56,
-    fontWeight: '900',
+    position: 'absolute',
+    top: '41%',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 54,
+    fontWeight: '700',
     lineHeight: 64,
   },
   timerTextCompact: {

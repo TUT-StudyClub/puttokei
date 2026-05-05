@@ -9,6 +9,7 @@
  *   サインイン / サインアウト / トークン更新のたびに通知を受ける。
  * - `refreshIdToken()`: Firebase の `getIdToken(true)` 相当。
  *   api クライアントが 401 を受けた際の再取得に使う。
+ * - `ensureAnonymousSession()`: 未サインイン時に Firebase Anonymous Auth の UID を作る。
  * - `registerAuthImpl(impl)`: Epic #2 で Firebase SDK を初期化した際に
  *   実装を差し込む。差し込みが無い間は subscribe は何もせず、refresh は null を返す。
  */
@@ -28,6 +29,7 @@ export function getFirebaseConfig(): FirebaseConfig | null {
 export type AuthSession = {
   uid: string;
   idToken: string;
+  isAnonymous: boolean;
 };
 
 export type AuthSessionListener = (session: AuthSession | null) => void;
@@ -36,11 +38,13 @@ export type Unsubscribe = () => void;
 export type AuthImpl = {
   subscribeIdTokenChanged: (listener: AuthSessionListener) => Unsubscribe;
   refreshIdToken: () => Promise<string | null>;
+  ensureAnonymousSession: () => Promise<void>;
 };
 
 const NOOP_IMPL: AuthImpl = {
   subscribeIdTokenChanged: () => () => {},
   refreshIdToken: async () => null,
+  ensureAnonymousSession: async () => {},
 };
 
 let currentImpl: AuthImpl = NOOP_IMPL;
@@ -64,4 +68,8 @@ export function subscribeIdTokenChanged(listener: AuthSessionListener): Unsubscr
 
 export async function refreshIdToken(): Promise<string | null> {
   return currentImpl.refreshIdToken();
+}
+
+export async function ensureAnonymousSession(): Promise<void> {
+  await currentImpl.ensureAnonymousSession();
 }

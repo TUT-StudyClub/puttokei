@@ -158,9 +158,7 @@ describe('SessionNotificationResponder', () => {
   });
 
   it('data に kind が無い場合は何もしない', () => {
-    useLastNotificationResponseMock.mockReturnValue(
-      buildResponse('n-5', { sessionId: 'sess-5' }),
-    );
+    useLastNotificationResponseMock.mockReturnValue(buildResponse('n-5', { sessionId: 'sess-5' }));
 
     render(<SessionNotificationResponder />);
 

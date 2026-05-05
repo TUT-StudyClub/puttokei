@@ -1,9 +1,11 @@
+from unittest.mock import patch
+
 import pytest
 
 from src.config import Settings
 from src.infrastructure.llm.factory import build_llm_judge_service
-from src.infrastructure.llm.gemini_provider import GeminiProvider
 from src.infrastructure.llm.local_judge_service import LocalJudgeService
+from src.infrastructure.llm.vertex_provider import VertexProvider
 
 
 def test_build_llm_judge_service_returns_local_service_for_local_provider():
@@ -14,37 +16,43 @@ def test_build_llm_judge_service_returns_local_service_for_local_provider():
     assert isinstance(service, LocalJudgeService)
 
 
-def test_build_llm_judge_service_returns_gemini_provider_for_gemini_provider():
+def test_build_llm_judge_service_returns_vertex_provider_when_project_id_is_set_explicitly():
     settings = Settings(
-        llm_provider="gemini",
-        llm_gemini_api_key="test-api-key",
-        llm_gemini_model="gemini-3-flash-preview",
-        llm_gemini_temperature=0.2,
+        llm_provider="vertex",
+        llm_vertex_project_id="hourglass-f10ca",
+        llm_vertex_location="asia-northeast1",
+        llm_vertex_model="gemini-3-flash-preview",
+        llm_vertex_temperature=0.2,
         llm_timeout_seconds=30,
-        llm_gemini_thinking_level="MEDIUM",
     )
 
-    service = build_llm_judge_service(settings)
+    with patch("src.infrastructure.llm.vertex_provider.genai.Client"):
+        service = build_llm_judge_service(settings)
 
-    assert isinstance(service, GeminiProvider)
+    assert isinstance(service, VertexProvider)
 
 
-def test_build_llm_judge_service_requires_api_key_for_gemini_provider():
-    settings = Settings.model_construct(
-        app_env="development",
-        database_url="postgresql+asyncpg://test:test@127.0.0.1:1/hourglass_test",
-        firebase_project_id="hourglass-test",
-        firebase_credentials_path=None,
-        dev_mock_auth_enabled=False,
-        local_judgment_enabled=False,
-        llm_provider="gemini",
-        llm_gemini_api_key=None,
-        llm_gemini_model="gemini-3-flash-preview",
-        llm_gemini_thinking_level=None,
-        llm_gemini_temperature=0.2,
-        llm_timeout_seconds=30,
-        log_level="INFO",
+def test_build_llm_judge_service_falls_back_to_gcs_project_id_when_vertex_project_id_unset():
+    settings = Settings(
+        llm_provider="vertex",
+        llm_vertex_project_id=None,
+        gcs_project_id="hourglass-f10ca",
+        llm_vertex_location="asia-northeast1",
     )
 
-    with pytest.raises(ValueError, match="LLM_GEMINI_API_KEY"):
+    with patch("src.infrastructure.llm.vertex_provider.genai.Client"):
+        service = build_llm_judge_service(settings)
+
+    assert isinstance(service, VertexProvider)
+
+
+def test_build_llm_judge_service_requires_project_id_for_vertex_provider():
+    # vertex 指定だが project_id も gcs_project_id も未設定 → 失敗。
+    settings = Settings(
+        llm_provider="vertex",
+        llm_vertex_project_id=None,
+        gcs_project_id=None,
+    )
+
+    with pytest.raises(ValueError, match="LLM_VERTEX_PROJECT_ID"):
         build_llm_judge_service(settings)

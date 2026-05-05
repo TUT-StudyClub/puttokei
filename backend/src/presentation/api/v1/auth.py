@@ -12,6 +12,7 @@ from src.application.mappers.user_mapper import to_user_profile_view
 from src.application.use_cases.authenticate_user import (
     DeletedAccountAuthenticationError,
     InvalidAuthenticationTokenError,
+    UnsupportedSignInProviderError,
 )
 from src.presentation.container_access import get_presentation_container
 from src.presentation.mappers.response_mapper import to_user_profile_response
@@ -51,6 +52,14 @@ async def verify_auth(
             problem_type="authentication_error",
             title="Authentication Error",
             detail="認証トークンが無効です。",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+    except UnsupportedSignInProviderError as exc:
+        raise ProblemDetailsError(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            problem_type="unsupported_sign_in_provider",
+            title="Unsupported Sign-in Provider",
+            detail="このサインイン方式は現在サポートしていません。",
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
     except DeletedAccountAuthenticationError as exc:

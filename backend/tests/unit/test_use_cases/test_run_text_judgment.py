@@ -1,11 +1,11 @@
-"""RunLocalJudgment UseCase の振る舞い。"""
+"""RunTextJudgment UseCase の振る舞い。"""
 
 from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
 
-from src.application.use_cases.run_local_judgment import RunLocalJudgment
+from src.application.use_cases.run_text_judgment import RunTextJudgment
 from src.domain.entities.judgment import Judgment, JudgmentCorrection
 from src.domain.entities.output import Output
 from src.domain.entities.session import Session
@@ -17,6 +17,7 @@ from src.domain.value_objects.judgment_progress import (
     JudgmentProgressStatus,
 )
 from src.domain.value_objects.judgment_result import JudgmentResult
+from src.domain.value_objects.output_kind import OutputKind
 from src.domain.value_objects.session_status import SessionStatus
 from src.domain.value_objects.verdict import Verdict
 from src.infrastructure.llm.local_judge_service import LocalJudgeService
@@ -62,13 +63,15 @@ def _make_output(session: Session) -> Output:
     return Output(
         id=uuid4(),
         session_id=session.id,
+        kind=OutputKind.TEXT,
         content="明智光秀が織田信長を本能寺で討った出来事について、背景と経緯を含めて整理しました。",
+        image_storage_path=None,
         submitted_at=datetime.now(UTC),
     )
 
 
 class _RaisingJudgeService(LLMJudgeService):
-    async def judge(
+    async def judge_text(
         self,
         prompt_input: str,
         user_output: str,
@@ -77,13 +80,23 @@ class _RaisingJudgeService(LLMJudgeService):
         del prompt_input, user_output, progress_callback
         raise RuntimeError("LLM provider failure")
 
+    async def judge_image(
+        self,
+        prompt_input: str,
+        image_bytes: bytes,
+        image_mime_type: str,
+        progress_callback: LLMProgressCallback | None = None,
+    ) -> JudgmentResult:
+        del prompt_input, image_bytes, image_mime_type, progress_callback
+        raise NotImplementedError
+
 
 class _CancellingJudgeService(LLMJudgeService):
     def __init__(self, sessions: FakeSessionRepository, session: Session) -> None:
         self.sessions = sessions
         self.session = session
 
-    async def judge(
+    async def judge_text(
         self,
         prompt_input: str,
         user_output: str,
@@ -98,13 +111,33 @@ class _CancellingJudgeService(LLMJudgeService):
             corrections=[],
         )
 
+    async def judge_image(
+        self,
+        prompt_input: str,
+        image_bytes: bytes,
+        image_mime_type: str,
+        progress_callback: LLMProgressCallback | None = None,
+    ) -> JudgmentResult:
+        del prompt_input, image_bytes, image_mime_type, progress_callback
+        raise NotImplementedError
+
 
 class _ResubmittingJudgeService(LLMJudgeService):
     def __init__(self, outputs: FakeOutputRepository, output: Output) -> None:
         self.outputs = outputs
         self.output = output
 
-    async def judge(
+    async def judge_image(
+        self,
+        prompt_input: str,
+        image_bytes: bytes,
+        image_mime_type: str,
+        progress_callback: LLMProgressCallback | None = None,
+    ) -> JudgmentResult:
+        del prompt_input, image_bytes, image_mime_type, progress_callback
+        raise NotImplementedError
+
+    async def judge_text(
         self,
         prompt_input: str,
         user_output: str,
@@ -139,7 +172,7 @@ async def test_run_local_judgment_saves_judgment_and_marks_session_as_judged():
     await sessions.add(session)
     await outputs.upsert(output)
 
-    use_case = RunLocalJudgment(
+    use_case = RunTextJudgment(
         unit_of_work_factory=lambda: FakeUnitOfWork(
             sessions=sessions,
             outputs=outputs,
@@ -192,7 +225,7 @@ async def test_run_local_judgment_is_idempotent_when_judgment_already_exists():
     )
     await judgments.add(existing)
 
-    use_case = RunLocalJudgment(
+    use_case = RunTextJudgment(
         unit_of_work_factory=lambda: FakeUnitOfWork(
             sessions=sessions,
             outputs=outputs,
@@ -229,7 +262,7 @@ async def test_run_local_judgment_swallows_llm_errors():
     await sessions.add(session)
     await outputs.upsert(output)
 
-    use_case = RunLocalJudgment(
+    use_case = RunTextJudgment(
         unit_of_work_factory=lambda: FakeUnitOfWork(
             sessions=sessions,
             outputs=outputs,
@@ -266,7 +299,7 @@ async def test_run_local_judgment_does_not_overwrite_cancelled_session():
     await sessions.add(session)
     await outputs.upsert(output)
 
-    use_case = RunLocalJudgment(
+    use_case = RunTextJudgment(
         unit_of_work_factory=lambda: FakeUnitOfWork(
             sessions=sessions,
             outputs=outputs,
@@ -301,7 +334,7 @@ async def test_run_local_judgment_does_not_save_stale_output_result():
     await sessions.add(session)
     await outputs.upsert(output)
 
-    use_case = RunLocalJudgment(
+    use_case = RunTextJudgment(
         unit_of_work_factory=lambda: FakeUnitOfWork(
             sessions=sessions,
             outputs=outputs,

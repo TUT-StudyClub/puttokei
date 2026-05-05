@@ -1,21 +1,30 @@
 """Application DTO を HTTP response schema に変換する。"""
 
 from src.application.dto.judgment_dto import (
+    JudgmentListView,
     JudgmentPendingView,
     JudgmentProgressView,
     JudgmentView,
 )
 from src.application.dto.session_dto import (
+    OutputSubjectAssignmentView,
     OutputView,
     SessionView,
     SubmitOutputView,
     TodayOutputsView,
 )
-from src.application.dto.stats_dto import WeeklyReportView
+from src.application.dto.stats_dto import (
+    DailyReportView,
+    StatsPeriodView,
+    StatsSummaryView,
+    WeeklyReportView,
+)
 from src.application.dto.user_dto import UserProfileView
 from src.application.dto.user_settings_dto import UserSettingsView
 from src.presentation.schemas.judgment_schema import (
     JudgmentCorrectionResponse,
+    JudgmentDetailResponse,
+    JudgmentListResponse,
     JudgmentPendingResponse,
     JudgmentProgressResponse,
     JudgmentResponse,
@@ -23,11 +32,17 @@ from src.presentation.schemas.judgment_schema import (
 from src.presentation.schemas.session_schema import (
     OutputResponse,
     OutputReviewItemResponse,
+    OutputSubjectAssignmentResponse,
     SessionResponse,
     SubmitOutputResponse,
     TodayOutputsResponse,
 )
 from src.presentation.schemas.stats_schema import (
+    DailyReportResponse,
+    DailyReportSummaryResponse,
+    StatsDataPointResponse,
+    StatsPeriodResponse,
+    StatsSummaryResponse,
     WeeklyReportPointResponse,
     WeeklyReportResponse,
     WeeklyReportSummaryResponse,
@@ -77,13 +92,20 @@ def to_session_response(view: SessionView) -> SessionResponse:
 
 def to_submit_output_response(view: SubmitOutputView) -> SubmitOutputResponse:
     return SubmitOutputResponse(
-        output=OutputResponse(
-            id=view.output.id,
-            session_id=view.output.session_id,
-            content=view.output.content,
-            submitted_at=view.output.submitted_at,
-        ),
+        output=_to_output_response(view.output),
         status=view.status,
+    )
+
+
+def to_output_subject_assignment_response(
+    view: OutputSubjectAssignmentView,
+) -> OutputSubjectAssignmentResponse:
+    return OutputSubjectAssignmentResponse(
+        output_id=view.output_id,
+        subject_id=view.subject_id,
+        subject=view.subject,
+        subject_color=view.subject_color,
+        updated_at=view.updated_at,
     )
 
 
@@ -91,7 +113,9 @@ def _to_output_response(view: OutputView) -> OutputResponse:
     return OutputResponse(
         id=view.id,
         session_id=view.session_id,
+        kind=view.kind,
         content=view.content,
+        image_url=view.image_url,
         submitted_at=view.submitted_at,
     )
 
@@ -101,9 +125,14 @@ def to_today_outputs_response(view: TodayOutputsView) -> TodayOutputsResponse:
         items=[
             OutputReviewItemResponse(
                 session_id=item.session_id,
+                session_started_at=item.session_started_at,
+                input_minutes=item.input_minutes,
+                output_minutes=item.output_minutes,
                 output=_to_output_response(item.output),
                 cycle_index=item.cycle_index,
                 subject=item.subject,
+                subject_id=item.subject_id,
+                subject_color=item.subject_color,
                 topic=item.topic,
                 judgment=_to_optional_judgment_response(item.judgment),
             )
@@ -135,14 +164,77 @@ def to_weekly_report_response(view: WeeklyReportView) -> WeeklyReportResponse:
         output_history=[
             OutputReviewItemResponse(
                 session_id=item.session_id,
+                session_started_at=item.session_started_at,
+                input_minutes=item.input_minutes,
+                output_minutes=item.output_minutes,
                 output=_to_output_response(item.output),
                 cycle_index=item.cycle_index,
                 subject=item.subject,
+                subject_id=item.subject_id,
+                subject_color=item.subject_color,
                 topic=item.topic,
                 judgment=_to_optional_judgment_response(item.judgment),
             )
             for item in view.output_history
         ],
+    )
+
+
+def to_daily_report_response(view: DailyReportView) -> DailyReportResponse:
+    return DailyReportResponse(
+        date=view.date,
+        summary=DailyReportSummaryResponse(
+            input_minutes=view.summary.input_minutes,
+            output_minutes=view.summary.output_minutes,
+            break_minutes=view.summary.break_minutes,
+            total_study_minutes=view.summary.total_study_minutes,
+            total_sessions=view.summary.total_sessions,
+        ),
+        output_history=[
+            OutputReviewItemResponse(
+                session_id=item.session_id,
+                session_started_at=item.session_started_at,
+                input_minutes=item.input_minutes,
+                output_minutes=item.output_minutes,
+                output=_to_output_response(item.output),
+                cycle_index=item.cycle_index,
+                subject=item.subject,
+                subject_id=item.subject_id,
+                subject_color=item.subject_color,
+                topic=item.topic,
+                judgment=_to_optional_judgment_response(item.judgment),
+            )
+            for item in view.output_history
+        ],
+    )
+
+
+def to_stats_summary_response(view: StatsSummaryView) -> StatsSummaryResponse:
+    return StatsSummaryResponse(
+        total_sessions=view.total_sessions,
+        total_study_minutes=view.total_study_minutes,
+        correct_rate=view.correct_rate,
+        streak_days=view.streak_days,
+        period=view.period,
+        from_date=view.from_date,
+        to_date=view.to_date,
+    )
+
+
+def to_stats_period_response(view: StatsPeriodView) -> StatsPeriodResponse:
+    return StatsPeriodResponse(
+        period=view.period,
+        points=[
+            StatsDataPointResponse(
+                bucket=point.bucket,
+                label=point.label,
+                sessions=point.sessions,
+                study_minutes=point.study_minutes,
+                correct_rate=point.correct_rate,
+            )
+            for point in view.points
+        ],
+        summary=to_stats_summary_response(view.summary),
     )
 
 
@@ -185,8 +277,20 @@ def to_judgment_response(view: JudgmentView) -> JudgmentResponse:
                 target_text=correction.target_text,
                 correct_text=correction.correct_text,
                 explanation=correction.explanation,
+                bbox=correction.bbox,
             )
             for correction in view.corrections
         ],
         judged_at=view.judged_at,
     )
+
+
+def to_judgment_list_response(view: JudgmentListView) -> JudgmentListResponse:
+    return JudgmentListResponse(
+        judgments=[to_judgment_response(judgment) for judgment in view.judgments],
+        next_cursor=view.next_cursor,
+    )
+
+
+def to_judgment_detail_response(view: JudgmentView) -> JudgmentDetailResponse:
+    return JudgmentDetailResponse(judgment=to_judgment_response(view))

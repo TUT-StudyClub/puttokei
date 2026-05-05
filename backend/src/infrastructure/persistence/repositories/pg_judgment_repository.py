@@ -1,14 +1,20 @@
 """Judgment リポジトリの PostgreSQL 実装。"""
 
+from datetime import datetime
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
 
 from src.domain.entities.judgment import Judgment, JudgmentCorrection
 from src.domain.repositories.judgment_repository import JudgmentRepository
+from src.domain.value_objects.judgment_query import JudgmentListCursor, JudgmentSort
+from src.domain.value_objects.judgment_result import BoundingBox
 from src.domain.value_objects.verdict import Verdict
 from src.infrastructure.persistence.models.judgment_model import JudgmentModel
+from src.infrastructure.persistence.models.session_model import SessionModel
 
 
 class PgJudgmentRepository(JudgmentRepository):
@@ -26,12 +32,7 @@ class PgJudgmentRepository(JudgmentRepository):
                 score=judgment.score,
                 advice=judgment.advice,
                 corrections=[
-                    {
-                        "target_text": correction.target_text,
-                        "correct_text": correction.correct_text,
-                        "explanation": correction.explanation,
-                    }
-                    for correction in judgment.corrections
+                    _correction_to_jsonb(correction) for correction in judgment.corrections
                 ],
                 judged_at=judgment.judged_at,
             )
@@ -53,11 +54,75 @@ class PgJudgmentRepository(JudgmentRepository):
     async def list_by_user(
         self,
         user_id: UUID,
-        cursor: str | None,
+        cursor: JudgmentListCursor | None,
         limit: int,
-    ) -> tuple[list[Judgment], str | None]:
-        del user_id, cursor, limit
-        raise NotImplementedError("履歴一覧エンドポイントの Task で実装する")
+        *,
+        verdict: Verdict | None = None,
+        judged_from: datetime | None = None,
+        judged_to: datetime | None = None,
+        sort: JudgmentSort = JudgmentSort.JUDGED_AT_DESC,
+    ) -> tuple[list[Judgment], JudgmentListCursor | None]:
+        stmt = (
+            select(JudgmentModel)
+            .join(SessionModel, JudgmentModel.session_id == SessionModel.id)
+            .where(SessionModel.user_id == user_id)
+            .limit(limit + 1)
+        )
+        if verdict is not None:
+            stmt = stmt.where(JudgmentModel.verdict == verdict.value)
+        if judged_from is not None:
+            stmt = stmt.where(JudgmentModel.judged_at >= judged_from)
+        if judged_to is not None:
+            stmt = stmt.where(JudgmentModel.judged_at <= judged_to)
+        if cursor is not None:
+            stmt = stmt.where(_cursor_condition(cursor, sort=sort))
+
+        if sort is JudgmentSort.JUDGED_AT_ASC:
+            stmt = stmt.order_by(JudgmentModel.judged_at.asc(), JudgmentModel.id.asc())
+        else:
+            stmt = stmt.order_by(JudgmentModel.judged_at.desc(), JudgmentModel.id.desc())
+
+        result = await self._session.execute(stmt)
+        models = list(result.scalars().all())
+        next_cursor = None
+        if len(models) > limit:
+            cursor_model = models[limit - 1]
+            next_cursor = JudgmentListCursor(
+                judged_at=cursor_model.judged_at,
+                judgment_id=cursor_model.id,
+            )
+            models = models[:limit]
+
+        return [_to_judgment(model) for model in models], next_cursor
+
+
+def _cursor_condition(cursor: JudgmentListCursor, *, sort: JudgmentSort) -> ColumnElement[bool]:
+    if sort is JudgmentSort.JUDGED_AT_ASC:
+        return or_(
+            JudgmentModel.judged_at > cursor.judged_at,
+            (JudgmentModel.judged_at == cursor.judged_at) & (JudgmentModel.id > cursor.judgment_id),
+        )
+    return or_(
+        JudgmentModel.judged_at < cursor.judged_at,
+        (JudgmentModel.judged_at == cursor.judged_at) & (JudgmentModel.id < cursor.judgment_id),
+    )
+
+
+def _correction_to_jsonb(correction: JudgmentCorrection) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "target_text": correction.target_text,
+        "correct_text": correction.correct_text,
+        "explanation": correction.explanation,
+    }
+    bbox = correction.bbox
+    if bbox is not None:
+        payload["bbox"] = {
+            "x": bbox.x,
+            "y": bbox.y,
+            "width": bbox.width,
+            "height": bbox.height,
+        }
+    return payload
 
 
 def _to_judgment(model: JudgmentModel) -> Judgment:
@@ -67,13 +132,26 @@ def _to_judgment(model: JudgmentModel) -> Judgment:
         verdict=Verdict(model.verdict),
         score=model.score,
         advice=model.advice,
-        corrections=[
-            JudgmentCorrection(
-                target_text=correction["target_text"],
-                correct_text=correction["correct_text"],
-                explanation=correction["explanation"],
-            )
-            for correction in model.corrections
-        ],
+        corrections=[_jsonb_to_correction(correction) for correction in model.corrections],
         judged_at=model.judged_at,
+    )
+
+
+def _jsonb_to_correction(payload: dict[str, Any]) -> JudgmentCorrection:
+    bbox_payload = payload.get("bbox")
+    bbox = (
+        BoundingBox(
+            x=bbox_payload["x"],
+            y=bbox_payload["y"],
+            width=bbox_payload["width"],
+            height=bbox_payload["height"],
+        )
+        if isinstance(bbox_payload, dict)
+        else None
+    )
+    return JudgmentCorrection(
+        target_text=payload["target_text"],
+        correct_text=payload["correct_text"],
+        explanation=payload["explanation"],
+        bbox=bbox,
     )

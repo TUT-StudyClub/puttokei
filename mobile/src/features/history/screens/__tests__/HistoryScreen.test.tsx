@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { TamaguiProvider } from 'tamagui';
 
@@ -34,6 +34,10 @@ function renderWithProviders(ui: ReactNode) {
 describe('HistoryScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  afterEach(async () => {
+    await act(async () => {});
   });
 
   it('一覧が表示され、item 押下で詳細へ遷移する', async () => {
