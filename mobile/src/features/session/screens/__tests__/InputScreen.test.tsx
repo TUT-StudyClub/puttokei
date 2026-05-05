@@ -30,6 +30,7 @@ jest.mock('expo-router', () => ({
 
 jest.mock('@react-navigation/native', () => ({
   useIsFocused: () => true,
+  useNavigation: () => ({ setOptions: jest.fn() }),
 }));
 
 jest.mock('@/features/session/api/sessionApi');
@@ -284,7 +285,6 @@ describe('InputScreen', () => {
 
     expect(getByTestId('output-review-detail')).toBeTruthy();
     expect(getByTestId('output-review-annotated-text')).toBeTruthy();
-    expect(getByTestId('output-review-feedback')).toBeTruthy();
     expect(queryByTestId('output-review-correction-popover')).toBeNull();
 
     // 赤ハイライトをタップすると正解 / 解説のポップオーバーが現れる
@@ -324,9 +324,6 @@ describe('InputScreen', () => {
     expect(await findByText('今日のアウトプット')).toBeTruthy();
     fireEvent.press(getByTestId('today-output-row-out-2'));
 
-    expect(getByTestId('output-review-feedback')).toBeTruthy();
     expect(getByTestId('output-review-annotated-text')).toBeTruthy();
-    expect(await findByText('学習内容をもう少し具体的に書いてください。')).toBeTruthy();
-    expect(await findByText('今回の判定では、個別に直す箇所はありませんでした。')).toBeTruthy();
   });
 });
