@@ -2191,7 +2191,7 @@ export function StatsScreen() {
             <HighlightPlaceholder style={dailyHighlightCardStyle} />
           )}
         </View>
-        <View style={styles.scrollBoundary} />
+        <View style={[styles.scrollBoundary, styles.dailyScrollBoundary]} />
         <ScrollView
           style={styles.scrollArea}
           contentContainerStyle={styles.scrollContent}
@@ -3118,6 +3118,9 @@ const styles = StyleSheet.create({
     elevation: 4,
     zIndex: 2,
   },
+  dailyScrollBoundary: {
+    transform: [{ translateY: 2 }],
+  },
   scrollArea: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -3145,9 +3148,10 @@ const styles = StyleSheet.create({
     marginLeft: '3%',
     color: '#333333',
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '700',
     lineHeight: 20,
+    transform: [{ translateX: 4 }],
   },
   historyCard: {
     width: '90%',
@@ -3161,6 +3165,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 10,
     backgroundColor: '#FFFFFF',
+    transform: [{ translateY: 4 }],
   },
   historyDateText: {
     color: '#111111',

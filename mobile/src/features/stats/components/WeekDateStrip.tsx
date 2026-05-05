@@ -23,7 +23,7 @@ export const WEEK_DATE_STRIP_LAYOUT_GUTTER_WIDTH = 32;
 export const WEEK_DATE_STRIP_DAY_CELL_MAX_WIDTH = 100;
 export const WEEK_DATE_STRIP_HORIZONTAL_INSET = 24;
 export const WEEK_DATE_STRIP_HORIZONTAL_OUTSET = 8;
-export const WEEK_DATE_STRIP_STATUS_BACKGROUND_SELECTED_OVERLAP = 3;
+export const WEEK_DATE_STRIP_STATUS_BACKGROUND_SELECTED_OVERLAP = 0;
 
 type Props = {
   weekStart: string;
@@ -138,7 +138,11 @@ export function WeekDateStrip({
                 key={dateKey}
                 accessibilityRole="button"
                 onPress={() => onSelectDate(dateKey)}
-                style={[styles.dayCell, { width: dayCellWidth }]}
+                style={[
+                  styles.dayCell,
+                  isSelected ? styles.dayCellSelected : null,
+                  { width: dayCellWidth },
+                ]}
                 testID={`week-date-${dateKey}`}
               >
                 {isSelected || isStudied ? (
@@ -241,6 +245,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 2,
     overflow: 'visible',
+  },
+  dayCellSelected: {
+    zIndex: 1,
   },
   dayCellStatusBackground: {
     position: 'absolute',
