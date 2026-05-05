@@ -13,7 +13,7 @@ type AnnotatedOutputTextProps = {
   content: string;
   corrections: readonly JudgmentCorrection[];
   selectedCorrectionIndex: number | null;
-  onSelectCorrection: (correctionIndex: number) => void;
+  onSelectCorrection: (correctionIndex: number, pageX?: number, pageY?: number) => void;
   textStyle?: StyleProp<TextStyle>;
   testID?: string;
 };
@@ -43,7 +43,7 @@ function renderSegment(
   segment: OutputSegment,
   index: number,
   selectedCorrectionIndex: number | null,
-  onSelectCorrection: (correctionIndex: number) => void,
+  onSelectCorrection: (correctionIndex: number, pageX?: number, pageY?: number) => void,
 ) {
   if (segment.type === 'plain') {
     return <Text key={index}>{segment.text}</Text>;
@@ -53,7 +53,13 @@ function renderSegment(
     <Text
       key={index}
       accessibilityRole="button"
-      onPress={() => onSelectCorrection(segment.correctionIndex)}
+      onPress={(event) =>
+        onSelectCorrection(
+          segment.correctionIndex,
+          event.nativeEvent.pageX,
+          event.nativeEvent.pageY,
+        )
+      }
       style={{
         color: HIGHLIGHT_COLOR,
         textDecorationLine: 'underline',
