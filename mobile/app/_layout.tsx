@@ -6,7 +6,11 @@
  * - `setTokenProvider`: API リクエスト毎に最新の ID Token を Authorization に差し込む
  * - `setTokenRefresher`: 401 を受けた際に Firebase から ID Token を再取得させる
  * - `subscribeIdTokenChanged`: Firebase の onIdTokenChanged を購読して authStore に反映する
- * - `ensureAnonymousSession`: 未サインイン時に匿名 UID を作成し、登録なし利用を可能にする
+ *
+ * 匿名 sign-in (`ensureAnonymousSession`) は本ファイルでは呼ばない。退会後に
+ * onIdTokenChanged が session=null で発火した瞬間に匿名ユーザーが自動作成され、
+ * 「削除したのに Firebase Auth に新しい匿名ユーザーが残る」現象が起きるため、
+ * 匿名作成は OverviewScreen の「はじめる」ボタン押下時のユーザーアクションに紐付ける。
  */
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
@@ -16,11 +20,7 @@ import { TamaguiProvider } from 'tamagui';
 import config from '../tamagui.config';
 import { configureGoogleSignIn } from '@/features/auth/lib/signInWithGoogle';
 import { AuthGate } from '@/shared/components/AuthGate';
-import {
-  ensureAnonymousSession,
-  refreshIdToken,
-  subscribeIdTokenChanged,
-} from '@/shared/lib/firebase';
+import { refreshIdToken, subscribeIdTokenChanged } from '@/shared/lib/firebase';
 import { installDevMockAuth } from '@/shared/lib/devMockAuth';
 import { initializeFirebaseAuth } from '@/shared/lib/firebaseAuth';
 import { setTokenProvider, setTokenRefresher } from '@/shared/lib/api';
@@ -43,10 +43,10 @@ export default function RootLayout() {
     const unsubscribe = subscribeIdTokenChanged((session) => {
       const { setSession, clear } = useAuthStore.getState();
       if (session === null) {
+        // 退会後やログアウト後の自動匿名再 sign-in は意図的に行わない。
+        // ユーザーが OverviewScreen の「はじめる」を押すか、(auth)/sign-in で
+        // 正式登録するまでは未認証状態のまま AuthGate が画面遷移を制御する。
         clear();
-        // 初回起動 / signOut / token 期限切れのいずれでも未サインイン状態に陥った場合は
-        // 匿名で接続し直し、未登録ユーザーでもタイマー / LLM 判定を継続できるようにする。
-        void ensureAnonymousSession();
       } else {
         setSession(session.uid, session.idToken, session.isAnonymous);
       }
