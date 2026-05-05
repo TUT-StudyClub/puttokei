@@ -1,6 +1,6 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
-import { Image, StyleSheet } from 'react-native';
+import { Image, StyleSheet, type ImageStyle, type StyleProp } from 'react-native';
 
 import { useTimerStore, type TimerPhase } from '@/shared/stores/timerStore';
 
@@ -79,7 +79,10 @@ function renderMainTabScreens() {
 
 function getRenderedImageProps(element: unknown) {
   const { UNSAFE_getByType, unmount } = render(element as ReactElement);
-  const imageProps = UNSAFE_getByType(Image).props as { source?: unknown; style?: unknown };
+  const imageProps = UNSAFE_getByType(Image).props as {
+    source?: unknown;
+    style?: StyleProp<ImageStyle>;
+  };
   unmount();
   return imageProps;
 }
