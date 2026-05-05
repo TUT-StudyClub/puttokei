@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
+from pydantic import ValidationError
 
 from src.application.dto.user_settings_dto import UpdateUserSettingsCommand
 from src.application.use_cases.get_user_settings import UserSettingsNotFoundError
@@ -94,6 +95,25 @@ async def test_update_user_settings_can_disable_notification_only():
 
     assert view.notification_enabled is False
     assert view.input_minutes == 20  # 他はデフォルトのまま
+
+
+@pytest.mark.parametrize(
+    ("payload", "field"),
+    [
+        ({"input_minutes": 0}, "input_minutes"),
+        ({"input_minutes": 121}, "input_minutes"),
+        ({"input_minutes": "20"}, "input_minutes"),
+        ({"output_minutes": 5.5}, "output_minutes"),
+        ({"break_minutes": True}, "break_minutes"),
+        ({"notification_enabled": "false"}, "notification_enabled"),
+        ({"notification_enabled": 0}, "notification_enabled"),
+    ],
+)
+def test_update_user_settings_command_rejects_invalid_values(payload: dict, field: str):
+    with pytest.raises(ValidationError) as exc_info:
+        UpdateUserSettingsCommand(**payload)
+
+    assert exc_info.value.errors()[0]["loc"] == (field,)
 
 
 @pytest.mark.asyncio
