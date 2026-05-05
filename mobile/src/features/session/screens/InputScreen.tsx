@@ -430,6 +430,7 @@ export function InputScreen() {
         <SessionTopChrome
           testIDPrefix="input"
           showHeader={!isDetailVisible}
+          phaseTabsTop={isDetailVisible ? '0.8%' : undefined}
           hourglass={{
             currentLoop,
             borderColor: BORDER_COLOR,
@@ -446,7 +447,7 @@ export function InputScreen() {
           }}
         />
 
-        <View style={styles.contentArea}>
+        <View style={[styles.contentArea, isDetailVisible ? styles.contentAreaDetail : null]}>
           <View
             style={[
               styles.timerStage,
@@ -527,6 +528,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 20,
     paddingBottom: '38.3%',
+  },
+  contentAreaDetail: {
+    top: '7.5%',
   },
   timerStageDetail: {
     flex: 0,
