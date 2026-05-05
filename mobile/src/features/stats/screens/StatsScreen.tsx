@@ -2506,10 +2506,11 @@ const styles = StyleSheet.create({
   highlightCaption: {
     color: '#333333',
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '700',
     lineHeight: 20,
     textAlign: 'center',
+    transform: [{ translateY: 1 }],
   },
   totalTimeRow: {
     flexDirection: 'row',
