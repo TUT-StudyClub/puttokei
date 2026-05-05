@@ -1196,6 +1196,8 @@ type SessionTopChromeProps = {
   /** 砂時計バッジ wrapper の View ref。Break 画面のエントランスアニメ用。 */
   hourglassWrapperRef?: React.Ref<View>;
   onHourglassWrapperLayout?: (event: LayoutChangeEvent) => void;
+  /** PhaseTabs の top 位置を上書きする。省略時は SESSION_TOP_CHROME_PHASE_TABS_TOP を使う。 */
+  phaseTabsTop?: `${number}%`;
 };
 
 export function SessionTopChrome({
@@ -1207,6 +1209,7 @@ export function SessionTopChrome({
   phaseTabs,
   hourglassWrapperRef,
   onHourglassWrapperLayout,
+  phaseTabsTop,
 }: SessionTopChromeProps) {
   const hourglassVariant = hourglass.variant ?? DEFAULT_HOURGLASS_VARIANT;
   const isHomeBadge = hourglassVariant === 'gray';
@@ -1240,7 +1243,10 @@ export function SessionTopChrome({
           />
         </View>
       ) : null}
-      <View style={styles.topChromePhaseTabsWrapper} testID={`${testIDPrefix}-phase-tabs-wrapper`}>
+      <View
+        style={[styles.topChromePhaseTabsWrapper, phaseTabsTop ? { top: phaseTabsTop } : null]}
+        testID={`${testIDPrefix}-phase-tabs-wrapper`}
+      >
         <PhaseTabs {...phaseTabs} testIDPrefix={testIDPrefix} marginBottom={0} />
       </View>
     </>
