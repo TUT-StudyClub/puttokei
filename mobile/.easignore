@@ -31,3 +31,7 @@ android/
 coverage/
 google-services.json
 expo-env.d.ts
+
+# `.gitignore` では除外するが、EAS Build の archive には含める。
+!app.json
+!GoogleService-Info*.plist
