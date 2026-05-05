@@ -179,7 +179,7 @@ function OutputDetailCard({ item, onBack }: OutputDetailCardProps) {
 
   const handleSelectCorrection = (index: number, pageX?: number, pageY?: number) => {
     setSelectedCorrectionIndex((current) => (current === index ? null : index));
-    if (pageX !== undefined) setArrowX(Math.max(9, pageX - 9));
+    if (pageX !== undefined) setArrowX(Math.max(9, pageX - 48 - 9));
     if (pageY !== undefined) setPopoverTop(pageY + 10);
   };
 
@@ -260,7 +260,6 @@ function OutputDetailCard({ item, onBack }: OutputDetailCardProps) {
             </ScrollView>
           )}
         </View>
-
       </View>
 
       <Modal
@@ -698,8 +697,8 @@ const styles = StyleSheet.create({
   },
   feedbackPopoverWrapper: {
     position: 'absolute',
-    left: 0,
-    right: 0,
+    left: 48,
+    right: 48,
   },
   feedbackPopoverArrow: {
     width: 0,
@@ -713,7 +712,7 @@ const styles = StyleSheet.create({
     marginLeft: 16,
   },
   feedbackPopover: {
-    height: 200,
+    height: 160,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
     backgroundColor: '#333333',
@@ -765,29 +764,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     lineHeight: 18,
-    marginBottom: 4,
-  },
-  feedbackCard: {
-    marginTop: 16,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: PANEL_BORDER_COLOR,
-    backgroundColor: '#FFFFFF',
-  },
-  feedbackCardHeading: {
-    color: TEXT_ACTIVE,
-    fontSize: 14,
-    fontWeight: '700',
-    lineHeight: 22,
-    marginBottom: 4,
-  },
-  feedbackCardBody: {
-    color: TEXT_ACTIVE,
-    fontSize: 13,
-    fontWeight: '500',
-    lineHeight: 20,
     marginBottom: 4,
   },
   errorText: {
