@@ -56,8 +56,8 @@ function renderSegment(
       onPress={(event) =>
         onSelectCorrection(
           segment.correctionIndex,
-          event.nativeEvent.pageX,
-          event.nativeEvent.pageY,
+          event?.nativeEvent?.pageX,
+          event?.nativeEvent?.pageY,
         )
       }
       style={{
