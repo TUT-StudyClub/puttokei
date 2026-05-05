@@ -8,11 +8,20 @@
  * 画面構成は HomeScreen と揃えた上で、中央に円形プログレス、下部に「中断する」
  * 「5分延長」の 2 ボタンを配置する。
  */
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Modal,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { Path, Svg } from 'react-native-svg';
 import { SizableText } from 'tamagui';
 
@@ -157,8 +166,9 @@ type OutputDetailCardProps = {
 function OutputDetailCard({ item, onBack }: OutputDetailCardProps) {
   const judgment = item.judgment;
   const corrections = useMemo(() => judgment?.corrections ?? [], [judgment?.corrections]);
-  const hasCorrections = corrections.length > 0;
   const [selectedCorrectionIndex, setSelectedCorrectionIndex] = useState<number | null>(null);
+  const [arrowX, setArrowX] = useState(16);
+  const [popoverTop, setPopoverTop] = useState(300);
 
   useEffect(() => {
     setSelectedCorrectionIndex(null);
@@ -167,8 +177,10 @@ function OutputDetailCard({ item, onBack }: OutputDetailCardProps) {
   const selectedCorrection =
     selectedCorrectionIndex !== null ? (corrections[selectedCorrectionIndex] ?? null) : null;
 
-  const handleSelectCorrection = (index: number) => {
+  const handleSelectCorrection = (index: number, pageX?: number, pageY?: number) => {
     setSelectedCorrectionIndex((current) => (current === index ? null : index));
+    if (pageX !== undefined) setArrowX(Math.max(9, pageX - 9));
+    if (pageY !== undefined) setPopoverTop(pageY + 10);
   };
 
   return (
@@ -247,60 +259,54 @@ function OutputDetailCard({ item, onBack }: OutputDetailCardProps) {
               />
             </ScrollView>
           )}
-
-          {selectedCorrection ? (
-            <View style={styles.feedbackPopover} testID="output-review-correction-popover">
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="解説を閉じる"
-                hitSlop={8}
-                onPress={() => setSelectedCorrectionIndex(null)}
-                style={({ pressed }) => [
-                  styles.feedbackPopoverClose,
-                  pressed ? styles.feedbackPopoverClosePressed : null,
-                ]}
-                testID="output-review-correction-close"
-              >
-                <SizableText style={styles.feedbackPopoverCloseText}>✕</SizableText>
-              </Pressable>
-              <ScrollView
-                style={styles.feedbackPopoverScroll}
-                contentContainerStyle={styles.feedbackPopoverScrollContent}
-                nestedScrollEnabled
-                showsVerticalScrollIndicator
-              >
-                <SizableText style={styles.feedbackHeading}>正解</SizableText>
-                <SizableText style={styles.feedbackCorrect}>
-                  {selectedCorrection.correct_text}
-                </SizableText>
-                <SizableText style={styles.feedbackHeading}>解説</SizableText>
-                <SizableText style={styles.feedbackBody}>
-                  {selectedCorrection.explanation}
-                </SizableText>
-              </ScrollView>
-            </View>
-          ) : null}
         </View>
 
-        {judgment ? (
-          <View style={styles.feedbackCard} testID="output-review-feedback">
-            <SizableText style={styles.feedbackCardHeading}>フィードバック</SizableText>
-            <SizableText style={styles.feedbackCardBody}>{judgment.advice}</SizableText>
-            <SizableText style={styles.feedbackCardBody}>
-              {hasCorrections
-                ? '赤線をタップすると、正解と解説を確認できます。'
-                : '今回の判定では、個別に直す箇所はありませんでした。'}
-            </SizableText>
-          </View>
-        ) : (
-          <View style={styles.feedbackCard} testID="output-review-feedback">
-            <SizableText style={styles.feedbackCardHeading}>判定待ち</SizableText>
-            <SizableText style={styles.feedbackCardBody}>
-              採点が完了すると、ここに判定と解説が表示されます。
-            </SizableText>
-          </View>
-        )}
       </View>
+
+      <Modal
+        animationType="none"
+        onRequestClose={() => setSelectedCorrectionIndex(null)}
+        transparent
+        visible={!!selectedCorrection}
+        testID="output-review-correction-popover"
+      >
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={() => setSelectedCorrectionIndex(null)}
+        />
+        <View style={[styles.feedbackPopoverWrapper, { top: popoverTop }]}>
+          <View style={[styles.feedbackPopoverArrow, { marginLeft: arrowX }]} />
+          <View style={styles.feedbackPopover}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="解説を閉じる"
+              hitSlop={8}
+              onPress={() => setSelectedCorrectionIndex(null)}
+              style={({ pressed }) => [
+                styles.feedbackPopoverClose,
+                pressed ? styles.feedbackPopoverClosePressed : null,
+              ]}
+              testID="output-review-correction-close"
+            >
+              <SizableText style={styles.feedbackPopoverCloseText}>✕</SizableText>
+            </Pressable>
+            <ScrollView
+              style={styles.feedbackPopoverScroll}
+              contentContainerStyle={styles.feedbackPopoverScrollContent}
+              showsVerticalScrollIndicator
+            >
+              <SizableText style={styles.feedbackHeading}>正解</SizableText>
+              <SizableText style={styles.feedbackCorrect}>
+                {selectedCorrection?.correct_text}
+              </SizableText>
+              <SizableText style={styles.feedbackHeading}>解説</SizableText>
+              <SizableText style={styles.feedbackBody}>
+                {selectedCorrection?.explanation}
+              </SizableText>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -362,6 +368,13 @@ export function InputScreen() {
     ],
     [inputMinutes, outputMinutes, breakMinutes, hourglassSandProgress],
   );
+
+  const navigation = useNavigation();
+  useEffect(() => {
+    navigation.setOptions({
+      tabBarStyle: isDetailVisible ? { display: 'none' } : { paddingTop: 10 },
+    });
+  }, [isDetailVisible, navigation]);
 
   const { start, reset } = useTimer({
     enabled: isFocused,
@@ -531,6 +544,7 @@ const styles = StyleSheet.create({
   },
   contentAreaDetail: {
     top: '7.5%',
+    paddingBottom: 0,
   },
   timerStageDetail: {
     flex: 0,
@@ -578,7 +592,7 @@ const styles = StyleSheet.create({
     paddingRight: 18,
     paddingBottom: 18,
     paddingLeft: 18,
-    marginBottom: 18,
+    marginBottom: 0,
     backgroundColor: '#FFFFFF',
     shadowColor: '#000000',
     shadowOpacity: 0.1,
@@ -682,13 +696,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
   },
-  feedbackPopover: {
+  feedbackPopoverWrapper: {
     position: 'absolute',
-    left: 30,
-    right: 30,
-    top: 58,
-    bottom: 16,
-    borderRadius: 10,
+    left: 0,
+    right: 0,
+  },
+  feedbackPopoverArrow: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 9,
+    borderRightWidth: 9,
+    borderBottomWidth: 10,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#333333',
+    marginLeft: 16,
+  },
+  feedbackPopover: {
+    height: 200,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
     backgroundColor: '#333333',
     overflow: 'hidden',
   },
@@ -696,12 +723,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   feedbackPopoverScrollContent: {
-    paddingHorizontal: 18,
+    paddingHorizontal: 14,
     paddingTop: 36,
-    // 画面下部のタブバーに popover の下端がかぶることがあるため、本文 ScrollView と
-    // 同じく paddingBottom を厚めに取り、最終行までスクロールしても本文が
-    // タブバーに隠れないようにする。
-    paddingBottom: 130,
+    paddingBottom: 16,
   },
   feedbackPopoverClose: {
     position: 'absolute',
@@ -725,22 +749,22 @@ const styles = StyleSheet.create({
   },
   feedbackHeading: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '800',
-    lineHeight: 22,
+    lineHeight: 18,
   },
   feedbackCorrect: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '700',
-    lineHeight: 24,
-    marginBottom: 12,
+    lineHeight: 20,
+    marginBottom: 10,
   },
   feedbackBody: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
-    lineHeight: 22,
+    lineHeight: 18,
     marginBottom: 4,
   },
   feedbackCard: {
