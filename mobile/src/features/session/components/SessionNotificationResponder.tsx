@@ -3,14 +3,17 @@
  * router.replace するための非表示コンポーネント。
  *
  * BR-40〜42 のローカル通知 data に含まれる kind / sessionId / minutes を読み、
- * 通知発火時点でタイマーは終了しているはずなので、まず timerStore.complete() を
- * 呼んで残秒数を 0 へジャンプさせる（JS が background で停止していた間の
- * 中途半端な秒数から再開してしまう不具合の対策）。
+ * kind ごとに次フェーズ画面へ遷移させる。
  *
- * - kind === 'input': アウトプット画面へ replace、backend status を 'output' に PATCH
- * - kind === 'output': アウトプット画面へ戻す。提出が未完了なのでユーザーが
- *   送信できる状態（タイマー完了 + 「時間になりました」表示）にする
- * - kind === 'break': 休憩画面へ replace（next-cycle モード）
+ * - kind === 'input': インプット時間が終わった通知。アウトプット画面に遷移し、
+ *   backend status を 'output' に PATCH。**output タイマーは画面側で改めて開始
+ *   する**ため、timerStore は `reset()` でクリアし、`done` パラメータも渡さない。
+ * - kind === 'output': アウトプット時間が終わった通知。提出が未完了なので
+ *   OutputScreen に戻し、「時間になりました」状態（done=1）で送信を促す。
+ *   background で残った中途半端な remainingSeconds は `complete()` で 0 へ
+ *   ジャンプさせて誤って再開しないようにする。
+ * - kind === 'break': 休憩時間が終わった通知。BreakScreen を completed モード
+ *   （done=1）で開き、次サイクル準備を表示する。
  *
  * `Notifications.useLastNotificationResponse()` でタスクキル復帰時とランタイムの
  * 両方を扱う。同一の通知を 2 度処理しないよう identifier を ref で記録する。
@@ -51,11 +54,6 @@ export function SessionNotificationResponder() {
 
     handledIdRef.current = id;
 
-    // 通知発火時点でフェーズは時間切れのはずなので、JS background で残っていた
-    // 中途半端な remainingSeconds を 0 にジャンプさせる。complete() は既に
-    // completed の場合 no-op。
-    useTimerStore.getState().complete();
-
     const baseParams = {
       id: sessionId,
       input: readString(data.inputMinutes) ?? '',
@@ -64,23 +62,31 @@ export function SessionNotificationResponder() {
     } as const;
 
     if (kind === 'input') {
+      // インプット終了 → 次は output タイマーを画面側で開始する。
+      // background で input フェーズの中途半端な remainingSeconds が残ったまま
+      // OutputScreen が start('output', ...) を呼ぶと一瞬古い値がチラ見えするため、
+      // ここで idle に戻しておく。done パラメータは渡さず通常起動経路に流す。
+      useTimerStore.getState().reset();
       // タスクキル復帰の場合 backend の session.status は input のまま。
       // OutputScreen から submit するために output へ進めておく。すでに output 以降
       // ならエラーになるので握り潰す。
       void updateSessionStatus(sessionId, 'output').catch(() => undefined);
       router.replace({
         pathname: '/session/[id]/output',
-        params: { ...baseParams, done: '1' },
+        params: baseParams,
       });
     } else if (kind === 'output') {
       // アウトプット終了 → 提出が未完了なので OutputScreen に戻す。
       // done=1 でタイマー再起動を抑止し、「時間になりました」状態でユーザーの送信を待つ。
+      // background で残っていた中途半端な remainingSeconds を 0 にジャンプさせる。
+      useTimerStore.getState().complete();
       router.replace({
         pathname: '/session/[id]/output',
         params: { ...baseParams, done: '1' },
       });
     } else {
       // 休憩終了 → 休憩画面の completed モード（次サイクル準備）で起動。
+      useTimerStore.getState().complete();
       router.replace({
         pathname: '/session/[id]/break',
         params: { ...baseParams, done: '1' },

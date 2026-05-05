@@ -756,6 +756,10 @@ export function OutputScreen() {
     } else {
       setLocalErrorMessage(null);
       setIsImageMenuOpen(false);
+      // input 通知タップ経由で来た直後は、background で止まっていた input フェーズの
+      // 残骸が timerStore に残ることがある。start() で上書きされるが、completionToken
+      // のズレや一瞬の表示崩れを避けるため明示的に reset してから start する。
+      useTimerStore.getState().reset();
       start('output', outputMinutes * 60);
     }
     return () => {
