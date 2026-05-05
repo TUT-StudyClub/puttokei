@@ -921,8 +921,8 @@ const WEEKLY_CHART_SECTIONS = 5;
 
 function formatHourLabel(hours: number): string {
   if (!Number.isFinite(hours) || hours === 0) return '';
-  if (Number.isInteger(hours)) return String(hours);
-  return hours.toFixed(1).replace(/\.0$/, '');
+  const label = Number.isInteger(hours) ? String(hours) : hours.toFixed(1).replace(/\.0$/, '');
+  return `${label}h`;
 }
 
 function WeeklyBarChart({
