@@ -15,31 +15,24 @@
  * - stg (TestFlight 内部配布) : com.hourglass.stg  + GoogleService-Info.stg.plist  + Cloud Run
  * - prod (App Store 公開)     : com.hourglass.prod + GoogleService-Info.prod.plist + Cloud Run
  */
-import type { ExpoConfig, ConfigContext } from 'expo/config';
+const baseConfig = require('./app.json');
 
-import baseConfig from './app.json';
+module.exports = ({ config }) => {
+  const base = baseConfig.expo;
 
-type ExtraConfig = {
-  router?: { origin?: boolean };
-  eas?: { projectId?: string };
-  apiBaseUrl?: string;
-  googleWebClientId?: string;
-};
-
-export default ({ config }: ConfigContext): ExpoConfig => {
-  const base = (baseConfig as { expo: ExpoConfig }).expo;
-
-  const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? (base.extra as ExtraConfig)?.apiBaseUrl;
+  const apiBaseUrl =
+    process.env.EXPO_PUBLIC_API_BASE_URL ?? (base.extra && base.extra.apiBaseUrl);
   const bundleIdentifier =
-    process.env.EXPO_PUBLIC_BUNDLE_IDENTIFIER ?? base.ios?.bundleIdentifier;
-  const androidPackage = process.env.EXPO_PUBLIC_BUNDLE_IDENTIFIER ?? base.android?.package;
+    process.env.EXPO_PUBLIC_BUNDLE_IDENTIFIER ?? (base.ios && base.ios.bundleIdentifier);
+  const androidPackage =
+    process.env.EXPO_PUBLIC_BUNDLE_IDENTIFIER ?? (base.android && base.android.package);
   const googleServicesFile =
-    process.env.EXPO_PUBLIC_GOOGLE_SERVICES_IOS ?? base.ios?.googleServicesFile;
+    process.env.EXPO_PUBLIC_GOOGLE_SERVICES_IOS ?? (base.ios && base.ios.googleServicesFile);
 
   return {
     ...base,
-    name: config.name ?? base.name ?? 'Hourglass',
-    slug: config.slug ?? base.slug ?? 'hourglass',
+    name: (config && config.name) || base.name || 'Hourglass',
+    slug: (config && config.slug) || base.slug || 'hourglass',
     ios: {
       ...base.ios,
       bundleIdentifier,
@@ -50,7 +43,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       package: androidPackage,
     },
     extra: {
-      ...(base.extra as ExtraConfig),
+      ...(base.extra || {}),
       apiBaseUrl,
     },
   };
