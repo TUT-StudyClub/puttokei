@@ -62,6 +62,18 @@ function TimerTabIcon({ active, size = 24 }: { active: boolean; size?: number })
   );
 }
 
+function TimerTabIconContainer({ focused, size = 24 }: { focused: boolean; size?: number }) {
+  const timerPhase = useTimerStore((s) => s.phase);
+  const segments = useSegments() as string[];
+  const pathname = usePathname();
+  return (
+    <TimerTabIcon
+      active={isTimerTabIconHighlighted(segments, focused, timerPhase, pathname)}
+      size={size}
+    />
+  );
+}
+
 function ReportTabIcon({ active, size = 24 }: { active: boolean; size?: number }) {
   return (
     <Image
@@ -137,40 +149,30 @@ export default function TabsLayout() {
           name="index"
           options={{
             title: 'タイマー',
-            tabBarLabel: ({ color, focused }) => {
-              const shouldHighlightTimerTabIcon = isTimerTabIconHighlighted(
-                segments,
-                focused,
-                timerPhase,
-                pathname,
-              );
-
+            tabBarLabel: ({ focused }) => {
+              const active = isTimerTabIconHighlighted(segments, focused, timerPhase, pathname);
               return (
                 <Text
                   style={{
-                    color: shouldHighlightTimerTabIcon ? ACTIVE_COLOR : color,
-                    fontSize: 12,
-                    fontWeight: '700',
+                    color: active ? '#475FFF' : INACTIVE_COLOR,
+                    fontSize: 11,
+                    fontFamily: 'HiraginoSans-W6',
+                    marginTop: 1,
                   }}
                 >
                   タイマー
                 </Text>
               );
             },
-            tabBarIcon: ({ focused }) => (
-              <TimerTabIcon
-                active={isTimerTabIconHighlighted(segments, focused, timerPhase, pathname)}
-                size={39}
-              />
-            ),
+            tabBarIcon: ({ focused }) => <TimerTabIconContainer focused={focused} size={39} />,
           }}
         />
         <Tabs.Screen
           name="stats"
           options={{
             title: 'レポート',
-            tabBarLabel: ({ color }) => (
-              <Text allowFontScaling={false} style={[styles.tabBarLabel, { color, marginTop: 4 }]}>
+            tabBarLabel: () => (
+              <Text allowFontScaling={false} style={styles.tabBarLabel}>
                 レポート
               </Text>
             ),
@@ -202,8 +204,10 @@ export default function TabsLayout() {
 
 const styles = StyleSheet.create({
   tabBarLabel: {
-    fontSize: 12,
-    fontWeight: '700',
+    color: '#676767',
+    fontSize: 11,
+    fontFamily: 'HiraginoSans-W6',
+    marginTop: 1,
   },
   dialogBackdrop: {
     flex: 1,

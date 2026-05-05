@@ -1183,7 +1183,7 @@ export function PhaseTabs({
  */
 export const SESSION_TOP_CHROME_CONTENT_TOP = '26.1%' as const;
 export const SESSION_TOP_CHROME_HOURGLASS_WIDTH_RATIO = 1 - 0.1318 - 0.1294;
-export const SESSION_TOP_CHROME_PHASE_TABS_TOP = '19.4%' as const;
+export const SESSION_TOP_CHROME_PHASE_TABS_TOP = '19.1%' as const;
 
 type SessionTopChromeProps = {
   testIDPrefix: string;
