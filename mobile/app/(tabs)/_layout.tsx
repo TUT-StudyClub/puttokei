@@ -62,6 +62,18 @@ function TimerTabIcon({ active, size = 24 }: { active: boolean; size?: number })
   );
 }
 
+function TimerTabIconContainer({ focused, size = 24 }: { focused: boolean; size?: number }) {
+  const timerPhase = useTimerStore((s) => s.phase);
+  const segments = useSegments() as string[];
+  const pathname = usePathname();
+  return (
+    <TimerTabIcon
+      active={isTimerTabIconHighlighted(segments, focused, timerPhase, pathname)}
+      size={size}
+    />
+  );
+}
+
 function ReportTabIcon({ active, size = 24 }: { active: boolean; size?: number }) {
   return (
     <Image
@@ -152,12 +164,7 @@ export default function TabsLayout() {
                 </Text>
               );
             },
-            tabBarIcon: ({ focused }) => (
-              <TimerTabIcon
-                active={isTimerTabIconHighlighted(segments, focused, timerPhase, pathname)}
-                size={39}
-              />
-            ),
+            tabBarIcon: ({ focused }) => <TimerTabIconContainer focused={focused} size={39} />,
           }}
         />
         <Tabs.Screen
