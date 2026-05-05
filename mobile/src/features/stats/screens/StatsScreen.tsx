@@ -2524,7 +2524,7 @@ const styles = StyleSheet.create({
     color: '#333333',
     fontFamily: 'HiraginoSans-W7',
     fontSize: 36,
-    fontWeight: '700',
+    fontWeight: '800',
     lineHeight: 40,
   },
   totalTimeHoursSegment: {
@@ -2536,7 +2536,7 @@ const styles = StyleSheet.create({
   totalTimeUnit: {
     color: '#333333',
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
     lineHeight: 28,
     marginLeft: 2,
