@@ -235,7 +235,7 @@ describe('TabsLayout', () => {
     expect(iconProps.source).toBe(TIMER_ICON_BLUE);
     expect(iconStyle).toMatchObject({ width: 39, height: 39 });
     expect((label as { props?: { style?: { color?: string } } }).props?.style?.color).toBe(
-      '#4B5CFF',
+      '#475FFF',
     );
   });
 
@@ -283,9 +283,9 @@ describe('TabsLayout', () => {
     const labelStyle = StyleSheet.flatten((label as { props?: { style?: unknown } }).props?.style);
 
     expect(labelStyle).toMatchObject({
-      color: '#4B5CFF',
-      fontSize: 12,
-      fontWeight: '700',
+      color: '#676767',
+      fontSize: 11,
+      fontFamily: 'HiraginoSans-W6',
     });
   });
 });
