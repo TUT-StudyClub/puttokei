@@ -8,16 +8,24 @@ from uuid import UUID
 
 from src.common.models import FrozenModel
 
+MIN_TIMER_MINUTES = 1
+MAX_TIMER_MINUTES = 120
+
+DEFAULT_INPUT_MINUTES = 20
+DEFAULT_OUTPUT_MINUTES = 5
+DEFAULT_BREAK_MINUTES = 5
+DEFAULT_NOTIFICATION_ENABLED = True
+
 
 class UserSettings(FrozenModel):
     """ユーザごとのタイマー / 通知設定。"""
 
     id: UUID
     user_id: UUID
-    input_minutes: int = 20
-    output_minutes: int = 5
-    break_minutes: int = 5
-    notification_enabled: bool = True
+    input_minutes: int = DEFAULT_INPUT_MINUTES
+    output_minutes: int = DEFAULT_OUTPUT_MINUTES
+    break_minutes: int = DEFAULT_BREAK_MINUTES
+    notification_enabled: bool = DEFAULT_NOTIFICATION_ENABLED
     created_at: datetime
     updated_at: datetime
 
