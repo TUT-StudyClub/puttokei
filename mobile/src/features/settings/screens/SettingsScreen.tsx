@@ -105,8 +105,17 @@ export function SettingsScreen() {
           text: '削除する',
           style: 'destructive',
           onPress: () => {
-            // mutateAsync の例外は onError 経由でエラー表示に流すため、ここでは握り潰す。
-            void deleteAccount.mutateAsync();
+            void (async () => {
+              try {
+                await deleteAccount.mutateAsync();
+                // Backend の物理削除 + Firebase signOut が完了したので、(tabs) 配下から
+                // 確実に (auth) 配下へ抜ける。AuthGate の遷移ロジックは tabs/auth 配下を
+                // 許容するため明示遷移しないと画面が settings のまま残る。
+                router.replace('/(auth)/overview');
+              } catch {
+                // 失敗時のエラー表示は deleteAccount.error 経由で settings の errorText に出す。
+              }
+            })();
           },
         },
       ],
