@@ -1,10 +1,14 @@
 /**
  * `useTimer` の挙動を fakeTimers ベースで検証する。
- * - interval 駆動での remainingSeconds 減少
+ * - interval 駆動での remainingSeconds 減少 (Date.now() アンカー方式)
  * - pause / resume
  * - 完了時の onComplete が冪等に 1 度だけ呼ばれる
  * - unmount 時の cleanup
  * - onComplete の差し替えが反映される (ref 経由)
+ *
+ * `useFakeTimers` は `setSystemTime` を併用して Date.now を進める前提。
+ * `advanceTimersByTime(N)` は jest 28+ で実時計を N ms 進めるため、
+ * `Date.now()` ベースの再計算が advanceTimersByTime の経過時間を読み取れる。
  */
 import { act, cleanup, renderHook } from '@testing-library/react-native';
 
@@ -28,14 +32,17 @@ describe('formatMmSs', () => {
 
 describe('useTimer', () => {
   beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-01-01T00:00:00Z'));
     useTimerStore.setState({
       phase: 'idle',
       status: 'idle',
       totalSeconds: 0,
       remainingSeconds: 0,
       completionToken: 0,
+      startedAtMs: null,
+      baseRemainingSeconds: 0,
     });
-    jest.useFakeTimers();
   });
 
   afterEach(() => {
@@ -158,7 +165,7 @@ describe('useTimer', () => {
     expect(onComplete).toHaveBeenCalledWith('output');
   });
 
-  it('enabled=false の間は tick も onComplete も止まる', () => {
+  it('enabled=false の間は表示が止まり、再度 enabled=true で経過時間がまとめて反映される', () => {
     const onComplete = jest.fn();
     const { result, rerender } = renderHook(
       ({ enabled }: { enabled: boolean }) => useTimer({ enabled, onComplete }),
@@ -166,19 +173,22 @@ describe('useTimer', () => {
     );
 
     act(() => {
-      result.current.start('input', 3);
+      result.current.start('input', 10);
     });
+    // enabled=false 中は recomputeRemaining が呼ばれないので表示は維持される。
     act(() => {
-      jest.advanceTimersByTime(3000);
+      jest.advanceTimersByTime(2000);
     });
-    expect(result.current.remainingSeconds).toBe(3);
+    expect(result.current.remainingSeconds).toBe(10);
     expect(onComplete).not.toHaveBeenCalled();
 
+    // enabled=true で interval が動き出すと、最初の tick で start からの経過時間
+    // (= 3 秒) がまとめて反映される。これは Date.now() アンカー方式の意図的な挙動。
     rerender({ enabled: true });
     act(() => {
       jest.advanceTimersByTime(1000);
     });
-    expect(result.current.remainingSeconds).toBe(2);
+    expect(result.current.remainingSeconds).toBe(7);
     expect(onComplete).not.toHaveBeenCalled();
   });
 
@@ -227,5 +237,73 @@ describe('useTimer', () => {
     });
     expect(onComplete).toHaveBeenCalledTimes(2);
     expect(onComplete).toHaveBeenLastCalledWith('break');
+  });
+
+  it('AppState change(active) で即時 recompute され、background 中の経過時間に追いつく', () => {
+    const { AppState } = require('react-native') as typeof import('react-native');
+    const listeners: Array<(state: string) => void> = [];
+    const addEventListenerSpy = jest
+      .spyOn(AppState, 'addEventListener')
+      .mockImplementation((event, listener) => {
+        if (event === 'change') {
+          listeners.push(listener as (s: string) => void);
+        }
+        return { remove: jest.fn() } as ReturnType<typeof AppState.addEventListener>;
+      });
+
+    const onComplete = jest.fn();
+    const { result } = renderHook(() => useTimer({ onComplete }));
+
+    act(() => {
+      result.current.start('input', 60);
+    });
+    expect(result.current.remainingSeconds).toBe(60);
+
+    // background 相当: interval 発火を抑止しつつ Date.now だけ 30 秒進める
+    // (clearTimers せず advanceTimers するだけだと interval も発火するので、
+    //  ここでは setSystemTime で Date.now を直接ジャンプさせる)
+    act(() => {
+      jest.setSystemTime(new Date('2026-01-01T00:00:30Z'));
+    });
+    // setSystemTime だけでは recompute されないので表示は古いまま
+    expect(result.current.remainingSeconds).toBe(60);
+
+    // foreground 復帰: AppState change が発火
+    act(() => {
+      listeners.forEach((listener) => listener('active'));
+    });
+    // 即時 recompute されて 30 秒経過が反映される
+    expect(result.current.remainingSeconds).toBe(30);
+    expect(onComplete).not.toHaveBeenCalled();
+
+    addEventListenerSpy.mockRestore();
+  });
+
+  it('AppState change(active) で残時間を超えていれば即 completed → onComplete 発火', () => {
+    const { AppState } = require('react-native') as typeof import('react-native');
+    const listeners: Array<(state: string) => void> = [];
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((event, listener) => {
+      if (event === 'change') {
+        listeners.push(listener as (s: string) => void);
+      }
+      return { remove: jest.fn() } as ReturnType<typeof AppState.addEventListener>;
+    });
+
+    const onComplete = jest.fn();
+    const { result } = renderHook(() => useTimer({ onComplete }));
+    act(() => {
+      result.current.start('input', 30);
+    });
+
+    act(() => {
+      // 30 秒タイマーに対して 5 分後に foreground 復帰
+      jest.setSystemTime(new Date('2026-01-01T00:05:00Z'));
+      listeners.forEach((listener) => listener('active'));
+    });
+
+    expect(result.current.status).toBe('completed');
+    expect(result.current.remainingSeconds).toBe(0);
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(onComplete).toHaveBeenCalledWith('input');
   });
 });
