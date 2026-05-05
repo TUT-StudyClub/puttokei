@@ -6,6 +6,7 @@ FakeAuthVerifier + FakeUserRepository 経由で、実 DB / Firebase 無しで経
 import pytest
 from httpx import AsyncClient
 
+from tests.fakes.fake_auth_account_admin import FakeAuthAccountAdmin
 from tests.fakes.fake_user_repository import FakeUserRepository
 
 
@@ -128,51 +129,108 @@ async def test_delete_account_requires_authorization_header(client: AsyncClient)
 
 
 @pytest.mark.asyncio
-async def test_delete_account_soft_deletes_user_and_returns_204(
-    client: AsyncClient, fake_user_repository: FakeUserRepository
+async def test_delete_account_returns_204_and_invokes_firebase_delete(
+    client: AsyncClient, fake_auth_account_admin: FakeAuthAccountAdmin
 ):
+    """DELETE /users/me が 204 を返し、Firebase 削除が呼ばれることを確認する。
+
+    DB 上の cascade 削除は fake repository では再現せず、別途 DB integration test に委ねる。
+    本ケースでは API レベルの応答と Firebase 連携の発火だけを検証する。
+    """
     headers = {"Authorization": "Bearer settings-user-delete"}
     # 初回 GET で users + user_settings を AuthenticateUser に作らせる
     get_response = await client.get("/api/v1/users/me/settings", headers=headers)
     assert get_response.status_code == 200
-    assert "settings-user-delete" in fake_user_repository.users
 
     delete_response = await client.delete("/api/v1/users/me", headers=headers)
     assert delete_response.status_code == 204
     assert delete_response.text == ""
 
-    # 論理削除: 行は残り、deleted_at がセットされ、fcm_token がクリアされる
-    soft_deleted = fake_user_repository.users["settings-user-delete"]
-    assert soft_deleted.deleted_at is not None
-    assert soft_deleted.fcm_token is None
-    # user_settings は保持される（30 日後バッチで物理削除される時点で CASCADE）
-    assert soft_deleted.id in fake_user_repository.settings
+    # Firebase 側の削除が対象 uid 1 件で呼ばれたことを確認する
+    assert fake_auth_account_admin.deleted_uids == ["settings-user-delete"]
 
 
 @pytest.mark.asyncio
-async def test_protected_api_returns_401_after_account_deleted(
-    client: AsyncClient,
+async def test_post_delete_request_with_same_token_creates_new_user(
+    client: AsyncClient, fake_user_repository: FakeUserRepository
 ):
-    """論理削除後に同じトークンで保護 API を叩くと 401 になる（再利用防止）。"""
+    """退会後に同じ Bearer トークンで再アクセスすると、新規ユーザーとして再登録される。
+
+    実プロダクションでは Firebase Auth 側で対象 UID が削除されるため、その UID で発行
+    された ID Token は失効して認証段階で 401 になる。本テストは fake AuthVerifier を
+    使うため、認証段階を通過した後の backend 側挙動 (= 新規ユーザ作成) を検証する。
+    """
     headers = {"Authorization": "Bearer settings-user-afterdel"}
-    assert (await client.get("/api/v1/users/me/settings", headers=headers)).status_code == 200
+    first = await client.get("/api/v1/users/me/settings", headers=headers)
+    assert first.status_code == 200
+    first_user_id = fake_user_repository.users["settings-user-afterdel"].id
+
     assert (await client.delete("/api/v1/users/me", headers=headers)).status_code == 204
+    # DB 上の user 行は物理削除されている
+    assert "settings-user-afterdel" not in fake_user_repository.users
 
     retry = await client.get("/api/v1/users/me/settings", headers=headers)
-    assert retry.status_code == 401
-    body = retry.json()
-    assert body["type"] == "authentication_required"
+    assert retry.status_code == 200
+    # 同じ firebase_uid で別 user_id の行が新規作成されている
+    new_user_id = fake_user_repository.users["settings-user-afterdel"].id
+    assert new_user_id != first_user_id
 
 
 @pytest.mark.asyncio
-async def test_delete_account_second_call_returns_401_for_already_deleted_user(
-    client: AsyncClient,
+async def test_delete_account_second_call_after_reregistration_succeeds(
+    client: AsyncClient, fake_auth_account_admin: FakeAuthAccountAdmin
 ):
-    """2 度目の DELETE は認証 use case 段階で 401 になる。"""
+    """退会 → 同じ Bearer で再アクセス（新規再登録）→ 再退会 が冪等に成功する。"""
     headers = {"Authorization": "Bearer settings-user-twicedel"}
     await client.get("/api/v1/users/me/settings", headers=headers)
     first = await client.delete("/api/v1/users/me", headers=headers)
     assert first.status_code == 204
 
+    # 再アクセスで新規ユーザーとして作り直され、再退会も 204 を返す。
+    await client.get("/api/v1/users/me/settings", headers=headers)
     second = await client.delete("/api/v1/users/me", headers=headers)
-    assert second.status_code == 401
+    assert second.status_code == 204
+    # Firebase 削除は 2 回呼ばれている
+    assert fake_auth_account_admin.deleted_uids == [
+        "settings-user-twicedel",
+        "settings-user-twicedel",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_delete_account_treats_firebase_user_not_found_as_success(
+    client: AsyncClient,
+    fake_auth_account_admin: FakeAuthAccountAdmin,
+    fake_user_repository: FakeUserRepository,
+):
+    """Firebase 側で対象 uid が既に存在しないケースでも 204 を返し DB 削除は実行される。"""
+    headers = {"Authorization": "Bearer settings-user-fbmissing"}
+    await client.get("/api/v1/users/me/settings", headers=headers)
+    fake_auth_account_admin.not_found_uids.add("settings-user-fbmissing")
+
+    response = await client.delete("/api/v1/users/me", headers=headers)
+    assert response.status_code == 204
+
+    # Firebase 削除は試行された
+    assert "settings-user-fbmissing" in fake_auth_account_admin.deleted_uids
+    # DB users 行は物理削除されている
+    assert "settings-user-fbmissing" not in fake_user_repository.users
+
+
+@pytest.mark.asyncio
+async def test_delete_account_returns_500_when_firebase_fails_and_keeps_db_row(
+    client: AsyncClient, fake_auth_account_admin: FakeAuthAccountAdmin
+):
+    """Firebase その他エラー時は 500 を返し、DB 行は残る (退会処理が中断される)。"""
+    headers = {"Authorization": "Bearer settings-user-fberror"}
+    await client.get("/api/v1/users/me/settings", headers=headers)
+    fake_auth_account_admin.error_uid_to_raise["settings-user-fberror"] = RuntimeError(
+        "firebase down"
+    )
+
+    response = await client.delete("/api/v1/users/me", headers=headers)
+    assert response.status_code == 500
+
+    # 退会前の保護 API はまだ通る (= DB 行が残っている)
+    retry = await client.get("/api/v1/users/me/settings", headers=headers)
+    assert retry.status_code == 200

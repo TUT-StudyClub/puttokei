@@ -29,6 +29,7 @@ from src.application.use_cases.update_user_settings import UpdateUserSettings
 from src.config import Settings
 from src.domain.services.output_image_storage import OutputImageStorage
 from src.infrastructure.auth.firebase_auth import FirebaseAuthVerifier
+from src.infrastructure.auth.firebase_auth_account_admin import FirebaseAuthAccountAdmin
 from src.infrastructure.llm.factory import build_llm_judge_service
 from src.infrastructure.persistence.database import Database
 from src.infrastructure.persistence.unit_of_work import SqlAlchemyUnitOfWork
@@ -123,7 +124,10 @@ def build_container(settings: Settings) -> Container:
         update_user_profile=UpdateUserProfile(unit_of_work_factory=unit_of_work_factory),
         get_user_settings=GetUserSettings(unit_of_work_factory=unit_of_work_factory),
         update_user_settings=UpdateUserSettings(unit_of_work_factory=unit_of_work_factory),
-        delete_account=DeleteAccount(unit_of_work_factory=unit_of_work_factory),
+        delete_account=DeleteAccount(
+            unit_of_work_factory=unit_of_work_factory,
+            auth_account_admin=FirebaseAuthAccountAdmin(settings=settings),
+        ),
         create_session=CreateSession(unit_of_work_factory=unit_of_work_factory),
         update_session_status=UpdateSessionStatus(unit_of_work_factory=unit_of_work_factory),
         submit_text_output=SubmitTextOutput(unit_of_work_factory=unit_of_work_factory),
