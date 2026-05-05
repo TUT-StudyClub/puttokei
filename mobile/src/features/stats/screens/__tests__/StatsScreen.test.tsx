@@ -304,6 +304,8 @@ describe('StatsScreen', () => {
     });
     expect(sessionBadgeNumberText.props.children).toBe(5);
     expect(getByTestId('stats-output-history-title').props.children).toBe('履歴');
+    expect(getByTestId('stats-scroll-content').type).toBe('View');
+    expect(getByTestId('stats-output-history-table-scroll').type).toBe('RCTScrollView');
     expect(getByTestId('stats-output-history-item-out-1')).toBeTruthy();
     expect(getByText('4月29日')).toBeTruthy();
     expect(getByText('09：35 - 10：00')).toBeTruthy();
@@ -321,7 +323,7 @@ describe('StatsScreen', () => {
     expect(queryByText('教科')).toBeNull();
   });
 
-  it('履歴カードは3サイクル分で枠を閉じる', async () => {
+  it('履歴表のスクロール領域に全サイクル分を表示する', async () => {
     (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(
       makeDailyResponse({
         output_history: [1, 2, 3, 4].map((cycleIndex) => makeOutputHistoryItem(cycleIndex)),
@@ -336,7 +338,7 @@ describe('StatsScreen', () => {
     });
     expect(getByTestId('stats-output-history-item-out-3')).toBeTruthy();
     expect(getByTestId('stats-output-history-item-out-2')).toBeTruthy();
-    expect(queryByTestId('stats-output-history-item-out-1')).toBeNull();
+    expect(queryByTestId('stats-output-history-item-out-1')).toBeTruthy();
   });
 
   it('履歴行をタップすると下部シートでアウトプット内容を確認できる', async () => {
