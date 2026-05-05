@@ -2,17 +2,18 @@
 #
 # `.gitignore` との関係:
 # - `.easignore` が存在する場合、EAS は `.easignore` を使い `.gitignore` は無視する
-# - `.gitignore` で無視しているが EAS には送りたいファイル (= 個人秘匿だが build に
-#   必要なファイル) はここに **含めない** ことで EAS にアップロードされる
+# - `.gitignore` で除外されているが build に必要なファイル (= 個人秘匿だが EAS には
+#   送りたいファイル) は、ここに **含めない** ことで EAS にアップロードされる
 #
 # このプロジェクトでの差分:
-# - `app.json` ... `app.config.ts` が `import './app.json'` で参照するため EAS に必須。
-#                  `.gitignore` では除外しているが `.easignore` では除外しない。
-# - `GoogleService-Info*.plist` ... 環境別の Firebase 設定。`.gitignore` では除外して
-#                                    いるが build 時に必要なため `.easignore` では除外しない。
-#
-# 以下は `.gitignore` の内容から `app.json` と `GoogleService-Info*.plist` を取り除いた
-# もの。
+# - `app.json` ... `app.json.example` のプレースホルダを実値に書き換えたローカル overlay。
+#                  GitHub には乗せたくないが EAS Build には必要なため、`.gitignore` で
+#                  除外しつつ `.easignore` では除外しないことで EAS だけに届ける。
+#                  TestFlight / App Store ビルドを回す担当者がローカルで `app.json` を
+#                  作っておくこと。
+# - `GoogleService-Info*.plist` ... 環境別の Firebase 設定。同様に `.gitignore` で全
+#                                    環境分除外しつつ `.easignore` では除外せず、EAS
+#                                    だけに届ける。
 
 node_modules/
 .expo/
