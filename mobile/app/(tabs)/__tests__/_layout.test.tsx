@@ -199,8 +199,11 @@ describe('TabsLayout', () => {
     const { timerTab } = renderTimerTabScreen();
 
     const timerIcon = timerTab.options?.tabBarIcon?.({ color: '#9CA3AF', focused: false });
+    const iconProps = getRenderedImageProps(timerIcon);
+    const iconStyle = StyleSheet.flatten(iconProps.style);
 
-    expect(getRenderedImageProps(timerIcon).source).toBe(TIMER_ICON_GRAY);
+    expect(iconProps.source).toBe(TIMER_ICON_GRAY);
+    expect(iconStyle.tintColor).toBe('#9CA3AF');
   });
 
   it.each<TimerPhase>(['input', 'output', 'break'])(
@@ -211,8 +214,11 @@ describe('TabsLayout', () => {
       const { timerTab } = renderTimerTabScreen();
 
       const timerIcon = timerTab.options?.tabBarIcon?.({ color: '#9CA3AF', focused: false });
+      const iconProps = getRenderedImageProps(timerIcon);
+      const iconStyle = StyleSheet.flatten(iconProps.style);
 
-      expect(getRenderedImageProps(timerIcon).source).toBe(TIMER_ICON_BLUE);
+      expect(iconProps.source).toBe(TIMER_ICON_BLUE);
+      expect(iconStyle.tintColor).toBe('#4B5CFF');
     },
   );
 
@@ -233,7 +239,7 @@ describe('TabsLayout', () => {
     const iconStyle = StyleSheet.flatten(iconProps.style);
 
     expect(iconProps.source).toBe(TIMER_ICON_BLUE);
-    expect(iconStyle).toMatchObject({ width: 39, height: 39 });
+    expect(iconStyle).toMatchObject({ width: 39, height: 39, tintColor: '#4B5CFF' });
     expect((label as { props?: { style?: { color?: string } } }).props?.style?.color).toBe(
       '#4B5CFF',
     );
@@ -245,8 +251,11 @@ describe('TabsLayout', () => {
 
     const timerIcon = timerTab.options?.tabBarIcon?.({ color: '#9CA3AF', focused: true });
     const reportIcon = statsTab.options?.tabBarIcon?.({ color: '#9CA3AF', focused: false });
+    const timerIconProps = getRenderedImageProps(timerIcon);
+    const timerIconStyle = StyleSheet.flatten(timerIconProps.style);
 
-    expect(getRenderedImageProps(timerIcon).source).toBe(TIMER_ICON_BLUE);
+    expect(timerIconProps.source).toBe(TIMER_ICON_BLUE);
+    expect(timerIconStyle.tintColor).toBe('#4B5CFF');
     expect(getRenderedImageProps(reportIcon).source).toBe(REPORT_ICON_GRAY);
   });
 
@@ -257,8 +266,11 @@ describe('TabsLayout', () => {
 
     const timerIcon = timerTab.options?.tabBarIcon?.({ color: '#9CA3AF', focused: false });
     const reportIcon = statsTab.options?.tabBarIcon?.({ color: '#4B5CFF', focused: true });
+    const timerIconProps = getRenderedImageProps(timerIcon);
+    const timerIconStyle = StyleSheet.flatten(timerIconProps.style);
 
-    expect(getRenderedImageProps(timerIcon).source).toBe(TIMER_ICON_GRAY);
+    expect(timerIconProps.source).toBe(TIMER_ICON_GRAY);
+    expect(timerIconStyle.tintColor).toBe('#9CA3AF');
     expect(getRenderedImageProps(reportIcon).source).toBe(REPORT_ICON_BLUE);
   });
 

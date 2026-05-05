@@ -8,6 +8,7 @@ import {
   WEEK_DATE_STRIP_ARROW_BUTTON_WIDTH,
   WEEK_DATE_STRIP_HORIZONTAL_OUTSET,
   WEEK_DATE_STRIP_LAYOUT_GUTTER_WIDTH,
+  WEEK_DATE_STRIP_STATUS_BACKGROUND_SELECTED_OVERLAP,
   WeekDateStrip,
 } from '@/features/stats/components/WeekDateStrip';
 
@@ -119,7 +120,33 @@ describe('WeekDateStrip', () => {
     expect(studiedWeekdayStyle.color).toBe('#475FFF');
   });
 
-  it('選択日を中央に表示し、未学習の選択日は枠だけ、学習済み日は指定色で表示する', () => {
+  it('今日は特別表示せず、未学習の選択日も青枠で表示する', () => {
+    const { getByTestId } = renderWithProvider(
+      <WeekDateStrip
+        weekStart="2026-05-03"
+        onWeekChange={jest.fn()}
+        selectedDateKey="2026-05-06"
+        studiedDateKeys={['2026-05-03']}
+        onSelectDate={jest.fn()}
+      />,
+    );
+
+    const todayStyle = StyleSheet.flatten(getByTestId('week-date-2026-05-04').props.style);
+    const selectedBackgroundStyle = StyleSheet.flatten(
+      getByTestId('week-date-2026-05-06-selected-background').props.style,
+    );
+
+    expect(todayStyle.backgroundColor).toBeUndefined();
+    expect(todayStyle.borderColor).toBeUndefined();
+    expect(todayStyle.borderWidth).toBeUndefined();
+    expect(selectedBackgroundStyle.backgroundColor).toBeUndefined();
+    expect(selectedBackgroundStyle.borderColor).toBe('#475FFF');
+    expect(selectedBackgroundStyle.borderWidth).toBe(3);
+    expect(selectedBackgroundStyle.top).toBe(0);
+    expect(selectedBackgroundStyle.bottom).toBe(0);
+  });
+
+  it('未学習の選択日は中央に表示し、隣の学習済み日を枠の下へ重ねる', () => {
     const { getByTestId } = renderWithProvider(
       <WeekDateStrip
         weekStart="2026-05-10"
@@ -134,17 +161,80 @@ describe('WeekDateStrip', () => {
     const selectedBackgroundStyle = StyleSheet.flatten(
       getByTestId('week-date-2026-05-13-selected-background').props.style,
     );
-    const studiedBackgroundStyle = StyleSheet.flatten(
+    const previousStudiedBackgroundStyle = StyleSheet.flatten(
       getByTestId('week-date-2026-05-12-studied-background').props.style,
     );
 
     expect(currentPageChildren[3].props.testID).toBe('week-date-2026-05-13');
     expect(currentPageChildren).toHaveLength(7);
-    expect(selectedBackgroundStyle.left).toBe(-3);
-    expect(selectedBackgroundStyle.right).toBe(-3);
+    expect(selectedBackgroundStyle.left).toBe(0);
+    expect(selectedBackgroundStyle.right).toBe(0);
+    expect(selectedBackgroundStyle.top).toBe(0);
+    expect(selectedBackgroundStyle.bottom).toBe(0);
     expect(selectedBackgroundStyle.backgroundColor).toBeUndefined();
     expect(selectedBackgroundStyle.borderColor).toBe('#475FFF');
     expect(selectedBackgroundStyle.borderWidth).toBe(3);
-    expect(studiedBackgroundStyle.backgroundColor).toBe('#DBE3FF');
+    expect(previousStudiedBackgroundStyle.left).toBe(0);
+    expect(previousStudiedBackgroundStyle.right).toBe(
+      -WEEK_DATE_STRIP_STATUS_BACKGROUND_SELECTED_OVERLAP,
+    );
+    expect(previousStudiedBackgroundStyle.top).toBe(0);
+    expect(previousStudiedBackgroundStyle.bottom).toBe(0);
+    expect(previousStudiedBackgroundStyle.backgroundColor).toBe('#DBE3FF');
+  });
+
+  it('学習済みの選択日は青枠にし、隣の学習済み日を枠の下へ重ねる', () => {
+    const { getByTestId } = renderWithProvider(
+      <WeekDateStrip
+        weekStart="2026-05-10"
+        onWeekChange={jest.fn()}
+        selectedDateKey="2026-05-13"
+        studiedDateKeys={['2026-05-12', '2026-05-13']}
+        onSelectDate={jest.fn()}
+      />,
+    );
+
+    const selectedBackgroundStyle = StyleSheet.flatten(
+      getByTestId('week-date-2026-05-13-selected-background').props.style,
+    );
+    const previousStudiedBackgroundStyle = StyleSheet.flatten(
+      getByTestId('week-date-2026-05-12-studied-background').props.style,
+    );
+
+    expect(selectedBackgroundStyle.backgroundColor).toBe('#DBE3FF');
+    expect(selectedBackgroundStyle.borderColor).toBe('#475FFF');
+    expect(selectedBackgroundStyle.borderWidth).toBe(3);
+    expect(selectedBackgroundStyle.top).toBe(0);
+    expect(selectedBackgroundStyle.bottom).toBe(0);
+    expect(previousStudiedBackgroundStyle.left).toBe(0);
+    expect(previousStudiedBackgroundStyle.right).toBe(
+      -WEEK_DATE_STRIP_STATUS_BACKGROUND_SELECTED_OVERLAP,
+    );
+    expect(previousStudiedBackgroundStyle.top).toBe(0);
+    expect(previousStudiedBackgroundStyle.bottom).toBe(0);
+  });
+
+  it('選択日の翌日が学習済みの場合も選択枠の下へ重ねる', () => {
+    const { getByTestId } = renderWithProvider(
+      <WeekDateStrip
+        weekStart="2026-05-10"
+        onWeekChange={jest.fn()}
+        selectedDateKey="2026-05-13"
+        studiedDateKeys={['2026-05-13', '2026-05-14']}
+        onSelectDate={jest.fn()}
+      />,
+    );
+
+    const nextStudiedBackgroundStyle = StyleSheet.flatten(
+      getByTestId('week-date-2026-05-14-studied-background').props.style,
+    );
+
+    expect(nextStudiedBackgroundStyle.left).toBe(
+      -WEEK_DATE_STRIP_STATUS_BACKGROUND_SELECTED_OVERLAP,
+    );
+    expect(nextStudiedBackgroundStyle.right).toBe(0);
+    expect(nextStudiedBackgroundStyle.top).toBe(0);
+    expect(nextStudiedBackgroundStyle.bottom).toBe(0);
+    expect(nextStudiedBackgroundStyle.backgroundColor).toBe('#DBE3FF');
   });
 });

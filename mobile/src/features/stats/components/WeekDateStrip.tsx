@@ -23,6 +23,7 @@ export const WEEK_DATE_STRIP_LAYOUT_GUTTER_WIDTH = 32;
 export const WEEK_DATE_STRIP_DAY_CELL_MAX_WIDTH = 100;
 export const WEEK_DATE_STRIP_HORIZONTAL_INSET = 24;
 export const WEEK_DATE_STRIP_HORIZONTAL_OUTSET = 8;
+export const WEEK_DATE_STRIP_STATUS_BACKGROUND_SELECTED_OVERLAP = 3;
 
 type Props = {
   weekStart: string;
@@ -119,9 +120,12 @@ export function WeekDateStrip({
         >
           {centeredDateKeys.map((dateKey) => {
             const date = parseDateKey(dateKey);
-            const isToday = dateKey === todayKey;
             const isSelected = dateKey === selectedDateKey;
             const isStudied = studiedDateKeySet.has(dateKey);
+            const previousDateKey = addDaysToDateKey(dateKey, -1);
+            const nextDateKey = addDaysToDateKey(dateKey, 1);
+            const shouldOverlapPreviousSelected = isStudied && previousDateKey === selectedDateKey;
+            const shouldOverlapNextSelected = isStudied && nextDateKey === selectedDateKey;
             const isFuture = dateKey > todayKey;
             const dayTextColorStyle = isStudied
               ? styles.dayTextStudied
@@ -134,11 +138,7 @@ export function WeekDateStrip({
                 key={dateKey}
                 accessibilityRole="button"
                 onPress={() => onSelectDate(dateKey)}
-                style={[
-                  styles.dayCell,
-                  { width: dayCellWidth },
-                  isToday && !isSelected && !isStudied ? styles.dayCellToday : null,
-                ]}
+                style={[styles.dayCell, { width: dayCellWidth }]}
                 testID={`week-date-${dateKey}`}
               >
                 {isSelected || isStudied ? (
@@ -146,6 +146,12 @@ export function WeekDateStrip({
                     pointerEvents="none"
                     style={[
                       styles.dayCellStatusBackground,
+                      shouldOverlapPreviousSelected
+                        ? styles.dayCellStatusBackgroundOverlapPreviousSelected
+                        : null,
+                      shouldOverlapNextSelected
+                        ? styles.dayCellStatusBackgroundOverlapNextSelected
+                        : null,
                       isStudied ? styles.dayCellStudiedBackground : null,
                       isSelected ? styles.dayCellSelectedBackground : null,
                     ]}
@@ -238,11 +244,17 @@ const styles = StyleSheet.create({
   },
   dayCellStatusBackground: {
     position: 'absolute',
-    left: -3,
-    right: -3,
-    bottom: -1,
-    height: 62,
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
     borderRadius: 6,
+  },
+  dayCellStatusBackgroundOverlapPreviousSelected: {
+    left: -WEEK_DATE_STRIP_STATUS_BACKGROUND_SELECTED_OVERLAP,
+  },
+  dayCellStatusBackgroundOverlapNextSelected: {
+    right: -WEEK_DATE_STRIP_STATUS_BACKGROUND_SELECTED_OVERLAP,
   },
   dayCellStudiedBackground: {
     backgroundColor: '#DBE3FF',
@@ -250,11 +262,6 @@ const styles = StyleSheet.create({
   dayCellSelectedBackground: {
     borderColor: '#475FFF',
     borderWidth: 3,
-  },
-  dayCellToday: {
-    backgroundColor: '#DDE5FF',
-    borderColor: '#4B5CFF',
-    borderWidth: 1.5,
   },
   dayNumber: {
     color: '#333333',

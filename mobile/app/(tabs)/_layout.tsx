@@ -57,7 +57,7 @@ function TimerTabIcon({ active, size = 24 }: { active: boolean; size?: number })
   return (
     <Image
       source={active ? TIMER_ICON_BLUE : TIMER_ICON_GRAY}
-      style={{ width: size, height: size }}
+      style={{ width: size, height: size, tintColor: active ? ACTIVE_COLOR : INACTIVE_COLOR }}
     />
   );
 }
