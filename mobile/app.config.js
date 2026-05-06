@@ -1,3 +1,5 @@
+/* eslint-env node */
+
 /**
  * Expo の動的設定。
  *
