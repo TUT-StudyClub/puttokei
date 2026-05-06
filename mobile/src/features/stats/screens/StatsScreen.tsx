@@ -1163,7 +1163,7 @@ function NewSubjectFormModal({
             </Svg>
           </Pressable>
           <Text style={styles.newSubjectTitle} testID="stats-new-subject-title">
-            新規教科追加
+            教科を追加
           </Text>
         </View>
 
@@ -3052,17 +3052,23 @@ const styles = StyleSheet.create({
   },
   newSubjectBackButton: {
     position: 'absolute',
-    left: 24,
+    left: 30,
+    top: 5,
     width: 32,
     height: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
   newSubjectTitle: {
+    position: 'absolute',
+    top: 9,
+    left: 6,
+    right: -6,
     color: '#111111',
-    fontSize: 14,
-    fontWeight: '800',
-    lineHeight: 20,
+    fontSize: 18,
+    fontWeight: '600',
+    lineHeight: 24,
+    textAlign: 'center',
   },
   newSubjectForm: {
     paddingHorizontal: 33,

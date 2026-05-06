@@ -637,8 +637,9 @@ describe('StatsScreen', () => {
     const newSubjectColorPreviewStyle = StyleSheet.flatten(
       getByTestId('stats-new-subject-color', { includeHiddenElements: true }).props.style,
     );
-    expect(getByText('新規教科追加', { includeHiddenElements: true })).toBeTruthy();
-    expect(newSubjectTitleStyle.fontWeight).toBe('800');
+    expect(getByText('教科を追加', { includeHiddenElements: true })).toBeTruthy();
+    expect(newSubjectTitleStyle.top).toBe(9);
+    expect(newSubjectTitleStyle.fontWeight).toBe('600');
     expect(newSubjectColorRowStyle.borderBottomWidth).toBe(0);
     expect(newSubjectSubjectLabelStyle.fontSize).toBe(16);
     expect(newSubjectSubjectLabelStyle.lineHeight).toBe(22);
