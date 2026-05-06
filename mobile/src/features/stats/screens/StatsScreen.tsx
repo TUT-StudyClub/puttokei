@@ -2703,7 +2703,8 @@ const styles = StyleSheet.create({
   historySheetPanel: {
     width: '100%',
     maxWidth: 430,
-    maxHeight: '82%',
+    height: '62%',
+    maxHeight: '64%',
     alignSelf: 'center',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
@@ -2895,6 +2896,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   historySheetOutputFrame: {
+    flex: 1,
     minHeight: 296,
     marginHorizontal: 12,
     marginTop: 8,

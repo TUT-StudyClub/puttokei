@@ -359,6 +359,10 @@ describe('StatsScreen', () => {
     });
 
     expect(getByTestId('stats-history-sheet')).toBeTruthy();
+    expect(StyleSheet.flatten(getByTestId('stats-history-sheet').props.style).height).toBe('62%');
+    expect(StyleSheet.flatten(getByTestId('stats-history-sheet').props.style).maxHeight).toBe(
+      '64%',
+    );
     expect(getByText('4月29日　09：35 - 10：00')).toBeTruthy();
     expect(getByText('教科')).toBeTruthy();
     expect(getByText('英語')).toBeTruthy();
