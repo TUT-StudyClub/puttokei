@@ -25,9 +25,10 @@ type AnnotatedOutputImageProps = {
   imageUrl: string;
   corrections: readonly JudgmentCorrection[];
   selectedCorrectionIndex: number | null;
-  onSelectCorrection: (correctionIndex: number) => void;
+  onSelectCorrection: (correctionIndex: number, pageX?: number, pageY?: number) => void;
   containerStyle?: StyleProp<ViewStyle>;
   imageHeight?: number;
+  autoHeight?: boolean;
   testID?: string;
 };
 
@@ -44,6 +45,7 @@ export function AnnotatedOutputImage({
   onSelectCorrection,
   containerStyle,
   imageHeight = 320,
+  autoHeight = false,
   testID,
 }: AnnotatedOutputImageProps) {
   const [containerSize, setContainerSize] = useState<{ width: number; height: number } | null>(
@@ -91,10 +93,15 @@ export function AnnotatedOutputImage({
 
   const renderArea = computeRenderArea(containerSize, naturalSize);
 
+  const displayHeight =
+    autoHeight && naturalSize && containerSize
+      ? Math.round((containerSize.width / naturalSize.width) * naturalSize.height)
+      : imageHeight;
+
   return (
     <View
       onLayout={handleLayout}
-      style={[styles.container, { height: imageHeight }, containerStyle]}
+      style={[styles.container, { height: displayHeight }, containerStyle]}
       testID={testID}
     >
       <Image
@@ -118,7 +125,10 @@ export function AnnotatedOutputImage({
                 key={index}
                 accessibilityRole="button"
                 accessibilityLabel={`誤り箇所 ${index + 1}`}
-                onPress={() => onSelectCorrection(index)}
+                onPress={(event) => {
+                  onSelectCorrection(index);
+                  onSelectCorrection(index, event.nativeEvent.pageX, event.nativeEvent.pageY);
+                }}
                 hitSlop={TAP_PADDING}
                 style={[
                   styles.tapArea,
