@@ -641,12 +641,13 @@ describe('StatsScreen', () => {
     expect(newSubjectTitleStyle.top).toBe(9);
     expect(newSubjectTitleStyle.fontWeight).toBe('600');
     expect(newSubjectColorRowStyle.borderBottomWidth).toBe(0);
-    expect(newSubjectSubjectLabelStyle.fontSize).toBe(16);
-    expect(newSubjectSubjectLabelStyle.lineHeight).toBe(22);
+    expect(newSubjectSubjectLabelStyle.fontSize).toBe(17);
+    expect(newSubjectSubjectLabelStyle.lineHeight).toBe(23);
     expect(newSubjectColorLabelStyle.fontSize).toBe(16);
     expect(newSubjectColorLabelStyle.lineHeight).toBe(22);
-    expect(newSubjectInputStyle.fontSize).toBe(16);
-    expect(newSubjectInputStyle.fontWeight).toBe('500');
+    expect(newSubjectInputStyle.fontSize).toBe(17);
+    expect(newSubjectInputStyle.fontWeight).toBe('400');
+    expect(newSubjectInputStyle.lineHeight).toBe(23);
     expect(newSubjectColorPreviewStyle.width).toBe(14);
     expect(newSubjectColorPreviewStyle.height).toBe(14);
     expect(newSubjectColorPreviewStyle.borderRadius).toBe(7);

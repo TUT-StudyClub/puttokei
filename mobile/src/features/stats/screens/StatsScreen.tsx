@@ -1169,7 +1169,10 @@ function NewSubjectFormModal({
 
         <View style={styles.newSubjectForm}>
           <View style={styles.newSubjectRow}>
-            <SizableText style={styles.newSubjectLabel} testID="stats-new-subject-subject-label">
+            <SizableText
+              style={[styles.newSubjectLabel, styles.newSubjectSubjectLabel]}
+              testID="stats-new-subject-subject-label"
+            >
               教科
             </SizableText>
             <TextInput
@@ -3090,14 +3093,21 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     lineHeight: 22,
   },
+  newSubjectSubjectLabel: {
+    fontSize: 17,
+    lineHeight: 23,
+    transform: [{ translateX: 12 }, { translateY: -2 }],
+  },
   newSubjectInput: {
     flex: 1,
     height: 29,
     padding: 0,
     color: '#333333',
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 17,
+    fontWeight: '400',
+    lineHeight: 23,
     textAlign: 'right',
+    transform: [{ translateX: -12 }, { translateY: -3 }],
   },
   newSubjectColorPreview: {
     width: 14,
