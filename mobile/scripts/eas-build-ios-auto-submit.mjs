@@ -112,7 +112,12 @@ let runError = null;
 try {
   fs.writeFileSync(easJsonPath, injectAscAppId(originalEasJson, submitProfile, ascAppId));
 
+  // npx eas は npm registry の別パッケージ `eas` を取得してしまうため、
+  // `--package=eas-cli` で明示的に eas-cli の bin (= `eas`) を呼ぶ。
   result = await run('npx', [
+    '--package=eas-cli',
+    '--yes',
+    '--',
     'eas',
     'build',
     '--platform',
