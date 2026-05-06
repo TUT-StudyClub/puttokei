@@ -14,6 +14,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  Dimensions,
   Modal,
   Pressable,
   SafeAreaView,
@@ -44,6 +45,8 @@ import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
 const CURRENT_PHASE: SessionPhase = 'input';
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const POPOVER_WIDTH = 220;
 
 // 「今日のアウトプット」一覧で、スクロールせずに見せる最大行数。
 // 4 件目以降は一覧内だけがスクロールするようにする。
@@ -171,14 +174,13 @@ function TodayOutputList({ items, onSelect }: TodayOutputListProps) {
 
 type OutputDetailCardProps = {
   item: OutputReviewItem;
-  onBack: () => void;
 };
 
-function OutputDetailCard({ item, onBack }: OutputDetailCardProps) {
+function OutputDetailCard({ item }: OutputDetailCardProps) {
   const judgment = item.judgment;
   const corrections = useMemo(() => judgment?.corrections ?? [], [judgment?.corrections]);
   const [selectedCorrectionIndex, setSelectedCorrectionIndex] = useState<number | null>(null);
-  const [arrowX, setArrowX] = useState(16);
+  const [popoverCenterX, setPopoverCenterX] = useState(SCREEN_WIDTH / 2);
   const [popoverTop, setPopoverTop] = useState(300);
 
   useEffect(() => {
@@ -189,134 +191,173 @@ function OutputDetailCard({ item, onBack }: OutputDetailCardProps) {
     selectedCorrectionIndex !== null ? (corrections[selectedCorrectionIndex] ?? null) : null;
 
   const handleSelectCorrection = (index: number, pageX?: number, pageY?: number) => {
-    setSelectedCorrectionIndex((current) => (current === index ? null : index));
-    if (pageX !== undefined) setArrowX(Math.max(9, pageX - 48 - 9));
-    if (pageY !== undefined) setPopoverTop(pageY + 10);
+    if (pageX === undefined && pageY === undefined) {
+      setSelectedCorrectionIndex((current) => (current === index ? null : index));
+    } else {
+      if (pageX !== undefined) setPopoverCenterX(pageX);
+      if (pageY !== undefined) setPopoverTop(pageY + 5);
+    }
   };
 
   return (
-    <View style={styles.outputDetailSheet} testID="output-review-detail">
-      <View style={styles.sheetHandle} />
-      <View style={styles.outputDetailHeader}>
-        <SizableText style={styles.outputDetailTitle}>
-          サイクル{item.cycle_index}のアウトプット
-        </SizableText>
-        <Pressable
-          accessibilityRole="button"
-          onPress={onBack}
-          hitSlop={8}
-          style={styles.outputDetailBackButton}
-          testID="output-review-back"
-        >
-          <SizableText style={styles.outputDetailBack}>一覧</SizableText>
-        </Pressable>
-      </View>
-
-      <View style={styles.outputPreviewFrame}>
-        <View style={styles.outputModeTabs}>
-          <View
-            style={item.output.kind === 'text' ? styles.outputModeTabActive : styles.outputModeTab}
-          >
-            <PencilIcon color={item.output.kind === 'text' ? TEXT_ACTIVE : REVIEW_TEXT_MUTED} />
-            <SizableText
-              style={
-                item.output.kind === 'text'
-                  ? styles.outputModeTabTextActive
-                  : styles.outputModeTabText
-              }
-            >
-              テキスト
-            </SizableText>
-          </View>
-          <View
-            style={item.output.kind === 'image' ? styles.outputModeTabActive : styles.outputModeTab}
-          >
-            <ImageIcon color={item.output.kind === 'image' ? TEXT_ACTIVE : REVIEW_TEXT_MUTED} />
-            <SizableText
-              style={
-                item.output.kind === 'image'
-                  ? styles.outputModeTabTextActive
-                  : styles.outputModeTabText
-              }
-            >
-              画像
-            </SizableText>
-          </View>
-          <View style={styles.outputModeTab}>
-            <MicIcon color={REVIEW_TEXT_MUTED} />
-            <SizableText style={styles.outputModeTabText}>音声</SizableText>
-          </View>
+    <View style={styles.outputDetailContainer} testID="output-review-detail">
+      <View style={styles.outputDetailSheet}>
+        <View style={styles.sheetHandle} />
+        <View style={styles.outputDetailHeader}>
+          <Text style={styles.outputDetailTitle}>サイクル{item.cycle_index}のアウトプット</Text>
         </View>
 
-        <View style={styles.outputContentBox}>
-          {item.output.kind === 'image' && item.output.image_url ? (
-            <AnnotatedOutputImage
-              imageUrl={item.output.image_url}
-              corrections={corrections}
-              selectedCorrectionIndex={selectedCorrectionIndex}
-              onSelectCorrection={handleSelectCorrection}
-              imageHeight={320}
-              testID="output-review-image"
-            />
-          ) : (
-            <ScrollView nestedScrollEnabled contentContainerStyle={styles.outputContentScroll}>
-              <AnnotatedOutputText
-                content={item.output.content ?? ''}
+        <View style={styles.outputPreviewFrame}>
+          <View style={styles.outputModeTabs}>
+            <View style={styles.outputModeTabFlex}>
+              <View
+                style={
+                  item.output.kind === 'text' ? styles.outputModeTabActive : styles.outputModeTab
+                }
+              >
+                <PencilIcon
+                  color={item.output.kind === 'text' ? TEXT_ACTIVE : REVIEW_TEXT_MUTED}
+                  size={19}
+                />
+                <Text
+                  style={
+                    item.output.kind === 'text'
+                      ? styles.outputModeTabTextActive
+                      : styles.outputModeTabText
+                  }
+                >
+                  テキスト
+                </Text>
+              </View>
+            </View>
+            <View style={styles.outputModeTabFlex}>
+              <View
+                style={
+                  item.output.kind === 'image' ? styles.outputModeTabActive : styles.outputModeTab
+                }
+              >
+                <ImageIcon
+                  color={item.output.kind === 'image' ? TEXT_ACTIVE : REVIEW_TEXT_MUTED}
+                  size={19}
+                />
+                <Text
+                  style={
+                    item.output.kind === 'image'
+                      ? styles.outputModeTabTextActive
+                      : styles.outputModeTabText
+                  }
+                >
+                  画像
+                </Text>
+              </View>
+            </View>
+            <View style={styles.outputModeTabFlex}>
+              <View style={styles.outputModeTab}>
+                <MicIcon color={REVIEW_TEXT_MUTED} size={19} />
+                <Text style={styles.outputModeTabText}>音声</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.outputContentBox}>
+            {item.output.kind === 'image' && item.output.image_url ? (
+              <AnnotatedOutputImage
+                imageUrl={item.output.image_url}
                 corrections={corrections}
                 selectedCorrectionIndex={selectedCorrectionIndex}
                 onSelectCorrection={handleSelectCorrection}
-                textStyle={styles.outputContentText}
-                testID="output-review-annotated-text"
+                imageHeight={320}
+                testID="output-review-image"
               />
-            </ScrollView>
-          )}
-        </View>
-      </View>
-
-      <Modal
-        animationType="none"
-        onRequestClose={() => setSelectedCorrectionIndex(null)}
-        transparent
-        visible={!!selectedCorrection}
-        testID="output-review-correction-popover"
-      >
-        <Pressable
-          style={StyleSheet.absoluteFill}
-          onPress={() => setSelectedCorrectionIndex(null)}
-        />
-        <View style={[styles.feedbackPopoverWrapper, { top: popoverTop }]}>
-          <View style={[styles.feedbackPopoverArrow, { marginLeft: arrowX }]} />
-          <View style={styles.feedbackPopover}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="解説を閉じる"
-              hitSlop={8}
-              onPress={() => setSelectedCorrectionIndex(null)}
-              style={({ pressed }) => [
-                styles.feedbackPopoverClose,
-                pressed ? styles.feedbackPopoverClosePressed : null,
-              ]}
-              testID="output-review-correction-close"
-            >
-              <SizableText style={styles.feedbackPopoverCloseText}>✕</SizableText>
-            </Pressable>
-            <ScrollView
-              style={styles.feedbackPopoverScroll}
-              contentContainerStyle={styles.feedbackPopoverScrollContent}
-              showsVerticalScrollIndicator
-            >
-              <SizableText style={styles.feedbackHeading}>正解</SizableText>
-              <SizableText style={styles.feedbackCorrect}>
-                {selectedCorrection?.correct_text}
-              </SizableText>
-              <SizableText style={styles.feedbackHeading}>解説</SizableText>
-              <SizableText style={styles.feedbackBody}>
-                {selectedCorrection?.explanation}
-              </SizableText>
-            </ScrollView>
+            ) : (
+              <ScrollView nestedScrollEnabled contentContainerStyle={styles.outputContentScroll}>
+                <AnnotatedOutputText
+                  content={item.output.content ?? ''}
+                  corrections={corrections}
+                  selectedCorrectionIndex={selectedCorrectionIndex}
+                  onSelectCorrection={handleSelectCorrection}
+                  textStyle={styles.outputContentText}
+                  testID="output-review-annotated-text"
+                />
+              </ScrollView>
+            )}
           </View>
         </View>
-      </Modal>
+
+        <Modal
+          animationType="none"
+          onRequestClose={() => setSelectedCorrectionIndex(null)}
+          transparent
+          visible={!!selectedCorrection}
+          testID="output-review-correction-popover"
+        >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setSelectedCorrectionIndex(null)}
+          />
+          <View
+            style={[
+              styles.feedbackPopoverWrapper,
+              {
+                top: popoverTop,
+                left: Math.max(
+                  10,
+                  Math.min(SCREEN_WIDTH - POPOVER_WIDTH - 10, popoverCenterX - POPOVER_WIDTH / 2),
+                ),
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.feedbackPopoverArrow,
+                {
+                  marginLeft: Math.max(
+                    9,
+                    popoverCenterX -
+                      Math.max(
+                        10,
+                        Math.min(
+                          SCREEN_WIDTH - POPOVER_WIDTH - 10,
+                          popoverCenterX - POPOVER_WIDTH / 2,
+                        ),
+                      ) -
+                      9,
+                  ),
+                },
+              ]}
+            />
+            <View style={styles.feedbackPopover}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="解説を閉じる"
+                hitSlop={8}
+                onPress={() => setSelectedCorrectionIndex(null)}
+                style={({ pressed }) => [
+                  styles.feedbackPopoverClose,
+                  pressed ? styles.feedbackPopoverClosePressed : null,
+                ]}
+                testID="output-review-correction-close"
+              >
+                <SizableText style={styles.feedbackPopoverCloseText}>✕</SizableText>
+              </Pressable>
+              <ScrollView
+                style={styles.feedbackPopoverScroll}
+                contentContainerStyle={styles.feedbackPopoverScrollContent}
+                showsVerticalScrollIndicator
+              >
+                <SizableText style={styles.feedbackHeading}>正解</SizableText>
+                <SizableText style={styles.feedbackCorrect}>
+                  {selectedCorrection?.correct_text}
+                </SizableText>
+                <SizableText style={styles.feedbackHeading}>解説</SizableText>
+                <SizableText style={styles.feedbackBody}>
+                  {selectedCorrection?.explanation}
+                </SizableText>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      </View>
     </View>
   );
 }
@@ -447,7 +488,7 @@ export function InputScreen() {
   const hasError = updateStatus.isError || cancelMutation.isError;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, isDetailVisible ? { paddingBottom: 0 } : null]}>
       <StatusBar style="dark" />
       <View style={styles.container} testID="input-root">
         <SessionTopChrome
@@ -485,6 +526,7 @@ export function InputScreen() {
               compact={isDetailVisible}
               enabled={isFocused}
               timerTextStyle={styles.inputTimerText}
+              phaseLabelStyle={isDetailVisible ? { transform: [{ translateY: -2 }] } : undefined}
             />
             {isDetailVisible || hasOutputReview ? null : (
               <Text style={styles.timerCaption} testID="input-timer-caption">
@@ -495,7 +537,7 @@ export function InputScreen() {
           </View>
 
           {selectedOutput ? (
-            <OutputDetailCard item={selectedOutput} onBack={() => setSelectedOutputId(null)} />
+            <OutputDetailCard item={selectedOutput} />
           ) : (
             <TodayOutputList
               items={todayOutputs}
@@ -509,19 +551,21 @@ export function InputScreen() {
             </SizableText>
           ) : null}
 
-          <Pressable
-            accessibilityRole="button"
-            disabled={cancelMutation.isPending}
-            onPress={handleCancel}
-            style={({ pressed }) => [
-              hasOutputReview ? styles.cancelButtonFlow : styles.cancelButton,
-              pressed ? styles.buttonPressed : null,
-              cancelMutation.isPending ? styles.buttonDisabled : null,
-            ]}
-            testID="input-cancel-button"
-          >
-            <Text style={styles.cancelButtonText}>中断する</Text>
-          </Pressable>
+          {!isDetailVisible && (
+            <Pressable
+              accessibilityRole="button"
+              disabled={cancelMutation.isPending}
+              onPress={handleCancel}
+              style={({ pressed }) => [
+                hasOutputReview ? styles.cancelButtonFlow : styles.cancelButton,
+                pressed ? styles.buttonPressed : null,
+                cancelMutation.isPending ? styles.buttonDisabled : null,
+              ]}
+              testID="input-cancel-button"
+            >
+              <Text style={styles.cancelButtonText}>中断する</Text>
+            </Pressable>
+          )}
         </View>
       </View>
     </SafeAreaView>
@@ -555,7 +599,9 @@ const styles = StyleSheet.create({
   },
   contentAreaDetail: {
     top: '7.5%',
+    paddingHorizontal: 0,
     paddingBottom: 0,
+    bottom: -50,
   },
   timerStageDetail: {
     flex: 0,
@@ -600,41 +646,44 @@ const styles = StyleSheet.create({
   todayOutputsScroll: {
     maxHeight: OUTPUT_HISTORY_ROW_HEIGHT * TODAY_OUTPUT_VISIBLE_ROWS,
   },
+  outputDetailContainer: {
+    flex: 1,
+  },
   outputDetailSheet: {
-    borderTopLeftRadius: 34,
-    borderTopRightRadius: 34,
-    paddingTop: 14,
+    flex: 1,
+    borderRadius: 40,
+    paddingTop: 10.5,
     paddingRight: 18,
     paddingBottom: 18,
     paddingLeft: 18,
-    marginBottom: 0,
     backgroundColor: '#FFFFFF',
     shadowColor: '#000000',
-    shadowOpacity: 0.1,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: -4 },
-    elevation: 4,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 24,
+    elevation: 12,
   },
   sheetHandle: {
     alignSelf: 'center',
-    width: 56,
-    height: 4,
+    width: 49.5,
+    height: 3,
     borderRadius: 999,
-    marginBottom: 18,
-    backgroundColor: '#CFCFCF',
+    marginBottom: 19,
+    backgroundColor: '#CDCDCD',
   },
   outputDetailHeader: {
-    minHeight: 34,
+    minHeight: 24,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
+    paddingTop: 5,
+    marginBottom: 12,
   },
   outputDetailTitle: {
-    color: TEXT_ACTIVE,
-    fontSize: 20,
-    fontWeight: '800',
-    lineHeight: 28,
+    color: '#363636',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 12,
+    lineHeight: 18,
     textAlign: 'center',
   },
   outputDetailBack: {
@@ -649,54 +698,64 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   outputPreviewFrame: {
-    borderWidth: 1.5,
-    borderColor: TEXT_ACTIVE,
-    borderRadius: 20,
-    padding: 16,
+    borderWidth: 2,
+    borderColor: '#6D6D6D',
+    borderRadius: 16,
+    paddingTop: 12,
+    paddingRight: 18,
+    paddingBottom: 18,
+    paddingLeft: 18,
+    gap: 10,
+    backgroundColor: '#FFFFFF',
   },
   outputModeTabs: {
-    minHeight: 44,
+    height: 32,
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: PANEL_BORDER_COLOR,
-    borderRadius: 10,
+    borderRadius: 8,
     padding: 3,
-    marginBottom: 14,
-    backgroundColor: '#F3F3F3',
+    gap: 5,
+    backgroundColor: '#EFEFEF',
+  },
+  outputModeTabFlex: {
+    flex: 1,
   },
   outputModeTabActive: {
-    flex: 1,
-    height: 36,
+    marginHorizontal: 8,
+    height: 26,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    borderRadius: 8,
+    gap: 2,
+    borderRadius: 5,
+    paddingLeft: 4,
+    paddingRight: 14,
+    paddingVertical: 3,
     backgroundColor: '#FFFFFF',
   },
   outputModeTab: {
-    flex: 1,
-    height: 36,
+    height: 26,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
+    borderRadius: 5,
+    paddingRight: 6,
   },
   outputModeTabTextActive: {
-    color: TEXT_ACTIVE,
-    fontSize: 14,
-    fontWeight: '800',
-    lineHeight: 20,
+    color: '#363636',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 9,
+    lineHeight: 16,
   },
   outputModeTabText: {
-    color: REVIEW_TEXT_MUTED,
-    fontSize: 14,
-    fontWeight: '700',
-    lineHeight: 20,
+    color: '#676767',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 9,
+    lineHeight: 16,
   },
   outputContentBox: {
-    minHeight: 190,
+    minHeight: 196,
     borderWidth: 1,
     borderColor: PANEL_BORDER_COLOR,
     borderRadius: 12,
@@ -707,14 +766,14 @@ const styles = StyleSheet.create({
     paddingBottom: 130,
   },
   outputContentText: {
-    color: TEXT_ACTIVE,
-    fontSize: 16,
-    lineHeight: 24,
+    color: '#000000',
+    fontFamily: 'HiraginoSans-W4',
+    fontSize: 10,
+    lineHeight: 16,
   },
   feedbackPopoverWrapper: {
     position: 'absolute',
-    left: 48,
-    right: 48,
+    width: POPOVER_WIDTH,
   },
   feedbackPopoverArrow: {
     width: 0,
@@ -758,21 +817,23 @@ const styles = StyleSheet.create({
   },
   feedbackPopoverCloseText: {
     color: '#FFFFFF',
+    fontFamily: 'HiraginoSans-W4',
     fontSize: 18,
     fontWeight: '600',
     lineHeight: 22,
   },
   feedbackHeading: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontFamily: 'HiraginoSans-W4',
+    fontSize: 10,
     fontWeight: '800',
-    lineHeight: 18,
+    lineHeight: 16,
   },
   feedbackCorrect: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
-    lineHeight: 20,
+    lineHeight: 18,
     marginBottom: 10,
   },
   feedbackBody: {
