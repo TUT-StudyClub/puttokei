@@ -7,6 +7,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactElement, ReactNode } from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Path, Rect } from 'react-native-svg';
 import { TamaguiProvider } from 'tamagui';
 
@@ -44,9 +45,16 @@ function renderWithProviders(ui: ReactElement) {
   });
   function Providers({ children }: { children: ReactNode }) {
     return (
-      <TamaguiProvider config={config} defaultTheme="light">
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-      </TamaguiProvider>
+      <SafeAreaProvider
+        initialMetrics={{
+          frame: { x: 0, y: 0, width: 390, height: 844 },
+          insets: { top: 44, left: 0, right: 0, bottom: 34 },
+        }}
+      >
+        <TamaguiProvider config={config} defaultTheme="light">
+          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        </TamaguiProvider>
+      </SafeAreaProvider>
     );
   }
 
