@@ -70,7 +70,7 @@ function injectAscAppId(easJsonText, submitProfile, ascAppId) {
 }
 
 function run(command, args) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: projectDir,
       stdio: 'inherit',
@@ -81,12 +81,23 @@ function run(command, args) {
       child.kill(signal);
     };
 
+    const cleanup = () => {
+      process.removeListener('SIGINT', forwardSignal);
+      process.removeListener('SIGTERM', forwardSignal);
+    };
+
     process.once('SIGINT', forwardSignal);
     process.once('SIGTERM', forwardSignal);
 
+    // npx 自体が見つからない等で `error` が発火した場合、`close` は呼ばれず
+    // Promise が解決されないままハングする。reject して呼び出し元へ伝搬させる。
+    child.on('error', (err) => {
+      cleanup();
+      reject(err);
+    });
+
     child.on('close', (code, signal) => {
-      process.removeListener('SIGINT', forwardSignal);
-      process.removeListener('SIGTERM', forwardSignal);
+      cleanup();
       resolve({ code, signal });
     });
   });
@@ -96,10 +107,12 @@ const { buildProfile, submitProfile, extraArgs } = parseArgs(process.argv.slice(
 const ascAppId = readAscAppId();
 const originalEasJson = fs.readFileSync(easJsonPath, 'utf8');
 
+let result = null;
+let runError = null;
 try {
   fs.writeFileSync(easJsonPath, injectAscAppId(originalEasJson, submitProfile, ascAppId));
 
-  const result = await run('npx', [
+  result = await run('npx', [
     'eas',
     'build',
     '--platform',
@@ -110,12 +123,19 @@ try {
     submitProfile,
     ...extraArgs,
   ]);
-
-  if (result.signal) {
-    process.kill(process.pid, result.signal);
-  }
-
-  process.exitCode = result.code ?? 1;
+} catch (err) {
+  runError = err;
 } finally {
+  // eas.json の復元はシグナル再送 / エラー伝搬よりも前に必ず実施する。
   fs.writeFileSync(easJsonPath, originalEasJson);
 }
+
+if (runError) {
+  throw runError;
+}
+
+if (result.signal) {
+  process.kill(process.pid, result.signal);
+}
+
+process.exitCode = result.code ?? 1;
