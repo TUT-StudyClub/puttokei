@@ -11,19 +11,23 @@
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Animated,
   Dimensions,
+  Easing,
   Image,
+  LayoutAnimation,
   Modal,
+  PanResponder,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Circle, Path, Rect, Svg } from 'react-native-svg';
 import { SizableText } from 'tamagui';
 
@@ -47,6 +51,7 @@ import { useTimerStore } from '@/shared/stores/timerStore';
 
 const CURRENT_PHASE: SessionPhase = 'input';
 const SCREEN_WIDTH = Dimensions.get('window').width;
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 const POPOVER_WIDTH = 220;
 
 // 「今日のアウトプット」一覧で、スクロールせずに見せる最大行数。
@@ -189,9 +194,11 @@ function TodayOutputList({ items, onSelect }: TodayOutputListProps) {
 
 type OutputDetailCardProps = {
   item: OutputReviewItem;
+  onDismiss?: () => void;
+  sheetPaddingBottom?: number;
 };
 
-function OutputDetailCard({ item }: OutputDetailCardProps) {
+function OutputDetailCard({ item, onDismiss, sheetPaddingBottom }: OutputDetailCardProps) {
   const judgment = item.judgment;
   const corrections = useMemo(() => judgment?.corrections ?? [], [judgment?.corrections]);
   const [selectedCorrectionIndex, setSelectedCorrectionIndex] = useState<number | null>(null);
@@ -220,8 +227,13 @@ function OutputDetailCard({ item }: OutputDetailCardProps) {
 
   return (
     <View style={styles.outputDetailContainer} testID="output-review-detail">
-      <View style={styles.outputDetailSheet}>
-        <View style={styles.sheetHandle} />
+      <View
+        style={[
+          styles.outputDetailSheet,
+          sheetPaddingBottom !== undefined ? { paddingBottom: sheetPaddingBottom } : null,
+        ]}
+      >
+        <Pressable onPress={onDismiss} hitSlop={12} style={styles.sheetHandle} />
         {!isImageExpanded && (
           <View style={styles.outputDetailHeader}>
             <Text style={styles.outputDetailTitle}>サイクル{item.cycle_index}のアウトプット</Text>
@@ -396,7 +408,14 @@ function OutputDetailCard({ item }: OutputDetailCardProps) {
                 ]}
                 testID="output-review-correction-close"
               >
-                <SizableText style={styles.feedbackPopoverCloseText}>✕</SizableText>
+                <Svg width={12} height={12} viewBox="0 0 16 16" fill="none">
+                  <Path
+                    d="M2 2L14 14M14 2L2 14"
+                    stroke="#FFFFFF"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                  />
+                </Svg>
               </Pressable>
               <ScrollView
                 style={styles.feedbackPopoverScroll}
@@ -432,6 +451,7 @@ function OutputDetailCard({ item }: OutputDetailCardProps) {
 }
 
 export function InputScreen() {
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<SessionRouteParams>();
   const sessionId = params.id ?? '';
   const inputMinutes = Number(params.input) || DEFAULT_TIMER.input_minutes;
@@ -460,6 +480,107 @@ export function InputScreen() {
   );
   const hasOutputReview = todayOutputs.length > 0;
   const isDetailVisible = selectedOutput !== null;
+
+  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  // slideAnim とは独立したタイマースケール値。
+  // カード出現時の初期ジャンプを防ぐため 1 で初期化し、
+  // パンジェスチャーでカードを下げたときだけ段階的に拡大する。
+  const timerScaleAnim = useRef(new Animated.Value(1)).current;
+  // scale 拡大と同時に下方向へ移動させる。
+  // compact 中心(78px) → non-compact 中心(145px) の差分 67px 分だけ下げることで、
+  // dismiss 完了時に non-compact タイマーの位置にぴったり繋がる。
+  const timerTranslateYAnim = useMemo(
+    () =>
+      timerScaleAnim.interpolate({
+        inputRange: [1, 290 / 156],
+        outputRange: [0, (290 - 156) / 2],
+        extrapolate: 'clamp',
+      }),
+    [timerScaleAnim],
+  );
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (evt, gs) =>
+        gs.dy > 8 && gs.dy > Math.abs(gs.dx) && evt.nativeEvent.locationY < 120,
+      onPanResponderMove: (_, gs) => {
+        if (gs.dy > 0) {
+          slideAnim.setValue(gs.dy);
+          timerScaleAnim.setValue(1 + Math.min(gs.dy / (SCREEN_HEIGHT / 3), 1) * (290 / 156 - 1));
+        }
+      },
+      onPanResponderRelease: (_, gs) => {
+        if (gs.dy > 80 || gs.vy > 0.8) {
+          Animated.parallel([
+            Animated.timing(slideAnim, {
+              toValue: SCREEN_HEIGHT,
+              duration: 280,
+              easing: Easing.in(Easing.cubic),
+              useNativeDriver: true,
+            }),
+            Animated.timing(timerScaleAnim, {
+              toValue: 290 / 156,
+              duration: 280,
+              easing: Easing.in(Easing.cubic),
+              useNativeDriver: true,
+            }),
+          ]).start(() => {
+            slideAnim.setValue(SCREEN_HEIGHT);
+            setSelectedOutputId(null);
+          });
+        } else {
+          Animated.parallel([
+            Animated.timing(slideAnim, {
+              toValue: 0,
+              duration: 200,
+              easing: Easing.out(Easing.cubic),
+              useNativeDriver: true,
+            }),
+            Animated.timing(timerScaleAnim, {
+              toValue: 1,
+              duration: 200,
+              easing: Easing.out(Easing.cubic),
+              useNativeDriver: true,
+            }),
+          ]).start();
+        }
+      },
+    }),
+  ).current;
+
+  const dismissDetail = useCallback(() => {
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: SCREEN_HEIGHT,
+        duration: 280,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(timerScaleAnim, {
+        toValue: 290 / 156,
+        duration: 280,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      slideAnim.setValue(SCREEN_HEIGHT);
+      setSelectedOutputId(null);
+      // timerScaleAnim は次の選択時の useEffect でリセットする
+    });
+  }, [slideAnim, timerScaleAnim]);
+
+  useEffect(() => {
+    if (selectedOutputId) {
+      timerScaleAnim.setValue(1);
+      slideAnim.setValue(SCREEN_HEIGHT);
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 360,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [selectedOutputId, slideAnim, timerScaleAnim]);
   const hourglassSandProgress =
     totalSeconds > 0 ? Math.min(1, Math.max(0, smoothRemainingSeconds / totalSeconds)) : 1;
   // 砂時計の積層: 下から青(input) → ピンク(output) → 白(break)。
@@ -557,7 +678,7 @@ export function InputScreen() {
   const hasError = updateStatus.isError || cancelMutation.isError;
 
   return (
-    <SafeAreaView style={[styles.safeArea, isDetailVisible ? { paddingBottom: 0 } : null]}>
+    <View style={[styles.safeArea, { paddingTop: insets.top }]}>
       <StatusBar style="dark" />
       <View style={styles.container} testID="input-root">
         <SessionTopChrome
@@ -587,16 +708,34 @@ export function InputScreen() {
               isDetailVisible || hasOutputReview ? styles.timerStageDetail : null,
             ]}
           >
-            <CircularPhaseTimer
-              phase={CURRENT_PHASE}
-              primaryColor={PRIMARY_COLOR}
-              trackColor="#E9F9FF"
-              testID="input-circular-timer"
-              compact={isDetailVisible}
-              enabled={isFocused}
-              timerTextStyle={styles.inputTimerText}
-              phaseLabelStyle={isDetailVisible ? { transform: [{ translateY: -2 }] } : undefined}
-            />
+            {isDetailVisible ? (
+              <Animated.View
+                style={{
+                  transform: [{ scale: timerScaleAnim }, { translateY: timerTranslateYAnim }],
+                }}
+              >
+                <CircularPhaseTimer
+                  phase={CURRENT_PHASE}
+                  primaryColor={PRIMARY_COLOR}
+                  trackColor="#E9F9FF"
+                  testID="input-circular-timer"
+                  compact
+                  enabled={isFocused}
+                  timerTextStyle={styles.inputTimerText}
+                  phaseLabelStyle={{ transform: [{ translateY: -2 }] }}
+                />
+              </Animated.View>
+            ) : (
+              <CircularPhaseTimer
+                phase={CURRENT_PHASE}
+                primaryColor={PRIMARY_COLOR}
+                trackColor="#E9F9FF"
+                testID="input-circular-timer"
+                compact={false}
+                enabled={isFocused}
+                timerTextStyle={styles.inputTimerText}
+              />
+            )}
             {isDetailVisible || hasOutputReview ? null : (
               <Text style={styles.timerCaption} testID="input-timer-caption">
                 終了後{outputMinutes}分間でアウトプットです{'\n'}
@@ -606,11 +745,26 @@ export function InputScreen() {
           </View>
 
           {selectedOutput ? (
-            <OutputDetailCard item={selectedOutput} />
+            <Animated.View
+              style={[styles.outputDetailAnimWrapper, { transform: [{ translateY: slideAnim }] }]}
+              {...panResponder.panHandlers}
+            >
+              <OutputDetailCard
+                item={selectedOutput}
+                onDismiss={dismissDetail}
+                sheetPaddingBottom={insets.bottom + 104}
+              />
+            </Animated.View>
           ) : (
             <TodayOutputList
               items={todayOutputs}
-              onSelect={(item) => setSelectedOutputId(item.output.id)}
+              onSelect={(item) => {
+                LayoutAnimation.configureNext({
+                  duration: 300,
+                  update: { type: 'easeInEaseOut' },
+                });
+                setSelectedOutputId(item.output.id);
+              }}
             />
           )}
 
@@ -637,7 +791,7 @@ export function InputScreen() {
           )}
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -668,9 +822,12 @@ const styles = StyleSheet.create({
   },
   contentAreaDetail: {
     top: '7.5%',
-    paddingHorizontal: 0,
+    paddingLeft: 5,
+    paddingRight: 8,
     paddingBottom: 0,
-    bottom: -50,
+  },
+  outputDetailAnimWrapper: {
+    flex: 1,
   },
   timerStageDetail: {
     flex: 0,
@@ -720,7 +877,8 @@ const styles = StyleSheet.create({
   },
   outputDetailSheet: {
     flex: 1,
-    borderRadius: 40,
+    borderTopLeftRadius: 40,
+    borderTopRightRadius: 40,
     paddingTop: 10.5,
     paddingRight: 18,
     paddingBottom: 18,
@@ -767,6 +925,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   outputPreviewFrame: {
+    flex: 1,
     borderWidth: 2,
     borderColor: '#6D6D6D',
     borderRadius: 16,
@@ -797,7 +956,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   outputModeTabActive: {
-    marginHorizontal: 8,
+    marginLeft: 0,
+    marginRight: 8,
     height: 26,
     flexDirection: 'row',
     alignItems: 'center',
@@ -831,6 +991,7 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   outputContentBox: {
+    flex: 1,
     minHeight: 196,
     borderWidth: 1,
     borderColor: PANEL_BORDER_COLOR,
@@ -866,6 +1027,8 @@ const styles = StyleSheet.create({
     height: 160,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
     backgroundColor: '#333333',
     overflow: 'hidden',
   },
