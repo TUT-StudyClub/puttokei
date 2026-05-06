@@ -1634,10 +1634,7 @@ function OutputHistory({
     [fallbackDateKey, items],
   );
   const title = (
-    <SizableText
-      style={[styles.historyTitle, titleFrameStyle]}
-      testID="stats-output-history-title"
-    >
+    <SizableText style={[styles.historyTitle, titleFrameStyle]} testID="stats-output-history-title">
       履歴
     </SizableText>
   );
@@ -2910,9 +2907,10 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     marginTop: 11,
     color: '#333333',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
     lineHeight: 20,
+    transform: [{ translateY: 2 }],
   },
   historySheetOutputFrame: {
     flex: 1,
