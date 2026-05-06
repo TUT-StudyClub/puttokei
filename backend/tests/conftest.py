@@ -37,6 +37,7 @@ from src.config import Settings
 from src.container import Container
 from src.infrastructure.persistence.database import Database
 from src.main import create_app
+from tests.fakes.fake_auth_account_admin import FakeAuthAccountAdmin
 from tests.fakes.fake_auth_verifier import FakeAuthVerifier
 from tests.fakes.fake_judgment_progress_repository import FakeJudgmentProgressRepository
 from tests.fakes.fake_judgment_repository import FakeJudgmentRepository
@@ -101,6 +102,11 @@ def fake_auth_verifier() -> FakeAuthVerifier:
 
 
 @pytest.fixture
+def fake_auth_account_admin() -> FakeAuthAccountAdmin:
+    return FakeAuthAccountAdmin()
+
+
+@pytest.fixture
 def container(
     settings: Settings,
     fake_user_repository: FakeUserRepository,
@@ -111,6 +117,7 @@ def container(
     fake_judgment_progress_repository: FakeJudgmentProgressRepository,
     fake_stats_repository: FakeStatsRepository,
     fake_auth_verifier: FakeAuthVerifier,
+    fake_auth_account_admin: FakeAuthAccountAdmin,
 ) -> Container:
     """fake 実装を差し込んだ Container。"""
     database = Database(database_url=settings.database_url)
@@ -137,7 +144,10 @@ def container(
         update_user_profile=UpdateUserProfile(unit_of_work_factory=unit_of_work_factory),
         get_user_settings=GetUserSettings(unit_of_work_factory=unit_of_work_factory),
         update_user_settings=UpdateUserSettings(unit_of_work_factory=unit_of_work_factory),
-        delete_account=DeleteAccount(unit_of_work_factory=unit_of_work_factory),
+        delete_account=DeleteAccount(
+            unit_of_work_factory=unit_of_work_factory,
+            auth_account_admin=fake_auth_account_admin,
+        ),
         create_session=CreateSession(unit_of_work_factory=unit_of_work_factory),
         update_session_status=UpdateSessionStatus(unit_of_work_factory=unit_of_work_factory),
         submit_text_output=SubmitTextOutput(unit_of_work_factory=unit_of_work_factory),
@@ -160,9 +170,14 @@ def container(
 
 @pytest_asyncio.fixture
 async def client(settings: Settings, container: Container) -> AsyncIterator[AsyncClient]:
-    """ASGITransport で lifespan を実行しながら HTTP 呼び出しできる AsyncClient。"""
+    """ASGITransport で lifespan を実行しながら HTTP 呼び出しできる AsyncClient。
+
+    `raise_app_exceptions=False` にして、未捕捉例外も `unexpected_exception_handler`
+    が 500 にラップして応答するようにする。これによりテストから HTTP ステータスコード
+    として 500 を検証できる（DELETE /users/me で Firebase エラー時の挙動など）。
+    """
     app = create_app(settings=settings, container=container)
-    transport = ASGITransport(app=app)
+    transport = ASGITransport(app=app, raise_app_exceptions=False)
     async with (
         AsyncClient(transport=transport, base_url="http://testserver") as ac,
         app.router.lifespan_context(app),
