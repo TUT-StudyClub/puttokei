@@ -32,6 +32,7 @@ type Props = {
   selectedDateKey: string;
   onSelectDate: (dateKey: string) => void;
   studiedDateKeys?: readonly string[];
+  showSelectedDateHighlight?: boolean;
 };
 
 function ArrowIcon({ direction }: { direction: 'left' | 'right' }) {
@@ -66,6 +67,7 @@ export function WeekDateStrip({
   selectedDateKey,
   onSelectDate,
   studiedDateKeys = [],
+  showSelectedDateHighlight = true,
 }: Props) {
   const { width } = useWindowDimensions();
   const [stripWidth, setStripWidth] = useState(0);
@@ -123,12 +125,14 @@ export function WeekDateStrip({
         >
           {centeredDateKeys.map((dateKey) => {
             const date = parseDateKey(dateKey);
-            const isSelected = dateKey === selectedDateKey;
+            const isSelected = showSelectedDateHighlight && dateKey === selectedDateKey;
             const isStudied = studiedDateKeySet.has(dateKey);
             const previousDateKey = addDaysToDateKey(dateKey, -1);
             const nextDateKey = addDaysToDateKey(dateKey, 1);
-            const shouldOverlapPreviousSelected = isStudied && previousDateKey === selectedDateKey;
-            const shouldOverlapNextSelected = isStudied && nextDateKey === selectedDateKey;
+            const shouldOverlapPreviousSelected =
+              showSelectedDateHighlight && isStudied && previousDateKey === selectedDateKey;
+            const shouldOverlapNextSelected =
+              showSelectedDateHighlight && isStudied && nextDateKey === selectedDateKey;
             const isFuture = dateKey > todayKey;
             const dayTextColorStyle = isStudied
               ? styles.dayTextStudied

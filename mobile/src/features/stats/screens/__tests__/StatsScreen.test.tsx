@@ -992,6 +992,12 @@ describe('StatsScreen', () => {
     });
     expect(getByTestId('stats-weekly-chart')).toBeTruthy();
     expect(getByTestId('stats-weekly-calendar-graph-boundary')).toBeTruthy();
+    const selectedDateBackgroundStyle = StyleSheet.flatten(
+      getByTestId('week-date-2026-04-29-studied-background').props.style,
+    );
+    expect(queryByTestId('week-date-2026-04-29-selected-background')).toBeNull();
+    expect(selectedDateBackgroundStyle.borderColor).toBeUndefined();
+    expect(selectedDateBackgroundStyle.borderWidth).toBeUndefined();
     const weeklyHistoryTitleStyle = StyleSheet.flatten(
       getByTestId('stats-output-history-title').props.style,
     );

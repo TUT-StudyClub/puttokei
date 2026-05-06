@@ -2137,6 +2137,7 @@ export function StatsScreen() {
                 selectedDateKey={selectedDateKey}
                 onSelectDate={handleSelectDate}
                 studiedDateKeys={calendarStudiedDateKeys}
+                showSelectedDateHighlight={false}
               />
             </View>
             <View style={styles.weeklyCalendarGraphBoundaryWrap}>

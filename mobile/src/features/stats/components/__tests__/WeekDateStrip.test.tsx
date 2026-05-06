@@ -146,6 +146,28 @@ describe('WeekDateStrip', () => {
     expect(selectedBackgroundStyle.bottom).toBe(0);
   });
 
+  it('選択日の強調を無効にすると青枠を表示しない', () => {
+    const { getByTestId, queryByTestId } = renderWithProvider(
+      <WeekDateStrip
+        weekStart="2026-05-03"
+        onWeekChange={jest.fn()}
+        selectedDateKey="2026-05-06"
+        studiedDateKeys={['2026-05-06']}
+        onSelectDate={jest.fn()}
+        showSelectedDateHighlight={false}
+      />,
+    );
+
+    const studiedBackgroundStyle = StyleSheet.flatten(
+      getByTestId('week-date-2026-05-06-studied-background').props.style,
+    );
+
+    expect(queryByTestId('week-date-2026-05-06-selected-background')).toBeNull();
+    expect(studiedBackgroundStyle.backgroundColor).toBe('#DBE3FF');
+    expect(studiedBackgroundStyle.borderColor).toBeUndefined();
+    expect(studiedBackgroundStyle.borderWidth).toBeUndefined();
+  });
+
   it('未学習の選択日は中央に表示し、隣の学習済み日を枠の下へ重ねる', () => {
     const { getByTestId } = renderWithProvider(
       <WeekDateStrip
