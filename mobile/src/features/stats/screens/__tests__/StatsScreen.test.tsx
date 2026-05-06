@@ -643,14 +643,14 @@ describe('StatsScreen', () => {
     expect(newSubjectColorRowStyle.borderBottomWidth).toBe(0);
     expect(newSubjectSubjectLabelStyle.fontSize).toBe(17);
     expect(newSubjectSubjectLabelStyle.lineHeight).toBe(23);
-    expect(newSubjectColorLabelStyle.fontSize).toBe(16);
-    expect(newSubjectColorLabelStyle.lineHeight).toBe(22);
+    expect(newSubjectColorLabelStyle.fontSize).toBe(17);
+    expect(newSubjectColorLabelStyle.lineHeight).toBe(23);
     expect(newSubjectInputStyle.fontSize).toBe(17);
     expect(newSubjectInputStyle.fontWeight).toBe('400');
     expect(newSubjectInputStyle.lineHeight).toBe(23);
-    expect(newSubjectColorPreviewStyle.width).toBe(14);
-    expect(newSubjectColorPreviewStyle.height).toBe(14);
-    expect(newSubjectColorPreviewStyle.borderRadius).toBe(7);
+    expect(newSubjectColorPreviewStyle.width).toBe(18);
+    expect(newSubjectColorPreviewStyle.height).toBe(18);
+    expect(newSubjectColorPreviewStyle.borderRadius).toBe(9);
     expect(
       getByTestId('stats-new-subject-input', { includeHiddenElements: true }).props.placeholder,
     ).toBe('新規教科');

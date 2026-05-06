@@ -1168,7 +1168,7 @@ function NewSubjectFormModal({
         </View>
 
         <View style={styles.newSubjectForm}>
-          <View style={styles.newSubjectRow}>
+          <View style={[styles.newSubjectRow, styles.newSubjectSubjectRow]}>
             <SizableText
               style={[styles.newSubjectLabel, styles.newSubjectSubjectLabel]}
               testID="stats-new-subject-subject-label"
@@ -1183,6 +1183,7 @@ function NewSubjectFormModal({
               style={styles.newSubjectInput}
               testID="stats-new-subject-input"
             />
+            <View style={styles.newSubjectSubjectDivider} />
           </View>
           <Pressable
             accessibilityRole="button"
@@ -1193,7 +1194,10 @@ function NewSubjectFormModal({
             style={[styles.newSubjectRow, styles.newSubjectColorRow]}
             testID="stats-new-subject-color-row"
           >
-            <SizableText style={styles.newSubjectLabel} testID="stats-new-subject-color-label">
+            <SizableText
+              style={[styles.newSubjectLabel, styles.newSubjectColorLabel]}
+              testID="stats-new-subject-color-label"
+            >
               色
             </SizableText>
             <View
@@ -3083,6 +3087,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#D9D9D9',
   },
+  newSubjectSubjectRow: {
+    minHeight: 36,
+    borderBottomWidth: 0,
+  },
+  newSubjectSubjectDivider: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 0,
+    height: 1,
+    backgroundColor: '#CDCDCD',
+  },
   newSubjectColorRow: {
     borderBottomWidth: 0,
   },
@@ -3098,6 +3114,11 @@ const styles = StyleSheet.create({
     lineHeight: 23,
     transform: [{ translateX: 12 }, { translateY: -2 }],
   },
+  newSubjectColorLabel: {
+    fontSize: 17,
+    lineHeight: 23,
+    transform: [{ translateX: 12 }, { translateY: 4 }],
+  },
   newSubjectInput: {
     flex: 1,
     height: 29,
@@ -3110,13 +3131,14 @@ const styles = StyleSheet.create({
     transform: [{ translateX: -12 }, { translateY: -3 }],
   },
   newSubjectColorPreview: {
-    width: 14,
-    height: 14,
+    width: 18,
+    height: 18,
     marginLeft: 'auto',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: '#D0D0D0',
-    borderRadius: 7,
+    borderRadius: 9,
     backgroundColor: '#FFFFFF',
+    transform: [{ translateX: -12 }, { translateY: 2 }],
   },
   newSubjectSaveButton: {
     position: 'absolute',
