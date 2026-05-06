@@ -118,6 +118,7 @@ const SUBJECT_PICKER_ITEM_HEIGHT = 24;
 const SUBJECT_PICKER_ITEM_GAP = 6;
 const SUBJECT_PICKER_MAX_VISIBLE_ITEMS = 5;
 const SUBJECT_PICKER_LIST_BOTTOM_PADDING = 2;
+const HISTORY_SHEET_TOP_RADIUS = 28;
 const HISTORY_OUTPUT_MODE_TABS = [
   {
     key: 'text',
@@ -2739,8 +2740,8 @@ const styles = StyleSheet.create({
     height: '67%',
     maxHeight: '69%',
     alignSelf: 'center',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: HISTORY_SHEET_TOP_RADIUS,
+    borderTopRightRadius: HISTORY_SHEET_TOP_RADIUS,
     borderWidth: 1,
     borderBottomWidth: 0,
     borderColor: '#E5E5E5',
@@ -3030,6 +3031,8 @@ const styles = StyleSheet.create({
   newSubjectOverlay: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 40,
+    borderTopLeftRadius: HISTORY_SHEET_TOP_RADIUS,
+    borderTopRightRadius: HISTORY_SHEET_TOP_RADIUS,
     backgroundColor: '#FFFFFF',
     elevation: 40,
   },
@@ -3038,6 +3041,8 @@ const styles = StyleSheet.create({
   },
   newSubjectRoot: {
     flex: 1,
+    borderTopLeftRadius: HISTORY_SHEET_TOP_RADIUS,
+    borderTopRightRadius: HISTORY_SHEET_TOP_RADIUS,
     backgroundColor: '#FFFFFF',
   },
   newSubjectHeader: {
