@@ -376,17 +376,17 @@ describe('StatsScreen', () => {
     const historySheetConfirmIcon = getByTestId('stats-history-sheet-confirm-icon');
     expect(historySheetTitleStyle.paddingLeft).toBe(12);
     expect(historySheetTitleStyle.fontWeight).toBe('700');
-    expect(historySheetTitleStyle.transform).toEqual([{ translateY: 3 }]);
-    expect(historySheetCloseStyle.width).toBe(40);
-    expect(historySheetCloseStyle.height).toBe(40);
-    expect(historySheetCloseStyle.borderRadius).toBe(20);
-    expect(historySheetCloseStyle.transform).toEqual([{ translateY: 3 }]);
+    expect(historySheetTitleStyle.transform).toEqual([{ translateY: 4 }]);
+    expect(historySheetCloseStyle.width).toBe(36);
+    expect(historySheetCloseStyle.height).toBe(36);
+    expect(historySheetCloseStyle.borderRadius).toBe(18);
+    expect(historySheetCloseStyle.transform).toEqual([{ translateY: 4 }]);
     expect(historySheetCloseIcon.props.width).toBe(17);
     expect(historySheetCloseIcon.props.height).toBe(17);
-    expect(historySheetConfirmStyle.width).toBe(40);
-    expect(historySheetConfirmStyle.height).toBe(40);
-    expect(historySheetConfirmStyle.borderRadius).toBe(20);
-    expect(historySheetConfirmStyle.transform).toEqual([{ translateY: 3 }]);
+    expect(historySheetConfirmStyle.width).toBe(36);
+    expect(historySheetConfirmStyle.height).toBe(36);
+    expect(historySheetConfirmStyle.borderRadius).toBe(18);
+    expect(historySheetConfirmStyle.transform).toEqual([{ translateY: 4 }]);
     expect(historySheetConfirmIcon.props.width).toBe(17);
     expect(historySheetConfirmIcon.props.height).toBe(17);
     expect(getByText('教科')).toBeTruthy();
@@ -444,10 +444,16 @@ describe('StatsScreen', () => {
     const subjectTextStyle = StyleSheet.flatten(
       getByTestId('stats-history-sheet-subject-text').props.style,
     );
+    const subjectRowStyle = StyleSheet.flatten(
+      getByTestId('stats-history-sheet-subject-row').props.style,
+    );
 
     expect(getByTestId('stats-history-sheet-subject-text').props.children).toBe('未設定');
+    expect(subjectRowStyle.transform).toEqual([{ translateY: -3 }]);
     expect(subjectDotStyle.backgroundColor).toBe('#D0D0D0');
+    expect(subjectDotStyle.transform).toBeUndefined();
     expect(subjectTextStyle.color).toBe('#777777');
+    expect(subjectTextStyle.transform).toBeUndefined();
 
     await act(async () => {
       fireEvent.press(getByTestId('stats-history-sheet-subject-row'));

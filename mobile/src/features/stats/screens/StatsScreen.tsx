@@ -2728,13 +2728,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   historySheetIconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#F0F0F0',
-    transform: [{ translateY: 3 }],
+    transform: [{ translateY: 4 }],
   },
   historySheetConfirmButton: {
     backgroundColor: '#E6EAFF',
@@ -2748,19 +2748,20 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 22,
     fontVariant: ['tabular-nums'],
-    transform: [{ translateY: 3 }],
+    transform: [{ translateY: 4 }],
   },
   historySheetSubjectRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginHorizontal: 12,
-    marginTop: 26,
+    marginTop: 30,
+    transform: [{ translateY: -3 }],
   },
   historySheetLabel: {
-    color: '#333333',
-    fontSize: 14,
-    fontWeight: '700',
+    color: '#363636',
+    fontSize: 16,
+    fontWeight: '600',
     lineHeight: 20,
   },
   historySheetSubjectValue: {
@@ -2771,9 +2772,9 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   historySheetSubjectDot: {
-    width: 15,
-    height: 15,
-    borderRadius: 7.5,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: '#28D94F',
   },
   historySheetSubjectDotUnset: {
@@ -2781,9 +2782,9 @@ const styles = StyleSheet.create({
   },
   historySheetSubjectText: {
     flexShrink: 1,
-    color: '#333333',
-    fontSize: 14,
-    fontWeight: '700',
+    color: '#363636',
+    fontSize: 16,
+    fontWeight: '600',
     lineHeight: 20,
   },
   historySheetSubjectTextUnset: {
@@ -2791,7 +2792,7 @@ const styles = StyleSheet.create({
   },
   historySheetSubjectPicker: {
     position: 'absolute',
-    top: 110,
+    top: 114,
     left: 31,
     right: 18,
     zIndex: 20,
@@ -3000,7 +3001,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   newSubjectHeader: {
-    height: 52,
+    height: 58,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -3022,7 +3023,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 33,
   },
   newSubjectRow: {
-    minHeight: 31,
+    minHeight: 29,
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -3040,7 +3041,7 @@ const styles = StyleSheet.create({
   },
   newSubjectInput: {
     flex: 1,
-    height: 31,
+    height: 29,
     padding: 0,
     color: '#333333',
     fontSize: 16,
