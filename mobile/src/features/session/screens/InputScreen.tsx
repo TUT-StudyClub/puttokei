@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Dimensions,
+  Image,
   Modal,
   Pressable,
   SafeAreaView,
@@ -105,6 +106,20 @@ function ImageIcon({ color = TEXT_ACTIVE, size = 25 }: { color?: string; size?: 
   );
 }
 
+function ChevronLeftIcon() {
+  return (
+    <Svg width={6} height={16} viewBox="0 0 5 10" fill="none">
+      <Path
+        d="M4 1L1 5L4 9"
+        stroke="#676767"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 function MicIcon({ color = TEXT_INACTIVE, size = 25 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
@@ -182,9 +197,13 @@ function OutputDetailCard({ item }: OutputDetailCardProps) {
   const [selectedCorrectionIndex, setSelectedCorrectionIndex] = useState<number | null>(null);
   const [popoverCenterX, setPopoverCenterX] = useState(SCREEN_WIDTH / 2);
   const [popoverTop, setPopoverTop] = useState(300);
+  const [isImageExpanded, setIsImageExpanded] = useState(false);
+  const [isJudgmentCardOpen, setIsJudgmentCardOpen] = useState(false);
 
   useEffect(() => {
     setSelectedCorrectionIndex(null);
+    setIsImageExpanded(false);
+    setIsJudgmentCardOpen(false);
   }, [item.output.id]);
 
   const selectedCorrection =
@@ -203,97 +222,133 @@ function OutputDetailCard({ item }: OutputDetailCardProps) {
     <View style={styles.outputDetailContainer} testID="output-review-detail">
       <View style={styles.outputDetailSheet}>
         <View style={styles.sheetHandle} />
-        <View style={styles.outputDetailHeader}>
-          <Text style={styles.outputDetailTitle}>サイクル{item.cycle_index}のアウトプット</Text>
-        </View>
-
-        <View style={styles.outputPreviewFrame}>
-          <View style={styles.outputModeTabs}>
-            <View style={styles.outputModeTabFlex}>
-              <View
-                style={
-                  item.output.kind === 'text' ? styles.outputModeTabActive : styles.outputModeTab
-                }
-              >
-                <PencilIcon
-                  color={item.output.kind === 'text' ? TEXT_ACTIVE : REVIEW_TEXT_MUTED}
-                  size={19}
-                />
-                <Text
-                  style={
-                    item.output.kind === 'text'
-                      ? styles.outputModeTabTextActive
-                      : styles.outputModeTabText
-                  }
-                >
-                  テキスト
-                </Text>
-              </View>
-            </View>
-            <View style={styles.outputModeTabFlex}>
-              <View
-                style={
-                  item.output.kind === 'image' ? styles.outputModeTabActive : styles.outputModeTab
-                }
-              >
-                <ImageIcon
-                  color={item.output.kind === 'image' ? TEXT_ACTIVE : REVIEW_TEXT_MUTED}
-                  size={19}
-                />
-                <Text
-                  style={
-                    item.output.kind === 'image'
-                      ? styles.outputModeTabTextActive
-                      : styles.outputModeTabText
-                  }
-                >
-                  画像
-                </Text>
-              </View>
-            </View>
-            <View style={styles.outputModeTabFlex}>
-              <View style={styles.outputModeTab}>
-                <MicIcon color={REVIEW_TEXT_MUTED} size={19} />
-                <Text style={styles.outputModeTabText}>音声</Text>
-              </View>
-            </View>
+        {!isImageExpanded && (
+          <View style={styles.outputDetailHeader}>
+            <Text style={styles.outputDetailTitle}>サイクル{item.cycle_index}のアウトプット</Text>
           </View>
+        )}
 
-          <View style={styles.outputContentBox}>
-            {item.output.kind === 'image' && item.output.image_url ? (
+        {isImageExpanded && item.output.image_url ? (
+          <View style={styles.outputPreviewFrameExpanded}>
+            <Pressable
+              onPress={() => {
+                setIsImageExpanded(false);
+                setSelectedCorrectionIndex(null);
+                setIsJudgmentCardOpen(false);
+              }}
+              style={styles.imageExpandedBack}
+              hitSlop={12}
+            >
+              <ChevronLeftIcon />
+            </Pressable>
+            <View style={styles.imageExpandedContainer}>
               <AnnotatedOutputImage
                 imageUrl={item.output.image_url}
                 corrections={corrections}
                 selectedCorrectionIndex={selectedCorrectionIndex}
                 onSelectCorrection={handleSelectCorrection}
-                imageHeight={320}
+                autoHeight
                 testID="output-review-image"
               />
-            ) : (
-              <ScrollView nestedScrollEnabled contentContainerStyle={styles.outputContentScroll}>
-                <AnnotatedOutputText
-                  content={item.output.content ?? ''}
-                  corrections={corrections}
-                  selectedCorrectionIndex={selectedCorrectionIndex}
-                  onSelectCorrection={handleSelectCorrection}
-                  textStyle={styles.outputContentText}
-                  testID="output-review-annotated-text"
-                />
-              </ScrollView>
-            )}
+            </View>
           </View>
-        </View>
+        ) : (
+          <View style={styles.outputPreviewFrame}>
+            <View style={styles.outputModeTabs}>
+              <View style={styles.outputModeTabFlex}>
+                <View
+                  style={
+                    item.output.kind === 'text' ? styles.outputModeTabActive : styles.outputModeTab
+                  }
+                >
+                  <PencilIcon
+                    color={item.output.kind === 'text' ? TEXT_ACTIVE : REVIEW_TEXT_MUTED}
+                    size={19}
+                  />
+                  <Text
+                    style={
+                      item.output.kind === 'text'
+                        ? styles.outputModeTabTextActive
+                        : styles.outputModeTabText
+                    }
+                  >
+                    テキスト
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.outputModeTabFlex}>
+                <View
+                  style={
+                    item.output.kind === 'image' ? styles.outputModeTabActive : styles.outputModeTab
+                  }
+                >
+                  <ImageIcon
+                    color={item.output.kind === 'image' ? TEXT_ACTIVE : REVIEW_TEXT_MUTED}
+                    size={19}
+                  />
+                  <Text
+                    style={
+                      item.output.kind === 'image'
+                        ? styles.outputModeTabTextActive
+                        : styles.outputModeTabText
+                    }
+                  >
+                    画像
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.outputModeTabFlex}>
+                <View style={styles.outputModeTab}>
+                  <MicIcon color={REVIEW_TEXT_MUTED} size={19} />
+                  <Text style={styles.outputModeTabText}>音声</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.outputContentBox}>
+              {item.output.kind === 'image' && item.output.image_url ? (
+                <Pressable
+                  onPress={() => {
+                    setIsImageExpanded(true);
+                    setIsJudgmentCardOpen(true);
+                    if (corrections.length > 0) setSelectedCorrectionIndex(0);
+                  }}
+                  style={styles.imageThumbnailWrapper}
+                >
+                  <Image source={{ uri: item.output.image_url }} style={styles.imageThumbnail} />
+                </Pressable>
+              ) : (
+                <ScrollView nestedScrollEnabled contentContainerStyle={styles.outputContentScroll}>
+                  <AnnotatedOutputText
+                    content={item.output.content ?? ''}
+                    corrections={corrections}
+                    selectedCorrectionIndex={selectedCorrectionIndex}
+                    onSelectCorrection={handleSelectCorrection}
+                    textStyle={styles.outputContentText}
+                    testID="output-review-annotated-text"
+                  />
+                </ScrollView>
+              )}
+            </View>
+          </View>
+        )}
 
         <Modal
           animationType="none"
-          onRequestClose={() => setSelectedCorrectionIndex(null)}
+          onRequestClose={() => {
+            setSelectedCorrectionIndex(null);
+            setIsJudgmentCardOpen(false);
+          }}
           transparent
-          visible={!!selectedCorrection}
+          visible={!!selectedCorrection || isJudgmentCardOpen}
           testID="output-review-correction-popover"
         >
           <Pressable
             style={StyleSheet.absoluteFill}
-            onPress={() => setSelectedCorrectionIndex(null)}
+            onPress={() => {
+              setSelectedCorrectionIndex(null);
+              setIsJudgmentCardOpen(false);
+            }}
           />
           <View
             style={[
@@ -331,7 +386,10 @@ function OutputDetailCard({ item }: OutputDetailCardProps) {
                 accessibilityRole="button"
                 accessibilityLabel="解説を閉じる"
                 hitSlop={8}
-                onPress={() => setSelectedCorrectionIndex(null)}
+                onPress={() => {
+                  setSelectedCorrectionIndex(null);
+                  setIsJudgmentCardOpen(false);
+                }}
                 style={({ pressed }) => [
                   styles.feedbackPopoverClose,
                   pressed ? styles.feedbackPopoverClosePressed : null,
@@ -345,14 +403,25 @@ function OutputDetailCard({ item }: OutputDetailCardProps) {
                 contentContainerStyle={styles.feedbackPopoverScrollContent}
                 showsVerticalScrollIndicator
               >
-                <SizableText style={styles.feedbackHeading}>正解</SizableText>
-                <SizableText style={styles.feedbackCorrect}>
-                  {selectedCorrection?.correct_text}
-                </SizableText>
-                <SizableText style={styles.feedbackHeading}>解説</SizableText>
-                <SizableText style={styles.feedbackBody}>
-                  {selectedCorrection?.explanation}
-                </SizableText>
+                {selectedCorrection ? (
+                  <>
+                    <SizableText style={styles.feedbackHeading}>正解</SizableText>
+                    <SizableText style={styles.feedbackCorrect}>
+                      {selectedCorrection.correct_text}
+                    </SizableText>
+                    <SizableText style={styles.feedbackHeading}>解説</SizableText>
+                    <SizableText style={styles.feedbackBody}>
+                      {selectedCorrection.explanation}
+                    </SizableText>
+                  </>
+                ) : judgment ? (
+                  <>
+                    <SizableText style={styles.feedbackHeading}>アドバイス</SizableText>
+                    <SizableText style={styles.feedbackBody}>{judgment.advice}</SizableText>
+                  </>
+                ) : (
+                  <SizableText style={styles.feedbackBody}>判定中...</SizableText>
+                )}
               </ScrollView>
             </View>
           </View>
@@ -708,6 +777,13 @@ const styles = StyleSheet.create({
     gap: 10,
     backgroundColor: '#FFFFFF',
   },
+  outputPreviewFrameExpanded: {
+    backgroundColor: '#FFFFFF',
+  },
+  imageExpandedContainer: {
+    marginLeft: 41,
+    width: 283,
+  },
   outputModeTabs: {
     height: 32,
     flexDirection: 'row',
@@ -842,6 +918,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 18,
     marginBottom: 4,
+  },
+  imageThumbnailWrapper: {
+    padding: 12,
+  },
+  imageThumbnail: {
+    width: 97,
+    height: 97,
+    borderRadius: 8,
+  },
+  imageExpandedBack: {
+    paddingLeft: 46,
+    paddingTop: 6,
+    paddingBottom: 0,
+    height: 28,
+    justifyContent: 'flex-start',
   },
   errorText: {
     color: ERROR_COLOR,
