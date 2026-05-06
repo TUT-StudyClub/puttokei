@@ -1482,12 +1482,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: '41%',
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 54,
+    fontSize: 52,
     fontWeight: '700',
-    lineHeight: 64,
+    lineHeight: 62,
   },
   timerTextCompact: {
-    fontSize: 34,
-    lineHeight: 40,
+    fontSize: 32,
+    lineHeight: 38,
   },
 });
