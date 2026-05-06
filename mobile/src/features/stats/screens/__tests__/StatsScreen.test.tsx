@@ -23,6 +23,7 @@ const IMAGE_MODE_ICON_BLACK = require('../../../../../assets/images/icons/icon_p
 const IMAGE_MODE_ICON_GRAY = require('../../../../../assets/images/icons/icon_pic_gray..png');
 const VOICE_MODE_ICON_GRAY = require('../../../../../assets/images/icons/icon_mic_gray.png');
 const COLOR_PICKER_CHECK_ICON = require('../../../../../assets/images/icons/check.png');
+const PLUS_ICON = require('../../../../../assets/images/icons/plus.png');
 
 const mockRouterPush = jest.fn();
 
@@ -488,7 +489,8 @@ describe('StatsScreen', () => {
     });
 
     expect(getByTestId('stats-history-sheet-subject-picker')).toBeTruthy();
-    expect(getByText('新規教科')).toBeTruthy();
+    expect(getByText('教科を追加する')).toBeTruthy();
+    expect(getByTestId('stats-history-sheet-new-subject-plus-icon').props.source).toBe(PLUS_ICON);
     expect(queryByTestId('stats-history-sheet-subject-option-0')).toBeNull();
     expect(
       StyleSheet.flatten(getByTestId('stats-history-sheet-subject-picker').props.style).height,
@@ -532,8 +534,8 @@ describe('StatsScreen', () => {
     expect(getByTestId('stats-history-sheet-subject-picker')).toBeTruthy();
     expect(
       StyleSheet.flatten(getByTestId('stats-history-sheet-subject-picker').props.style).height,
-    ).toBe(122);
-    expect(getByText('新規教科')).toBeTruthy();
+    ).toBe(124);
+    expect(getByText('教科を追加する')).toBeTruthy();
     expect(getByText('理科')).toBeTruthy();
     expect(getAllByText('現代文').length).toBeGreaterThan(1);
     expect(

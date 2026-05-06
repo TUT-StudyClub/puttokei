@@ -74,6 +74,7 @@ const IMAGE_MODE_ICON_GRAY = require('../../../../assets/images/icons/icon_pic_g
 const VOICE_MODE_ICON_BLACK = require('../../../../assets/images/icons/icon_mic_black.png');
 const VOICE_MODE_ICON_GRAY = require('../../../../assets/images/icons/icon_mic_gray.png');
 const COLOR_PICKER_CHECK_ICON = require('../../../../assets/images/icons/check.png');
+const PLUS_ICON = require('../../../../assets/images/icons/plus.png');
 
 const SETTINGS_ROUTE = '/(tabs)/settings' as unknown as Href;
 const STATS_SETTINGS_BUTTON_RIGHT = 34;
@@ -116,6 +117,7 @@ const SUBJECT_PICKER_LIST_MARGIN_TOP = 9;
 const SUBJECT_PICKER_ITEM_HEIGHT = 24;
 const SUBJECT_PICKER_ITEM_GAP = 6;
 const SUBJECT_PICKER_MAX_VISIBLE_ITEMS = 5;
+const SUBJECT_PICKER_LIST_BOTTOM_PADDING = 2;
 const HISTORY_OUTPUT_MODE_TABS = [
   {
     key: 'text',
@@ -383,7 +385,11 @@ function buildWeeklyBarSegmentsByDateKey(
 
 function getSubjectPickerListHeight(subjectCount: number): number {
   if (subjectCount === 0) return 0;
-  return subjectCount * SUBJECT_PICKER_ITEM_HEIGHT + (subjectCount - 1) * SUBJECT_PICKER_ITEM_GAP;
+  return (
+    subjectCount * SUBJECT_PICKER_ITEM_HEIGHT +
+    (subjectCount - 1) * SUBJECT_PICKER_ITEM_GAP +
+    SUBJECT_PICKER_LIST_BOTTOM_PADDING
+  );
 }
 
 function getSubjectPickerHeight(subjectCount: number): number {
@@ -1456,10 +1462,14 @@ function HistoryDetailSheet({
                   style={styles.historySheetNewSubjectButton}
                   testID="stats-history-sheet-subject-picker-new"
                 >
-                  <View style={styles.historySheetNewSubjectIcon}>
-                    <SizableText style={styles.historySheetNewSubjectIconText}>+</SizableText>
-                  </View>
-                  <SizableText style={styles.historySheetNewSubjectText}>新規教科</SizableText>
+                  <Image
+                    source={PLUS_ICON}
+                    style={styles.historySheetNewSubjectIcon}
+                    testID="stats-history-sheet-new-subject-plus-icon"
+                  />
+                  <SizableText style={styles.historySheetNewSubjectText}>
+                    教科を追加する
+                  </SizableText>
                 </Pressable>
                 <Pressable
                   accessibilityRole="button"
@@ -2817,9 +2827,9 @@ const styles = StyleSheet.create({
   },
   historySheetSubjectPicker: {
     position: 'absolute',
-    top: 114,
-    left: 31,
-    right: 18,
+    top: 106,
+    left: 45,
+    right: 45,
     zIndex: 20,
     borderWidth: 1,
     borderColor: '#E5E5E5',
@@ -2844,48 +2854,45 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    transform: [{ translateY: 2 }],
   },
   historySheetNewSubjectIcon: {
-    width: 18,
-    height: 18,
-    borderWidth: 1.2,
-    borderColor: '#333333',
-    borderRadius: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  historySheetNewSubjectIconText: {
-    color: '#333333',
-    fontSize: 16,
-    fontWeight: '500',
-    lineHeight: 18,
+    width: 20,
+    height: 20,
+    resizeMode: 'contain',
   },
   historySheetNewSubjectText: {
     color: '#8A8A8A',
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '500',
-    lineHeight: 22,
+    lineHeight: 23,
   },
   historySheetSubjectPickerClose: {
     width: 24,
     height: 24,
     alignItems: 'center',
     justifyContent: 'center',
+    transform: [{ translateY: -9 }],
   },
   historySheetSubjectPickerCloseText: {
     color: '#777777',
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '900',
     lineHeight: 22,
+    textShadowColor: '#777777',
+    textShadowOffset: { width: 0.7, height: 0 },
+    textShadowRadius: 0,
   },
   historySheetSubjectPickerScroll: {
     marginTop: 9,
     maxHeight:
       SUBJECT_PICKER_MAX_VISIBLE_ITEMS * SUBJECT_PICKER_ITEM_HEIGHT +
-      (SUBJECT_PICKER_MAX_VISIBLE_ITEMS - 1) * SUBJECT_PICKER_ITEM_GAP,
+      (SUBJECT_PICKER_MAX_VISIBLE_ITEMS - 1) * SUBJECT_PICKER_ITEM_GAP +
+      SUBJECT_PICKER_LIST_BOTTOM_PADDING,
   },
   historySheetSubjectPickerList: {
     gap: 6,
+    paddingBottom: SUBJECT_PICKER_LIST_BOTTOM_PADDING,
   },
   historySheetSubjectPickerItem: {
     minHeight: 24,
@@ -2897,6 +2904,7 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
+    transform: [{ translateY: 2 }],
   },
   historySheetSubjectPickerText: {
     flex: 1,
@@ -2904,6 +2912,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '500',
     lineHeight: 24,
+    transform: [{ translateY: 2 }],
   },
   historySheetSubjectPickerCheck: {
     width: 18,
