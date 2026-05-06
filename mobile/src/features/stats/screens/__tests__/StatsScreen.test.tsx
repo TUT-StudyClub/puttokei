@@ -359,11 +359,36 @@ describe('StatsScreen', () => {
     });
 
     expect(getByTestId('stats-history-sheet')).toBeTruthy();
-    expect(StyleSheet.flatten(getByTestId('stats-history-sheet').props.style).height).toBe('62%');
+    expect(StyleSheet.flatten(getByTestId('stats-history-sheet').props.style).height).toBe('67%');
     expect(StyleSheet.flatten(getByTestId('stats-history-sheet').props.style).maxHeight).toBe(
-      '64%',
+      '69%',
     );
-    expect(getByText('4月29日　09：35 - 10：00')).toBeTruthy();
+    const historySheetTitleStyle = StyleSheet.flatten(
+      getByText('4月29日　09：35 - 10：00').props.style,
+    );
+    const historySheetCloseStyle = StyleSheet.flatten(
+      getByTestId('stats-history-sheet-close').props.style,
+    );
+    const historySheetConfirmStyle = StyleSheet.flatten(
+      getByTestId('stats-history-sheet-confirm').props.style,
+    );
+    const historySheetCloseIcon = getByTestId('stats-history-sheet-close-icon');
+    const historySheetConfirmIcon = getByTestId('stats-history-sheet-confirm-icon');
+    expect(historySheetTitleStyle.paddingLeft).toBe(12);
+    expect(historySheetTitleStyle.fontWeight).toBe('700');
+    expect(historySheetTitleStyle.transform).toEqual([{ translateY: 3 }]);
+    expect(historySheetCloseStyle.width).toBe(40);
+    expect(historySheetCloseStyle.height).toBe(40);
+    expect(historySheetCloseStyle.borderRadius).toBe(20);
+    expect(historySheetCloseStyle.transform).toEqual([{ translateY: 3 }]);
+    expect(historySheetCloseIcon.props.width).toBe(17);
+    expect(historySheetCloseIcon.props.height).toBe(17);
+    expect(historySheetConfirmStyle.width).toBe(40);
+    expect(historySheetConfirmStyle.height).toBe(40);
+    expect(historySheetConfirmStyle.borderRadius).toBe(20);
+    expect(historySheetConfirmStyle.transform).toEqual([{ translateY: 3 }]);
+    expect(historySheetConfirmIcon.props.width).toBe(17);
+    expect(historySheetConfirmIcon.props.height).toBe(17);
     expect(getByText('教科')).toBeTruthy();
     expect(getByText('英語')).toBeTruthy();
     expect(getAllByText('アウトプット').length).toBeGreaterThan(0);

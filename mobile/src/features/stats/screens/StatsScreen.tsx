@@ -225,9 +225,9 @@ function ShareIconButton() {
   );
 }
 
-function CloseIcon() {
+function CloseIcon({ size = 18, testID }: { size?: number; testID?: string } = {}) {
   return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" testID={testID}>
       <Path d="M6 6 L18 18" stroke="#4B4B4B" strokeWidth={2.4} strokeLinecap="round" />
       <Path d="M18 6 L6 18" stroke="#4B4B4B" strokeWidth={2.4} strokeLinecap="round" />
     </Svg>
@@ -1387,7 +1387,7 @@ function HistoryDetailSheet({
               style={styles.historySheetIconButton}
               testID="stats-history-sheet-close"
             >
-              <CloseIcon />
+              <CloseIcon size={17} testID="stats-history-sheet-close-icon" />
             </Pressable>
             <SizableText style={styles.historySheetTitle} numberOfLines={1}>
               {title}
@@ -1400,7 +1400,7 @@ function HistoryDetailSheet({
               style={[styles.historySheetIconButton, styles.historySheetConfirmButton]}
               testID="stats-history-sheet-confirm"
             >
-              <CheckIcon />
+              <CheckIcon size={17} testID="stats-history-sheet-confirm-icon" />
             </Pressable>
           </View>
 
@@ -2671,7 +2671,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     lineHeight: 25,
-    transform: [{ translateY: 4 }],
+    transform: [{ translateY: 5 }],
   },
   breakPill: {
     alignSelf: 'flex-start',
@@ -2704,8 +2704,8 @@ const styles = StyleSheet.create({
   historySheetPanel: {
     width: '100%',
     maxWidth: 430,
-    height: '62%',
-    maxHeight: '64%',
+    height: '67%',
+    maxHeight: '69%',
     alignSelf: 'center',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
@@ -2728,32 +2728,34 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   historySheetIconButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#F0F0F0',
+    transform: [{ translateY: 3 }],
   },
   historySheetConfirmButton: {
     backgroundColor: '#E6EAFF',
   },
   historySheetTitle: {
     flex: 1,
-    paddingLeft: 20,
+    paddingLeft: 12,
     color: '#111111',
     fontFamily: 'HiraginoSans-W6',
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '700',
     lineHeight: 22,
     fontVariant: ['tabular-nums'],
+    transform: [{ translateY: 3 }],
   },
   historySheetSubjectRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginHorizontal: 12,
-    marginTop: 18,
+    marginTop: 26,
   },
   historySheetLabel: {
     color: '#333333',
@@ -2789,7 +2791,7 @@ const styles = StyleSheet.create({
   },
   historySheetSubjectPicker: {
     position: 'absolute',
-    top: 102,
+    top: 110,
     left: 31,
     right: 18,
     zIndex: 20,
