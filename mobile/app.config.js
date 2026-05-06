@@ -23,9 +23,7 @@ const path = require('path');
 
 // `app.json.example` は拡張子が `.example` のため node の `require` では JSON として
 // 読めない (= JS と解釈されて SyntaxError)。readFileSync + JSON.parse で読み込む。
-const exampleConfig = JSON.parse(
-  fs.readFileSync(path.join(__dirname, 'app.json.example'), 'utf8'),
-);
+const exampleConfig = JSON.parse(fs.readFileSync(path.join(__dirname, 'app.json.example'), 'utf8'));
 
 function loadLocalOverride() {
   try {
@@ -46,12 +44,34 @@ function assertPlaceholdersResolved(value, fieldName) {
   }
 }
 
+function shouldAssertPlaceholders() {
+  return process.env.EAS_BUILD === 'true' || process.env.EAS_BUILD_RUNNER === 'eas-build';
+}
+
+function isPlaceholder(value) {
+  return typeof value === 'string' && value.startsWith('YOUR_');
+}
+
+function resolvePlugins(plugins) {
+  return plugins.map((plugin) => {
+    if (!Array.isArray(plugin) || plugin[0] !== '@react-native-google-signin/google-signin') {
+      return plugin;
+    }
+
+    const options = plugin[1] || {};
+    if (isPlaceholder(options.iosUrlScheme)) {
+      return plugin[0];
+    }
+
+    return plugin;
+  });
+}
+
 module.exports = ({ config }) => {
   const localOverride = loadLocalOverride();
   const base = (localOverride && localOverride.expo) || exampleConfig.expo;
 
-  const apiBaseUrl =
-    process.env.EXPO_PUBLIC_API_BASE_URL ?? (base.extra && base.extra.apiBaseUrl);
+  const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? (base.extra && base.extra.apiBaseUrl);
   const bundleIdentifier =
     process.env.EXPO_PUBLIC_BUNDLE_IDENTIFIER ?? (base.ios && base.ios.bundleIdentifier);
   const androidPackage =
@@ -59,11 +79,19 @@ module.exports = ({ config }) => {
   const googleServicesFile =
     process.env.EXPO_PUBLIC_GOOGLE_SERVICES_IOS ?? (base.ios && base.ios.googleServicesFile);
 
-  // build / submit に必要な識別子はテンプレ未差し替え状態で漏れるのを防ぐ。
-  assertPlaceholdersResolved(base.ios && base.ios.appleTeamId, 'ios.appleTeamId');
-  assertPlaceholdersResolved(base.owner, 'owner');
-  assertPlaceholdersResolved(base.extra && base.extra.eas && base.extra.eas.projectId, 'extra.eas.projectId');
-  assertPlaceholdersResolved(base.extra && base.extra.googleWebClientId, 'extra.googleWebClientId');
+  if (shouldAssertPlaceholders()) {
+    // build / submit に必要な識別子はテンプレ未差し替え状態で漏れるのを防ぐ。
+    assertPlaceholdersResolved(base.ios && base.ios.appleTeamId, 'ios.appleTeamId');
+    assertPlaceholdersResolved(base.owner, 'owner');
+    assertPlaceholdersResolved(
+      base.extra && base.extra.eas && base.extra.eas.projectId,
+      'extra.eas.projectId',
+    );
+    assertPlaceholdersResolved(
+      base.extra && base.extra.googleWebClientId,
+      'extra.googleWebClientId',
+    );
+  }
 
   return {
     ...base,
@@ -72,6 +100,7 @@ module.exports = ({ config }) => {
     // 最優先する。
     name: base.name || (config && config.name) || 'Hourglass',
     slug: base.slug || (config && config.slug) || 'hourglass',
+    plugins: resolvePlugins(base.plugins || []),
     ios: {
       ...base.ios,
       bundleIdentifier,
