@@ -178,6 +178,24 @@ async function flushAsyncUpdates() {
   });
 }
 
+type TestNodeWithParent = {
+  parent: TestNodeWithParent | null;
+  props: {
+    testID?: string;
+  };
+};
+
+function hasTestIdAncestor(node: TestNodeWithParent, testID: string): boolean {
+  let current = node.parent;
+  while (current) {
+    if (current.props.testID === testID) {
+      return true;
+    }
+    current = current.parent;
+  }
+  return false;
+}
+
 describe('StatsScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -306,6 +324,12 @@ describe('StatsScreen', () => {
     expect(getByTestId('stats-output-history-title').props.children).toBe('履歴');
     expect(getByTestId('stats-scroll-content').type).toBe('View');
     expect(getByTestId('stats-output-history-table-scroll').type).toBe('RCTScrollView');
+    expect(
+      hasTestIdAncestor(
+        getByTestId('stats-output-history-title'),
+        'stats-output-history-table-scroll',
+      ),
+    ).toBe(false);
     expect(getByTestId('stats-output-history-item-out-1')).toBeTruthy();
     expect(getByText('4月29日')).toBeTruthy();
     expect(getByText('09：35 - 10：00')).toBeTruthy();
@@ -1041,6 +1065,12 @@ describe('StatsScreen', () => {
     expect(weeklyHistoryCardStyle.alignSelf).toBe('center');
     expect(weeklyHistoryCardStyle.marginLeft).toBe(0);
     expect(weeklyHistoryCardStyle.width).toBe(weeklyHistoryTitleStyle.width);
+    expect(
+      hasTestIdAncestor(
+        getByTestId('stats-output-history-title'),
+        'stats-output-history-table-scroll',
+      ),
+    ).toBe(true);
     expect(queryByTestId('stats-weekly-highlight-card')).toBeNull();
     expect(queryByText('今週のハイライト')).toBeNull();
     expect(queryByText('4月29日のハイライト')).toBeNull();

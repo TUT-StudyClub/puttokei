@@ -78,8 +78,6 @@ export function WeekDateStrip({
   const resolvedStripWidth = stripWidth > 0 ? stripWidth : fallbackStripWidth;
   const pageWidth = Math.max(0, resolvedStripWidth - WEEK_DATE_STRIP_LAYOUT_GUTTER_WIDTH * 2);
   const dayCellWidth = Math.min(WEEK_DATE_STRIP_DAY_CELL_MAX_WIDTH, pageWidth / 7);
-  const selectedBackgroundWidthScale =
-    dayCellWidth > 0 ? (dayCellWidth + WEEK_DATE_STRIP_SELECTED_BORDER_WIDTH) / dayCellWidth : 1;
   const todayKey = getTokyoDateKey();
   const studiedDateKeySet = useMemo(() => new Set(studiedDateKeys), [studiedDateKeys]);
   const centeredDateKeys = useMemo(() => getCenteredDateKeys(selectedDateKey), [selectedDateKey]);
@@ -163,7 +161,6 @@ export function WeekDateStrip({
                       shouldOverlapNextSelected
                         ? styles.dayCellStatusBackgroundOverlapNextSelected
                         : null,
-                      isSelected ? { transform: [{ scaleX: selectedBackgroundWidthScale }] } : null,
                       isStudied ? styles.dayCellStudiedBackground : null,
                       isSelected ? styles.dayCellSelectedBackground : null,
                     ]}

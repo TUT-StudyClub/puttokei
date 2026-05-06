@@ -140,8 +140,11 @@ describe('WeekDateStrip', () => {
     expect(todayStyle.borderColor).toBeUndefined();
     expect(todayStyle.borderWidth).toBeUndefined();
     expect(selectedBackgroundStyle.backgroundColor).toBeUndefined();
+    expect(selectedBackgroundStyle.transform).toBeUndefined();
     expect(selectedBackgroundStyle.borderColor).toBe('#475FFF');
     expect(selectedBackgroundStyle.borderWidth).toBe(3);
+    expect(selectedBackgroundStyle.left).toBe(0);
+    expect(selectedBackgroundStyle.right).toBe(0);
     expect(selectedBackgroundStyle.top).toBe(0);
     expect(selectedBackgroundStyle.bottom).toBe(0);
   });
@@ -224,8 +227,11 @@ describe('WeekDateStrip', () => {
     );
 
     expect(selectedBackgroundStyle.backgroundColor).toBe('#DBE3FF');
+    expect(selectedBackgroundStyle.transform).toBeUndefined();
     expect(selectedBackgroundStyle.borderColor).toBe('#475FFF');
     expect(selectedBackgroundStyle.borderWidth).toBe(3);
+    expect(selectedBackgroundStyle.left).toBe(0);
+    expect(selectedBackgroundStyle.right).toBe(0);
     expect(selectedBackgroundStyle.top).toBe(0);
     expect(selectedBackgroundStyle.bottom).toBe(0);
     expect(previousStudiedBackgroundStyle.left).toBe(0);

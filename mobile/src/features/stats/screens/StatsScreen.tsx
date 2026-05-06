@@ -1618,6 +1618,7 @@ function OutputHistory({
   emptyMessage = 'この日の履歴はまだありません。',
   titleFrameStyle,
   cardFrameStyle,
+  titleScrolls = false,
   onSelectItem,
 }: {
   items: OutputReviewItem[];
@@ -1625,72 +1626,85 @@ function OutputHistory({
   emptyMessage?: string;
   titleFrameStyle?: StyleProp<TextStyle>;
   cardFrameStyle?: StyleProp<ViewStyle>;
+  titleScrolls?: boolean;
   onSelectItem: (item: OutputReviewItem) => void;
 }) {
   const groups = useMemo(
     () => buildHistoryGroups(items, fallbackDateKey),
     [fallbackDateKey, items],
   );
+  const title = (
+    <SizableText
+      style={[styles.historyTitle, titleFrameStyle]}
+      testID="stats-output-history-title"
+    >
+      履歴
+    </SizableText>
+  );
 
   return (
-    <View style={styles.historySection} testID="stats-output-history">
-      <SizableText
-        style={[styles.historyTitle, titleFrameStyle]}
-        testID="stats-output-history-title"
-      >
-        履歴
-      </SizableText>
+    <View
+      style={[styles.historySection, titleScrolls ? null : styles.historySectionFixedTitle]}
+      testID="stats-output-history"
+    >
+      {titleScrolls ? null : title}
       <ScrollView
         style={styles.historyTableScroll}
-        contentContainerStyle={styles.historyTableScrollContent}
+        contentContainerStyle={[
+          styles.historyTableScrollContent,
+          titleScrolls ? styles.historyTableScrollContentWithTitle : null,
+        ]}
         showsVerticalScrollIndicator={false}
         testID="stats-output-history-table-scroll"
       >
-        {groups.map((group) => (
-          <View key={group.dateKey} style={[styles.historyCard, cardFrameStyle]}>
-            {group.dateLabel ? (
-              <SizableText style={styles.historyDateText}>{group.dateLabel}</SizableText>
-            ) : null}
-            {group.items.length === 0 ? (
-              <View style={styles.emptyHistory} testID="stats-output-history-empty">
-                <SizableText style={styles.emptyHistoryText}>{emptyMessage}</SizableText>
-              </View>
-            ) : (
-              group.items.map((item, index) => {
-                const timeRange = getHistoryTimeRangeParts(item);
-                const timeRangeLabel = `${timeRange.start}  -  ${timeRange.end}`;
-                const isLastRow = index === group.items.length - 1;
-                return (
-                  <Pressable
-                    key={item.output.id}
-                    accessibilityRole="button"
-                    onPress={() => onSelectItem(item)}
-                    style={[styles.historyRow, !isLastRow ? styles.historyRowBorder : null]}
-                    testID={`stats-output-history-item-${item.output.id}`}
-                  >
-                    <View style={styles.historyTimeRange}>
-                      <Text
-                        adjustsFontSizeToFit
-                        minimumFontScale={0.82}
-                        numberOfLines={1}
-                        style={[
-                          styles.historyTimeText,
-                          !isLastRow ? styles.historyTimeTextUpperRows : null,
-                          isLastRow ? styles.historyTimeTextLastRow : null,
-                        ]}
-                      >
-                        {timeRangeLabel}
-                      </Text>
-                    </View>
-                    <SizableText style={styles.historyCycleText} numberOfLines={1}>
-                      サイクル{item.cycle_index}
-                    </SizableText>
-                  </Pressable>
-                );
-              })
-            )}
-          </View>
-        ))}
+        {titleScrolls ? title : null}
+        <View style={styles.historyTableList}>
+          {groups.map((group) => (
+            <View key={group.dateKey} style={[styles.historyCard, cardFrameStyle]}>
+              {group.dateLabel ? (
+                <SizableText style={styles.historyDateText}>{group.dateLabel}</SizableText>
+              ) : null}
+              {group.items.length === 0 ? (
+                <View style={styles.emptyHistory} testID="stats-output-history-empty">
+                  <SizableText style={styles.emptyHistoryText}>{emptyMessage}</SizableText>
+                </View>
+              ) : (
+                group.items.map((item, index) => {
+                  const timeRange = getHistoryTimeRangeParts(item);
+                  const timeRangeLabel = `${timeRange.start}  -  ${timeRange.end}`;
+                  const isLastRow = index === group.items.length - 1;
+                  return (
+                    <Pressable
+                      key={item.output.id}
+                      accessibilityRole="button"
+                      onPress={() => onSelectItem(item)}
+                      style={[styles.historyRow, !isLastRow ? styles.historyRowBorder : null]}
+                      testID={`stats-output-history-item-${item.output.id}`}
+                    >
+                      <View style={styles.historyTimeRange}>
+                        <Text
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.82}
+                          numberOfLines={1}
+                          style={[
+                            styles.historyTimeText,
+                            !isLastRow ? styles.historyTimeTextUpperRows : null,
+                            isLastRow ? styles.historyTimeTextLastRow : null,
+                          ]}
+                        >
+                          {timeRangeLabel}
+                        </Text>
+                      </View>
+                      <SizableText style={styles.historyCycleText} numberOfLines={1}>
+                        サイクル{item.cycle_index}
+                      </SizableText>
+                    </Pressable>
+                  );
+                })
+              )}
+            </View>
+          ))}
+        </View>
       </ScrollView>
     </View>
   );
@@ -2061,6 +2075,7 @@ export function StatsScreen() {
           emptyMessage="この週の履歴はまだありません。"
           titleFrameStyle={dailyHighlightTextFrameStyle}
           cardFrameStyle={dailyHighlightViewFrameStyle}
+          titleScrolls
           onSelectItem={handleOpenHistorySheet}
         />
         {weeklyReportQuery.isFetching ? (
@@ -3181,15 +3196,22 @@ const styles = StyleSheet.create({
   },
   historySection: {
     flex: 1,
-    gap: 8,
     marginTop: 4,
+  },
+  historySectionFixedTitle: {
+    gap: 8,
   },
   historyTableScroll: {
     flex: 1,
   },
   historyTableScrollContent: {
-    gap: 14,
     paddingBottom: 112,
+  },
+  historyTableScrollContentWithTitle: {
+    gap: 8,
+  },
+  historyTableList: {
+    gap: 14,
   },
   historyTitle: {
     width: '90%',
