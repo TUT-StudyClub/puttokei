@@ -388,7 +388,10 @@ describe('StatsScreen', () => {
       '69%',
     );
     const historySheetTitleStyle = StyleSheet.flatten(
-      getByText('4月29日　09：35 - 10：00').props.style,
+      getByTestId('stats-history-sheet-title').props.style,
+    );
+    const historySheetTitleTimeStyle = StyleSheet.flatten(
+      getByTestId('stats-history-sheet-title-time').props.style,
     );
     const historySheetCloseStyle = StyleSheet.flatten(
       getByTestId('stats-history-sheet-close').props.style,
@@ -400,7 +403,8 @@ describe('StatsScreen', () => {
     const historySheetConfirmIcon = getByTestId('stats-history-sheet-confirm-icon');
     expect(historySheetTitleStyle.paddingLeft).toBe(12);
     expect(historySheetTitleStyle.fontWeight).toBe('700');
-    expect(historySheetTitleStyle.transform).toEqual([{ translateY: 4 }]);
+    expect(historySheetTitleStyle.transform).toEqual([{ translateY: 5 }]);
+    expect(historySheetTitleTimeStyle.transform).toEqual([{ translateX: 3 }, { scaleX: 0.98 }]);
     expect(historySheetCloseStyle.width).toBe(36);
     expect(historySheetCloseStyle.height).toBe(36);
     expect(historySheetCloseStyle.borderRadius).toBe(18);
@@ -834,6 +838,29 @@ describe('StatsScreen', () => {
       IMAGE_MODE_ICON_BLACK,
     );
     expect(getByTestId('stats-history-sheet-output-image')).toBeTruthy();
+  });
+
+  it('履歴詳細の出力種別ラベルを太字にする', async () => {
+    (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(makeDailyResponse());
+
+    const { getByTestId } = renderWithProviders(<StatsScreen />);
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(getByTestId('stats-output-history-item-out-1')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-output-history-item-out-1'));
+    });
+
+    (['text', 'image', 'voice'] as const).forEach((kind) => {
+      const labelStyle = StyleSheet.flatten(
+        getByTestId(`stats-history-sheet-tab-label-${kind}`).props.style,
+      );
+      expect(labelStyle.fontFamily).toBe('HiraginoSans-W6');
+      expect(labelStyle.fontWeight).toBe('700');
+    });
   });
 
   it('別の日の日付セルをタップするとその日のレポートを取得しタイトルが切り替わる', async () => {

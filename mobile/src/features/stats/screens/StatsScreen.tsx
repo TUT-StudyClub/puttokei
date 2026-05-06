@@ -1310,7 +1310,8 @@ function HistoryDetailSheet({
   if (item === null) return null;
 
   const timeRange = getHistoryTimeRangeParts(item);
-  const title = `${getTokyoMonthDayLabelFromTimestamp(item.output.submitted_at)}　${timeRange.start} - ${timeRange.end}`;
+  const titleDate = getTokyoMonthDayLabelFromTimestamp(item.output.submitted_at);
+  const titleTimeRange = `${timeRange.start} - ${timeRange.end}`;
   const visibleSubjectOptions = [...subjectOptions];
   localSubjectOptions.forEach((subject) => {
     if (!visibleSubjectOptions.some((option) => option.label === subject.label)) {
@@ -1389,8 +1390,16 @@ function HistoryDetailSheet({
             >
               <CloseIcon size={17} testID="stats-history-sheet-close-icon" />
             </Pressable>
-            <SizableText style={styles.historySheetTitle} numberOfLines={1}>
-              {title}
+            <SizableText
+              style={styles.historySheetTitle}
+              numberOfLines={1}
+              testID="stats-history-sheet-title"
+            >
+              {titleDate}
+              {'　'}
+              <Text style={styles.historySheetTitleTime} testID="stats-history-sheet-title-time">
+                {titleTimeRange}
+              </Text>
             </SizableText>
             <Pressable
               accessibilityRole="button"
@@ -1551,6 +1560,7 @@ function HistoryOutputModeTabs({ activeKind }: { activeKind: OutputReviewItem['o
                 styles.historySheetTabText,
                 isActive ? styles.historySheetTabTextActive : null,
               ]}
+              testID={`stats-history-sheet-tab-label-${tab.key}`}
             >
               {tab.label}
             </SizableText>
@@ -2760,7 +2770,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 22,
     fontVariant: ['tabular-nums'],
-    transform: [{ translateY: 4 }],
+    transform: [{ translateY: 5 }],
+  },
+  historySheetTitleTime: {
+    transform: [{ translateX: 3 }, { scaleX: 0.98 }],
   },
   historySheetSubjectRow: {
     flexDirection: 'row',
@@ -2927,7 +2940,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   historySheetTabs: {
-    height: 24,
+    height: 28,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
@@ -2935,6 +2948,8 @@ const styles = StyleSheet.create({
     borderRadius: 7,
     backgroundColor: '#EFEFEF',
     overflow: 'hidden',
+    padding: 2,
+    transform: [{ translateY: 4 }],
   },
   historySheetTab: {
     flex: 1,
@@ -2946,16 +2961,18 @@ const styles = StyleSheet.create({
   },
   historySheetTabActive: {
     backgroundColor: '#FFFFFF',
+    borderRadius: 5,
   },
   historySheetTabIcon: {
-    width: 12,
-    height: 12,
+    width: 17,
+    height: 17,
   },
   historySheetTabText: {
     color: '#777777',
-    fontSize: 10,
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 11,
     fontWeight: '700',
-    lineHeight: 13,
+    lineHeight: 14,
   },
   historySheetTabTextActive: {
     color: '#2F2F2F',
