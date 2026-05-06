@@ -2905,7 +2905,7 @@ const styles = StyleSheet.create({
   },
   historySheetSectionTitle: {
     marginHorizontal: 12,
-    marginTop: 11,
+    marginTop: 13,
     color: '#333333',
     fontSize: 16,
     fontWeight: '700',
@@ -2916,7 +2916,8 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 296,
     marginHorizontal: 12,
-    marginTop: 8,
+    marginTop: 12,
+    marginBottom: 20,
     borderWidth: 1.5,
     borderColor: '#777777',
     borderRadius: 16,
