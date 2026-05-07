@@ -108,8 +108,9 @@ const SUBJECT_COLOR_PICKER_COLUMN_GAP = 14;
 const SUBJECT_COLOR_PICKER_ROW_GAP = 16;
 const SUBJECT_COLOR_PICKER_HORIZONTAL_PADDING = 19;
 const SUBJECT_COLOR_PICKER_TOP_PADDING = 42;
-const SUBJECT_COLOR_PICKER_HEADER_BUTTON_TOP = 18;
-const SUBJECT_COLOR_PICKER_HEADER_TITLE_MARGIN_TOP = 15;
+const SUBJECT_COLOR_PICKER_HEADER_TITLE_MARGIN_TOP = 30;
+const SUBJECT_COLOR_PICKER_HEADER_BUTTON_TOP = 26;
+const SUBJECT_COLOR_PICKER_HEADER_TITLE_OFFSET_X = 2;
 const SUBJECT_PICKER_PADDING_TOP = 17;
 const SUBJECT_PICKER_PADDING_BOTTOM = 18;
 const SUBJECT_PICKER_HEADER_HEIGHT = 24;
@@ -233,11 +234,27 @@ function ShareIconButton() {
   );
 }
 
-function CloseIcon({ size = 18, testID }: { size?: number; testID?: string } = {}) {
+function CloseIcon({
+  size = 18,
+  testID,
+  lineTestIDPrefix,
+}: { size?: number; testID?: string; lineTestIDPrefix?: string } = {}) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" testID={testID}>
-      <Path d="M6 6 L18 18" stroke="#4B4B4B" strokeWidth={2.4} strokeLinecap="round" />
-      <Path d="M18 6 L6 18" stroke="#4B4B4B" strokeWidth={2.4} strokeLinecap="round" />
+      <Path
+        d="M6 6 L18 18"
+        stroke="#4B4B4B"
+        strokeWidth={2.4}
+        strokeLinecap="round"
+        testID={lineTestIDPrefix ? `${lineTestIDPrefix}-line-1` : undefined}
+      />
+      <Path
+        d="M18 6 L6 18"
+        stroke="#4B4B4B"
+        strokeWidth={2.4}
+        strokeLinecap="round"
+        testID={lineTestIDPrefix ? `${lineTestIDPrefix}-line-2` : undefined}
+      />
     </Svg>
   );
 }
@@ -251,6 +268,27 @@ function CheckIcon({ size = 18, testID }: { size?: number; testID?: string } = {
         strokeWidth={2.5}
         strokeLinecap="round"
         strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function ColorSwatchCheckIcon({
+  style,
+  testID,
+}: {
+  style?: StyleProp<ViewStyle>;
+  testID?: string;
+}) {
+  return (
+    <Svg width={24} height={19} viewBox="0 0 24 19" fill="none" style={style} testID={testID}>
+      <Path
+        d="M2.5 9.7 L8.7 15.9 L21.5 2.6"
+        stroke="#FFFFFF"
+        strokeWidth={3.2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        testID={testID ? `${testID}-path` : undefined}
       />
     </Svg>
   );
@@ -1241,12 +1279,11 @@ function NewSubjectFormModal({
                   style={styles.colorPickerCloseButton}
                   testID="stats-subject-color-picker-close"
                 >
-                  <SizableText
-                    style={styles.colorPickerCloseText}
-                    testID="stats-subject-color-picker-close-text"
-                  >
-                    ×
-                  </SizableText>
+                  <CloseIcon
+                    size={18}
+                    testID="stats-subject-color-picker-close-icon"
+                    lineTestIDPrefix="stats-subject-color-picker-close-icon"
+                  />
                 </Pressable>
                 <Text style={styles.colorPickerTitle} testID="stats-subject-color-picker-title">
                   色の選択
@@ -1292,8 +1329,7 @@ function NewSubjectFormModal({
                           testID={`stats-subject-color-swatch-${index}`}
                         >
                           {draftColor === paletteColor ? (
-                            <Image
-                              source={COLOR_PICKER_CHECK_ICON}
+                            <ColorSwatchCheckIcon
                               style={styles.colorPickerSwatchCheck}
                               testID={`stats-subject-color-swatch-check-${index}`}
                             />
@@ -3230,18 +3266,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#F0F0F0',
   },
-  colorPickerCloseText: {
-    color: '#333333',
-    fontSize: 26,
-    fontWeight: '400',
-    lineHeight: 30,
-  },
   colorPickerTitle: {
     color: '#111111',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
-    lineHeight: 22,
+    lineHeight: 24,
     marginTop: SUBJECT_COLOR_PICKER_HEADER_TITLE_MARGIN_TOP,
+    transform: [{ translateX: SUBJECT_COLOR_PICKER_HEADER_TITLE_OFFSET_X }],
   },
   colorPickerConfirmButton: {
     position: 'absolute',

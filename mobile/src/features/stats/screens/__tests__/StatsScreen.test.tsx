@@ -22,7 +22,6 @@ const TEXT_MODE_ICON_GRAY = require('../../../../../assets/images/icons/icon_pen
 const IMAGE_MODE_ICON_BLACK = require('../../../../../assets/images/icons/icon_pic_black..png');
 const IMAGE_MODE_ICON_GRAY = require('../../../../../assets/images/icons/icon_pic_gray..png');
 const VOICE_MODE_ICON_GRAY = require('../../../../../assets/images/icons/icon_mic_gray.png');
-const COLOR_PICKER_CHECK_ICON = require('../../../../../assets/images/icons/check.png');
 const PLUS_ICON = require('../../../../../assets/images/icons/plus.png');
 
 const mockRouterPush = jest.fn();
@@ -704,10 +703,15 @@ describe('StatsScreen', () => {
     const closeButtonStyle = StyleSheet.flatten(
       getByTestId('stats-subject-color-picker-close', { includeHiddenElements: true }).props.style,
     );
-    const closeTextStyle = StyleSheet.flatten(
-      getByTestId('stats-subject-color-picker-close-text', { includeHiddenElements: true }).props
-        .style,
-    );
+    const closeIcon = getByTestId('stats-subject-color-picker-close-icon', {
+      includeHiddenElements: true,
+    });
+    const closeIconLine1 = getByTestId('stats-subject-color-picker-close-icon-line-1', {
+      includeHiddenElements: true,
+    });
+    const closeIconLine2 = getByTestId('stats-subject-color-picker-close-icon-line-2', {
+      includeHiddenElements: true,
+    });
     const confirmButtonStyle = StyleSheet.flatten(
       getByTestId('stats-subject-color-picker-confirm', { includeHiddenElements: true }).props
         .style,
@@ -733,17 +737,21 @@ describe('StatsScreen', () => {
     expect(colorGridStyle.paddingHorizontal).toBe(19);
     expect(colorGridStyle.paddingTop).toBe(42);
     expect(colorGridStyle.gap).toBe(16);
-    expect(colorPickerTitleStyle.fontSize).toBe(16);
+    expect(colorPickerTitleStyle.fontSize).toBe(18);
     expect(colorPickerTitleStyle.fontWeight).toBe('600');
-    expect(colorPickerTitleStyle.lineHeight).toBe(22);
-    expect(colorPickerTitleStyle.marginTop).toBe(15);
+    expect(colorPickerTitleStyle.lineHeight).toBe(24);
+    expect(colorPickerTitleStyle.marginTop).toBe(30);
+    expect(colorPickerTitleStyle.transform).toEqual([{ translateX: 2 }]);
     expect(closeButtonStyle.left).toBe(20);
-    expect(closeButtonStyle.top).toBe(18);
+    expect(closeButtonStyle.top).toBe(26);
     expect(closeButtonStyle.width).toBe(36);
     expect(closeButtonStyle.height).toBe(36);
-    expect(closeTextStyle.fontSize).toBe(26);
+    expect(closeIcon.props.width).toBe(18);
+    expect(closeIcon.props.height).toBe(18);
+    expect(closeIconLine1.props.strokeLinecap).toBe(1);
+    expect(closeIconLine2.props.strokeLinecap).toBe(1);
     expect(confirmButtonStyle.right).toBe(20);
-    expect(confirmButtonStyle.top).toBe(18);
+    expect(confirmButtonStyle.top).toBe(26);
     expect(confirmButtonStyle.width).toBe(36);
     expect(confirmButtonStyle.height).toBe(36);
     expect(checkIcon.props.width).toBe(20);
@@ -782,25 +790,29 @@ describe('StatsScreen', () => {
     await act(async () => {
       fireEvent.press(getByTestId('stats-subject-color-swatch-1', { includeHiddenElements: true }));
     });
+    const selectedSwatchCheck = getByTestId('stats-subject-color-swatch-check-1', {
+      includeHiddenElements: true,
+    });
     const selectedSwatchCheckStyle = StyleSheet.flatten(
-      getByTestId('stats-subject-color-swatch-check-1', { includeHiddenElements: true }).props
-        .style,
+      selectedSwatchCheck.props.style,
     );
-    expect(
-      getByTestId('stats-subject-color-swatch-check-1', { includeHiddenElements: true }).props
-        .source,
-    ).toBe(COLOR_PICKER_CHECK_ICON);
+    const selectedSwatchCheckPath = getByTestId('stats-subject-color-swatch-check-1-path', {
+      includeHiddenElements: true,
+    });
     expect(selectedSwatchCheckStyle.width).toBe(24);
     expect(selectedSwatchCheckStyle.height).toBe(19);
+    expect(selectedSwatchCheck.props.width).toBe(24);
+    expect(selectedSwatchCheck.props.height).toBe(19);
+    expect(selectedSwatchCheckPath.props.strokeWidth).toBe(3.2);
 
     await act(async () => {
       fireEvent.press(getByTestId('stats-subject-color-swatch-5', { includeHiddenElements: true }));
     });
     expect(queryByTestId('stats-subject-color-swatch-check-1')).toBeNull();
     expect(
-      getByTestId('stats-subject-color-swatch-check-5', { includeHiddenElements: true }).props
-        .source,
-    ).toBe(COLOR_PICKER_CHECK_ICON);
+      getByTestId('stats-subject-color-swatch-check-5-path', { includeHiddenElements: true }).props
+        .strokeWidth,
+    ).toBe(3.2);
     await act(async () => {
       fireEvent.press(
         getByTestId('stats-subject-color-picker-confirm', { includeHiddenElements: true }),
