@@ -107,9 +107,9 @@ const SUBJECT_COLOR_PICKER_SWATCH_SIZE = 50;
 const SUBJECT_COLOR_PICKER_COLUMN_GAP = 14;
 const SUBJECT_COLOR_PICKER_ROW_GAP = 16;
 const SUBJECT_COLOR_PICKER_HORIZONTAL_PADDING = 19;
-const SUBJECT_COLOR_PICKER_TOP_PADDING = 22;
+const SUBJECT_COLOR_PICKER_TOP_PADDING = 42;
 const SUBJECT_COLOR_PICKER_HEADER_BUTTON_TOP = 18;
-const SUBJECT_COLOR_PICKER_HEADER_TITLE_MARGIN_TOP = 7;
+const SUBJECT_COLOR_PICKER_HEADER_TITLE_MARGIN_TOP = 15;
 const SUBJECT_PICKER_PADDING_TOP = 17;
 const SUBJECT_PICKER_PADDING_BOTTOM = 18;
 const SUBJECT_PICKER_HEADER_HEIGHT = 24;
@@ -119,6 +119,11 @@ const SUBJECT_PICKER_ITEM_GAP = 6;
 const SUBJECT_PICKER_MAX_VISIBLE_ITEMS = 5;
 const SUBJECT_PICKER_LIST_BOTTOM_PADDING = 2;
 const HISTORY_SHEET_TOP_RADIUS = 28;
+const HISTORY_SHEET_HEIGHT = '67%';
+const HISTORY_SHEET_MAX_HEIGHT = '69%';
+const COLOR_PICKER_SHEET_HEIGHT = '70%';
+const COLOR_PICKER_SHEET_MAX_HEIGHT = '72%';
+const COLOR_PICKER_SHEET_BOTTOM_OFFSET = 40;
 const HISTORY_OUTPUT_MODE_TABS = [
   {
     key: 'text',
@@ -1220,77 +1225,87 @@ function NewSubjectFormModal({
         </Pressable>
 
         {isColorPickerVisible ? (
-          <View style={styles.colorPickerSheet} testID="stats-subject-color-picker">
-            <View style={styles.colorPickerHeader}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="色の選択を閉じる"
-                hitSlop={8}
-                onPress={() => setColorPickerVisible(false)}
-                style={styles.colorPickerCloseButton}
-                testID="stats-subject-color-picker-close"
-              >
-                <SizableText
-                  style={styles.colorPickerCloseText}
-                  testID="stats-subject-color-picker-close-text"
+          <>
+            <View
+              pointerEvents="none"
+              style={styles.colorPickerBottomFill}
+              testID="stats-subject-color-picker-bottom-fill"
+            />
+            <View style={styles.colorPickerSheet} testID="stats-subject-color-picker">
+              <View style={styles.colorPickerHeader}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="色の選択を閉じる"
+                  hitSlop={8}
+                  onPress={() => setColorPickerVisible(false)}
+                  style={styles.colorPickerCloseButton}
+                  testID="stats-subject-color-picker-close"
                 >
-                  ×
-                </SizableText>
-              </Pressable>
-              <Text style={styles.colorPickerTitle} testID="stats-subject-color-picker-title">
-                色の選択
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="色を決定"
-                hitSlop={8}
-                onPress={() => {
-                  onChangeColor(draftColor);
-                  setColorPickerVisible(false);
-                }}
-                style={styles.colorPickerConfirmButton}
-                testID="stats-subject-color-picker-confirm"
-              >
-                <CheckIcon size={20} testID="stats-subject-color-picker-check-icon" />
-              </Pressable>
-            </View>
-            <View style={styles.colorPickerGrid} testID="stats-subject-color-grid">
-              {SUBJECT_COLOR_PICKER_ROWS.map((rowColors, rowIndex) => (
-                <View
-                  key={rowColors.join('-')}
-                  style={styles.colorPickerRow}
-                  testID={`stats-subject-color-row-${rowIndex}`}
+                  <SizableText
+                    style={styles.colorPickerCloseText}
+                    testID="stats-subject-color-picker-close-text"
+                  >
+                    ×
+                  </SizableText>
+                </Pressable>
+                <Text style={styles.colorPickerTitle} testID="stats-subject-color-picker-title">
+                  色の選択
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="色を決定"
+                  hitSlop={8}
+                  onPress={() => {
+                    onChangeColor(draftColor);
+                    setColorPickerVisible(false);
+                  }}
+                  style={styles.colorPickerConfirmButton}
+                  testID="stats-subject-color-picker-confirm"
                 >
-                  {rowColors.map((paletteColor, columnIndex) => {
-                    const index = rowIndex * SUBJECT_COLOR_PICKER_COLUMN_COUNT + columnIndex;
+                  <CheckIcon size={20} testID="stats-subject-color-picker-check-icon" />
+                </Pressable>
+              </View>
+              <View style={styles.colorPickerGrid} testID="stats-subject-color-grid">
+                {SUBJECT_COLOR_PICKER_ROWS.map((rowColors, rowIndex) => (
+                  <View
+                    key={rowColors.join('-')}
+                    style={[
+                      styles.colorPickerRow,
+                      rowIndex > 0 ? styles.colorPickerLowerRow : null,
+                    ]}
+                    testID={`stats-subject-color-row-${rowIndex}`}
+                  >
+                    {rowColors.map((paletteColor, columnIndex) => {
+                      const index = rowIndex * SUBJECT_COLOR_PICKER_COLUMN_COUNT + columnIndex;
 
-                    return (
-                      <Pressable
-                        key={paletteColor}
-                        accessibilityRole="button"
-                        accessibilityLabel={`色${index + 1}`}
-                        onPress={() =>
-                          setDraftColor((currentColor) =>
-                            currentColor === paletteColor ? null : paletteColor,
-                          )
-                        }
-                        style={[styles.colorPickerSwatch, { backgroundColor: paletteColor }]}
-                        testID={`stats-subject-color-swatch-${index}`}
-                      >
-                        {draftColor === paletteColor ? (
-                          <Image
-                            source={COLOR_PICKER_CHECK_ICON}
-                            style={styles.colorPickerSwatchCheck}
-                            testID={`stats-subject-color-swatch-check-${index}`}
-                          />
-                        ) : null}
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              ))}
+                      return (
+                        <Pressable
+                          key={paletteColor}
+                          accessibilityRole="button"
+                          accessibilityLabel={`色${index + 1}`}
+                          onPress={() =>
+                            setDraftColor((currentColor) =>
+                              currentColor === paletteColor ? null : paletteColor,
+                            )
+                          }
+                          style={[styles.colorPickerSwatch, { backgroundColor: paletteColor }]}
+                          testID={`stats-subject-color-swatch-${index}`}
+                        >
+                          {draftColor === paletteColor ? (
+                            <Image
+                              source={COLOR_PICKER_CHECK_ICON}
+                              style={styles.colorPickerSwatchCheck}
+                              testID={`stats-subject-color-swatch-check-${index}`}
+                            />
+                          ) : null}
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ))}
+              </View>
             </View>
-          </View>
+          </>
         ) : null}
       </SafeAreaView>
     </View>
@@ -1475,7 +1490,13 @@ function HistoryDetailSheet({
                     style={styles.historySheetNewSubjectIcon}
                     testID="stats-history-sheet-new-subject-plus-icon"
                   />
-                  <SizableText style={styles.historySheetNewSubjectText}>
+                  <SizableText
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.82}
+                    numberOfLines={1}
+                    style={styles.historySheetNewSubjectText}
+                    testID="stats-history-sheet-subject-picker-new-text"
+                  >
                     教科を追加する
                   </SizableText>
                 </Pressable>
@@ -2746,8 +2767,8 @@ const styles = StyleSheet.create({
   historySheetPanel: {
     width: '100%',
     maxWidth: 430,
-    height: '67%',
-    maxHeight: '69%',
+    height: HISTORY_SHEET_HEIGHT,
+    maxHeight: HISTORY_SHEET_MAX_HEIGHT,
     alignSelf: 'center',
     borderTopLeftRadius: HISTORY_SHEET_TOP_RADIUS,
     borderTopRightRadius: HISTORY_SHEET_TOP_RADIUS,
@@ -2861,9 +2882,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   historySheetNewSubjectButton: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    marginRight: 8,
     transform: [{ translateY: 2 }],
   },
   historySheetNewSubjectIcon: {
@@ -2872,6 +2896,7 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
   },
   historySheetNewSubjectText: {
+    flexShrink: 1,
     color: '#8A8A8A',
     fontSize: 17,
     fontWeight: '500',
@@ -3145,10 +3170,10 @@ const styles = StyleSheet.create({
   newSubjectSaveButton: {
     position: 'absolute',
     left: 55,
-    right: 55,
+    right: 43,
     bottom: 72,
     height: 56,
-    borderRadius: 28,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#4B5CFF',
@@ -3164,8 +3189,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 0,
-    minHeight: 418,
+    bottom: COLOR_PICKER_SHEET_BOTTOM_OFFSET,
+    height: COLOR_PICKER_SHEET_HEIGHT,
+    maxHeight: COLOR_PICKER_SHEET_MAX_HEIGHT,
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
     borderWidth: 1,
@@ -3177,6 +3203,16 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: -3 },
     elevation: 44,
+  },
+  colorPickerBottomFill: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: COLOR_PICKER_SHEET_BOTTOM_OFFSET,
+    backgroundColor: '#FFFFFF',
+    zIndex: 43,
+    elevation: 43,
   },
   colorPickerHeader: {
     height: 58,
@@ -3202,9 +3238,9 @@ const styles = StyleSheet.create({
   },
   colorPickerTitle: {
     color: '#111111',
-    fontSize: 14,
-    fontWeight: '800',
-    lineHeight: 20,
+    fontSize: 16,
+    fontWeight: '600',
+    lineHeight: 22,
     marginTop: SUBJECT_COLOR_PICKER_HEADER_TITLE_MARGIN_TOP,
   },
   colorPickerConfirmButton: {
@@ -3228,10 +3264,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: SUBJECT_COLOR_PICKER_COLUMN_GAP,
   },
+  colorPickerLowerRow: {
+    marginTop: 6,
+  },
   colorPickerSwatch: {
     width: SUBJECT_COLOR_PICKER_SWATCH_SIZE,
     height: SUBJECT_COLOR_PICKER_SWATCH_SIZE,
-    borderRadius: 3,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
