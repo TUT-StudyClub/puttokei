@@ -1018,6 +1018,15 @@ describe('StatsScreen', () => {
     const monthCalendarGridStyle = StyleSheet.flatten(
       getByTestId('month-calendar-grid').props.style,
     );
+    const monthCalendarGridWrapStyle = StyleSheet.flatten(
+      getByTestId('month-calendar-grid-wrap').props.style,
+    );
+    const monthCalendarPrevStyle = StyleSheet.flatten(
+      getByTestId('month-calendar-prev').props.style,
+    );
+    const monthCalendarNextStyle = StyleSheet.flatten(
+      getByTestId('month-calendar-next').props.style,
+    );
     const monthDayStyle = StyleSheet.flatten(
       getByTestId('month-day-2026-04-05-single').props.style,
     );
@@ -1027,17 +1036,63 @@ describe('StatsScreen', () => {
     const studiedMonthDayTextStyle = StyleSheet.flatten(
       getByTestId('month-day-2026-04-05-text').props.style,
     );
+    const streakMonthDayMarkerStyle = StyleSheet.flatten(
+      getByTestId('month-day-2026-04-08-marker').props.style,
+    );
     const futureMonthDayTextStyle = StyleSheet.flatten(
       getByTestId('month-day-2026-04-30-text').props.style,
     );
+    const monthlyHighlightTitleRowStyle = StyleSheet.flatten(
+      getByTestId('stats-monthly-highlight-title-row').props.style,
+    );
+    const monthlyHighlightCardStyle = StyleSheet.flatten(
+      getByTestId('monthly-highlight-card').props.style,
+    );
+    const monthlyHighlightTitleStyle = StyleSheet.flatten(
+      getByText('今月のハイライト').props.style,
+    );
+    const monthlyTotalDaysLabelStyle = StyleSheet.flatten(getByText('合計日数').props.style);
+    const monthlyTotalDaysValueRowStyle = StyleSheet.flatten(
+      getByTestId('monthly-total-days-value-row').props.style,
+    );
+    const monthlyTotalDaysNumberStyle = StyleSheet.flatten(
+      getByTestId('monthly-total-days-number').props.style,
+    );
+    const monthlyLongestStreakLabelStyle = StyleSheet.flatten(
+      getByText('最高連続日数').props.style,
+    );
+    const monthlyLongestStreakLabelOffsetStyle = StyleSheet.flatten(
+      getByTestId('monthly-longest-streak-label-offset').props.style,
+    );
+    const monthlyLongestStreakValueRowStyle = StyleSheet.flatten(
+      getByTestId('monthly-longest-streak-value-row').props.style,
+    );
+    const monthlyLongestStreakNumberStyle = StyleSheet.flatten(
+      getByTestId('monthly-longest-streak-number').props.style,
+    );
     expect(monthCalendarRootStyle.width).toBe('100%');
     expect(monthCalendarGridStyle.width).toBe('100%');
+    expect(monthCalendarGridWrapStyle.height).toBe(264);
+    expect(monthCalendarPrevStyle.left).toBe(-38);
+    expect(monthCalendarPrevStyle.top).toBe(57);
+    expect(monthCalendarNextStyle.right).toBe(-38);
+    expect(monthCalendarNextStyle.top).toBe(57);
     expect(monthDayStyle.flex).toBe(1);
     expect(monthDayStyle.width).toBeUndefined();
+    expect(monthDayStyle.height).toBe(42);
     expect(calendarWeekdayTextStyle.fontFamily).toBe('HiraginoSans-W6');
+    expect(calendarWeekdayTextStyle.fontSize).toBe(14);
+    expect(calendarWeekdayTextStyle.fontWeight).toBe('700');
+    expect(calendarWeekdayTextStyle.lineHeight).toBe(19);
+    expect(calendarWeekdayTextStyle.transform).toEqual([{ translateY: -10 }]);
     expect(calendarWeekdayTextStyle.color).toBe('#333333');
     expect(studiedMonthDayTextStyle.fontFamily).toBe('HiraginoSans-W6');
+    expect(studiedMonthDayTextStyle.fontSize).toBe(17);
+    expect(studiedMonthDayTextStyle.fontWeight).toBe('700');
+    expect(studiedMonthDayTextStyle.lineHeight).toBe(23);
+    expect(studiedMonthDayTextStyle.transform).toBeUndefined();
     expect(studiedMonthDayTextStyle.color).toBe('#5367FF');
+    expect(streakMonthDayMarkerStyle.transform).toEqual([{ translateY: -5 }]);
     expect(futureMonthDayTextStyle.color).toBe('#CFCFCF');
     expect(getByTestId('month-day-2026-04-05-single')).toBeTruthy();
     expect(getByTestId('month-day-2026-04-08-streak')).toBeTruthy();
@@ -1046,8 +1101,50 @@ describe('StatsScreen', () => {
     expect(getByTestId('month-day-2026-04-13-streak')).toBeTruthy();
     expect(getByTestId('monthly-highlight-card')).toBeTruthy();
     expect(getByText('今月のハイライト')).toBeTruthy();
+    expect(monthlyHighlightTitleStyle.fontSize).toBe(17);
+    expect(monthlyHighlightTitleStyle.fontWeight).toBe('700');
+    expect(monthlyHighlightTitleStyle.lineHeight).toBe(23);
+    expect(monthlyHighlightTitleRowStyle.marginTop).toBe(22);
+    expect(monthlyHighlightCardStyle.width).toBe('89%');
+    expect(monthlyHighlightCardStyle.maxWidth).toBe(302);
+    expect(monthlyHighlightCardStyle.alignSelf).toBe('center');
+    expect(monthlyHighlightCardStyle.transform).toBeUndefined();
     expect(getByText('合計日数')).toBeTruthy();
+    expect(monthlyTotalDaysLabelStyle.fontSize).toBe(17);
+    expect(monthlyTotalDaysLabelStyle.fontWeight).toBe('bold');
+    expect(monthlyTotalDaysLabelStyle.lineHeight).toBe(24);
+    expect(monthlyTotalDaysLabelStyle.transform).toEqual([{ translateY: -2 }, { translateX: 3 }]);
+    expect(monthlyTotalDaysValueRowStyle.transform).toEqual([
+      { translateY: -3 },
+      { translateX: 3 },
+    ]);
+    expect(getByTestId('monthly-total-days-number')).toBeTruthy();
+    expect(monthlyTotalDaysNumberStyle.fontFamily).toBe('HiraginoSans-W7');
+    expect(monthlyTotalDaysNumberStyle.fontWeight).toBe('700');
+    expect(monthlyTotalDaysNumberStyle.textShadowColor).toBe('#333333');
+    expect(monthlyTotalDaysNumberStyle.textShadowOffset).toEqual({ width: 0.7, height: 0 });
+    expect(monthlyTotalDaysNumberStyle.textShadowRadius).toBe(0);
+    expect(getByTestId('monthly-total-days-unit')).toBeTruthy();
     expect(getByText('最高連続日数')).toBeTruthy();
+    expect(monthlyLongestStreakLabelStyle.fontSize).toBe(18);
+    expect(monthlyLongestStreakLabelStyle.fontWeight).toBe('bold');
+    expect(monthlyLongestStreakLabelStyle.lineHeight).toBe(25);
+    expect(monthlyLongestStreakLabelStyle.transform).toBeUndefined();
+    expect(monthlyLongestStreakLabelOffsetStyle.transform).toEqual([
+      { translateY: 8 },
+      { translateX: 3 },
+    ]);
+    expect(monthlyLongestStreakValueRowStyle.transform).toEqual([
+      { translateY: 7 },
+      { translateX: 3 },
+    ]);
+    expect(monthlyLongestStreakNumberStyle.fontFamily).toBe('HiraginoSans-W7');
+    expect(monthlyLongestStreakNumberStyle.fontWeight).toBe('700');
+    expect(monthlyLongestStreakNumberStyle.textShadowColor).toBe('#333333');
+    expect(monthlyLongestStreakNumberStyle.textShadowOffset).toEqual({ width: 0.7, height: 0 });
+    expect(monthlyLongestStreakNumberStyle.textShadowRadius).toBe(0);
+    expect(monthlyLongestStreakNumberStyle.transform).toEqual([{ translateY: 2 }]);
+    expect(getByTestId('monthly-longest-streak-unit')).toBeTruthy();
   });
 
   it('月間カレンダーの日付セルをタップするとその日の日別サマリーに戻る', async () => {

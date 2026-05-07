@@ -162,10 +162,21 @@ type WeeklyBarSegment = {
   color: string | null;
 };
 
-const MONTH_DAY_SLOT_HEIGHT = 38;
+const MONTH_DAY_SLOT_HEIGHT = 42;
 const MONTH_DAY_ROW_GAP = 2;
+const MONTH_CALENDAR_ROW_COUNT = 6;
+const MONTH_CALENDAR_GRID_HEIGHT =
+  MONTH_CALENDAR_ROW_COUNT * (MONTH_DAY_SLOT_HEIGHT + MONTH_DAY_ROW_GAP);
 const MONTH_CALENDAR_ARROW_HEIGHT = 58;
-const MONTH_CALENDAR_ARROW_OUTSET = 22;
+const MONTH_CALENDAR_ARROW_OUTSET = 38;
+const MONTH_CALENDAR_ARROW_TOP_OFFSET = -24;
+const MONTHLY_HIGHLIGHT_NUMBER_EMBOLDEN_STYLE: TextStyle = {
+  fontFamily: 'HiraginoSans-W7',
+  fontWeight: '700',
+  textShadowColor: '#333333',
+  textShadowOffset: { width: 0.7, height: 0 },
+  textShadowRadius: 0,
+};
 const WEEKLY_CHART_HEIGHT = 330;
 const WEEKLY_CHART_AXIS_Y = 288;
 const FIXED_HEADER_HORIZONTAL_PADDING = 24;
@@ -828,14 +839,14 @@ function MonthlyCalendar({
           </View>
         ))}
       </View>
-      <View style={styles.monthCalendarGridWrap}>
+      <View style={styles.monthCalendarGridWrap} testID="month-calendar-grid-wrap">
         <Pressable
           accessibilityRole="button"
           onPress={() => onMonthChange(addMonthsToMonthStartKey(monthStart, -1))}
           style={[
             styles.monthCalendarArrow,
             styles.monthCalendarArrowLeft,
-            { top: monthCalendarArrowTop },
+            { top: monthCalendarArrowTop + MONTH_CALENDAR_ARROW_TOP_OFFSET },
           ]}
           testID="month-calendar-prev"
         >
@@ -888,6 +899,7 @@ function MonthlyCalendar({
                           : null,
                         isStreakDay && !hasNextInlineStudied ? styles.monthDayStreakEnd : null,
                       ]}
+                      testID={`month-day-${dateKey}-marker`}
                     >
                       <SizableText
                         style={[
@@ -912,7 +924,7 @@ function MonthlyCalendar({
           style={[
             styles.monthCalendarArrow,
             styles.monthCalendarArrowRight,
-            { top: monthCalendarArrowTop },
+            { top: monthCalendarArrowTop + MONTH_CALENDAR_ARROW_TOP_OFFSET },
           ]}
           testID="month-calendar-next"
         >
@@ -936,32 +948,68 @@ function MonthlyHighlightCard({
   );
 
   return (
-    <ImageBackground
-      source={MONTHLY_HIGHLIGHT_BACKGROUND}
-      resizeMode="stretch"
-      style={styles.monthlyHighlightCard}
-      imageStyle={styles.monthlyHighlightBackground}
-      testID="monthly-highlight-card"
-    >
-      <View style={styles.monthlyHighlightContent}>
-        <View style={styles.monthlyHighlightMetric}>
-          <SizableText style={styles.monthlyHighlightLabel}>合計日数</SizableText>
-          <View style={styles.monthlyHighlightValueRow}>
-            <SizableText style={styles.monthlyHighlightNumber}>{summary.totalDays}</SizableText>
-            <SizableText style={styles.monthlyHighlightUnit}>日</SizableText>
-          </View>
-        </View>
-        <View style={styles.monthlyHighlightMetric}>
-          <SizableText style={styles.monthlyHighlightLabel}>最高連続日数</SizableText>
-          <View style={styles.monthlyHighlightValueRow}>
-            <SizableText style={styles.monthlyHighlightNumber}>
-              {summary.longestStreakDays}
+    <View style={styles.monthlyHighlightCard} testID="monthly-highlight-card">
+      <ImageBackground
+        source={MONTHLY_HIGHLIGHT_BACKGROUND}
+        resizeMode="stretch"
+        style={styles.monthlyHighlightImage}
+        imageStyle={styles.monthlyHighlightBackground}
+      >
+        <View style={styles.monthlyHighlightContent}>
+          <View style={styles.monthlyHighlightMetric}>
+            <SizableText style={[styles.monthlyHighlightLabel, styles.monthlyTotalDaysLabel]}>
+              合計日数
             </SizableText>
-            <SizableText style={styles.monthlyHighlightUnit}>日</SizableText>
+            <View
+              style={[styles.monthlyHighlightValueRow, styles.monthlyTotalDaysValueRow]}
+              testID="monthly-total-days-value-row"
+            >
+              <SizableText
+                style={[styles.monthlyHighlightNumber, styles.monthlyTotalDaysNumber]}
+                testID="monthly-total-days-number"
+              >
+                {summary.totalDays}
+              </SizableText>
+              <SizableText
+                style={[styles.monthlyHighlightUnit, styles.monthlyHighlightUnitOffset]}
+                testID="monthly-total-days-unit"
+              >
+                日
+              </SizableText>
+            </View>
+          </View>
+          <View style={styles.monthlyHighlightMetric}>
+            <View
+              style={styles.monthlyLongestStreakLabelOffset}
+              testID="monthly-longest-streak-label-offset"
+            >
+              <SizableText
+                style={[styles.monthlyHighlightLabel, styles.monthlyLongestStreakLabel]}
+              >
+                最高連続日数
+              </SizableText>
+            </View>
+            <View
+              style={[styles.monthlyHighlightValueRow, styles.monthlyLongestStreakValueRow]}
+              testID="monthly-longest-streak-value-row"
+            >
+              <SizableText
+                style={[styles.monthlyHighlightNumber, styles.monthlyLongestStreakNumber]}
+                testID="monthly-longest-streak-number"
+              >
+                {summary.longestStreakDays}
+              </SizableText>
+              <SizableText
+                style={[styles.monthlyHighlightUnit, styles.monthlyHighlightUnitOffset]}
+                testID="monthly-longest-streak-unit"
+              >
+                日
+              </SizableText>
+            </View>
           </View>
         </View>
-      </View>
-    </ImageBackground>
+      </ImageBackground>
+    </View>
   );
 }
 
@@ -2079,9 +2127,10 @@ export function StatsScreen() {
           onMonthChange={setCalendarMonthStart}
           onDatePress={handleSelectMonthlyDate}
         />
-        <View style={styles.monthlyHighlightTitleRow}>
-          <SizableText style={styles.highlightTitle}>今月のハイライト</SizableText>
-          <ShareIconButton />
+        <View style={styles.monthlyHighlightTitleRow} testID="stats-monthly-highlight-title-row">
+          <SizableText style={[styles.highlightTitle, styles.monthlyHighlightTitle]}>
+            今月のハイライト
+          </SizableText>
         </View>
         <MonthlyHighlightCard reports={monthlyReports.reports} monthStart={calendarMonthStart} />
         {monthlyReports.isFetching ? (
@@ -2438,15 +2487,16 @@ const styles = StyleSheet.create({
   calendarWeekdayText: {
     color: '#333333',
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 15,
-    fontWeight: '600',
-    lineHeight: 20,
-    transform: [{ translateY: -9 }],
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 19,
+    transform: [{ translateY: -10 }],
   },
   monthCalendarGridWrap: {
     position: 'relative',
     alignSelf: 'stretch',
     width: '100%',
+    height: MONTH_CALENDAR_GRID_HEIGHT,
     marginTop: 10,
   },
   monthCalendarGrid: {
@@ -2480,9 +2530,10 @@ const styles = StyleSheet.create({
   },
   monthDayMarker: {
     width: '100%',
-    height: 36,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
+    transform: [{ translateY: -5 }],
   },
   monthDayStreakMarker: {
     backgroundColor: '#DDE5FF',
@@ -2501,9 +2552,9 @@ const styles = StyleSheet.create({
   monthDayText: {
     color: '#333333',
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 20,
-    fontWeight: '600',
-    lineHeight: 24,
+    fontSize: 17,
+    fontWeight: '700',
+    lineHeight: 23,
   },
   monthDayMutedText: {
     color: '#CFCFCF',
@@ -2543,6 +2594,11 @@ const styles = StyleSheet.create({
     paddingLeft: 0,
     transform: [{ translateX: DAILY_HIGHLIGHT_TITLE_TRANSLATE_X }],
   },
+  monthlyHighlightTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    lineHeight: 23,
+  },
   shareButton: {
     width: 30,
     height: 30,
@@ -2578,10 +2634,14 @@ const styles = StyleSheet.create({
     ],
   },
   monthlyHighlightCard: {
-    width: '96%',
-    maxWidth: 330,
-    aspectRatio: 1264 / 992,
+    width: '89%',
+    maxWidth: 302,
     alignSelf: 'center',
+    backgroundColor: 'transparent',
+  },
+  monthlyHighlightImage: {
+    width: '100%',
+    aspectRatio: 1264 / 992,
     backgroundColor: 'transparent',
   },
   monthlyHighlightBackground: {},
@@ -2599,9 +2659,19 @@ const styles = StyleSheet.create({
   },
   monthlyHighlightLabel: {
     color: '#333333',
-    fontSize: 15,
-    fontWeight: '800',
-    lineHeight: 22,
+    fontSize: 17,
+    fontWeight: 'bold',
+    lineHeight: 24,
+  },
+  monthlyTotalDaysLabel: {
+    transform: [{ translateY: -2 }, { translateX: 3 }],
+  },
+  monthlyLongestStreakLabel: {
+    fontSize: 18,
+    lineHeight: 25,
+  },
+  monthlyLongestStreakLabelOffset: {
+    transform: [{ translateY: 8 }, { translateX: 3 }],
   },
   monthlyHighlightValueRow: {
     flexDirection: 'row',
@@ -2610,17 +2680,38 @@ const styles = StyleSheet.create({
     gap: 4,
     marginTop: 4,
   },
+  monthlyTotalDaysValueRow: {
+    transform: [{ translateY: -3 }, { translateX: 3 }],
+  },
+  monthlyLongestStreakValueRow: {
+    transform: [{ translateY: 7 }, { translateX: 3 }],
+  },
   monthlyHighlightNumber: {
     color: '#333333',
     fontSize: 38,
     fontWeight: '900',
     lineHeight: 41,
   },
+  monthlyTotalDaysNumber: {
+    ...MONTHLY_HIGHLIGHT_NUMBER_EMBOLDEN_STYLE,
+  },
+  monthlyLongestStreakNumber: {
+    ...MONTHLY_HIGHLIGHT_NUMBER_EMBOLDEN_STYLE,
+    transform: [{ translateY: 2 }],
+  },
   monthlyHighlightUnit: {
     color: '#333333',
+    fontFamily: 'HiraginoSans-W6',
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '700',
     lineHeight: 32,
+  },
+  monthlyHighlightUnitOffset: {
+    fontWeight: '700',
+    textShadowColor: '#333333',
+    textShadowOffset: { width: 0.25, height: 0 },
+    textShadowRadius: 0,
+    transform: [{ translateY: 2 }],
   },
   highlightContent: {
     flex: 1,
