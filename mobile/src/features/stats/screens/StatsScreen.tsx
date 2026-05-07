@@ -983,9 +983,7 @@ function MonthlyHighlightCard({
               style={styles.monthlyLongestStreakLabelOffset}
               testID="monthly-longest-streak-label-offset"
             >
-              <SizableText
-                style={[styles.monthlyHighlightLabel, styles.monthlyLongestStreakLabel]}
-              >
+              <SizableText style={[styles.monthlyHighlightLabel, styles.monthlyLongestStreakLabel]}>
                 最高連続日数
               </SizableText>
             </View>
