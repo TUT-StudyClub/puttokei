@@ -861,7 +861,6 @@ function MonthlyCalendar({
                 const isStreakDay = isStudied && (hasPreviousStudied || hasNextStudied);
                 const isSingleStudiedDay = isStudied && !isStreakDay;
                 const isFuture = dateKey > todayKey;
-                const isToday = dateKey === todayKey;
                 const studiedTestSuffix = isStreakDay
                   ? 'streak'
                   : isSingleStudiedDay
@@ -888,7 +887,6 @@ function MonthlyCalendar({
                           ? styles.monthDayStreakMiddle
                           : null,
                         isStreakDay && !hasNextInlineStudied ? styles.monthDayStreakEnd : null,
-                        isToday ? styles.monthDayTodayMarker : null,
                       ]}
                     >
                       <SizableText
@@ -2424,6 +2422,7 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'stretch',
     marginTop: 18,
+    paddingHorizontal: 16,
   },
   calendarWeekdayRow: {
     flexDirection: 'row',
@@ -2440,8 +2439,9 @@ const styles = StyleSheet.create({
     color: '#333333',
     fontFamily: 'HiraginoSans-W6',
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '600',
     lineHeight: 20,
+    transform: [{ translateY: -9 }],
   },
   monthCalendarGridWrap: {
     position: 'relative',
@@ -2498,16 +2498,11 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 6,
     borderBottomRightRadius: 6,
   },
-  monthDayTodayMarker: {
-    borderWidth: 1.8,
-    borderColor: '#5367FF',
-    borderRadius: 6,
-  },
   monthDayText: {
     color: '#333333',
     fontFamily: 'HiraginoSans-W6',
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: '600',
     lineHeight: 24,
   },
   monthDayMutedText: {
