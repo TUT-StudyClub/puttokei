@@ -793,9 +793,7 @@ describe('StatsScreen', () => {
     const selectedSwatchCheck = getByTestId('stats-subject-color-swatch-check-1', {
       includeHiddenElements: true,
     });
-    const selectedSwatchCheckStyle = StyleSheet.flatten(
-      selectedSwatchCheck.props.style,
-    );
+    const selectedSwatchCheckStyle = StyleSheet.flatten(selectedSwatchCheck.props.style);
     const selectedSwatchCheckPath = getByTestId('stats-subject-color-swatch-check-1-path', {
       includeHiddenElements: true,
     });
