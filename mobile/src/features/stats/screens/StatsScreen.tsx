@@ -1674,6 +1674,7 @@ function OutputHistory({
     >
       {titleScrolls ? null : title}
       <ScrollView
+        nestedScrollEnabled
         style={styles.historyTableScroll}
         contentContainerStyle={[
           styles.historyTableScrollContent,
@@ -2063,6 +2064,7 @@ export function StatsScreen() {
           fallbackDateKey={dailyReportQuery.data.date}
           titleFrameStyle={dailyHighlightTextFrameStyle}
           cardFrameStyle={dailyHighlightViewFrameStyle}
+          titleScrolls
           onSelectItem={handleOpenHistorySheet}
         />
         {dailyReportQuery.isFetching ? (
@@ -3142,20 +3144,21 @@ const styles = StyleSheet.create({
   },
   newSubjectSaveButton: {
     position: 'absolute',
-    left: 39,
-    right: 39,
-    bottom: 56,
-    height: 40,
-    borderRadius: 14,
+    left: 55,
+    right: 55,
+    bottom: 72,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#4B5CFF',
   },
   newSubjectSaveText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 14,
     fontWeight: '700',
-    lineHeight: 16,
+    lineHeight: 18,
   },
   colorPickerSheet: {
     position: 'absolute',
@@ -3251,6 +3254,8 @@ const styles = StyleSheet.create({
   },
   historyPane: {
     flex: 1,
+    minHeight: 0,
+    overflow: 'hidden',
     backgroundColor: '#FFFFFF',
     paddingTop: 12,
     paddingHorizontal: 24,
@@ -3264,6 +3269,7 @@ const styles = StyleSheet.create({
   },
   historySection: {
     flex: 1,
+    minHeight: 0,
     marginTop: 4,
   },
   historySectionFixedTitle: {

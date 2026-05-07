@@ -330,7 +330,7 @@ describe('StatsScreen', () => {
         getByTestId('stats-output-history-title'),
         'stats-output-history-table-scroll',
       ),
-    ).toBe(false);
+    ).toBe(true);
     expect(getByTestId('stats-output-history-item-out-1')).toBeTruthy();
     expect(getByText('4月29日')).toBeTruthy();
     expect(getByText('09：35 - 10：00')).toBeTruthy();
@@ -1078,6 +1078,14 @@ describe('StatsScreen', () => {
     });
     expect(getByTestId('stats-weekly-chart')).toBeTruthy();
     expect(getByTestId('stats-weekly-calendar-graph-boundary')).toBeTruthy();
+    expect(getByTestId('stats-weekly-content').type).toBe('View');
+    expect(getByTestId('stats-output-history-table-scroll').type).toBe('RCTScrollView');
+    expect(getByTestId('stats-output-history-table-scroll').props.nestedScrollEnabled).toBe(true);
+    expect(StyleSheet.flatten(getByTestId('stats-weekly-content').props.style)).toMatchObject({
+      flex: 1,
+      minHeight: 0,
+      overflow: 'hidden',
+    });
     const selectedDateBackgroundStyle = StyleSheet.flatten(
       getByTestId('week-date-2026-04-29-studied-background').props.style,
     );
