@@ -16,7 +16,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "doctor": "expo-doctor",
-    "eas:build:ios:auto-submit": "node scripts/eas-build-ios-auto-submit.mjs"
+    "eas:build:ios:auto-submit": "node scripts/eas-build-ios-auto-submit.mjs",
+    "eas:submit:ios:latest": "node scripts/eas-submit-ios-latest.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "3.10.0",
