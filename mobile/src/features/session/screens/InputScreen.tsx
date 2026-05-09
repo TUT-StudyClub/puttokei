@@ -50,8 +50,8 @@ import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
 const CURRENT_PHASE: SessionPhase = 'input';
-const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
+const SCREEN_WIDTH = Dimensions.get('window').width;
 const POPOVER_WIDTH = 220;
 
 // 「今日のアウトプット」一覧で、スクロールせずに見せる最大行数。
@@ -196,22 +196,43 @@ type OutputDetailCardProps = {
   item: OutputReviewItem;
   onDismiss?: () => void;
   sheetPaddingBottom?: number;
+  contentAreaRef?: React.RefObject<View>;
 };
 
-function OutputDetailCard({ item, onDismiss, sheetPaddingBottom }: OutputDetailCardProps) {
+const FEEDBACK_INDICATOR_HEIGHT = 36;
+
+function OutputDetailCard({
+  item,
+  onDismiss,
+  sheetPaddingBottom,
+  contentAreaRef,
+}: OutputDetailCardProps) {
   const judgment = item.judgment;
   const corrections = useMemo(() => judgment?.corrections ?? [], [judgment?.corrections]);
   const [selectedCorrectionIndex, setSelectedCorrectionIndex] = useState<number | null>(null);
-  const [popoverCenterX, setPopoverCenterX] = useState(SCREEN_WIDTH / 2);
-  const [popoverTop, setPopoverTop] = useState(300);
   const [isImageExpanded, setIsImageExpanded] = useState(false);
-  const [isJudgmentCardOpen, setIsJudgmentCardOpen] = useState(false);
+  const feedbackScrollY = useRef(new Animated.Value(0)).current;
+  const [feedbackContentHeight, setFeedbackContentHeight] = useState(0);
+  const [feedbackPopoverHeight, setFeedbackPopoverHeight] = useState(0);
+  const [popoverCenterX, setPopoverCenterX] = useState(0);
+  const [popoverTop, setPopoverTop] = useState(0);
+  const imageExpandedContainerRef = useRef<View>(null);
+  const feedbackIndicatorTop = useMemo(
+    () =>
+      feedbackScrollY.interpolate({
+        inputRange: [0, Math.max(feedbackContentHeight - feedbackPopoverHeight, 1)],
+        outputRange: [4, Math.max(4, feedbackPopoverHeight - FEEDBACK_INDICATOR_HEIGHT - 4)],
+        extrapolate: 'clamp',
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [feedbackScrollY, feedbackContentHeight, feedbackPopoverHeight],
+  );
 
   useEffect(() => {
     setSelectedCorrectionIndex(null);
     setIsImageExpanded(false);
-    setIsJudgmentCardOpen(false);
-  }, [item.output.id]);
+    feedbackScrollY.setValue(0);
+  }, [item.output.id, feedbackScrollY]);
 
   const selectedCorrection =
     selectedCorrectionIndex !== null ? (corrections[selectedCorrectionIndex] ?? null) : null;
@@ -219,189 +240,209 @@ function OutputDetailCard({ item, onDismiss, sheetPaddingBottom }: OutputDetailC
   const handleSelectCorrection = (index: number, pageX?: number, pageY?: number) => {
     if (pageX === undefined && pageY === undefined) {
       setSelectedCorrectionIndex((current) => (current === index ? null : index));
-    } else {
-      if (pageX !== undefined) setPopoverCenterX(pageX);
-      if (pageY !== undefined) setPopoverTop(pageY + 5);
+    } else if (pageX !== undefined && pageY !== undefined) {
+      setPopoverCenterX(pageX);
+      setPopoverTop(Math.min(pageY + 8, SCREEN_HEIGHT - 190));
     }
   };
 
-  return (
-    <View style={styles.outputDetailContainer} testID="output-review-detail">
-      <View
-        style={[
-          styles.outputDetailSheet,
-          sheetPaddingBottom !== undefined ? { paddingBottom: sheetPaddingBottom } : null,
-        ]}
-      >
-        <Pressable onPress={onDismiss} hitSlop={12} style={styles.sheetHandle} />
-        {!isImageExpanded && (
-          <View style={styles.outputDetailHeader}>
-            <Text style={styles.outputDetailTitle}>サイクル{item.cycle_index}のアウトプット</Text>
-          </View>
-        )}
+  const handleAutoSelect = useCallback(
+    (index: number, relBboxCenterX: number, relBboxBottomY: number) => {
+      const containerEl = imageExpandedContainerRef.current;
+      const contentAreaEl = contentAreaRef?.current;
+      if (!containerEl || !contentAreaEl) {
+        setSelectedCorrectionIndex(index);
+        return;
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      containerEl.measureLayout(
+        contentAreaEl as any,
+        (containerLayoutX: number, containerLayoutY: number) => {
+          contentAreaEl.measureInWindow((caScreenX: number, caScreenY: number) => {
+            setSelectedCorrectionIndex(index);
+            setPopoverCenterX(caScreenX + containerLayoutX + relBboxCenterX);
+            setPopoverTop(
+              Math.min(caScreenY + containerLayoutY + relBboxBottomY + 13, SCREEN_HEIGHT - 190),
+            );
+          });
+        },
+        () => {
+          setSelectedCorrectionIndex(index);
+        },
+      );
+    },
+    [contentAreaRef],
+  );
 
-        {isImageExpanded && item.output.image_url ? (
-          <View style={styles.outputPreviewFrameExpanded}>
-            <Pressable
-              onPress={() => {
-                setIsImageExpanded(false);
-                setSelectedCorrectionIndex(null);
-                setIsJudgmentCardOpen(false);
-              }}
-              style={styles.imageExpandedBack}
-              hitSlop={12}
-            >
-              <ChevronLeftIcon />
-            </Pressable>
-            <View style={styles.imageExpandedContainer}>
-              <AnnotatedOutputImage
-                imageUrl={item.output.image_url}
-                corrections={corrections}
-                selectedCorrectionIndex={selectedCorrectionIndex}
-                onSelectCorrection={handleSelectCorrection}
-                autoHeight
-                testID="output-review-image"
-              />
+  const popoverLeftBound = isImageExpanded ? 59 : 36;
+  const popoverRightBound = isImageExpanded ? 342 : SCREEN_WIDTH - 36;
+  const popoverLeft = Math.max(
+    popoverLeftBound,
+    Math.min(popoverCenterX - POPOVER_WIDTH / 2, popoverRightBound - POPOVER_WIDTH),
+  );
+  const arrowMarginLeft = Math.max(
+    8,
+    Math.min(popoverCenterX - popoverLeft - 8, POPOVER_WIDTH - 24),
+  );
+
+  return (
+    <>
+      <View style={styles.outputDetailContainer} testID="output-review-detail">
+        <View
+          style={[
+            styles.outputDetailSheet,
+            sheetPaddingBottom !== undefined ? { paddingBottom: sheetPaddingBottom } : null,
+          ]}
+        >
+          <Pressable onPress={onDismiss} hitSlop={12} style={styles.sheetHandle} />
+          {!isImageExpanded && (
+            <View style={styles.outputDetailHeader}>
+              <Text style={styles.outputDetailTitle}>サイクル{item.cycle_index}のアウトプット</Text>
             </View>
-          </View>
-        ) : (
-          <View style={styles.outputPreviewFrame}>
-            <View style={styles.outputModeTabs}>
-              <View style={styles.outputModeTabFlex}>
-                <View
-                  style={
-                    item.output.kind === 'text' ? styles.outputModeTabActive : styles.outputModeTab
-                  }
-                >
-                  <PencilIcon
-                    color={item.output.kind === 'text' ? TEXT_ACTIVE : REVIEW_TEXT_MUTED}
-                    size={19}
-                  />
-                  <Text
+          )}
+
+          {isImageExpanded && item.output.image_url ? (
+            <View style={styles.outputPreviewFrameExpanded}>
+              <Pressable
+                onPress={() => {
+                  setIsImageExpanded(false);
+                  setSelectedCorrectionIndex(null);
+                }}
+                style={styles.imageExpandedBack}
+                hitSlop={12}
+              >
+                <ChevronLeftIcon />
+              </Pressable>
+              <View ref={imageExpandedContainerRef} style={styles.imageExpandedContainer}>
+                <AnnotatedOutputImage
+                  imageUrl={item.output.image_url}
+                  corrections={corrections}
+                  selectedCorrectionIndex={selectedCorrectionIndex}
+                  onSelectCorrection={handleSelectCorrection}
+                  autoHeight
+                  autoSelectIndex={corrections.length > 0 ? 0 : null}
+                  onAutoSelect={handleAutoSelect}
+                  testID="output-review-image"
+                />
+              </View>
+            </View>
+          ) : (
+            <View style={styles.outputPreviewFrame}>
+              <View style={styles.outputModeTabs}>
+                <View style={styles.outputModeTabFlex}>
+                  <View
                     style={
                       item.output.kind === 'text'
-                        ? styles.outputModeTabTextActive
-                        : styles.outputModeTabText
+                        ? styles.outputModeTabActive
+                        : styles.outputModeTab
                     }
                   >
-                    テキスト
-                  </Text>
+                    <PencilIcon
+                      color={item.output.kind === 'text' ? TEXT_ACTIVE : REVIEW_TEXT_MUTED}
+                      size={19}
+                    />
+                    <Text
+                      style={
+                        item.output.kind === 'text'
+                          ? styles.outputModeTabTextActive
+                          : styles.outputModeTabText
+                      }
+                    >
+                      テキスト
+                    </Text>
+                  </View>
                 </View>
-              </View>
-              <View style={styles.outputModeTabFlex}>
-                <View
-                  style={
-                    item.output.kind === 'image' ? styles.outputModeTabActive : styles.outputModeTab
-                  }
-                >
-                  <ImageIcon
-                    color={item.output.kind === 'image' ? TEXT_ACTIVE : REVIEW_TEXT_MUTED}
-                    size={19}
-                  />
-                  <Text
+                <View style={styles.outputModeTabFlex}>
+                  <View
                     style={
                       item.output.kind === 'image'
-                        ? styles.outputModeTabTextActive
-                        : styles.outputModeTabText
+                        ? styles.outputModeTabActive
+                        : styles.outputModeTab
                     }
                   >
-                    画像
-                  </Text>
+                    <ImageIcon
+                      color={item.output.kind === 'image' ? TEXT_ACTIVE : REVIEW_TEXT_MUTED}
+                      size={19}
+                    />
+                    <Text
+                      style={
+                        item.output.kind === 'image'
+                          ? styles.outputModeTabTextActive
+                          : styles.outputModeTabText
+                      }
+                    >
+                      画像
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.outputModeTabFlex}>
+                  <View style={styles.outputModeTab}>
+                    <MicIcon color={REVIEW_TEXT_MUTED} size={19} />
+                    <Text style={styles.outputModeTabText}>音声</Text>
+                  </View>
                 </View>
               </View>
-              <View style={styles.outputModeTabFlex}>
-                <View style={styles.outputModeTab}>
-                  <MicIcon color={REVIEW_TEXT_MUTED} size={19} />
-                  <Text style={styles.outputModeTabText}>音声</Text>
-                </View>
+
+              <View
+                style={[
+                  styles.outputContentBox,
+                  item.output.kind === 'image' ? { borderWidth: 0 } : null,
+                ]}
+              >
+                {item.output.kind === 'image' && item.output.image_url ? (
+                  <Pressable
+                    onPress={() => {
+                      setIsImageExpanded(true);
+                    }}
+                    style={styles.imageThumbnailWrapper}
+                  >
+                    <Image source={{ uri: item.output.image_url }} style={styles.imageThumbnail} />
+                  </Pressable>
+                ) : (
+                  <ScrollView
+                    nestedScrollEnabled
+                    contentContainerStyle={styles.outputContentScroll}
+                  >
+                    <AnnotatedOutputText
+                      content={item.output.content ?? ''}
+                      corrections={corrections}
+                      selectedCorrectionIndex={selectedCorrectionIndex}
+                      onSelectCorrection={handleSelectCorrection}
+                      textStyle={styles.outputContentText}
+                      testID="output-review-annotated-text"
+                    />
+                  </ScrollView>
+                )}
               </View>
             </View>
-
-            <View style={styles.outputContentBox}>
-              {item.output.kind === 'image' && item.output.image_url ? (
-                <Pressable
-                  onPress={() => {
-                    setIsImageExpanded(true);
-                    setIsJudgmentCardOpen(true);
-                    if (corrections.length > 0) setSelectedCorrectionIndex(0);
-                  }}
-                  style={styles.imageThumbnailWrapper}
-                >
-                  <Image source={{ uri: item.output.image_url }} style={styles.imageThumbnail} />
-                </Pressable>
-              ) : (
-                <ScrollView nestedScrollEnabled contentContainerStyle={styles.outputContentScroll}>
-                  <AnnotatedOutputText
-                    content={item.output.content ?? ''}
-                    corrections={corrections}
-                    selectedCorrectionIndex={selectedCorrectionIndex}
-                    onSelectCorrection={handleSelectCorrection}
-                    textStyle={styles.outputContentText}
-                    testID="output-review-annotated-text"
-                  />
-                </ScrollView>
-              )}
-            </View>
-          </View>
-        )}
-
-        <Modal
-          animationType="none"
-          onRequestClose={() => {
-            setSelectedCorrectionIndex(null);
-            setIsJudgmentCardOpen(false);
-          }}
-          transparent
-          visible={!!selectedCorrection || isJudgmentCardOpen}
-          testID="output-review-correction-popover"
-        >
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => {
-              setSelectedCorrectionIndex(null);
-              setIsJudgmentCardOpen(false);
-            }}
-          />
+          )}
+        </View>
+      </View>
+      <Modal
+        visible={!!selectedCorrection}
+        transparent
+        animationType="none"
+        onRequestClose={() => setSelectedCorrectionIndex(null)}
+      >
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={() => setSelectedCorrectionIndex(null)}
+        />
+        {selectedCorrection && (
           <View
-            style={[
-              styles.feedbackPopoverWrapper,
-              {
-                top: popoverTop,
-                left: Math.max(
-                  10,
-                  Math.min(SCREEN_WIDTH - POPOVER_WIDTH - 10, popoverCenterX - POPOVER_WIDTH / 2),
-                ),
-              },
-            ]}
+            style={[styles.feedbackPopoverWrapper, { top: popoverTop, left: popoverLeft }]}
+            testID="output-review-correction-popover"
           >
+            <View style={[styles.feedbackPopoverArrow, { marginLeft: arrowMarginLeft }]} />
             <View
-              style={[
-                styles.feedbackPopoverArrow,
-                {
-                  marginLeft: Math.max(
-                    9,
-                    popoverCenterX -
-                      Math.max(
-                        10,
-                        Math.min(
-                          SCREEN_WIDTH - POPOVER_WIDTH - 10,
-                          popoverCenterX - POPOVER_WIDTH / 2,
-                        ),
-                      ) -
-                      9,
-                  ),
-                },
-              ]}
-            />
-            <View style={styles.feedbackPopover}>
+              style={styles.feedbackPopover}
+              onLayout={(e) => setFeedbackPopoverHeight(e.nativeEvent.layout.height)}
+            >
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="解説を閉じる"
                 hitSlop={8}
-                onPress={() => {
-                  setSelectedCorrectionIndex(null);
-                  setIsJudgmentCardOpen(false);
-                }}
+                onPress={() => setSelectedCorrectionIndex(null)}
                 style={({ pressed }) => [
                   styles.feedbackPopoverClose,
                   pressed ? styles.feedbackPopoverClosePressed : null,
@@ -420,33 +461,35 @@ function OutputDetailCard({ item, onDismiss, sheetPaddingBottom }: OutputDetailC
               <ScrollView
                 style={styles.feedbackPopoverScroll}
                 contentContainerStyle={styles.feedbackPopoverScrollContent}
-                showsVerticalScrollIndicator
-              >
-                {selectedCorrection ? (
-                  <>
-                    <SizableText style={styles.feedbackHeading}>正解</SizableText>
-                    <SizableText style={styles.feedbackCorrect}>
-                      {selectedCorrection.correct_text}
-                    </SizableText>
-                    <SizableText style={styles.feedbackHeading}>解説</SizableText>
-                    <SizableText style={styles.feedbackBody}>
-                      {selectedCorrection.explanation}
-                    </SizableText>
-                  </>
-                ) : judgment ? (
-                  <>
-                    <SizableText style={styles.feedbackHeading}>アドバイス</SizableText>
-                    <SizableText style={styles.feedbackBody}>{judgment.advice}</SizableText>
-                  </>
-                ) : (
-                  <SizableText style={styles.feedbackBody}>判定中...</SizableText>
+                nestedScrollEnabled
+                showsVerticalScrollIndicator={false}
+                scrollEventThrottle={16}
+                onScroll={Animated.event(
+                  [{ nativeEvent: { contentOffset: { y: feedbackScrollY } } }],
+                  { useNativeDriver: false },
                 )}
+                onContentSizeChange={(_, h) => setFeedbackContentHeight(h)}
+              >
+                <SizableText style={styles.feedbackHeading}>正解</SizableText>
+                <SizableText style={styles.feedbackCorrect}>
+                  {selectedCorrection.correct_text}
+                </SizableText>
+                <SizableText style={styles.feedbackHeading}>解説</SizableText>
+                <SizableText style={styles.feedbackBody}>
+                  {selectedCorrection.explanation}
+                </SizableText>
               </ScrollView>
+              {feedbackContentHeight > feedbackPopoverHeight && (
+                <Animated.View
+                  pointerEvents="none"
+                  style={[styles.feedbackScrollIndicator, { top: feedbackIndicatorTop }]}
+                />
+              )}
             </View>
           </View>
-        </Modal>
-      </View>
-    </View>
+        )}
+      </Modal>
+    </>
   );
 }
 
@@ -458,6 +501,7 @@ export function InputScreen() {
   const outputMinutes = Number(params.output) || DEFAULT_TIMER.output_minutes;
   const breakMinutes = Number(params.break) || DEFAULT_TIMER.break_minutes;
 
+  const contentAreaRef = useRef<View>(null);
   const router = useRouter();
   const isFocused = useIsFocused();
   const updateStatus = useUpdateSessionStatus();
@@ -486,6 +530,7 @@ export function InputScreen() {
   // カード出現時の初期ジャンプを防ぐため 1 で初期化し、
   // パンジェスチャーでカードを下げたときだけ段階的に拡大する。
   const timerScaleAnim = useRef(new Animated.Value(1)).current;
+  const timerCompactOpacity = useRef(new Animated.Value(1)).current;
   // scale 拡大と同時に下方向へ移動させる。
   // compact 中心(78px) → non-compact 中心(145px) の差分 67px 分だけ下げることで、
   // dismiss 完了時に non-compact タイマーの位置にぴったり繋がる。
@@ -498,7 +543,6 @@ export function InputScreen() {
       }),
     [timerScaleAnim],
   );
-
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (evt, gs) =>
@@ -511,21 +555,19 @@ export function InputScreen() {
       },
       onPanResponderRelease: (_, gs) => {
         if (gs.dy > 80 || gs.vy > 0.8) {
-          Animated.parallel([
-            Animated.timing(slideAnim, {
-              toValue: SCREEN_HEIGHT,
-              duration: 280,
-              easing: Easing.in(Easing.cubic),
-              useNativeDriver: true,
-            }),
-            Animated.timing(timerScaleAnim, {
-              toValue: 290 / 156,
-              duration: 280,
-              easing: Easing.in(Easing.cubic),
-              useNativeDriver: true,
-            }),
-          ]).start(() => {
+          Animated.timing(slideAnim, {
+            toValue: SCREEN_HEIGHT,
+            duration: 280,
+            easing: Easing.in(Easing.cubic),
+            useNativeDriver: true,
+          }).start(() => {
             slideAnim.setValue(SCREEN_HEIGHT);
+            timerCompactOpacity.setValue(0);
+            LayoutAnimation.configureNext({
+              duration: 220,
+              create: { type: 'easeInEaseOut', property: 'opacity' },
+              update: { type: 'easeInEaseOut' },
+            });
             setSelectedOutputId(null);
           });
         } else {
@@ -540,7 +582,7 @@ export function InputScreen() {
               toValue: 1,
               duration: 200,
               easing: Easing.out(Easing.cubic),
-              useNativeDriver: true,
+              useNativeDriver: false,
             }),
           ]).start();
         }
@@ -560,18 +602,24 @@ export function InputScreen() {
         toValue: 290 / 156,
         duration: 280,
         easing: Easing.in(Easing.cubic),
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
     ]).start(() => {
       slideAnim.setValue(SCREEN_HEIGHT);
+      timerCompactOpacity.setValue(0);
+      LayoutAnimation.configureNext({
+        duration: 220,
+        create: { type: 'easeInEaseOut', property: 'opacity' },
+        update: { type: 'easeInEaseOut' },
+      });
       setSelectedOutputId(null);
-      // timerScaleAnim は次の選択時の useEffect でリセットする
     });
-  }, [slideAnim, timerScaleAnim]);
+  }, [slideAnim, timerScaleAnim, timerCompactOpacity]);
 
   useEffect(() => {
     if (selectedOutputId) {
       timerScaleAnim.setValue(1);
+      timerCompactOpacity.setValue(1);
       slideAnim.setValue(SCREEN_HEIGHT);
       Animated.timing(slideAnim, {
         toValue: 0,
@@ -580,7 +628,7 @@ export function InputScreen() {
         useNativeDriver: true,
       }).start();
     }
-  }, [selectedOutputId, slideAnim, timerScaleAnim]);
+  }, [selectedOutputId, slideAnim, timerScaleAnim, timerCompactOpacity]);
   const hourglassSandProgress =
     totalSeconds > 0 ? Math.min(1, Math.max(0, smoothRemainingSeconds / totalSeconds)) : 1;
   // 砂時計の積層: 下から青(input) → ピンク(output) → 白(break)。
@@ -701,7 +749,10 @@ export function InputScreen() {
           }}
         />
 
-        <View style={[styles.contentArea, isDetailVisible ? styles.contentAreaDetail : null]}>
+        <View
+          ref={contentAreaRef}
+          style={[styles.contentArea, isDetailVisible ? styles.contentAreaDetail : null]}
+        >
           <View
             style={[
               styles.timerStage,
@@ -712,6 +763,8 @@ export function InputScreen() {
               <Animated.View
                 style={{
                   transform: [{ scale: timerScaleAnim }, { translateY: timerTranslateYAnim }],
+                  opacity: timerCompactOpacity,
+                  marginTop: -1,
                 }}
               >
                 <CircularPhaseTimer
@@ -720,9 +773,10 @@ export function InputScreen() {
                   trackColor="#E9F9FF"
                   testID="input-circular-timer"
                   compact
+                  strokeWidth={9}
                   enabled={isFocused}
-                  timerTextStyle={styles.inputTimerText}
-                  phaseLabelStyle={{ transform: [{ translateY: -2 }] }}
+                  timerTextStyle={{ transform: [{ translateY: -2.45 }], fontSize: 30 }}
+                  phaseLabelStyle={{ transform: [{ translateY: -2.05 }] }}
                 />
               </Animated.View>
             ) : (
@@ -753,6 +807,7 @@ export function InputScreen() {
                 item={selectedOutput}
                 onDismiss={dismissDetail}
                 sheetPaddingBottom={insets.bottom + 104}
+                contentAreaRef={contentAreaRef}
               />
             </Animated.View>
           ) : (
@@ -822,8 +877,7 @@ const styles = StyleSheet.create({
   },
   contentAreaDetail: {
     top: '7.5%',
-    paddingLeft: 5,
-    paddingRight: 8,
+    paddingHorizontal: 0,
     paddingBottom: 0,
   },
   outputDetailAnimWrapper: {
@@ -1015,20 +1069,17 @@ const styles = StyleSheet.create({
   feedbackPopoverArrow: {
     width: 0,
     height: 0,
-    borderLeftWidth: 9,
-    borderRightWidth: 9,
-    borderBottomWidth: 10,
+    borderLeftWidth: 8,
+    borderRightWidth: 8,
+    borderBottomWidth: 8,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
     borderBottomColor: '#333333',
-    marginLeft: 16,
+    alignSelf: 'flex-start',
   },
   feedbackPopover: {
     height: 160,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
+    borderRadius: 12,
     backgroundColor: '#333333',
     overflow: 'hidden',
   },
@@ -1036,9 +1087,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   feedbackPopoverScrollContent: {
-    paddingHorizontal: 14,
-    paddingTop: 36,
+    paddingTop: 23,
+    paddingRight: 14,
     paddingBottom: 16,
+    paddingLeft: 20,
   },
   feedbackPopoverClose: {
     position: 'absolute',
@@ -1070,17 +1122,25 @@ const styles = StyleSheet.create({
   },
   feedbackCorrect: {
     color: '#FFFFFF',
+    fontFamily: 'HiraginoSans-W3',
     fontSize: 12,
-    fontWeight: '700',
     lineHeight: 18,
     marginBottom: 10,
   },
   feedbackBody: {
     color: '#FFFFFF',
+    fontFamily: 'HiraginoSans-W3',
     fontSize: 12,
-    fontWeight: '600',
     lineHeight: 18,
     marginBottom: 4,
+  },
+  feedbackScrollIndicator: {
+    position: 'absolute',
+    right: 3,
+    width: 3,
+    height: FEEDBACK_INDICATOR_HEIGHT,
+    borderRadius: 1.5,
+    backgroundColor: '#FFFFFF',
   },
   imageThumbnailWrapper: {
     padding: 12,
