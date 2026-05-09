@@ -10,6 +10,7 @@ from tests.fakes.fake_judgment_progress_repository import FakeJudgmentProgressRe
 from tests.fakes.fake_judgment_repository import FakeJudgmentRepository
 from tests.fakes.fake_output_repository import FakeOutputRepository
 from tests.fakes.fake_session_repository import FakeSessionRepository
+from tests.fakes.fake_stats_repository import FakeStatsRepository
 from tests.fakes.fake_study_subject_repository import FakeStudySubjectRepository
 from tests.fakes.fake_user_repository import FakeUserRepository
 
@@ -26,6 +27,7 @@ class FakeUnitOfWork(ApplicationUnitOfWork):
         study_subjects: FakeStudySubjectRepository | None = None,
         judgments: FakeJudgmentRepository | None = None,
         judgment_progresses: FakeJudgmentProgressRepository | None = None,
+        stats: FakeStatsRepository | None = None,
     ) -> None:
         self.users = users or FakeUserRepository()
         self.sessions = sessions or FakeSessionRepository()
@@ -33,6 +35,13 @@ class FakeUnitOfWork(ApplicationUnitOfWork):
         self.study_subjects = study_subjects or FakeStudySubjectRepository()
         self.judgments = judgments or FakeJudgmentRepository()
         self.judgment_progresses = judgment_progresses or FakeJudgmentProgressRepository()
+        self.judgments.bind_sessions(self.sessions)
+        self.stats = stats or FakeStatsRepository()
+        self.stats.bind_sources(
+            sessions=self.sessions,
+            outputs=self.outputs,
+            judgments=self.judgments,
+        )
         self.commit_count = 0
         self.rollback_count = 0
         self.enter_count = 0

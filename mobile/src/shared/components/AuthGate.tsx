@@ -3,7 +3,8 @@
  *
  * 1. チュートリアル未完了 → `/(auth)/overview` (uid の有無に関わらず最優先)
  * 2. チュートリアル完了 & 未認証 → `(tabs)` / `(auth)` 配下の滞在を許可、それ以外は overview へ
- * 3. チュートリアル完了 & 認証済 → `(auth)` から `(tabs)` へ
+ * 3. チュートリアル完了 & 正式認証済 → `(auth)` から `(tabs)` へ
+ *    匿名認証済の場合は、正式登録のため `(auth)` 滞在を許可する。
  *
  * チュートリアル完了フラグはメモリ内 (Zustand) に保持するため、
  * アプリを再起動するたびにチュートリアルが再表示される。
@@ -50,6 +51,7 @@ function resolveProfileErrorMessage(error: unknown): string {
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const uid = useAuthStore((s) => s.uid);
+  const isAnonymous = useAuthStore((s) => s.isAnonymous);
   const tutorialCompleted = useTutorialStore((s) => s.completed);
   const router = useRouter();
   const segments = useSegments() as string[];
@@ -94,11 +96,12 @@ export function AuthGate({ children }: { children: ReactNode }) {
       return;
     }
 
-    // 3. 認証済 & チュートリアル完了 → (auth) から (tabs) または許可済み returnTo へ抜けさせる。
-    if (topSegment === AUTH_SEGMENT) {
+    // 3. 正式認証済 & チュートリアル完了 → (auth) から (tabs) または許可済み returnTo へ抜けさせる。
+    // 匿名ユーザーは正式登録へ進めるよう (auth)/sign-in 滞在を許可する。
+    if (topSegment === AUTH_SEGMENT && !isAnonymous) {
       router.replace(resolveReturnTo(returnTo));
     }
-  }, [uid, tutorialCompleted, segments, router, returnTo]);
+  }, [uid, isAnonymous, tutorialCompleted, segments, router, returnTo]);
 
   useEffect(() => {
     hideSplashWhenReady();
@@ -122,7 +125,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  if (uid !== null && profileQuery.isError) {
+  if (uid !== null && !isAnonymous && profileQuery.isError) {
     return (
       <>
         <ProfileErrorScreen

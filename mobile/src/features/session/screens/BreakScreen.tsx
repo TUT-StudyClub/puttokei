@@ -13,12 +13,14 @@ import {
   Animated,
   Easing,
   type GestureResponderEvent,
+  Image,
   ImageBackground,
   type LayoutChangeEvent,
   PanResponder,
   Pressable,
   SafeAreaView,
   StyleSheet,
+  Text,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -54,6 +56,7 @@ import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
 const BREAK_COMPLETE_CARD_IMAGE = require('../../../../assets/images/illustrations/break_complete.png');
+const CHECK_ICON = require('../../../../assets/images/icons/check.png');
 // 画像本体 (1329x1857) のアスペクト比。card 全体をこの比率で配置する。
 const BREAK_COMPLETE_CARD_ASPECT_RATIO = 1329 / 1857;
 
@@ -72,16 +75,22 @@ const NEXT_CYCLE_ROTATION_SENSITIVITY = 1.25;
 const NEXT_CYCLE_PATH_ROTATION_DEGREES_PER_PIXEL = 1.15;
 const NEXT_CYCLE_MIN_ROTATION_RADIUS = 48;
 const NEXT_CYCLE_ROTATION_AREA_FALLBACK = { width: 320, height: 430 };
+const HOME_TIMER_CIRCLE_WIDTH_RATIO = 1 - 0.13 - 0.13;
+const HOME_TIMER_CIRCLE_STROKE_WIDTH = 11;
+const TIMER_STAGE_PADDING_TOP = 10;
+const TIMER_CAPTION_LINE_HEIGHT = 20;
 
 const CURRENT_PHASE: SessionPhase = 'break';
 
 // 休憩中はグレー、次サイクル準備ではインプットと同じブルーを使う。
-const BREAK_COLOR = '#9CA3AF';
+const BREAK_PHASE_TEXT_COLOR = '#676767';
+const BREAK_TIMER_COLOR = '#9D9D9D';
+const BREAK_TIMER_TRACK_COLOR = '#EFEFEF';
 const INPUT_COLOR = '#4B5CFF';
 const TEXT_ACTIVE = '#2F2F2F';
 const DOT_INACTIVE = '#D9D9D9';
 const BORDER_COLOR = '#E5E7EB';
-const CAPTION_COLOR = '#777777';
+const CAPTION_COLOR = '#9D9D9D';
 const ERROR_COLOR = '#D92D20';
 
 // 砂時計の砂積層に使う色。input=青 / output=ピンク / break=白。
@@ -105,12 +114,44 @@ const NEXT_CYCLE_FULL_SAND_LAYERS: readonly HourglassSandLayer[] = [
 ];
 
 // 下部の「採点進捗カード」用トークン。濃い背景に青いプログレスバーを乗せる。
-const PROGRESS_CARD_BG = '#2A2A2E';
+const PROGRESS_CARD_BG = '#363636';
 const PROGRESS_CARD_TEXT = '#FFFFFF';
 const PROGRESS_CARD_SUBTEXT = '#B5B7BC';
-const PROGRESS_TRACK_COLOR = '#4A4A50';
-const PROGRESS_FILL_COLOR = '#4B5CFF';
+const PROGRESS_READY_SUBTEXT = '#EFEFEF';
+const PROGRESS_BAR_OUTER_COLOR = '#EFEFEF';
+const PROGRESS_TRACK_COLOR = '#CDCDCD';
+const PROGRESS_FILL_COLOR = '#475FFF';
 const PROGRESS_STATUS_ERROR = '#FF6B6B';
+const PROGRESS_BAR_WIDTH = '86%';
+const PROGRESS_BAR_HEIGHT = 8;
+const PROGRESS_BAR_PADDING = 1;
+const PROGRESS_CARD_HEIGHT = 168;
+const PROGRESS_CARD_MARGIN_TOP = 22;
+const PROGRESS_CARD_MARGIN_BOTTOM = 2;
+const PROGRESS_CARD_VERTICAL_PADDING = 14;
+const PROGRESS_CONTENT_GAP = 10;
+const PROGRESS_METER_GAP = 6;
+const PROGRESS_STATUS_TITLE_FONT_SIZE = 14;
+const PROGRESS_STATUS_TITLE_LINE_HEIGHT = 20;
+const PROGRESS_PROCESSING_TITLE_TRANSLATE_Y = 1;
+const PROGRESS_READY_SUB_FONT_SIZE = 12;
+const PROGRESS_READY_SUB_LINE_HEIGHT = 17;
+const PROGRESS_READY_SUB_TRANSLATE_Y = 4;
+const PROGRESS_STATUS_SUB_FONT_SIZE = PROGRESS_READY_SUB_FONT_SIZE;
+const PROGRESS_STATUS_SUB_LINE_HEIGHT = PROGRESS_READY_SUB_LINE_HEIGHT;
+const PROGRESS_PROCESSING_SUB_TRANSLATE_Y = 8;
+const PROGRESS_READY_BLOCK_TRANSLATE_Y = 4;
+const PROGRESS_READY_TITLE_FONT_SIZE = 14;
+const PROGRESS_READY_TITLE_LINE_HEIGHT = 20;
+const PROGRESS_READY_CHECK_ICON_WIDTH = 12;
+const PROGRESS_READY_CHECK_ICON_HEIGHT = 9;
+const PROGRESS_READY_TITLE_ROW_GAP = 8;
+const PROGRESS_READY_TITLE_ROW_TRANSLATE_X =
+  -(PROGRESS_READY_CHECK_ICON_WIDTH + PROGRESS_READY_TITLE_ROW_GAP) / 2;
+const PROGRESS_READY_TITLE_ROW_TRANSLATE_Y = -2;
+const PROGRESS_READY_TITLE_TRANSLATE_Y = -1;
+const PROGRESS_STATUS_BLOCK_GAP = 8;
+const TIMER_CAPTION_GAP_CENTER_OFFSET = PROGRESS_CARD_MARGIN_TOP / 2;
 
 const PROGRESS_STATUS_LABELS: Record<JudgmentProgressStatus, string> = {
   queued: '判定待機中',
@@ -121,10 +162,15 @@ const PROGRESS_STATUS_LABELS: Record<JudgmentProgressStatus, string> = {
 
 type BreakScreenMode = 'resting' | 'completed' | 'nextCycle';
 
+const INPUT_PHASE_STATUS_COLOR = 'rgba(20, 139, 255, 0.3)';
 const COMPLETED_PHASE_COLORS: Record<SessionPhase, string> = {
-  input: '#A7D4F7',
-  output: '#F8D8E4',
+  input: INPUT_PHASE_STATUS_COLOR,
+  output: '#FFE4EC',
   break: '#C9C9C9',
+};
+const BREAK_PHASE_INACTIVE_COLORS: Partial<Record<SessionPhase, string>> = {
+  input: INPUT_PHASE_STATUS_COLOR,
+  output: '#FFE4EC',
 };
 
 type JudgingProgressCardProps = {
@@ -132,6 +178,7 @@ type JudgingProgressCardProps = {
   progressMessage: string;
   progressStatus: JudgmentProgressStatus;
   isReady: boolean;
+  width: number;
 };
 
 function JudgingProgressCard({
@@ -139,33 +186,74 @@ function JudgingProgressCard({
   progressMessage,
   progressStatus,
   isReady,
+  width,
 }: JudgingProgressCardProps) {
   const clamped = Math.min(100, Math.max(0, Math.round(progressPercent)));
-  const label = PROGRESS_STATUS_LABELS[progressStatus];
   const isFailed = progressStatus === 'failed';
+  const headerLabel = isFailed ? PROGRESS_STATUS_LABELS[progressStatus] : 'テキストの解析...';
   return (
-    <View style={styles.progressCard} testID="break-progress-card">
-      <View style={styles.progressHeaderRow}>
-        <SizableText style={styles.progressHeaderLabel} testID="break-progress-status">
-          {label}
-        </SizableText>
-        <SizableText style={styles.progressHeaderPercent} testID="break-progress-percent">
-          {clamped}%
-        </SizableText>
+    <View style={[styles.progressCard, { width }]} testID="break-progress-card">
+      <View style={styles.progressMeterBlock} testID="break-progress-meter-block">
+        <View style={[styles.progressHeaderRow, isReady ? styles.progressHeaderRowReady : null]}>
+          {isReady ? null : (
+            <SizableText style={styles.progressHeaderLabel} testID="break-progress-status">
+              {headerLabel}
+            </SizableText>
+          )}
+          <SizableText style={styles.progressHeaderPercent} testID="break-progress-percent">
+            {clamped}%
+          </SizableText>
+        </View>
+        <View style={styles.progressBarOuter} testID="break-progress-bar-outer">
+          <View style={styles.progressTrack} testID="break-progress-track">
+            <View
+              style={[styles.progressFill, { width: `${clamped}%` }]}
+              testID="break-progress-fill"
+            />
+          </View>
+        </View>
       </View>
-      <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${clamped}%` }]} />
-      </View>
-      <SizableText
-        style={[styles.progressMessage, isFailed ? styles.progressMessageFailed : null]}
-        testID="break-progress-message"
-      >
-        {progressMessage}
-      </SizableText>
+      {!isReady && !isFailed ? (
+        <View style={styles.progressProcessingBlock} testID="break-progress-processing">
+          <SizableText
+            style={styles.progressProcessingTitle}
+            testID="break-progress-processing-title"
+          >
+            採点中...
+          </SizableText>
+          <View
+            style={styles.progressProcessingSubOffset}
+            testID="break-progress-processing-sub-offset"
+          >
+            <SizableText
+              style={styles.progressProcessingSub}
+              testID="break-progress-processing-sub"
+            >
+              あなたのアウトプットを{'\n'}AIが採点しています。
+            </SizableText>
+          </View>
+        </View>
+      ) : null}
+      {isFailed ? (
+        <SizableText
+          style={[styles.progressMessage, styles.progressMessageFailed]}
+          testID="break-progress-message"
+        >
+          {progressMessage}
+        </SizableText>
+      ) : null}
       {isReady ? (
         <View style={styles.progressReadyBlock} testID="break-progress-ready">
-          <SizableText style={styles.progressReadyTitle}>✓ 採点完了</SizableText>
-          <SizableText style={styles.progressReadySub}>
+          <View style={styles.progressReadyTitleRow} testID="break-progress-ready-title-row">
+            <Image
+              source={CHECK_ICON}
+              style={styles.progressReadyCheckIcon}
+              resizeMode="contain"
+              testID="break-progress-ready-check-icon"
+            />
+            <Text style={styles.progressReadyTitle}>採点完了</Text>
+          </View>
+          <SizableText style={styles.progressReadySub} testID="break-progress-ready-sub">
             次のサイクルのインプットで{'\n'}結果を確認できます。
           </SizableText>
         </View>
@@ -931,6 +1019,7 @@ type SessionRouteParams = {
 };
 
 export function BreakScreen() {
+  const { width: windowWidth } = useWindowDimensions();
   const params = useLocalSearchParams<SessionRouteParams>();
   const sessionId = params.id ?? '';
   const inputMinutes = Number(params.input) || DEFAULT_TIMER.input_minutes;
@@ -1077,18 +1166,23 @@ export function BreakScreen() {
 
   const captionText = isJudgmentReady
     ? '休憩後次のサイクルを回すか決めることができます。'
-    : 'AI採点中です。ゆっくり休憩してください。';
+    : 'お疲れ様でした。ゆっくり休憩してください。';
+  const timerCircleSize = windowWidth * HOME_TIMER_CIRCLE_WIDTH_RATIO;
+  const timerCaptionWidth = timerCircleSize;
+  const timerStageMinHeight = timerCircleSize + TIMER_STAGE_PADDING_TOP + TIMER_CAPTION_LINE_HEIGHT;
 
   const isNextCycleMode = screenMode === 'nextCycle';
   const usesCompletedPhasePalette = screenMode === 'completed' || isNextCycleMode;
   const displayedPhase = usesCompletedPhasePalette ? null : CURRENT_PHASE;
-  const phaseActiveColor = BREAK_COLOR;
+  const phaseActiveColor = BREAK_TIMER_COLOR;
   // ループ進行 (= 終わったループを紫化、次を青化) はここでは行わない。
   // return アニメで戻ってきた砂時計を「現在 active な青バッジ」と完全に重ねるため、
   // バッジ列のレイアウトは触らずに据え置く。実際のループ進行は createNextCycle.onSuccess
   // 内の incrementLoop() に任せ、router.push と同タイミングで自然に反映される。
   const displayedLoop = currentLoop;
-  const completedPhaseColors = usesCompletedPhasePalette ? COMPLETED_PHASE_COLORS : undefined;
+  const phaseInactiveColors = usesCompletedPhasePalette
+    ? COMPLETED_PHASE_COLORS
+    : BREAK_PHASE_INACTIVE_COLORS;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -1098,6 +1192,8 @@ export function BreakScreen() {
           testIDPrefix="break"
           hourglassWrapperRef={badgeStackRef}
           onHourglassWrapperLayout={handleBadgeStackLayout}
+          cycleLabelStyle={styles.homeAlignedCycleLabel}
+          hourglassRowStyle={styles.closeCycleHourglassRow}
           hourglass={{
             currentLoop: displayedLoop,
             borderColor: BORDER_COLOR,
@@ -1110,28 +1206,50 @@ export function BreakScreen() {
           phaseTabs={{
             activePhase: displayedPhase,
             activeDotColor: phaseActiveColor,
-            activeTextColor: TEXT_ACTIVE,
+            activeDotStyle: styles.breakPhaseDotShadow,
+            activeTextColor: BREAK_PHASE_TEXT_COLOR,
             inactiveDotFilled: usesCompletedPhasePalette,
+            inactiveDotFilledPhases: { input: true, output: true },
             inactiveDotColor: DOT_INACTIVE,
-            inactiveDotColors: completedPhaseColors,
-            inactiveTextColors: completedPhaseColors,
+            inactiveDotColors: phaseInactiveColors,
+            inactiveTextColors: phaseInactiveColors,
           }}
         />
 
         <View style={styles.contentArea}>
           {screenMode === 'resting' ? (
             <>
-              <View style={styles.timerStage}>
+              <View
+                style={[styles.timerStage, { minHeight: timerStageMinHeight }]}
+                testID="break-timer-stage"
+              >
                 <CircularPhaseTimer
                   phase={CURRENT_PHASE}
-                  primaryColor={BREAK_COLOR}
-                  trackColor={BORDER_COLOR}
+                  primaryColor={BREAK_TIMER_COLOR}
+                  trackColor={BREAK_TIMER_TRACK_COLOR}
                   testID="break-circular-timer"
+                  phaseLabelTestID="break-timer-phase-label"
+                  phaseLabelFontWeight="600"
+                  textTestID="break-timer-display"
+                  size={timerCaptionWidth}
+                  strokeWidth={HOME_TIMER_CIRCLE_STROKE_WIDTH}
+                  timerTextStyle={styles.breakTimerText}
                   enabled={isFocused && screenMode === 'resting'}
                 />
-                <SizableText style={styles.timerCaption} testID="break-timer-caption">
-                  {captionText}
-                </SizableText>
+                <View
+                  style={[styles.timerCaptionSlot, { width: timerCaptionWidth }]}
+                  testID="break-timer-caption-slot"
+                >
+                  <SizableText
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.72}
+                    numberOfLines={1}
+                    style={styles.timerCaption}
+                    testID="break-timer-caption"
+                  >
+                    {captionText}
+                  </SizableText>
+                </View>
               </View>
 
               <JudgingProgressCard
@@ -1139,6 +1257,7 @@ export function BreakScreen() {
                 progressMessage={progressMessage}
                 progressStatus={progressStatus}
                 isReady={isJudgmentReady}
+                width={timerCaptionWidth}
               />
             </>
           ) : screenMode === 'completed' ? (
@@ -1178,25 +1297,70 @@ const styles = StyleSheet.create({
   timerStage: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: TIMER_STAGE_PADDING_TOP,
+  },
+  timerCaptionSlot: {
+    flex: 1,
+    alignItems: 'center',
     justifyContent: 'center',
-    gap: 20,
   },
   timerCaption: {
+    width: '100%',
     color: CAPTION_COLOR,
     fontSize: 13,
     lineHeight: 20,
     textAlign: 'center',
+    transform: [{ translateY: TIMER_CAPTION_GAP_CENTER_OFFSET }],
+  },
+  breakTimerText: {
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 58,
+    fontWeight: '500',
+    lineHeight: 64,
+  },
+  homeAlignedCycleLabel: {
+    marginBottom: 0,
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 10,
+    fontWeight: '700',
+    lineHeight: 14,
+    transform: [{ translateY: 18 }],
+  },
+  closeCycleHourglassRow: {
+    marginTop: 22,
+  },
+  breakPhaseDotShadow: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.24,
+    shadowRadius: 3,
+    elevation: 4,
   },
   progressCard: {
-    gap: 12,
-    padding: 16,
-    borderRadius: 18,
+    alignSelf: 'center',
+    height: PROGRESS_CARD_HEIGHT,
+    marginTop: PROGRESS_CARD_MARGIN_TOP,
+    marginBottom: PROGRESS_CARD_MARGIN_BOTTOM,
+    justifyContent: 'flex-start',
+    gap: PROGRESS_CONTENT_GAP,
+    paddingHorizontal: 24,
+    paddingVertical: PROGRESS_CARD_VERTICAL_PADDING,
+    borderRadius: 24,
     backgroundColor: PROGRESS_CARD_BG,
   },
   progressHeaderRow: {
+    alignSelf: 'center',
+    width: PROGRESS_BAR_WIDTH,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  progressHeaderRowReady: {
+    justifyContent: 'flex-end',
+  },
+  progressMeterBlock: {
+    gap: PROGRESS_METER_GAP,
   },
   progressHeaderLabel: {
     color: PROGRESS_CARD_TEXT,
@@ -1208,16 +1372,28 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  progressBarOuter: {
+    alignSelf: 'center',
+    width: PROGRESS_BAR_WIDTH,
+    height: PROGRESS_BAR_HEIGHT,
+    padding: PROGRESS_BAR_PADDING,
+    borderRadius: PROGRESS_BAR_HEIGHT / 2,
+    backgroundColor: PROGRESS_BAR_OUTER_COLOR,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.22,
+    shadowRadius: 7,
+    elevation: 6,
+  },
   progressTrack: {
-    width: '100%',
-    height: 8,
-    borderRadius: 4,
+    flex: 1,
+    borderRadius: (PROGRESS_BAR_HEIGHT - PROGRESS_BAR_PADDING * 2) / 2,
     backgroundColor: PROGRESS_TRACK_COLOR,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: (PROGRESS_BAR_HEIGHT - PROGRESS_BAR_PADDING * 2) / 2,
     backgroundColor: PROGRESS_FILL_COLOR,
   },
   progressMessage: {
@@ -1228,21 +1404,60 @@ const styles = StyleSheet.create({
   progressMessageFailed: {
     color: PROGRESS_STATUS_ERROR,
   },
+  progressProcessingBlock: {
+    alignItems: 'center',
+    gap: PROGRESS_STATUS_BLOCK_GAP,
+  },
+  progressProcessingTitle: {
+    color: PROGRESS_CARD_TEXT,
+    fontFamily: 'HiraginoSans-W3',
+    fontSize: PROGRESS_STATUS_TITLE_FONT_SIZE,
+    fontWeight: '600',
+    lineHeight: PROGRESS_STATUS_TITLE_LINE_HEIGHT,
+    textAlign: 'center',
+    transform: [{ translateY: PROGRESS_PROCESSING_TITLE_TRANSLATE_Y }],
+  },
+  progressProcessingSub: {
+    color: PROGRESS_CARD_TEXT,
+    fontSize: PROGRESS_STATUS_SUB_FONT_SIZE,
+    lineHeight: PROGRESS_STATUS_SUB_LINE_HEIGHT,
+    textAlign: 'center',
+  },
+  progressProcessingSubOffset: {
+    marginTop: PROGRESS_PROCESSING_SUB_TRANSLATE_Y,
+  },
   progressReadyBlock: {
     alignItems: 'center',
-    gap: 6,
-    paddingTop: 4,
+    gap: PROGRESS_STATUS_BLOCK_GAP,
+    transform: [{ translateY: PROGRESS_READY_BLOCK_TRANSLATE_Y }],
+  },
+  progressReadyTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: PROGRESS_READY_TITLE_ROW_GAP,
+    transform: [
+      { translateX: PROGRESS_READY_TITLE_ROW_TRANSLATE_X },
+      { translateY: PROGRESS_READY_TITLE_ROW_TRANSLATE_Y },
+    ],
+  },
+  progressReadyCheckIcon: {
+    width: PROGRESS_READY_CHECK_ICON_WIDTH,
+    height: PROGRESS_READY_CHECK_ICON_HEIGHT,
   },
   progressReadyTitle: {
     color: PROGRESS_CARD_TEXT,
-    fontSize: 15,
-    fontWeight: '700',
+    fontFamily: 'HiraginoSans-W3',
+    fontSize: PROGRESS_READY_TITLE_FONT_SIZE,
+    fontWeight: '600',
+    lineHeight: PROGRESS_READY_TITLE_LINE_HEIGHT,
+    transform: [{ translateY: PROGRESS_READY_TITLE_TRANSLATE_Y }],
   },
   progressReadySub: {
-    color: PROGRESS_CARD_SUBTEXT,
-    fontSize: 12,
-    lineHeight: 18,
+    color: PROGRESS_READY_SUBTEXT,
+    fontSize: PROGRESS_READY_SUB_FONT_SIZE,
+    lineHeight: PROGRESS_READY_SUB_LINE_HEIGHT,
     textAlign: 'center',
+    transform: [{ translateY: PROGRESS_READY_SUB_TRANSLATE_Y }],
   },
   completedContent: {
     flex: 1,
@@ -1270,20 +1485,22 @@ const styles = StyleSheet.create({
   },
   completedTitle: {
     color: '#FFFFFF',
+    fontFamily: 'HiraginoSans-W6',
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '600',
     lineHeight: 26,
     textAlign: 'center',
   },
   nextCycleButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 190,
-    height: 56,
-    paddingHorizontal: 22,
-    borderWidth: 2,
+    minWidth: 166,
+    height: 50,
+    paddingHorizontal: 18,
+    borderWidth: 2.5,
     borderColor: '#FFFFFF',
     borderRadius: 16,
+    transform: [{ translateY: 16 }],
   },
   nextCycleButtonText: {
     color: '#FFFFFF',

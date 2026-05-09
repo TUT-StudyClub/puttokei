@@ -24,6 +24,10 @@ class DeletedAccountAuthenticationError(Exception):
     """論理削除済みアカウントが同じ Firebase UID でアクセスしている。"""
 
 
+class UnsupportedSignInProviderError(Exception):
+    """Firebase の sign_in_provider が backend のサポート対象外。"""
+
+
 class AuthenticateUserResult(FrozenModel):
     """token 検証結果。
 
@@ -52,12 +56,24 @@ class AuthenticateUser:
         except InvalidTokenError as exc:
             raise InvalidAuthenticationTokenError("invalid authentication token") from exc
 
+        auth_provider = _to_auth_provider(verified["sign_in_provider"])
+
         async with self.unit_of_work_factory() as uow:
             existing = await uow.users.find_by_firebase_uid(verified["uid"])
             if existing is not None:
+                if existing.auth_provider is not auth_provider:
+                    updated = existing.model_copy(
+                        update={
+                            "auth_provider": auth_provider,
+                            "updated_at": datetime.now(UTC),
+                        }
+                    )
+                    await uow.users.update(updated)
+                    await uow.commit()
+                    return AuthenticateUserResult(user=updated, is_new=False)
                 return AuthenticateUserResult(user=existing, is_new=False)
 
-            user, settings = _build_initial_user(verified)
+            user, settings = _build_initial_user(verified, auth_provider)
             try:
                 await uow.users.add(user, settings)
             except UserAlreadyExistsError as exc:
@@ -66,12 +82,15 @@ class AuthenticateUser:
             return AuthenticateUserResult(user=user, is_new=True)
 
 
-def _build_initial_user(verified: VerifiedToken) -> tuple[User, UserSettings]:
+def _build_initial_user(
+    verified: VerifiedToken,
+    auth_provider: AuthProvider,
+) -> tuple[User, UserSettings]:
     now = datetime.now(UTC)
     user = User(
         id=uuid4(),
         firebase_uid=verified["uid"],
-        auth_provider=_to_auth_provider(verified["sign_in_provider"]),
+        auth_provider=auth_provider,
         display_name=None,
         age_group=None,
         onboarding_completed=False,
@@ -90,6 +109,11 @@ def _build_initial_user(verified: VerifiedToken) -> tuple[User, UserSettings]:
 
 
 def _to_auth_provider(sign_in_provider: str) -> AuthProvider:
-    if sign_in_provider.startswith("apple"):
+    normalized = sign_in_provider.strip().lower()
+    if normalized.startswith("apple"):
         return AuthProvider.APPLE
-    return AuthProvider.GOOGLE
+    if normalized.startswith("google"):
+        return AuthProvider.GOOGLE
+    if normalized.startswith("anonymous"):
+        return AuthProvider.ANONYMOUS
+    raise UnsupportedSignInProviderError(f"unsupported sign_in_provider: {sign_in_provider!r}")

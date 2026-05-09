@@ -43,36 +43,57 @@ class Settings(BaseSettings):
         default=False,
         description="Cloud Tasks を使わず、アウトプット送信時にローカル判定を保存する。",
     )
-    llm_provider: Literal["local", "gemini"] = Field(
+    llm_provider: Literal["local", "vertex"] = Field(
         default="local",
-        description="ローカル同期判定で使う LLM プロバイダー。",
+        description="アウトプット判定で使う LLM プロバイダー。"
+        "local はルールベース mock、vertex は Vertex AI 経由の Gemini。",
     )
-    llm_gemini_api_key: str | None = Field(
+    llm_vertex_project_id: str | None = Field(
         default=None,
-        description="Gemini Developer API の API キー。",
+        description=(
+            "Vertex AI を呼び出す GCP プロジェクト ID。"
+            "未指定時は GCS_PROJECT_ID を fallback に使う（同じ GCP プロジェクトで運用する想定）。"
+        ),
     )
-    llm_gemini_model: str = Field(
+    llm_vertex_credentials_path: str | None = Field(
+        default=None,
+        description=(
+            "Vertex AI 認証用サービスアカウント鍵 JSON のパス。"
+            "未指定時は ADC を使う。GCS_CREDENTIALS_PATH とは分離する。"
+        ),
+    )
+    llm_vertex_location: str = Field(
+        default="global",
+        description=(
+            "Vertex AI のリージョン。Gemini 3 系の preview モデルは global エンドポイント"
+            "でのみ提供されるため既定は global。正式リリース後は asia-northeast1 等に切替可能。"
+        ),
+    )
+    llm_vertex_model: str = Field(
         default="gemini-3-flash-preview",
-        description="Gemini のモデル名。",
+        description="Vertex AI 経由で使う Gemini モデル名。",
     )
-    llm_gemini_thinking_level: str | None = Field(
+    llm_vertex_thinking_budget: int | None = Field(
         default=None,
-        description="Gemini 3 系で使う thinking level。例: low / medium / high。",
+        description=(
+            "Gemini の thinking 上限トークン数。未指定ならモデル既定値。"
+            "0 で thinking を実質的に無効化、大きい値でじっくり考えさせる。"
+        ),
     )
-    llm_gemini_temperature: float = Field(
+    llm_vertex_temperature: float = Field(
         default=0.2,
         ge=0,
         le=2,
         description="Gemini の temperature。",
     )
+    llm_vertex_image_media_resolution: Literal["low", "medium", "high"] = Field(
+        default="high",
+        description="Gemini multimodal で画像に割り当てるトークン解像度。",
+    )
     llm_timeout_seconds: float = Field(
         default=30,
         gt=0,
         description="LLM API 呼び出しのタイムアウト秒。",
-    )
-    llm_gemini_image_media_resolution: Literal["low", "medium", "high"] = Field(
-        default="high",
-        description="Gemini multimodal で画像に割り当てるトークン解像度。",
     )
     gcs_project_id: str | None = Field(
         default=None,

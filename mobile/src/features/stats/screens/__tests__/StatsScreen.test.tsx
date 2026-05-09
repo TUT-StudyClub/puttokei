@@ -4,7 +4,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
-import { processColor, StyleSheet } from 'react-native';
+import { processColor, StyleSheet, View } from 'react-native';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../../tamagui.config';
@@ -22,7 +22,9 @@ const TEXT_MODE_ICON_GRAY = require('../../../../../assets/images/icons/icon_pen
 const IMAGE_MODE_ICON_BLACK = require('../../../../../assets/images/icons/icon_pic_black..png');
 const IMAGE_MODE_ICON_GRAY = require('../../../../../assets/images/icons/icon_pic_gray..png');
 const VOICE_MODE_ICON_GRAY = require('../../../../../assets/images/icons/icon_mic_gray.png');
-const COLOR_PICKER_CHECK_ICON = require('../../../../../assets/images/icons/check.png');
+const PLUS_ICON = require('../../../../../assets/images/icons/plus.png');
+
+const mockRouterPush = jest.fn();
 
 jest.mock('expo-router', () => ({
   Redirect: ({ href }: { href: unknown }) => {
@@ -30,7 +32,7 @@ jest.mock('expo-router', () => ({
     return <Text testID="stats-redirect">{JSON.stringify(href)}</Text>;
   },
   useRouter: () => ({
-    push: jest.fn(),
+    push: mockRouterPush,
   }),
 }));
 
@@ -176,6 +178,24 @@ async function flushAsyncUpdates() {
   });
 }
 
+type TestNodeWithParent = {
+  parent: TestNodeWithParent | null;
+  props: {
+    testID?: string;
+  };
+};
+
+function hasTestIdAncestor(node: TestNodeWithParent, testID: string): boolean {
+  let current = node.parent;
+  while (current) {
+    if (current.props.testID === testID) {
+      return true;
+    }
+    current = current.parent;
+  }
+  return false;
+}
+
 describe('StatsScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -191,8 +211,11 @@ describe('StatsScreen', () => {
           updated_at: '2026-05-03T12:00:00Z',
         }),
     );
+    (statsApi.fetchWeeklyReport as jest.Mock).mockImplementation((weekStart: string) =>
+      Promise.resolve(makeWeeklyResponseForDates(weekStart, {})),
+    );
     act(() => {
-      useAuthStore.setState({ uid: 'u-1', idToken: 'token-1' });
+      useAuthStore.setState({ uid: 'u-1', idToken: 'token-1', isAnonymous: false });
     });
   });
 
@@ -202,14 +225,14 @@ describe('StatsScreen', () => {
       jest.runOnlyPendingTimers();
     });
     act(() => {
-      useAuthStore.setState({ uid: null, idToken: null });
+      useAuthStore.setState({ uid: null, idToken: null, isAnonymous: false });
     });
     jest.useRealTimers();
   });
 
   it('未認証の場合はサインインへ遷移し、レポートを取得しない', () => {
     act(() => {
-      useAuthStore.setState({ uid: null, idToken: null });
+      useAuthStore.setState({ uid: null, idToken: null, isAnonymous: false });
     });
 
     const { getByTestId } = renderWithProviders(<StatsScreen />);
@@ -224,6 +247,47 @@ describe('StatsScreen', () => {
     expect(statsApi.fetchWeeklyReport).not.toHaveBeenCalled();
   });
 
+  it('匿名ユーザーの場合はサインインへ遷移し、レポートを取得しない', () => {
+    act(() => {
+      useAuthStore.setState({
+        uid: 'anonymous-user',
+        idToken: 'anonymous-token',
+        isAnonymous: true,
+      });
+    });
+
+    const { getByTestId } = renderWithProviders(<StatsScreen />);
+
+    expect(getByTestId('stats-redirect').props.children).toBe(
+      JSON.stringify({
+        pathname: '/(auth)/sign-in',
+        params: { returnTo: '/(tabs)/stats' },
+      }),
+    );
+    expect(statsApi.fetchDailyReport).not.toHaveBeenCalled();
+    expect(statsApi.fetchWeeklyReport).not.toHaveBeenCalled();
+  });
+
+  it('設定ボタンを少し右寄せで表示し、設定画面へ遷移できる', () => {
+    (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(makeDailyResponse());
+
+    const { getByLabelText, getByTestId, UNSAFE_getAllByType } = renderWithProviders(
+      <StatsScreen />,
+    );
+    const hasHomeAlignedSettingsRow = UNSAFE_getAllByType(View).some((view) => {
+      const style = StyleSheet.flatten(view.props.style);
+      return style?.position === 'absolute' && style.top === -4.5 && style.right === 34;
+    });
+
+    expect(getByLabelText('設定')).toBeTruthy();
+    expect(getByTestId('stats-settings-button')).toBeTruthy();
+    expect(hasHomeAlignedSettingsRow).toBe(true);
+
+    fireEvent.press(getByTestId('stats-settings-button'));
+
+    expect(mockRouterPush).toHaveBeenCalledWith('/(tabs)/settings');
+  });
+
   it('初期表示で当日の日次レポートを取得し、ハイライトと履歴を表示する', async () => {
     (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(makeDailyResponse());
 
@@ -236,18 +300,54 @@ describe('StatsScreen', () => {
     await waitFor(() => {
       expect(getByTestId('stats-highlight-card')).toBeTruthy();
     });
-    expect(getByTestId('stats-session-badge').props.children.props.children).toEqual(['×', 5]);
+    const sessionBadgeRow = getByTestId('stats-session-badge').props.children;
+    const sessionBadgeChildren = sessionBadgeRow.props.children;
+    const sessionBadgeXOffset = sessionBadgeChildren[0];
+    const sessionBadgeXText = sessionBadgeXOffset.props.children;
+    const sessionBadgeNumberText = sessionBadgeChildren[1];
+    expect(StyleSheet.flatten(sessionBadgeNumberText.props.style)).toMatchObject({
+      fontSize: 16,
+      fontFamily: 'HiraginoSans-W6',
+      fontWeight: '600',
+      transform: [{ translateX: -2 }],
+    });
+    expect(StyleSheet.flatten(sessionBadgeXOffset.props.style)).toMatchObject({
+      left: -2,
+      position: 'relative',
+      top: 0,
+    });
+    expect(sessionBadgeXText.props.children).toBe('×');
+    expect(StyleSheet.flatten(sessionBadgeXText.props.style)).toMatchObject({
+      fontSize: 14,
+    });
+    expect(sessionBadgeNumberText.props.children).toBe(5);
     expect(getByTestId('stats-output-history-title').props.children).toBe('履歴');
+    expect(getByTestId('stats-scroll-content').type).toBe('View');
+    expect(getByTestId('stats-output-history-table-scroll').type).toBe('RCTScrollView');
+    expect(
+      hasTestIdAncestor(
+        getByTestId('stats-output-history-title'),
+        'stats-output-history-table-scroll',
+      ),
+    ).toBe(true);
     expect(getByTestId('stats-output-history-item-out-1')).toBeTruthy();
     expect(getByText('4月29日')).toBeTruthy();
-    expect(getByText('09：35')).toBeTruthy();
-    expect(getByText('10：00')).toBeTruthy();
+    expect(getByText('09：35 - 10：00')).toBeTruthy();
     expect(getByText('サイクル1')).toBeTruthy();
     expect(getByText('今日のハイライト')).toBeTruthy();
+    expect(StyleSheet.flatten(getByText('今日のハイライト').props.style)).toMatchObject({
+      fontFamily: 'HiraginoSans-W6',
+      fontSize: 17,
+      fontWeight: '700',
+      lineHeight: 23,
+    });
+    expect(
+      StyleSheet.flatten(getByTestId('stats-highlight-title-row').props.style).transform,
+    ).toEqual([{ translateY: 8 }]);
     expect(queryByText('教科')).toBeNull();
   });
 
-  it('履歴カードは3サイクル分で枠を閉じる', async () => {
+  it('履歴表のスクロール領域に全サイクル分を表示する', async () => {
     (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(
       makeDailyResponse({
         output_history: [1, 2, 3, 4].map((cycleIndex) => makeOutputHistoryItem(cycleIndex)),
@@ -262,7 +362,7 @@ describe('StatsScreen', () => {
     });
     expect(getByTestId('stats-output-history-item-out-3')).toBeTruthy();
     expect(getByTestId('stats-output-history-item-out-2')).toBeTruthy();
-    expect(queryByTestId('stats-output-history-item-out-1')).toBeNull();
+    expect(queryByTestId('stats-output-history-item-out-1')).toBeTruthy();
   });
 
   it('履歴行をタップすると下部シートでアウトプット内容を確認できる', async () => {
@@ -283,7 +383,40 @@ describe('StatsScreen', () => {
     });
 
     expect(getByTestId('stats-history-sheet')).toBeTruthy();
-    expect(getByText('4月29日　09：35 - 10：00')).toBeTruthy();
+    expect(StyleSheet.flatten(getByTestId('stats-history-sheet').props.style).height).toBe('67%');
+    expect(StyleSheet.flatten(getByTestId('stats-history-sheet').props.style).maxHeight).toBe(
+      '69%',
+    );
+    const historySheetTitleStyle = StyleSheet.flatten(
+      getByTestId('stats-history-sheet-title').props.style,
+    );
+    const historySheetTitleTimeStyle = StyleSheet.flatten(
+      getByTestId('stats-history-sheet-title-time').props.style,
+    );
+    const historySheetCloseStyle = StyleSheet.flatten(
+      getByTestId('stats-history-sheet-close').props.style,
+    );
+    const historySheetConfirmStyle = StyleSheet.flatten(
+      getByTestId('stats-history-sheet-confirm').props.style,
+    );
+    const historySheetCloseIcon = getByTestId('stats-history-sheet-close-icon');
+    const historySheetConfirmIcon = getByTestId('stats-history-sheet-confirm-icon');
+    expect(historySheetTitleStyle.paddingLeft).toBe(12);
+    expect(historySheetTitleStyle.fontWeight).toBe('700');
+    expect(historySheetTitleStyle.transform).toEqual([{ translateY: 5 }]);
+    expect(historySheetTitleTimeStyle.transform).toEqual([{ translateX: 3 }, { scaleX: 0.98 }]);
+    expect(historySheetCloseStyle.width).toBe(36);
+    expect(historySheetCloseStyle.height).toBe(36);
+    expect(historySheetCloseStyle.borderRadius).toBe(18);
+    expect(historySheetCloseStyle.transform).toEqual([{ translateY: 4 }]);
+    expect(historySheetCloseIcon.props.width).toBe(17);
+    expect(historySheetCloseIcon.props.height).toBe(17);
+    expect(historySheetConfirmStyle.width).toBe(36);
+    expect(historySheetConfirmStyle.height).toBe(36);
+    expect(historySheetConfirmStyle.borderRadius).toBe(18);
+    expect(historySheetConfirmStyle.transform).toEqual([{ translateY: 4 }]);
+    expect(historySheetConfirmIcon.props.width).toBe(17);
+    expect(historySheetConfirmIcon.props.height).toBe(17);
     expect(getByText('教科')).toBeTruthy();
     expect(getByText('英語')).toBeTruthy();
     expect(getAllByText('アウトプット').length).toBeGreaterThan(0);
@@ -339,17 +472,35 @@ describe('StatsScreen', () => {
     const subjectTextStyle = StyleSheet.flatten(
       getByTestId('stats-history-sheet-subject-text').props.style,
     );
+    const subjectRowStyle = StyleSheet.flatten(
+      getByTestId('stats-history-sheet-subject-row').props.style,
+    );
 
     expect(getByTestId('stats-history-sheet-subject-text').props.children).toBe('未設定');
+    expect(subjectRowStyle.transform).toEqual([{ translateY: -3 }]);
     expect(subjectDotStyle.backgroundColor).toBe('#D0D0D0');
+    expect(subjectDotStyle.transform).toBeUndefined();
     expect(subjectTextStyle.color).toBe('#777777');
+    expect(subjectTextStyle.transform).toBeUndefined();
 
     await act(async () => {
       fireEvent.press(getByTestId('stats-history-sheet-subject-row'));
     });
 
     expect(getByTestId('stats-history-sheet-subject-picker')).toBeTruthy();
-    expect(getByText('新規教科')).toBeTruthy();
+    expect(getByText('教科を追加する')).toBeTruthy();
+    expect(getByTestId('stats-history-sheet-new-subject-plus-icon').props.source).toBe(PLUS_ICON);
+    const newSubjectButtonStyle = StyleSheet.flatten(
+      getByTestId('stats-history-sheet-subject-picker-new').props.style,
+    );
+    const newSubjectText = getByTestId('stats-history-sheet-subject-picker-new-text');
+    const newSubjectTextStyle = StyleSheet.flatten(newSubjectText.props.style);
+    expect(newSubjectButtonStyle.flex).toBe(1);
+    expect(newSubjectButtonStyle.minWidth).toBe(0);
+    expect(newSubjectButtonStyle.marginRight).toBe(8);
+    expect(newSubjectText.props.numberOfLines).toBe(1);
+    expect(newSubjectText.props.adjustsFontSizeToFit).toBe(true);
+    expect(newSubjectTextStyle.flexShrink).toBe(1);
     expect(queryByTestId('stats-history-sheet-subject-option-0')).toBeNull();
     expect(
       StyleSheet.flatten(getByTestId('stats-history-sheet-subject-picker').props.style).height,
@@ -393,8 +544,8 @@ describe('StatsScreen', () => {
     expect(getByTestId('stats-history-sheet-subject-picker')).toBeTruthy();
     expect(
       StyleSheet.flatten(getByTestId('stats-history-sheet-subject-picker').props.style).height,
-    ).toBe(122);
-    expect(getByText('新規教科')).toBeTruthy();
+    ).toBe(124);
+    expect(getByText('教科を追加する')).toBeTruthy();
     expect(getByText('理科')).toBeTruthy();
     expect(getAllByText('現代文').length).toBeGreaterThan(1);
     expect(
@@ -496,18 +647,28 @@ describe('StatsScreen', () => {
     const newSubjectColorPreviewStyle = StyleSheet.flatten(
       getByTestId('stats-new-subject-color', { includeHiddenElements: true }).props.style,
     );
-    expect(getByText('新規教科追加', { includeHiddenElements: true })).toBeTruthy();
-    expect(newSubjectTitleStyle.fontWeight).toBe('800');
+    const newSubjectSaveButtonStyle = StyleSheet.flatten(
+      getByTestId('stats-new-subject-save', { includeHiddenElements: true }).props.style,
+    );
+    expect(getByText('教科を追加', { includeHiddenElements: true })).toBeTruthy();
+    expect(newSubjectTitleStyle.top).toBe(9);
+    expect(newSubjectTitleStyle.fontWeight).toBe('600');
     expect(newSubjectColorRowStyle.borderBottomWidth).toBe(0);
-    expect(newSubjectSubjectLabelStyle.fontSize).toBe(16);
-    expect(newSubjectSubjectLabelStyle.lineHeight).toBe(22);
-    expect(newSubjectColorLabelStyle.fontSize).toBe(16);
-    expect(newSubjectColorLabelStyle.lineHeight).toBe(22);
-    expect(newSubjectInputStyle.fontSize).toBe(16);
-    expect(newSubjectInputStyle.fontWeight).toBe('500');
-    expect(newSubjectColorPreviewStyle.width).toBe(14);
-    expect(newSubjectColorPreviewStyle.height).toBe(14);
-    expect(newSubjectColorPreviewStyle.borderRadius).toBe(7);
+    expect(newSubjectSubjectLabelStyle.fontSize).toBe(17);
+    expect(newSubjectSubjectLabelStyle.lineHeight).toBe(23);
+    expect(newSubjectColorLabelStyle.fontSize).toBe(17);
+    expect(newSubjectColorLabelStyle.lineHeight).toBe(23);
+    expect(newSubjectInputStyle.fontSize).toBe(17);
+    expect(newSubjectInputStyle.fontWeight).toBe('400');
+    expect(newSubjectInputStyle.lineHeight).toBe(23);
+    expect(newSubjectColorPreviewStyle.width).toBe(18);
+    expect(newSubjectColorPreviewStyle.height).toBe(18);
+    expect(newSubjectColorPreviewStyle.borderRadius).toBe(9);
+    expect(newSubjectSaveButtonStyle.height).toBe(56);
+    expect(newSubjectSaveButtonStyle.left).toBe(55);
+    expect(newSubjectSaveButtonStyle.right).toBe(43);
+    expect(newSubjectSaveButtonStyle.borderRadius).toBe(20);
+    expect(newSubjectSaveButtonStyle.backgroundColor).toBe('#4B5CFF');
     expect(
       getByTestId('stats-new-subject-input', { includeHiddenElements: true }).props.placeholder,
     ).toBe('新規教科');
@@ -529,16 +690,28 @@ describe('StatsScreen', () => {
     const colorGridStyle = StyleSheet.flatten(
       getByTestId('stats-subject-color-grid', { includeHiddenElements: true }).props.style,
     );
+    const colorPickerStyle = StyleSheet.flatten(
+      getByTestId('stats-subject-color-picker', { includeHiddenElements: true }).props.style,
+    );
+    const colorPickerBottomFillStyle = StyleSheet.flatten(
+      getByTestId('stats-subject-color-picker-bottom-fill', { includeHiddenElements: true }).props
+        .style,
+    );
     const colorPickerTitleStyle = StyleSheet.flatten(
       getByTestId('stats-subject-color-picker-title', { includeHiddenElements: true }).props.style,
     );
     const closeButtonStyle = StyleSheet.flatten(
       getByTestId('stats-subject-color-picker-close', { includeHiddenElements: true }).props.style,
     );
-    const closeTextStyle = StyleSheet.flatten(
-      getByTestId('stats-subject-color-picker-close-text', { includeHiddenElements: true }).props
-        .style,
-    );
+    const closeIcon = getByTestId('stats-subject-color-picker-close-icon', {
+      includeHiddenElements: true,
+    });
+    const closeIconLine1 = getByTestId('stats-subject-color-picker-close-icon-line-1', {
+      includeHiddenElements: true,
+    });
+    const closeIconLine2 = getByTestId('stats-subject-color-picker-close-icon-line-2', {
+      includeHiddenElements: true,
+    });
     const confirmButtonStyle = StyleSheet.flatten(
       getByTestId('stats-subject-color-picker-confirm', { includeHiddenElements: true }).props
         .style,
@@ -547,31 +720,49 @@ describe('StatsScreen', () => {
       includeHiddenElements: true,
     });
     const firstColorRowStyle = StyleSheet.flatten(firstColorRow.props.style);
+    const secondColorRowStyle = StyleSheet.flatten(secondColorRow.props.style);
     const firstSwatchStyle = StyleSheet.flatten(
       getByTestId('stats-subject-color-swatch-0', { includeHiddenElements: true }).props.style,
     );
     expect(firstColorRow.children).toHaveLength(5);
     expect(secondColorRow.children).toHaveLength(5);
+    expect(colorPickerStyle.height).toBe('70%');
+    expect(colorPickerStyle.maxHeight).toBe('72%');
+    expect(colorPickerStyle.minHeight).toBeUndefined();
+    expect(colorPickerStyle.bottom).toBe(40);
+    expect(colorPickerBottomFillStyle.height).toBe(40);
+    expect(colorPickerBottomFillStyle.backgroundColor).toBe('#FFFFFF');
+    expect(colorPickerBottomFillStyle.bottom).toBe(0);
     expect(colorGridStyle.alignItems).toBe('center');
     expect(colorGridStyle.paddingHorizontal).toBe(19);
-    expect(colorGridStyle.paddingTop).toBe(22);
+    expect(colorGridStyle.paddingTop).toBe(42);
     expect(colorGridStyle.gap).toBe(16);
-    expect(colorPickerTitleStyle.fontWeight).toBe('800');
-    expect(colorPickerTitleStyle.marginTop).toBe(7);
+    expect(colorPickerTitleStyle.fontSize).toBe(18);
+    expect(colorPickerTitleStyle.fontWeight).toBe('600');
+    expect(colorPickerTitleStyle.lineHeight).toBe(24);
+    expect(colorPickerTitleStyle.marginTop).toBe(30);
+    expect(colorPickerTitleStyle.transform).toEqual([{ translateX: 2 }]);
     expect(closeButtonStyle.left).toBe(20);
-    expect(closeButtonStyle.top).toBe(18);
+    expect(closeButtonStyle.top).toBe(26);
     expect(closeButtonStyle.width).toBe(36);
     expect(closeButtonStyle.height).toBe(36);
-    expect(closeTextStyle.fontSize).toBe(26);
+    expect(closeIcon.props.width).toBe(18);
+    expect(closeIcon.props.height).toBe(18);
+    expect(closeIconLine1.props.strokeLinecap).toBe(1);
+    expect(closeIconLine2.props.strokeLinecap).toBe(1);
     expect(confirmButtonStyle.right).toBe(20);
-    expect(confirmButtonStyle.top).toBe(18);
+    expect(confirmButtonStyle.top).toBe(26);
     expect(confirmButtonStyle.width).toBe(36);
     expect(confirmButtonStyle.height).toBe(36);
     expect(checkIcon.props.width).toBe(20);
     expect(checkIcon.props.height).toBe(20);
     expect(firstColorRowStyle.gap).toBe(14);
+    expect(firstColorRowStyle.marginTop).toBeUndefined();
+    expect(secondColorRowStyle.gap).toBe(14);
+    expect(secondColorRowStyle.marginTop).toBe(6);
     expect(firstSwatchStyle.width).toBe(50);
     expect(firstSwatchStyle.height).toBe(50);
+    expect(firstSwatchStyle.borderRadius).toBe(6);
     expect(firstSwatchStyle.alignItems).toBe('center');
     expect(firstSwatchStyle.justifyContent).toBe('center');
     expect(queryByTestId('stats-subject-color-swatch-check-0')).toBeNull();
@@ -599,25 +790,27 @@ describe('StatsScreen', () => {
     await act(async () => {
       fireEvent.press(getByTestId('stats-subject-color-swatch-1', { includeHiddenElements: true }));
     });
-    const selectedSwatchCheckStyle = StyleSheet.flatten(
-      getByTestId('stats-subject-color-swatch-check-1', { includeHiddenElements: true }).props
-        .style,
-    );
-    expect(
-      getByTestId('stats-subject-color-swatch-check-1', { includeHiddenElements: true }).props
-        .source,
-    ).toBe(COLOR_PICKER_CHECK_ICON);
+    const selectedSwatchCheck = getByTestId('stats-subject-color-swatch-check-1', {
+      includeHiddenElements: true,
+    });
+    const selectedSwatchCheckStyle = StyleSheet.flatten(selectedSwatchCheck.props.style);
+    const selectedSwatchCheckPath = getByTestId('stats-subject-color-swatch-check-1-path', {
+      includeHiddenElements: true,
+    });
     expect(selectedSwatchCheckStyle.width).toBe(24);
     expect(selectedSwatchCheckStyle.height).toBe(19);
+    expect(selectedSwatchCheck.props.width).toBe(24);
+    expect(selectedSwatchCheck.props.height).toBe(19);
+    expect(selectedSwatchCheckPath.props.strokeWidth).toBe(3.2);
 
     await act(async () => {
       fireEvent.press(getByTestId('stats-subject-color-swatch-5', { includeHiddenElements: true }));
     });
     expect(queryByTestId('stats-subject-color-swatch-check-1')).toBeNull();
     expect(
-      getByTestId('stats-subject-color-swatch-check-5', { includeHiddenElements: true }).props
-        .source,
-    ).toBe(COLOR_PICKER_CHECK_ICON);
+      getByTestId('stats-subject-color-swatch-check-5-path', { includeHiddenElements: true }).props
+        .strokeWidth,
+    ).toBe(3.2);
     await act(async () => {
       fireEvent.press(
         getByTestId('stats-subject-color-picker-confirm', { includeHiddenElements: true }),
@@ -701,6 +894,29 @@ describe('StatsScreen', () => {
     expect(getByTestId('stats-history-sheet-output-image')).toBeTruthy();
   });
 
+  it('履歴詳細の出力種別ラベルを太字にする', async () => {
+    (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(makeDailyResponse());
+
+    const { getByTestId } = renderWithProviders(<StatsScreen />);
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(getByTestId('stats-output-history-item-out-1')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-output-history-item-out-1'));
+    });
+
+    (['text', 'image', 'voice'] as const).forEach((kind) => {
+      const labelStyle = StyleSheet.flatten(
+        getByTestId(`stats-history-sheet-tab-label-${kind}`).props.style,
+      );
+      expect(labelStyle.fontFamily).toBe('HiraginoSans-W6');
+      expect(labelStyle.fontWeight).toBe('700');
+    });
+  });
+
   it('別の日の日付セルをタップするとその日のレポートを取得しタイトルが切り替わる', async () => {
     (statsApi.fetchDailyReport as jest.Mock).mockImplementation((date: string) =>
       Promise.resolve(makeDailyResponse({ date })),
@@ -746,6 +962,28 @@ describe('StatsScreen', () => {
     });
   });
 
+  it('画面上部カレンダーで学習済み日を薄い青にする', async () => {
+    (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(makeDailyResponse());
+    (statsApi.fetchWeeklyReport as jest.Mock).mockImplementation((weekStart: string) =>
+      Promise.resolve(makeWeeklyResponseForDates(weekStart, { '2026-04-28': 30 })),
+    );
+
+    const { getByTestId } = renderWithProviders(<StatsScreen />);
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(statsApi.fetchWeeklyReport).toHaveBeenCalledWith('2026-04-26');
+    });
+    await waitFor(() => {
+      expect(getByTestId('week-date-2026-04-28-studied-background')).toBeTruthy();
+    });
+
+    const studiedBackgroundStyle = StyleSheet.flatten(
+      getByTestId('week-date-2026-04-28-studied-background').props.style,
+    );
+    expect(studiedBackgroundStyle.backgroundColor).toBe('#DBE3FF');
+  });
+
   it('カレンダーアイコン押下で月間カレンダーと今月のハイライトを表示する', async () => {
     (statsApi.fetchDailyReport as jest.Mock).mockResolvedValue(makeDailyResponse());
     const studiedMinutesByDate = {
@@ -774,6 +1012,88 @@ describe('StatsScreen', () => {
     await waitFor(() => {
       expect(getByTestId('stats-month-calendar')).toBeTruthy();
     });
+    const monthCalendarRootStyle = StyleSheet.flatten(
+      getByTestId('stats-month-calendar').props.style,
+    );
+    const monthCalendarGridStyle = StyleSheet.flatten(
+      getByTestId('month-calendar-grid').props.style,
+    );
+    const monthCalendarGridWrapStyle = StyleSheet.flatten(
+      getByTestId('month-calendar-grid-wrap').props.style,
+    );
+    const monthCalendarPrevStyle = StyleSheet.flatten(
+      getByTestId('month-calendar-prev').props.style,
+    );
+    const monthCalendarNextStyle = StyleSheet.flatten(
+      getByTestId('month-calendar-next').props.style,
+    );
+    const monthDayStyle = StyleSheet.flatten(
+      getByTestId('month-day-2026-04-05-single').props.style,
+    );
+    const calendarWeekdayTextStyle = StyleSheet.flatten(
+      getByTestId('month-weekday-日').props.style,
+    );
+    const studiedMonthDayTextStyle = StyleSheet.flatten(
+      getByTestId('month-day-2026-04-05-text').props.style,
+    );
+    const streakMonthDayMarkerStyle = StyleSheet.flatten(
+      getByTestId('month-day-2026-04-08-marker').props.style,
+    );
+    const futureMonthDayTextStyle = StyleSheet.flatten(
+      getByTestId('month-day-2026-04-30-text').props.style,
+    );
+    const monthlyHighlightTitleRowStyle = StyleSheet.flatten(
+      getByTestId('stats-monthly-highlight-title-row').props.style,
+    );
+    const monthlyHighlightCardStyle = StyleSheet.flatten(
+      getByTestId('monthly-highlight-card').props.style,
+    );
+    const monthlyHighlightTitleStyle = StyleSheet.flatten(
+      getByText('今月のハイライト').props.style,
+    );
+    const monthlyTotalDaysLabelStyle = StyleSheet.flatten(getByText('合計日数').props.style);
+    const monthlyTotalDaysValueRowStyle = StyleSheet.flatten(
+      getByTestId('monthly-total-days-value-row').props.style,
+    );
+    const monthlyTotalDaysNumberStyle = StyleSheet.flatten(
+      getByTestId('monthly-total-days-number').props.style,
+    );
+    const monthlyLongestStreakLabelStyle = StyleSheet.flatten(
+      getByText('最高連続日数').props.style,
+    );
+    const monthlyLongestStreakLabelOffsetStyle = StyleSheet.flatten(
+      getByTestId('monthly-longest-streak-label-offset').props.style,
+    );
+    const monthlyLongestStreakValueRowStyle = StyleSheet.flatten(
+      getByTestId('monthly-longest-streak-value-row').props.style,
+    );
+    const monthlyLongestStreakNumberStyle = StyleSheet.flatten(
+      getByTestId('monthly-longest-streak-number').props.style,
+    );
+    expect(monthCalendarRootStyle.width).toBe('100%');
+    expect(monthCalendarGridStyle.width).toBe('100%');
+    expect(monthCalendarGridWrapStyle.height).toBe(264);
+    expect(monthCalendarPrevStyle.left).toBe(-38);
+    expect(monthCalendarPrevStyle.top).toBe(57);
+    expect(monthCalendarNextStyle.right).toBe(-38);
+    expect(monthCalendarNextStyle.top).toBe(57);
+    expect(monthDayStyle.flex).toBe(1);
+    expect(monthDayStyle.width).toBeUndefined();
+    expect(monthDayStyle.height).toBe(42);
+    expect(calendarWeekdayTextStyle.fontFamily).toBe('HiraginoSans-W6');
+    expect(calendarWeekdayTextStyle.fontSize).toBe(14);
+    expect(calendarWeekdayTextStyle.fontWeight).toBe('700');
+    expect(calendarWeekdayTextStyle.lineHeight).toBe(19);
+    expect(calendarWeekdayTextStyle.transform).toEqual([{ translateY: -10 }]);
+    expect(calendarWeekdayTextStyle.color).toBe('#333333');
+    expect(studiedMonthDayTextStyle.fontFamily).toBe('HiraginoSans-W6');
+    expect(studiedMonthDayTextStyle.fontSize).toBe(17);
+    expect(studiedMonthDayTextStyle.fontWeight).toBe('700');
+    expect(studiedMonthDayTextStyle.lineHeight).toBe(23);
+    expect(studiedMonthDayTextStyle.transform).toBeUndefined();
+    expect(studiedMonthDayTextStyle.color).toBe('#5367FF');
+    expect(streakMonthDayMarkerStyle.transform).toEqual([{ translateY: -5 }]);
+    expect(futureMonthDayTextStyle.color).toBe('#CFCFCF');
     expect(getByTestId('month-day-2026-04-05-single')).toBeTruthy();
     expect(getByTestId('month-day-2026-04-08-streak')).toBeTruthy();
     expect(getByTestId('month-day-2026-04-09-streak')).toBeTruthy();
@@ -781,8 +1101,86 @@ describe('StatsScreen', () => {
     expect(getByTestId('month-day-2026-04-13-streak')).toBeTruthy();
     expect(getByTestId('monthly-highlight-card')).toBeTruthy();
     expect(getByText('今月のハイライト')).toBeTruthy();
+    expect(monthlyHighlightTitleStyle.fontSize).toBe(17);
+    expect(monthlyHighlightTitleStyle.fontWeight).toBe('700');
+    expect(monthlyHighlightTitleStyle.lineHeight).toBe(23);
+    expect(monthlyHighlightTitleRowStyle.marginTop).toBe(22);
+    expect(monthlyHighlightCardStyle.width).toBe('89%');
+    expect(monthlyHighlightCardStyle.maxWidth).toBe(302);
+    expect(monthlyHighlightCardStyle.alignSelf).toBe('center');
+    expect(monthlyHighlightCardStyle.transform).toBeUndefined();
     expect(getByText('合計日数')).toBeTruthy();
+    expect(monthlyTotalDaysLabelStyle.fontSize).toBe(17);
+    expect(monthlyTotalDaysLabelStyle.fontWeight).toBe('bold');
+    expect(monthlyTotalDaysLabelStyle.lineHeight).toBe(24);
+    expect(monthlyTotalDaysLabelStyle.transform).toEqual([{ translateY: -2 }, { translateX: 3 }]);
+    expect(monthlyTotalDaysValueRowStyle.transform).toEqual([
+      { translateY: -3 },
+      { translateX: 3 },
+    ]);
+    expect(getByTestId('monthly-total-days-number')).toBeTruthy();
+    expect(monthlyTotalDaysNumberStyle.fontFamily).toBe('HiraginoSans-W7');
+    expect(monthlyTotalDaysNumberStyle.fontWeight).toBe('700');
+    expect(monthlyTotalDaysNumberStyle.textShadowColor).toBe('#333333');
+    expect(monthlyTotalDaysNumberStyle.textShadowOffset).toEqual({ width: 0.7, height: 0 });
+    expect(monthlyTotalDaysNumberStyle.textShadowRadius).toBe(0);
+    expect(getByTestId('monthly-total-days-unit')).toBeTruthy();
     expect(getByText('最高連続日数')).toBeTruthy();
+    expect(monthlyLongestStreakLabelStyle.fontSize).toBe(18);
+    expect(monthlyLongestStreakLabelStyle.fontWeight).toBe('bold');
+    expect(monthlyLongestStreakLabelStyle.lineHeight).toBe(25);
+    expect(monthlyLongestStreakLabelStyle.transform).toBeUndefined();
+    expect(monthlyLongestStreakLabelOffsetStyle.transform).toEqual([
+      { translateY: 8 },
+      { translateX: 3 },
+    ]);
+    expect(monthlyLongestStreakValueRowStyle.transform).toEqual([
+      { translateY: 7 },
+      { translateX: 3 },
+    ]);
+    expect(monthlyLongestStreakNumberStyle.fontFamily).toBe('HiraginoSans-W7');
+    expect(monthlyLongestStreakNumberStyle.fontWeight).toBe('700');
+    expect(monthlyLongestStreakNumberStyle.textShadowColor).toBe('#333333');
+    expect(monthlyLongestStreakNumberStyle.textShadowOffset).toEqual({ width: 0.7, height: 0 });
+    expect(monthlyLongestStreakNumberStyle.textShadowRadius).toBe(0);
+    expect(monthlyLongestStreakNumberStyle.transform).toEqual([{ translateY: 2 }]);
+    expect(getByTestId('monthly-longest-streak-unit')).toBeTruthy();
+  });
+
+  it('月間カレンダーの日付セルをタップするとその日の日別サマリーに戻る', async () => {
+    (statsApi.fetchDailyReport as jest.Mock).mockImplementation((date: string) =>
+      Promise.resolve(makeDailyResponse({ date })),
+    );
+    (statsApi.fetchWeeklyReport as jest.Mock).mockImplementation((weekStart: string) =>
+      Promise.resolve(
+        makeWeeklyResponseForDates(weekStart, {
+          '2026-04-12': 50,
+        }),
+      ),
+    );
+
+    const { getByTestId, getByText, queryByTestId } = renderWithProviders(<StatsScreen />);
+    await flushAsyncUpdates();
+
+    await act(async () => {
+      fireEvent.press(getByTestId('stats-calendar-toggle'));
+    });
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(getByTestId('month-day-2026-04-12-single')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('month-day-2026-04-12-single'));
+    });
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(statsApi.fetchDailyReport).toHaveBeenCalledWith('2026-04-12');
+    });
+    expect(queryByTestId('stats-monthly-content')).toBeNull();
+    expect(getByText('4月12日のハイライト')).toBeTruthy();
   });
 
   it('取得失敗時は error メッセージと retry ボタンが表示される', async () => {
@@ -827,6 +1225,20 @@ describe('StatsScreen', () => {
     });
     expect(getByTestId('stats-weekly-chart')).toBeTruthy();
     expect(getByTestId('stats-weekly-calendar-graph-boundary')).toBeTruthy();
+    expect(getByTestId('stats-weekly-content').type).toBe('View');
+    expect(getByTestId('stats-output-history-table-scroll').type).toBe('RCTScrollView');
+    expect(getByTestId('stats-output-history-table-scroll').props.nestedScrollEnabled).toBe(true);
+    expect(StyleSheet.flatten(getByTestId('stats-weekly-content').props.style)).toMatchObject({
+      flex: 1,
+      minHeight: 0,
+      overflow: 'hidden',
+    });
+    const selectedDateBackgroundStyle = StyleSheet.flatten(
+      getByTestId('week-date-2026-04-29-studied-background').props.style,
+    );
+    expect(queryByTestId('week-date-2026-04-29-selected-background')).toBeNull();
+    expect(selectedDateBackgroundStyle.borderColor).toBeUndefined();
+    expect(selectedDateBackgroundStyle.borderWidth).toBeUndefined();
     const weeklyHistoryTitleStyle = StyleSheet.flatten(
       getByTestId('stats-output-history-title').props.style,
     );
@@ -839,9 +1251,47 @@ describe('StatsScreen', () => {
     expect(weeklyHistoryCardStyle.alignSelf).toBe('center');
     expect(weeklyHistoryCardStyle.marginLeft).toBe(0);
     expect(weeklyHistoryCardStyle.width).toBe(weeklyHistoryTitleStyle.width);
+    expect(
+      hasTestIdAncestor(
+        getByTestId('stats-output-history-title'),
+        'stats-output-history-table-scroll',
+      ),
+    ).toBe(true);
     expect(queryByTestId('stats-weekly-highlight-card')).toBeNull();
     expect(queryByText('今週のハイライト')).toBeNull();
     expect(queryByText('4月29日のハイライト')).toBeNull();
+  });
+
+  it('週別グラフは画面上部カレンダーの日付順に合わせて描画する', async () => {
+    (statsApi.fetchDailyReport as jest.Mock).mockImplementation((date: string) =>
+      Promise.resolve(makeDailyResponse({ date })),
+    );
+    (statsApi.fetchWeeklyReport as jest.Mock).mockResolvedValue(
+      makeWeeklyResponseForDates('2026-04-26', { '2026-04-28': 60 }),
+    );
+
+    const { getByTestId, queryByTestId } = renderWithProviders(<StatsScreen />);
+    await flushAsyncUpdates();
+
+    await act(async () => {
+      fireEvent.press(getByTestId('week-date-2026-04-28'));
+    });
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(statsApi.fetchDailyReport).toHaveBeenCalledWith('2026-04-28');
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('week-date-2026-04-28'));
+    });
+    await flushAsyncUpdates();
+
+    await waitFor(() => {
+      expect(getByTestId('stats-weekly-chart-bar-2026-04-25')).toBeTruthy();
+    });
+    expect(getByTestId('stats-weekly-chart-bar-2026-04-28').props.height).toBeGreaterThan(0);
+    expect(queryByTestId('stats-weekly-chart-bar-2026-05-02')).toBeNull();
   });
 
   it('週別グラフは履歴詳細で選択した教科の色を反映する', async () => {
@@ -886,6 +1336,7 @@ describe('StatsScreen', () => {
       processColor('#457DFF'),
     );
     expect(secondSegment.props.fill.payload).toBe(processColor('#2BAAF3'));
+    expect(secondSegment.props.clipPath).toBe('weekly-chart-bar-clip-2026-04-29');
     expect(secondSegment.props.height / totalBarHeight).toBeCloseTo(45 / 70, 5);
 
     await act(async () => {
@@ -1071,6 +1522,9 @@ describe('StatsScreen', () => {
     await waitFor(() => {
       expect(getByTestId('stats-output-history-empty')).toBeTruthy();
     });
-    expect(getByTestId('stats-session-badge').props.children.props.children).toEqual(['×', 0]);
+    const sessionBadgeRow = getByTestId('stats-session-badge').props.children;
+    const sessionBadgeChildren = sessionBadgeRow.props.children;
+    expect(sessionBadgeChildren[0].props.children.props.children).toBe('×');
+    expect(sessionBadgeChildren[1].props.children).toBe(0);
   });
 });

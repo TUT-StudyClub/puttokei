@@ -38,6 +38,19 @@ class JudgmentResponse(FrozenModel):
     judged_at: datetime
 
 
+class JudgmentListResponse(FrozenModel):
+    """判定履歴一覧レスポンス。"""
+
+    judgments: list[JudgmentResponse]
+    next_cursor: str | None
+
+
+class JudgmentDetailResponse(FrozenModel):
+    """判定詳細レスポンス。"""
+
+    judgment: JudgmentResponse
+
+
 class JudgmentPendingResponse(FrozenModel):
     """判定未完了レスポンス。"""
 

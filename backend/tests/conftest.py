@@ -19,10 +19,13 @@ from src.application.use_cases.create_session import CreateSession
 from src.application.use_cases.delete_account import DeleteAccount
 from src.application.use_cases.get_daily_report import GetDailyReport
 from src.application.use_cases.get_judgment import GetJudgment
+from src.application.use_cases.get_judgment_detail import GetJudgmentDetail
 from src.application.use_cases.get_judgment_progress import GetJudgmentProgress
+from src.application.use_cases.get_stats import GetStatsPeriod, GetStatsSummary
 from src.application.use_cases.get_user_profile import GetUserProfile
 from src.application.use_cases.get_user_settings import GetUserSettings
 from src.application.use_cases.get_weekly_report import GetWeeklyReport
+from src.application.use_cases.list_judgments import ListJudgments
 from src.application.use_cases.list_today_outputs import ListTodayOutputs
 from src.application.use_cases.submit_image_output import SubmitImageOutput
 from src.application.use_cases.submit_text_output import SubmitTextOutput
@@ -34,11 +37,13 @@ from src.config import Settings
 from src.container import Container
 from src.infrastructure.persistence.database import Database
 from src.main import create_app
+from tests.fakes.fake_auth_account_admin import FakeAuthAccountAdmin
 from tests.fakes.fake_auth_verifier import FakeAuthVerifier
 from tests.fakes.fake_judgment_progress_repository import FakeJudgmentProgressRepository
 from tests.fakes.fake_judgment_repository import FakeJudgmentRepository
 from tests.fakes.fake_output_repository import FakeOutputRepository
 from tests.fakes.fake_session_repository import FakeSessionRepository
+from tests.fakes.fake_stats_repository import FakeStatsRepository
 from tests.fakes.fake_study_subject_repository import FakeStudySubjectRepository
 from tests.fakes.fake_unit_of_work import FakeUnitOfWork
 from tests.fakes.fake_user_repository import FakeUserRepository
@@ -87,8 +92,18 @@ def fake_judgment_progress_repository() -> FakeJudgmentProgressRepository:
 
 
 @pytest.fixture
+def fake_stats_repository() -> FakeStatsRepository:
+    return FakeStatsRepository()
+
+
+@pytest.fixture
 def fake_auth_verifier() -> FakeAuthVerifier:
     return FakeAuthVerifier()
+
+
+@pytest.fixture
+def fake_auth_account_admin() -> FakeAuthAccountAdmin:
+    return FakeAuthAccountAdmin()
 
 
 @pytest.fixture
@@ -100,7 +115,9 @@ def container(
     fake_study_subject_repository: FakeStudySubjectRepository,
     fake_judgment_repository: FakeJudgmentRepository,
     fake_judgment_progress_repository: FakeJudgmentProgressRepository,
+    fake_stats_repository: FakeStatsRepository,
     fake_auth_verifier: FakeAuthVerifier,
+    fake_auth_account_admin: FakeAuthAccountAdmin,
 ) -> Container:
     """fake 実装を差し込んだ Container。"""
     database = Database(database_url=settings.database_url)
@@ -113,6 +130,7 @@ def container(
             study_subjects=fake_study_subject_repository,
             judgments=fake_judgment_repository,
             judgment_progresses=fake_judgment_progress_repository,
+            stats=fake_stats_repository,
         )
 
     return Container(
@@ -126,7 +144,10 @@ def container(
         update_user_profile=UpdateUserProfile(unit_of_work_factory=unit_of_work_factory),
         get_user_settings=GetUserSettings(unit_of_work_factory=unit_of_work_factory),
         update_user_settings=UpdateUserSettings(unit_of_work_factory=unit_of_work_factory),
-        delete_account=DeleteAccount(unit_of_work_factory=unit_of_work_factory),
+        delete_account=DeleteAccount(
+            unit_of_work_factory=unit_of_work_factory,
+            auth_account_admin=fake_auth_account_admin,
+        ),
         create_session=CreateSession(unit_of_work_factory=unit_of_work_factory),
         update_session_status=UpdateSessionStatus(unit_of_work_factory=unit_of_work_factory),
         submit_text_output=SubmitTextOutput(unit_of_work_factory=unit_of_work_factory),
@@ -136,8 +157,12 @@ def container(
         run_text_judgment=None,
         run_image_judgment=None,
         get_judgment=GetJudgment(unit_of_work_factory=unit_of_work_factory),
+        get_judgment_detail=GetJudgmentDetail(unit_of_work_factory=unit_of_work_factory),
         get_judgment_progress=GetJudgmentProgress(unit_of_work_factory=unit_of_work_factory),
+        list_judgments=ListJudgments(unit_of_work_factory=unit_of_work_factory),
         list_today_outputs=ListTodayOutputs(unit_of_work_factory=unit_of_work_factory),
+        get_stats_summary=GetStatsSummary(unit_of_work_factory=unit_of_work_factory),
+        get_stats_period=GetStatsPeriod(unit_of_work_factory=unit_of_work_factory),
         get_weekly_report=GetWeeklyReport(unit_of_work_factory=unit_of_work_factory),
         get_daily_report=GetDailyReport(unit_of_work_factory=unit_of_work_factory),
     )
@@ -145,9 +170,14 @@ def container(
 
 @pytest_asyncio.fixture
 async def client(settings: Settings, container: Container) -> AsyncIterator[AsyncClient]:
-    """ASGITransport で lifespan を実行しながら HTTP 呼び出しできる AsyncClient。"""
+    """ASGITransport で lifespan を実行しながら HTTP 呼び出しできる AsyncClient。
+
+    `raise_app_exceptions=False` にして、未捕捉例外も `unexpected_exception_handler`
+    が 500 にラップして応答するようにする。これによりテストから HTTP ステータスコード
+    として 500 を検証できる（DELETE /users/me で Firebase エラー時の挙動など）。
+    """
     app = create_app(settings=settings, container=container)
-    transport = ASGITransport(app=app)
+    transport = ASGITransport(app=app, raise_app_exceptions=False)
     async with (
         AsyncClient(transport=transport, base_url="http://testserver") as ac,
         app.router.lifespan_context(app),

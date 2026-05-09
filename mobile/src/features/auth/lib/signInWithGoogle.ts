@@ -12,6 +12,7 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import Constants from 'expo-constants';
 
 import { AuthFlowCancelledError } from './authErrors';
+import { linkOrSignInWithCredential } from './linkOrSignInWithCredential';
 
 let configured = false;
 
@@ -44,5 +45,5 @@ export async function signInWithGoogle(): Promise<void> {
   }
 
   const credential = auth.GoogleAuthProvider.credential(result.data.idToken);
-  await auth().signInWithCredential(credential);
+  await linkOrSignInWithCredential(credential);
 }
