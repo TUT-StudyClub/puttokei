@@ -142,6 +142,11 @@ module.exports = ({ config }) => {
   const easOwner = readEnv(process.env.EXPO_PUBLIC_EAS_OWNER) ?? base.owner;
 
   const finalConfig = {
+    // expo-doctor の ExpoConfigCommonIssueCheck は引数 `config` (= 静的 app.json) を
+    // dynamic config に取り込んだかを Symbol で検出する。本ファイルは app.json を
+    // require で直接読み直しているため、Symbol を伝播させる目的で先頭に展開する。
+    // 後続の base 展開で値は上書きされるので、解決順序の意味は変わらない。
+    ...(config || {}),
     ...base,
     // ConfigContext.config の name / slug は package.json の name (= hourglass-mobile)
     // からフォールバックされることがあるため、本ファイルでは app.json.example の値を

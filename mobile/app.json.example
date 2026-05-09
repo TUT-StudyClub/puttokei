@@ -14,10 +14,12 @@
     "orientation": "portrait",
     "scheme": "hourglass",
     "userInterfaceStyle": "automatic",
+    "icon": "./assets/images/app/app-icon.png",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
       "usesAppleSignIn": true,
+      "icon": "./assets/images/app/app-icon.png",
       "bundleIdentifier": "com.hourglass.dev",
       "googleServicesFile": "./GoogleService-Info.dev.plist",
       "infoPlist": {
@@ -30,7 +32,12 @@
       "appleTeamId": "YOUR_APPLE_TEAM_ID"
     },
     "android": {
-      "package": "com.hourglass.dev"
+      "package": "com.hourglass.dev",
+      "icon": "./assets/images/app/app-icon.png",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/app/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      }
     },
     "web": {
       "bundler": "metro",
