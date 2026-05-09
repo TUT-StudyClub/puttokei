@@ -8,7 +8,7 @@
  * 画像は `resizeMode='contain'` で描画される前提で、コンテナ幅と画像のアスペクト比から
  * 実描画領域 (letterbox を除いた範囲) を算出して bbox 座標を絶対位置に変換する。
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -25,9 +25,12 @@ type AnnotatedOutputImageProps = {
   imageUrl: string;
   corrections: readonly JudgmentCorrection[];
   selectedCorrectionIndex: number | null;
-  onSelectCorrection: (correctionIndex: number) => void;
+  onSelectCorrection: (correctionIndex: number, pageX?: number, pageY?: number) => void;
   containerStyle?: StyleProp<ViewStyle>;
   imageHeight?: number;
+  autoHeight?: boolean;
+  autoSelectIndex?: number | null;
+  onAutoSelect?: (index: number, relBboxCenterX: number, relBboxBottomY: number) => void;
   testID?: string;
 };
 
@@ -44,12 +47,17 @@ export function AnnotatedOutputImage({
   onSelectCorrection,
   containerStyle,
   imageHeight = 320,
+  autoHeight = false,
+  autoSelectIndex,
+  onAutoSelect,
   testID,
 }: AnnotatedOutputImageProps) {
   const [containerSize, setContainerSize] = useState<{ width: number; height: number } | null>(
     null,
   );
   const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null);
+  const containerRef = useRef<View>(null);
+  const autoSelectFiredRef = useRef(false);
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
@@ -91,10 +99,57 @@ export function AnnotatedOutputImage({
 
   const renderArea = computeRenderArea(containerSize, naturalSize);
 
+  useEffect(() => {
+    autoSelectFiredRef.current = false;
+  }, [autoSelectIndex]);
+
+  useEffect(() => {
+    if (autoSelectIndex == null || !renderArea) return;
+
+    const bbox = corrections[autoSelectIndex]?.bbox;
+    if (!bbox) {
+      if (!autoSelectFiredRef.current) {
+        autoSelectFiredRef.current = true;
+        onSelectCorrection(autoSelectIndex);
+      }
+      return;
+    }
+
+    const bboxCenterX = renderArea.offsetX + (bbox.x + bbox.width / 2) * renderArea.width;
+    const bboxBottomY = renderArea.offsetY + (bbox.y + bbox.height) * renderArea.height;
+
+    if (onAutoSelect) {
+      if (!autoSelectFiredRef.current) {
+        autoSelectFiredRef.current = true;
+        onAutoSelect(autoSelectIndex, bboxCenterX, bboxBottomY);
+      }
+      return;
+    }
+
+    const timerId = setTimeout(() => {
+      if (autoSelectFiredRef.current) return;
+      autoSelectFiredRef.current = true;
+      const container = containerRef.current;
+      if (container) {
+        container.measureInWindow((screenX, screenY) => {
+          onSelectCorrection(autoSelectIndex, screenX + bboxCenterX, screenY + bboxBottomY);
+        });
+      }
+    }, 400);
+    return () => clearTimeout(timerId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSelectIndex, renderArea]);
+
+  const displayHeight =
+    autoHeight && naturalSize && containerSize
+      ? Math.round((containerSize.width / naturalSize.width) * naturalSize.height)
+      : imageHeight;
+
   return (
     <View
+      ref={containerRef}
       onLayout={handleLayout}
-      style={[styles.container, { height: imageHeight }, containerStyle]}
+      style={[styles.container, { height: displayHeight }, containerStyle]}
       testID={testID}
     >
       <Image
@@ -111,14 +166,21 @@ export function AnnotatedOutputImage({
             const left = renderArea.offsetX + bbox.x * renderArea.width;
             const top = renderArea.offsetY + bbox.y * renderArea.height;
             const width = Math.max(bbox.width * renderArea.width, 4);
-            const height = Math.max(bbox.height * renderArea.height, UNDERLINE_THICKNESS);
+            const maxBottom = renderArea.offsetY + renderArea.height - UNDERLINE_THICKNESS;
+            const height = Math.max(
+              Math.min(bbox.height * renderArea.height, maxBottom - top),
+              UNDERLINE_THICKNESS,
+            );
             const selected = selectedCorrectionIndex === index;
             return (
               <Pressable
                 key={index}
                 accessibilityRole="button"
                 accessibilityLabel={`誤り箇所 ${index + 1}`}
-                onPress={() => onSelectCorrection(index)}
+                onPress={(event) => {
+                  onSelectCorrection(index);
+                  onSelectCorrection(index, event.nativeEvent.pageX, event.nativeEvent.pageY);
+                }}
                 hitSlop={TAP_PADDING}
                 style={[
                   styles.tapArea,
@@ -148,6 +210,7 @@ export function AnnotatedOutputImage({
 const styles = StyleSheet.create({
   container: {
     width: '100%',
+    overflow: 'hidden',
   },
   image: {
     width: '100%',
