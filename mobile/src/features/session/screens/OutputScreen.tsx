@@ -69,6 +69,7 @@ const ERROR_COLOR = '#D92D20';
 const OUTPUT_TOP_CHROME_HOURGLASS_TOP = '11.2%';
 const OUTPUT_TOP_CHROME_PHASE_TABS_TOP = '27.6%';
 const OUTPUT_TIMER_STAGE_MARGIN_TOP = 62;
+const OUTPUT_COMPOSER_CARD_LIFT = 136;
 
 const INPUT_METHODS = ['text', 'image', 'voice'] as const;
 type InputMethod = (typeof INPUT_METHODS)[number];
@@ -774,6 +775,7 @@ export function OutputScreen() {
       : null);
 
   const showSessionChrome = !isKeyboardVisible && !isImageMethod;
+  const shouldLiftComposerCard = showSessionChrome;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -867,7 +869,11 @@ export function OutputScreen() {
               </View>
 
               <View
-                style={[styles.composerCard, isImageMethod ? styles.composerCardImageMethod : null]}
+                style={[
+                  styles.composerCard,
+                  shouldLiftComposerCard ? styles.composerCardLifted : null,
+                  isImageMethod ? styles.composerCardImageMethod : null,
+                ]}
                 testID="output-composer-card"
               >
                 <InputMethodTabs value={inputMethod} onChange={handleInputMethodChange} />
@@ -1016,6 +1022,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     textAlign: 'center',
     marginTop: 8,
+    transform: [{ translateY: -12 }],
   },
   composerCard: {
     gap: 12,
@@ -1029,6 +1036,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
+  },
+  composerCardLifted: {
+    marginTop: -OUTPUT_COMPOSER_CARD_LIFT,
   },
   composerCardImageMethod: {
     minHeight: 344,
