@@ -1,0 +1,73 @@
+# EAS Build がクラウドビルダーへアップロードしないファイルを指定する。
+#
+# このリポジトリでは `mobile/` から EAS Build を実行しても archive はリポジトリ
+# ルート単位で作られるため、root の `.gitignore` と mobile 側で必要な ignore /
+# include ルールをここに集約する。
+
+# OS が生成するファイル
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.Spotlight-V100
+.Trashes
+
+# エディタ / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.bak
+*.tmp
+.history/
+
+# ログ・一時ファイル
+*.log
+logs/
+tmp/
+.tmp/
+
+# 環境変数
+.env
+.env.local
+.env.*.local
+
+# シークレット類
+*.pem
+*.key
+*-credentials.json
+serviceAccount*.json
+google-credentials.json
+
+# その他の生成物
+coverage/
+.coverage
+*.cover
+
+# AI ツールのローカルキャッシュ
+.aider*
+.cursorignore.local
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
+.claude/worktrees/
+
+# mobile
+mobile/node_modules/
+mobile/.expo/
+mobile/.expo-shared/
+mobile/dist/
+mobile/web-build/
+mobile/ios/
+mobile/android/
+mobile/.tamagui/
+mobile/coverage/
+mobile/google-services.json
+mobile/expo-env.d.ts
+
+# `.gitignore` では除外するが、EAS Build の archive には含める。
+!mobile/app.json
+!mobile/GoogleService-Info*.plist

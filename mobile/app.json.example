@@ -1,6 +1,14 @@
 {
+  "_comment": [
+    "チーム共通のテンプレート。`mobile/app.json` (gitignored) に複製して、",
+    "`YOUR_*` で示したプレースホルダを各プロジェクト固有の値に書き換えて使う。",
+    "`mobile/.easignore` の `!app.json` 設定により、ローカルの `app.json` は EAS Build に",
+    "アップロードされ、本ファイル (`app.json.example`) より優先される。`app.json` が",
+    "存在しなければ `app.json.example` がそのまま読まれる。",
+    "個別開発者の overlay は `app.json` または `.env.local` の `EXPO_PUBLIC_*` で行う。"
+  ],
   "expo": {
-    "name": "Hourglass",
+    "name": "ぷっとけい",
     "slug": "hourglass",
     "version": "0.1.0",
     "orientation": "portrait",
@@ -10,19 +18,19 @@
     "ios": {
       "supportsTablet": false,
       "usesAppleSignIn": true,
-      "bundleIdentifier": "com.hourglass-nomibress.app",
-      "googleServicesFile": "./GoogleService-Info.plist",
+      "bundleIdentifier": "com.hourglass.dev",
+      "googleServicesFile": "./GoogleService-Info.dev.plist",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "アウトプット画像を撮影するためにカメラを使用します。",
         "NSPhotoLibraryUsageDescription": "アウトプット画像を写真フォルダから選択するために写真ライブラリを使用します。",
         "NSMicrophoneUsageDescription": "アウトプット音声を文字起こしするためにマイクを使用します。",
         "NSSpeechRecognitionUsageDescription": "アウトプット音声を文字起こしするために音声認識を使用します。"
-      }
+      },
+      "appleTeamId": "YOUR_APPLE_TEAM_ID"
     },
     "android": {
-      "package": "com.hourglass.app",
-      "googleServicesFile": "./google-services.json"
+      "package": "com.hourglass.dev"
     },
     "web": {
       "bundler": "metro",
@@ -30,7 +38,7 @@
     },
     "plugins": [
       "expo-router",
-      "./plugins/withModularHeaders",
+      "./plugins/withFmtCompat",
       "@react-native-firebase/app",
       "expo-apple-authentication",
       [
@@ -67,25 +75,6 @@
         }
       ],
       [
-        "expo-image-picker",
-        {
-          "cameraPermission": "アウトプット画像を撮影するためにカメラを使用します。",
-          "photosPermission": "アウトプット画像を写真フォルダから選択するために写真ライブラリを使用します。",
-          "microphonePermission": "アウトプット音声を文字起こしするためにマイクを使用します。"
-        }
-      ],
-      [
-        "expo-speech-recognition",
-        {
-          "microphonePermission": "アウトプット音声を文字起こしするためにマイクを使用します。",
-          "speechRecognitionPermission": "アウトプット音声を文字起こしするために音声認識を使用します。",
-          "androidSpeechServicePackages": [
-            "com.google.android.googlequicksearchbox",
-            "com.google.android.tts"
-          ]
-        }
-      ],
-      [
         "expo-splash-screen",
         {
           "image": "./assets/images/logos/typography_black.png",
@@ -93,8 +82,7 @@
           "imageWidth": 280,
           "resizeMode": "contain"
         }
-      ],
-      "./plugins/withFmtCompat"
+      ]
     ],
     "experiments": {
       "typedRoutes": true
@@ -103,12 +91,12 @@
       "router": {
         "origin": false
       },
-      "eas": {
-        "projectId": "4498f1e9-6c92-4c40-976d-8135bf225a8c"
-      },
       "apiBaseUrl": "http://localhost:8080/api/v1",
-      "googleWebClientId": "YOUR_GOOGLE_WEB_CLIENT_ID"
+      "googleWebClientId": "YOUR_GOOGLE_WEB_CLIENT_ID",
+      "eas": {
+        "projectId": "YOUR_EAS_PROJECT_ID"
+      }
     },
-    "owner": "yuehiyamada"
+    "owner": "YOUR_EXPO_OWNER"
   }
 }
