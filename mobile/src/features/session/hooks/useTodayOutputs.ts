@@ -10,5 +10,9 @@ export function useTodayOutputs(enabled = true) {
     queryFn: listTodayOutputs,
     enabled,
     retry: false,
+    refetchInterval: (query) => {
+      const items = query.state.data?.items ?? [];
+      return items.some((item) => item.judgment === null) ? 3000 : false;
+    },
   });
 }

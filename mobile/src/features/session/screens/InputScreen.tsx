@@ -8,11 +8,26 @@
  * 画面構成は HomeScreen と揃えた上で、中央に円形プログレス、下部に「中断する」
  * 「5分延長」の 2 ボタンを配置する。
  */
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Alert,
+  Animated,
+  Dimensions,
+  Easing,
+  Image,
+  LayoutAnimation,
+  Modal,
+  PanResponder,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Circle, Path, Rect, Svg } from 'react-native-svg';
 import { SizableText } from 'tamagui';
 
@@ -35,6 +50,9 @@ import { useLoopStore } from '@/shared/stores/loopStore';
 import { useTimerStore } from '@/shared/stores/timerStore';
 
 const CURRENT_PHASE: SessionPhase = 'input';
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const POPOVER_WIDTH = 220;
 
 // 「今日のアウトプット」一覧で、スクロールせずに見せる最大行数。
 // 4 件目以降は一覧内だけがスクロールするようにする。
@@ -89,6 +107,20 @@ function ImageIcon({ color = TEXT_ACTIVE, size = 25 }: { color?: string; size?: 
         strokeWidth={1.5}
       />
       <Circle cx={12} cy={6} r={1.5} fill={color} />
+    </Svg>
+  );
+}
+
+function ChevronLeftIcon() {
+  return (
+    <Svg width={6} height={16} viewBox="0 0 5 10" fill="none">
+      <Path
+        d="M4 1L1 5L4 9"
+        stroke="#676767"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
@@ -162,105 +194,250 @@ function TodayOutputList({ items, onSelect }: TodayOutputListProps) {
 
 type OutputDetailCardProps = {
   item: OutputReviewItem;
-  onBack: () => void;
+  onDismiss?: () => void;
+  sheetPaddingBottom?: number;
+  contentAreaRef?: React.RefObject<View>;
 };
 
-function OutputDetailCard({ item, onBack }: OutputDetailCardProps) {
+const FEEDBACK_INDICATOR_HEIGHT = 36;
+
+function OutputDetailCard({
+  item,
+  onDismiss,
+  sheetPaddingBottom,
+  contentAreaRef,
+}: OutputDetailCardProps) {
   const judgment = item.judgment;
   const corrections = useMemo(() => judgment?.corrections ?? [], [judgment?.corrections]);
-  const hasCorrections = corrections.length > 0;
   const [selectedCorrectionIndex, setSelectedCorrectionIndex] = useState<number | null>(null);
+  const [isImageExpanded, setIsImageExpanded] = useState(false);
+  const feedbackScrollY = useRef(new Animated.Value(0)).current;
+  const [feedbackContentHeight, setFeedbackContentHeight] = useState(0);
+  const [feedbackPopoverHeight, setFeedbackPopoverHeight] = useState(0);
+  const [popoverCenterX, setPopoverCenterX] = useState(0);
+  const [popoverTop, setPopoverTop] = useState(0);
+  const imageExpandedContainerRef = useRef<View>(null);
+  const feedbackIndicatorTop = useMemo(
+    () =>
+      feedbackScrollY.interpolate({
+        inputRange: [0, Math.max(feedbackContentHeight - feedbackPopoverHeight, 1)],
+        outputRange: [4, Math.max(4, feedbackPopoverHeight - FEEDBACK_INDICATOR_HEIGHT - 4)],
+        extrapolate: 'clamp',
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [feedbackScrollY, feedbackContentHeight, feedbackPopoverHeight],
+  );
 
   useEffect(() => {
     setSelectedCorrectionIndex(null);
-  }, [item.output.id]);
+    setIsImageExpanded(false);
+    feedbackScrollY.setValue(0);
+  }, [item.output.id, feedbackScrollY]);
 
   const selectedCorrection =
     selectedCorrectionIndex !== null ? (corrections[selectedCorrectionIndex] ?? null) : null;
 
-  const handleSelectCorrection = (index: number) => {
-    setSelectedCorrectionIndex((current) => (current === index ? null : index));
+  const handleSelectCorrection = (index: number, pageX?: number, pageY?: number) => {
+    if (pageX === undefined && pageY === undefined) {
+      setSelectedCorrectionIndex((current) => (current === index ? null : index));
+    } else if (pageX !== undefined && pageY !== undefined) {
+      setPopoverCenterX(pageX);
+      setPopoverTop(Math.min(pageY + 8, SCREEN_HEIGHT - 190));
+    }
   };
 
+  const handleAutoSelect = useCallback(
+    (index: number, relBboxCenterX: number, relBboxBottomY: number) => {
+      const containerEl = imageExpandedContainerRef.current;
+      const contentAreaEl = contentAreaRef?.current;
+      if (!containerEl || !contentAreaEl) {
+        setSelectedCorrectionIndex(index);
+        return;
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      containerEl.measureLayout(
+        contentAreaEl as any,
+        (containerLayoutX: number, containerLayoutY: number) => {
+          contentAreaEl.measureInWindow((caScreenX: number, caScreenY: number) => {
+            setSelectedCorrectionIndex(index);
+            setPopoverCenterX(caScreenX + containerLayoutX + relBboxCenterX);
+            setPopoverTop(
+              Math.min(caScreenY + containerLayoutY + relBboxBottomY + 13, SCREEN_HEIGHT - 190),
+            );
+          });
+        },
+        () => {
+          setSelectedCorrectionIndex(index);
+        },
+      );
+    },
+    [contentAreaRef],
+  );
+
+  const popoverLeftBound = isImageExpanded ? 59 : 36;
+  const popoverRightBound = isImageExpanded ? 342 : SCREEN_WIDTH - 36;
+  const popoverLeft = Math.max(
+    popoverLeftBound,
+    Math.min(popoverCenterX - POPOVER_WIDTH / 2, popoverRightBound - POPOVER_WIDTH),
+  );
+  const arrowMarginLeft = Math.max(
+    8,
+    Math.min(popoverCenterX - popoverLeft - 8, POPOVER_WIDTH - 24),
+  );
+
   return (
-    <View style={styles.outputDetailSheet} testID="output-review-detail">
-      <View style={styles.sheetHandle} />
-      <View style={styles.outputDetailHeader}>
-        <SizableText style={styles.outputDetailTitle}>
-          サイクル{item.cycle_index}のアウトプット
-        </SizableText>
-        <Pressable
-          accessibilityRole="button"
-          onPress={onBack}
-          hitSlop={8}
-          style={styles.outputDetailBackButton}
-          testID="output-review-back"
+    <>
+      <View style={styles.outputDetailContainer} testID="output-review-detail">
+        <View
+          style={[
+            styles.outputDetailSheet,
+            sheetPaddingBottom !== undefined ? { paddingBottom: sheetPaddingBottom } : null,
+          ]}
         >
-          <SizableText style={styles.outputDetailBack}>一覧</SizableText>
-        </Pressable>
-      </View>
-
-      <View style={styles.outputPreviewFrame}>
-        <View style={styles.outputModeTabs}>
-          <View
-            style={item.output.kind === 'text' ? styles.outputModeTabActive : styles.outputModeTab}
-          >
-            <PencilIcon color={item.output.kind === 'text' ? TEXT_ACTIVE : REVIEW_TEXT_MUTED} />
-            <SizableText
-              style={
-                item.output.kind === 'text'
-                  ? styles.outputModeTabTextActive
-                  : styles.outputModeTabText
-              }
-            >
-              テキスト
-            </SizableText>
-          </View>
-          <View
-            style={item.output.kind === 'image' ? styles.outputModeTabActive : styles.outputModeTab}
-          >
-            <ImageIcon color={item.output.kind === 'image' ? TEXT_ACTIVE : REVIEW_TEXT_MUTED} />
-            <SizableText
-              style={
-                item.output.kind === 'image'
-                  ? styles.outputModeTabTextActive
-                  : styles.outputModeTabText
-              }
-            >
-              画像
-            </SizableText>
-          </View>
-          <View style={styles.outputModeTab}>
-            <MicIcon color={REVIEW_TEXT_MUTED} />
-            <SizableText style={styles.outputModeTabText}>音声</SizableText>
-          </View>
-        </View>
-
-        <View style={styles.outputContentBox}>
-          {item.output.kind === 'image' && item.output.image_url ? (
-            <AnnotatedOutputImage
-              imageUrl={item.output.image_url}
-              corrections={corrections}
-              selectedCorrectionIndex={selectedCorrectionIndex}
-              onSelectCorrection={handleSelectCorrection}
-              imageHeight={320}
-              testID="output-review-image"
-            />
-          ) : (
-            <ScrollView nestedScrollEnabled contentContainerStyle={styles.outputContentScroll}>
-              <AnnotatedOutputText
-                content={item.output.content ?? ''}
-                corrections={corrections}
-                selectedCorrectionIndex={selectedCorrectionIndex}
-                onSelectCorrection={handleSelectCorrection}
-                textStyle={styles.outputContentText}
-                testID="output-review-annotated-text"
-              />
-            </ScrollView>
+          <Pressable onPress={onDismiss} hitSlop={12} style={styles.sheetHandle} />
+          {!isImageExpanded && (
+            <View style={styles.outputDetailHeader}>
+              <Text style={styles.outputDetailTitle}>サイクル{item.cycle_index}のアウトプット</Text>
+            </View>
           )}
 
-          {selectedCorrection ? (
-            <View style={styles.feedbackPopover} testID="output-review-correction-popover">
+          {isImageExpanded && item.output.image_url ? (
+            <View style={styles.outputPreviewFrameExpanded}>
+              <Pressable
+                onPress={() => {
+                  setIsImageExpanded(false);
+                  setSelectedCorrectionIndex(null);
+                }}
+                style={styles.imageExpandedBack}
+                hitSlop={12}
+              >
+                <ChevronLeftIcon />
+              </Pressable>
+              <View ref={imageExpandedContainerRef} style={styles.imageExpandedContainer}>
+                <AnnotatedOutputImage
+                  imageUrl={item.output.image_url}
+                  corrections={corrections}
+                  selectedCorrectionIndex={selectedCorrectionIndex}
+                  onSelectCorrection={handleSelectCorrection}
+                  autoHeight
+                  autoSelectIndex={corrections.length > 0 ? 0 : null}
+                  onAutoSelect={handleAutoSelect}
+                  testID="output-review-image"
+                />
+              </View>
+            </View>
+          ) : (
+            <View style={styles.outputPreviewFrame}>
+              <View style={styles.outputModeTabs}>
+                <View style={styles.outputModeTabFlex}>
+                  <View
+                    style={
+                      item.output.kind === 'text'
+                        ? styles.outputModeTabActive
+                        : styles.outputModeTab
+                    }
+                  >
+                    <PencilIcon
+                      color={item.output.kind === 'text' ? TEXT_ACTIVE : REVIEW_TEXT_MUTED}
+                      size={19}
+                    />
+                    <Text
+                      style={
+                        item.output.kind === 'text'
+                          ? styles.outputModeTabTextActive
+                          : styles.outputModeTabText
+                      }
+                    >
+                      テキスト
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.outputModeTabFlex}>
+                  <View
+                    style={
+                      item.output.kind === 'image'
+                        ? styles.outputModeTabActive
+                        : styles.outputModeTab
+                    }
+                  >
+                    <ImageIcon
+                      color={item.output.kind === 'image' ? TEXT_ACTIVE : REVIEW_TEXT_MUTED}
+                      size={19}
+                    />
+                    <Text
+                      style={
+                        item.output.kind === 'image'
+                          ? styles.outputModeTabTextActive
+                          : styles.outputModeTabText
+                      }
+                    >
+                      画像
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.outputModeTabFlex}>
+                  <View style={styles.outputModeTab}>
+                    <MicIcon color={REVIEW_TEXT_MUTED} size={19} />
+                    <Text style={styles.outputModeTabText}>音声</Text>
+                  </View>
+                </View>
+              </View>
+
+              <View
+                style={[
+                  styles.outputContentBox,
+                  item.output.kind === 'image' ? { borderWidth: 0 } : null,
+                ]}
+              >
+                {item.output.kind === 'image' && item.output.image_url ? (
+                  <Pressable
+                    onPress={() => {
+                      setIsImageExpanded(true);
+                    }}
+                    style={styles.imageThumbnailWrapper}
+                  >
+                    <Image source={{ uri: item.output.image_url }} style={styles.imageThumbnail} />
+                  </Pressable>
+                ) : (
+                  <ScrollView
+                    nestedScrollEnabled
+                    contentContainerStyle={styles.outputContentScroll}
+                  >
+                    <AnnotatedOutputText
+                      content={item.output.content ?? ''}
+                      corrections={corrections}
+                      selectedCorrectionIndex={selectedCorrectionIndex}
+                      onSelectCorrection={handleSelectCorrection}
+                      textStyle={styles.outputContentText}
+                      testID="output-review-annotated-text"
+                    />
+                  </ScrollView>
+                )}
+              </View>
+            </View>
+          )}
+        </View>
+      </View>
+      <Modal
+        visible={!!selectedCorrection}
+        transparent
+        animationType="none"
+        onRequestClose={() => setSelectedCorrectionIndex(null)}
+      >
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={() => setSelectedCorrectionIndex(null)}
+        />
+        {selectedCorrection && (
+          <View
+            style={[styles.feedbackPopoverWrapper, { top: popoverTop, left: popoverLeft }]}
+            testID="output-review-correction-popover"
+          >
+            <View style={[styles.feedbackPopoverArrow, { marginLeft: arrowMarginLeft }]} />
+            <View
+              style={styles.feedbackPopover}
+              onLayout={(e) => setFeedbackPopoverHeight(e.nativeEvent.layout.height)}
+            >
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="解説を閉じる"
@@ -272,13 +449,26 @@ function OutputDetailCard({ item, onBack }: OutputDetailCardProps) {
                 ]}
                 testID="output-review-correction-close"
               >
-                <SizableText style={styles.feedbackPopoverCloseText}>✕</SizableText>
+                <Svg width={12} height={12} viewBox="0 0 16 16" fill="none">
+                  <Path
+                    d="M2 2L14 14M14 2L2 14"
+                    stroke="#FFFFFF"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                  />
+                </Svg>
               </Pressable>
               <ScrollView
                 style={styles.feedbackPopoverScroll}
                 contentContainerStyle={styles.feedbackPopoverScrollContent}
                 nestedScrollEnabled
-                showsVerticalScrollIndicator
+                showsVerticalScrollIndicator={false}
+                scrollEventThrottle={16}
+                onScroll={Animated.event(
+                  [{ nativeEvent: { contentOffset: { y: feedbackScrollY } } }],
+                  { useNativeDriver: false },
+                )}
+                onContentSizeChange={(_, h) => setFeedbackContentHeight(h)}
               >
                 <SizableText style={styles.feedbackHeading}>正解</SizableText>
                 <SizableText style={styles.feedbackCorrect}>
@@ -289,40 +479,29 @@ function OutputDetailCard({ item, onBack }: OutputDetailCardProps) {
                   {selectedCorrection.explanation}
                 </SizableText>
               </ScrollView>
+              {feedbackContentHeight > feedbackPopoverHeight && (
+                <Animated.View
+                  pointerEvents="none"
+                  style={[styles.feedbackScrollIndicator, { top: feedbackIndicatorTop }]}
+                />
+              )}
             </View>
-          ) : null}
-        </View>
-
-        {judgment ? (
-          <View style={styles.feedbackCard} testID="output-review-feedback">
-            <SizableText style={styles.feedbackCardHeading}>フィードバック</SizableText>
-            <SizableText style={styles.feedbackCardBody}>{judgment.advice}</SizableText>
-            <SizableText style={styles.feedbackCardBody}>
-              {hasCorrections
-                ? '赤線をタップすると、正解と解説を確認できます。'
-                : '今回の判定では、個別に直す箇所はありませんでした。'}
-            </SizableText>
-          </View>
-        ) : (
-          <View style={styles.feedbackCard} testID="output-review-feedback">
-            <SizableText style={styles.feedbackCardHeading}>判定待ち</SizableText>
-            <SizableText style={styles.feedbackCardBody}>
-              採点が完了すると、ここに判定と解説が表示されます。
-            </SizableText>
           </View>
         )}
-      </View>
-    </View>
+      </Modal>
+    </>
   );
 }
 
 export function InputScreen() {
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<SessionRouteParams>();
   const sessionId = params.id ?? '';
   const inputMinutes = Number(params.input) || DEFAULT_TIMER.input_minutes;
   const outputMinutes = Number(params.output) || DEFAULT_TIMER.output_minutes;
   const breakMinutes = Number(params.break) || DEFAULT_TIMER.break_minutes;
 
+  const contentAreaRef = useRef<View>(null);
   const router = useRouter();
   const isFocused = useIsFocused();
   const updateStatus = useUpdateSessionStatus();
@@ -345,6 +524,111 @@ export function InputScreen() {
   );
   const hasOutputReview = todayOutputs.length > 0;
   const isDetailVisible = selectedOutput !== null;
+
+  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  // slideAnim とは独立したタイマースケール値。
+  // カード出現時の初期ジャンプを防ぐため 1 で初期化し、
+  // パンジェスチャーでカードを下げたときだけ段階的に拡大する。
+  const timerScaleAnim = useRef(new Animated.Value(1)).current;
+  const timerCompactOpacity = useRef(new Animated.Value(1)).current;
+  // scale 拡大と同時に下方向へ移動させる。
+  // compact 中心(78px) → non-compact 中心(145px) の差分 67px 分だけ下げることで、
+  // dismiss 完了時に non-compact タイマーの位置にぴったり繋がる。
+  const timerTranslateYAnim = useMemo(
+    () =>
+      timerScaleAnim.interpolate({
+        inputRange: [1, 290 / 156],
+        outputRange: [0, (290 - 156) / 2],
+        extrapolate: 'clamp',
+      }),
+    [timerScaleAnim],
+  );
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (evt, gs) =>
+        gs.dy > 8 && gs.dy > Math.abs(gs.dx) && evt.nativeEvent.locationY < 120,
+      onPanResponderMove: (_, gs) => {
+        if (gs.dy > 0) {
+          slideAnim.setValue(gs.dy);
+          timerScaleAnim.setValue(1 + Math.min(gs.dy / (SCREEN_HEIGHT / 3), 1) * (290 / 156 - 1));
+        }
+      },
+      onPanResponderRelease: (_, gs) => {
+        if (gs.dy > 80 || gs.vy > 0.8) {
+          Animated.timing(slideAnim, {
+            toValue: SCREEN_HEIGHT,
+            duration: 280,
+            easing: Easing.in(Easing.cubic),
+            useNativeDriver: true,
+          }).start(() => {
+            slideAnim.setValue(SCREEN_HEIGHT);
+            timerCompactOpacity.setValue(0);
+            LayoutAnimation.configureNext({
+              duration: 220,
+              create: { type: 'easeInEaseOut', property: 'opacity' },
+              update: { type: 'easeInEaseOut' },
+            });
+            setSelectedOutputId(null);
+          });
+        } else {
+          Animated.parallel([
+            Animated.timing(slideAnim, {
+              toValue: 0,
+              duration: 200,
+              easing: Easing.out(Easing.cubic),
+              useNativeDriver: true,
+            }),
+            Animated.timing(timerScaleAnim, {
+              toValue: 1,
+              duration: 200,
+              easing: Easing.out(Easing.cubic),
+              useNativeDriver: false,
+            }),
+          ]).start();
+        }
+      },
+    }),
+  ).current;
+
+  const dismissDetail = useCallback(() => {
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: SCREEN_HEIGHT,
+        duration: 280,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(timerScaleAnim, {
+        toValue: 290 / 156,
+        duration: 280,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: false,
+      }),
+    ]).start(() => {
+      slideAnim.setValue(SCREEN_HEIGHT);
+      timerCompactOpacity.setValue(0);
+      LayoutAnimation.configureNext({
+        duration: 220,
+        create: { type: 'easeInEaseOut', property: 'opacity' },
+        update: { type: 'easeInEaseOut' },
+      });
+      setSelectedOutputId(null);
+    });
+  }, [slideAnim, timerScaleAnim, timerCompactOpacity]);
+
+  useEffect(() => {
+    if (selectedOutputId) {
+      timerScaleAnim.setValue(1);
+      timerCompactOpacity.setValue(1);
+      slideAnim.setValue(SCREEN_HEIGHT);
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 360,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [selectedOutputId, slideAnim, timerScaleAnim, timerCompactOpacity]);
   const hourglassSandProgress =
     totalSeconds > 0 ? Math.min(1, Math.max(0, smoothRemainingSeconds / totalSeconds)) : 1;
   // 砂時計の積層: 下から青(input) → ピンク(output) → 白(break)。
@@ -373,6 +657,13 @@ export function InputScreen() {
     ],
     [inputMinutes, outputMinutes, breakMinutes, hourglassSandProgress],
   );
+
+  const navigation = useNavigation();
+  useEffect(() => {
+    navigation.setOptions({
+      tabBarStyle: isDetailVisible ? { display: 'none' } : { paddingTop: 10 },
+    });
+  }, [isDetailVisible, navigation]);
 
   const { start, reset } = useTimer({
     enabled: isFocused,
@@ -435,12 +726,13 @@ export function InputScreen() {
   const hasError = updateStatus.isError || cancelMutation.isError;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={[styles.safeArea, { paddingTop: insets.top }]}>
       <StatusBar style="dark" />
       <View style={styles.container} testID="input-root">
         <SessionTopChrome
           testIDPrefix="input"
           showHeader={!isDetailVisible}
+          phaseTabsTop={isDetailVisible ? '0.8%' : undefined}
           hourglass={{
             currentLoop,
             borderColor: BORDER_COLOR,
@@ -457,22 +749,47 @@ export function InputScreen() {
           }}
         />
 
-        <View style={styles.contentArea}>
+        <View
+          ref={contentAreaRef}
+          style={[styles.contentArea, isDetailVisible ? styles.contentAreaDetail : null]}
+        >
           <View
             style={[
               styles.timerStage,
               isDetailVisible || hasOutputReview ? styles.timerStageDetail : null,
             ]}
           >
-            <CircularPhaseTimer
-              phase={CURRENT_PHASE}
-              primaryColor={PRIMARY_COLOR}
-              trackColor="#E9F9FF"
-              testID="input-circular-timer"
-              compact={isDetailVisible}
-              enabled={isFocused}
-              timerTextStyle={styles.inputTimerText}
-            />
+            {isDetailVisible ? (
+              <Animated.View
+                style={{
+                  transform: [{ scale: timerScaleAnim }, { translateY: timerTranslateYAnim }],
+                  opacity: timerCompactOpacity,
+                  marginTop: -1,
+                }}
+              >
+                <CircularPhaseTimer
+                  phase={CURRENT_PHASE}
+                  primaryColor={PRIMARY_COLOR}
+                  trackColor="#E9F9FF"
+                  testID="input-circular-timer"
+                  compact
+                  strokeWidth={9}
+                  enabled={isFocused}
+                  timerTextStyle={{ transform: [{ translateY: -2.45 }], fontSize: 30 }}
+                  phaseLabelStyle={{ transform: [{ translateY: -2.05 }] }}
+                />
+              </Animated.View>
+            ) : (
+              <CircularPhaseTimer
+                phase={CURRENT_PHASE}
+                primaryColor={PRIMARY_COLOR}
+                trackColor="#E9F9FF"
+                testID="input-circular-timer"
+                compact={false}
+                enabled={isFocused}
+                timerTextStyle={styles.inputTimerText}
+              />
+            )}
             {isDetailVisible || hasOutputReview ? null : (
               <Text style={styles.timerCaption} testID="input-timer-caption">
                 終了後{outputMinutes}分間でアウトプットです{'\n'}
@@ -482,11 +799,27 @@ export function InputScreen() {
           </View>
 
           {selectedOutput ? (
-            <OutputDetailCard item={selectedOutput} onBack={() => setSelectedOutputId(null)} />
+            <Animated.View
+              style={[styles.outputDetailAnimWrapper, { transform: [{ translateY: slideAnim }] }]}
+              {...panResponder.panHandlers}
+            >
+              <OutputDetailCard
+                item={selectedOutput}
+                onDismiss={dismissDetail}
+                sheetPaddingBottom={insets.bottom + 104}
+                contentAreaRef={contentAreaRef}
+              />
+            </Animated.View>
           ) : (
             <TodayOutputList
               items={todayOutputs}
-              onSelect={(item) => setSelectedOutputId(item.output.id)}
+              onSelect={(item) => {
+                LayoutAnimation.configureNext({
+                  duration: 300,
+                  update: { type: 'easeInEaseOut' },
+                });
+                setSelectedOutputId(item.output.id);
+              }}
             />
           )}
 
@@ -496,22 +829,24 @@ export function InputScreen() {
             </SizableText>
           ) : null}
 
-          <Pressable
-            accessibilityRole="button"
-            disabled={cancelMutation.isPending}
-            onPress={handleCancel}
-            style={({ pressed }) => [
-              hasOutputReview ? styles.cancelButtonFlow : styles.cancelButton,
-              pressed ? styles.buttonPressed : null,
-              cancelMutation.isPending ? styles.buttonDisabled : null,
-            ]}
-            testID="input-cancel-button"
-          >
-            <Text style={styles.cancelButtonText}>中断する</Text>
-          </Pressable>
+          {!isDetailVisible && (
+            <Pressable
+              accessibilityRole="button"
+              disabled={cancelMutation.isPending}
+              onPress={handleCancel}
+              style={({ pressed }) => [
+                hasOutputReview ? styles.cancelButtonFlow : styles.cancelButton,
+                pressed ? styles.buttonPressed : null,
+                cancelMutation.isPending ? styles.buttonDisabled : null,
+              ]}
+              testID="input-cancel-button"
+            >
+              <Text style={styles.cancelButtonText}>中断する</Text>
+            </Pressable>
+          )}
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -539,6 +874,14 @@ const styles = StyleSheet.create({
     gap: 20,
     paddingBottom: '38.3%',
     marginTop: '0.4%',
+  },
+  contentAreaDetail: {
+    top: '7.5%',
+    paddingHorizontal: 0,
+    paddingBottom: 0,
+  },
+  outputDetailAnimWrapper: {
+    flex: 1,
   },
   timerStageDetail: {
     flex: 0,
@@ -583,41 +926,45 @@ const styles = StyleSheet.create({
   todayOutputsScroll: {
     maxHeight: OUTPUT_HISTORY_ROW_HEIGHT * TODAY_OUTPUT_VISIBLE_ROWS,
   },
+  outputDetailContainer: {
+    flex: 1,
+  },
   outputDetailSheet: {
-    borderTopLeftRadius: 34,
-    borderTopRightRadius: 34,
-    paddingTop: 14,
+    flex: 1,
+    borderTopLeftRadius: 40,
+    borderTopRightRadius: 40,
+    paddingTop: 10.5,
     paddingRight: 18,
     paddingBottom: 18,
     paddingLeft: 18,
-    marginBottom: 18,
     backgroundColor: '#FFFFFF',
     shadowColor: '#000000',
-    shadowOpacity: 0.1,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: -4 },
-    elevation: 4,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 24,
+    elevation: 12,
   },
   sheetHandle: {
     alignSelf: 'center',
-    width: 56,
-    height: 4,
+    width: 49.5,
+    height: 3,
     borderRadius: 999,
-    marginBottom: 18,
-    backgroundColor: '#CFCFCF',
+    marginBottom: 19,
+    backgroundColor: '#CDCDCD',
   },
   outputDetailHeader: {
-    minHeight: 34,
+    minHeight: 24,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
+    paddingTop: 5,
+    marginBottom: 12,
   },
   outputDetailTitle: {
-    color: TEXT_ACTIVE,
-    fontSize: 20,
-    fontWeight: '800',
-    lineHeight: 28,
+    color: '#363636',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 12,
+    lineHeight: 18,
     textAlign: 'center',
   },
   outputDetailBack: {
@@ -632,54 +979,74 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   outputPreviewFrame: {
-    borderWidth: 1.5,
-    borderColor: TEXT_ACTIVE,
-    borderRadius: 20,
-    padding: 16,
+    flex: 1,
+    borderWidth: 2,
+    borderColor: '#6D6D6D',
+    borderRadius: 16,
+    paddingTop: 12,
+    paddingRight: 18,
+    paddingBottom: 18,
+    paddingLeft: 18,
+    gap: 10,
+    backgroundColor: '#FFFFFF',
+  },
+  outputPreviewFrameExpanded: {
+    backgroundColor: '#FFFFFF',
+  },
+  imageExpandedContainer: {
+    marginLeft: 41,
+    width: 283,
   },
   outputModeTabs: {
-    minHeight: 44,
+    height: 32,
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: PANEL_BORDER_COLOR,
-    borderRadius: 10,
+    borderRadius: 8,
     padding: 3,
-    marginBottom: 14,
-    backgroundColor: '#F3F3F3',
+    gap: 5,
+    backgroundColor: '#EFEFEF',
+  },
+  outputModeTabFlex: {
+    flex: 1,
   },
   outputModeTabActive: {
-    flex: 1,
-    height: 36,
+    marginLeft: 0,
+    marginRight: 8,
+    height: 26,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    borderRadius: 8,
+    gap: 2,
+    borderRadius: 5,
+    paddingLeft: 4,
+    paddingRight: 14,
+    paddingVertical: 3,
     backgroundColor: '#FFFFFF',
   },
   outputModeTab: {
-    flex: 1,
-    height: 36,
+    height: 26,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
+    borderRadius: 5,
+    paddingRight: 6,
   },
   outputModeTabTextActive: {
-    color: TEXT_ACTIVE,
-    fontSize: 14,
-    fontWeight: '800',
-    lineHeight: 20,
+    color: '#363636',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 9,
+    lineHeight: 16,
   },
   outputModeTabText: {
-    color: REVIEW_TEXT_MUTED,
-    fontSize: 14,
-    fontWeight: '700',
-    lineHeight: 20,
+    color: '#676767',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 9,
+    lineHeight: 16,
   },
   outputContentBox: {
-    minHeight: 190,
+    flex: 1,
+    minHeight: 196,
     borderWidth: 1,
     borderColor: PANEL_BORDER_COLOR,
     borderRadius: 12,
@@ -690,17 +1057,29 @@ const styles = StyleSheet.create({
     paddingBottom: 130,
   },
   outputContentText: {
-    color: TEXT_ACTIVE,
-    fontSize: 16,
-    lineHeight: 24,
+    color: '#000000',
+    fontFamily: 'HiraginoSans-W4',
+    fontSize: 10,
+    lineHeight: 16,
+  },
+  feedbackPopoverWrapper: {
+    position: 'absolute',
+    width: POPOVER_WIDTH,
+  },
+  feedbackPopoverArrow: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 8,
+    borderRightWidth: 8,
+    borderBottomWidth: 8,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#333333',
+    alignSelf: 'flex-start',
   },
   feedbackPopover: {
-    position: 'absolute',
-    left: 30,
-    right: 30,
-    top: 58,
-    bottom: 16,
-    borderRadius: 10,
+    height: 160,
+    borderRadius: 12,
     backgroundColor: '#333333',
     overflow: 'hidden',
   },
@@ -708,12 +1087,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   feedbackPopoverScrollContent: {
-    paddingHorizontal: 18,
-    paddingTop: 36,
-    // 画面下部のタブバーに popover の下端がかぶることがあるため、本文 ScrollView と
-    // 同じく paddingBottom を厚めに取り、最終行までスクロールしても本文が
-    // タブバーに隠れないようにする。
-    paddingBottom: 130,
+    paddingTop: 23,
+    paddingRight: 14,
+    paddingBottom: 16,
+    paddingLeft: 20,
   },
   feedbackPopoverClose: {
     position: 'absolute',
@@ -731,52 +1108,54 @@ const styles = StyleSheet.create({
   },
   feedbackPopoverCloseText: {
     color: '#FFFFFF',
+    fontFamily: 'HiraginoSans-W4',
     fontSize: 18,
     fontWeight: '600',
     lineHeight: 22,
   },
   feedbackHeading: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontFamily: 'HiraginoSans-W4',
+    fontSize: 10,
     fontWeight: '800',
-    lineHeight: 22,
+    lineHeight: 16,
   },
   feedbackCorrect: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-    lineHeight: 24,
-    marginBottom: 12,
+    fontFamily: 'HiraginoSans-W3',
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 10,
   },
   feedbackBody: {
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-    lineHeight: 22,
+    fontFamily: 'HiraginoSans-W3',
+    fontSize: 12,
+    lineHeight: 18,
     marginBottom: 4,
   },
-  feedbackCard: {
-    marginTop: 16,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: PANEL_BORDER_COLOR,
+  feedbackScrollIndicator: {
+    position: 'absolute',
+    right: 3,
+    width: 3,
+    height: FEEDBACK_INDICATOR_HEIGHT,
+    borderRadius: 1.5,
     backgroundColor: '#FFFFFF',
   },
-  feedbackCardHeading: {
-    color: TEXT_ACTIVE,
-    fontSize: 14,
-    fontWeight: '700',
-    lineHeight: 22,
-    marginBottom: 4,
+  imageThumbnailWrapper: {
+    padding: 12,
   },
-  feedbackCardBody: {
-    color: TEXT_ACTIVE,
-    fontSize: 13,
-    fontWeight: '500',
-    lineHeight: 20,
-    marginBottom: 4,
+  imageThumbnail: {
+    width: 97,
+    height: 97,
+    borderRadius: 8,
+  },
+  imageExpandedBack: {
+    paddingLeft: 46,
+    paddingTop: 6,
+    paddingBottom: 0,
+    height: 28,
+    justifyContent: 'flex-start',
   },
   errorText: {
     color: ERROR_COLOR,

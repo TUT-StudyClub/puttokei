@@ -7,6 +7,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactElement, ReactNode } from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Path, Rect } from 'react-native-svg';
 import { TamaguiProvider } from 'tamagui';
 
@@ -30,6 +31,7 @@ jest.mock('expo-router', () => ({
 
 jest.mock('@react-navigation/native', () => ({
   useIsFocused: () => true,
+  useNavigation: () => ({ setOptions: jest.fn() }),
 }));
 
 jest.mock('@/features/session/api/sessionApi');
@@ -43,9 +45,16 @@ function renderWithProviders(ui: ReactElement) {
   });
   function Providers({ children }: { children: ReactNode }) {
     return (
-      <TamaguiProvider config={config} defaultTheme="light">
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-      </TamaguiProvider>
+      <SafeAreaProvider
+        initialMetrics={{
+          frame: { x: 0, y: 0, width: 390, height: 844 },
+          insets: { top: 44, left: 0, right: 0, bottom: 34 },
+        }}
+      >
+        <TamaguiProvider config={config} defaultTheme="light">
+          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        </TamaguiProvider>
+      </SafeAreaProvider>
     );
   }
 
@@ -284,7 +293,6 @@ describe('InputScreen', () => {
 
     expect(getByTestId('output-review-detail')).toBeTruthy();
     expect(getByTestId('output-review-annotated-text')).toBeTruthy();
-    expect(getByTestId('output-review-feedback')).toBeTruthy();
     expect(queryByTestId('output-review-correction-popover')).toBeNull();
 
     // 赤ハイライトをタップすると正解 / 解説のポップオーバーが現れる
@@ -324,9 +332,6 @@ describe('InputScreen', () => {
     expect(await findByText('最近のアウトプット')).toBeTruthy();
     fireEvent.press(getByTestId('today-output-row-out-2'));
 
-    expect(getByTestId('output-review-feedback')).toBeTruthy();
     expect(getByTestId('output-review-annotated-text')).toBeTruthy();
-    expect(await findByText('学習内容をもう少し具体的に書いてください。')).toBeTruthy();
-    expect(await findByText('今回の判定では、個別に直す箇所はありませんでした。')).toBeTruthy();
   });
 });
