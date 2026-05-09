@@ -264,8 +264,21 @@ describe('OutputScreen', () => {
     expect(
       StyleSheet.flatten(getByTestId('output-composer-card').props.style).marginTop,
     ).toBeUndefined();
+    const addButtonRawStyle = getByTestId('output-image-add-button').props.style;
+    const addButtonStyle =
+      typeof addButtonRawStyle === 'function'
+        ? addButtonRawStyle({ pressed: false })
+        : addButtonRawStyle;
+    expect(StyleSheet.flatten(addButtonStyle)).toMatchObject({
+      width: 88,
+      height: 88,
+      borderStyle: 'dashed',
+      borderColor: '#A6A6A6',
+      backgroundColor: '#FFFFFF',
+    });
     expect(getByTestId('output-image-panel')).toBeTruthy();
     expect(getByTestId('output-image-add-button')).toBeTruthy();
+    expect(getByTestId('output-image-add-icon').props.source).toBe(ADD_IMAGE_ICON);
     expect(getByTestId('output-image-submit')).toBeTruthy();
     expect(getByText('提出後も時間内であれば編集できます')).toBeTruthy();
     expect(queryByTestId('output-image-thumbnail-0')).toBeNull();
@@ -426,8 +439,6 @@ describe('OutputScreen', () => {
     const { getByTestId } = renderWithProviders(<OutputScreen />);
 
     fireEvent.press(getByTestId('output-method-tab-image'));
-
-    expect(getByTestId('output-image-add-icon').props.source).toBe(ADD_IMAGE_ICON);
 
     await act(async () => {
       fireEvent.press(getByTestId('output-image-add-button'));
