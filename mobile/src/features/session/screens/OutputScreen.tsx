@@ -66,6 +66,9 @@ const DOT_INACTIVE = '#D9D9D9';
 const BORDER_COLOR = '#E5E7EB';
 const CAPTION_COLOR = '#777777';
 const ERROR_COLOR = '#D92D20';
+const OUTPUT_TOP_CHROME_HOURGLASS_TOP = '11.2%';
+const OUTPUT_TOP_CHROME_PHASE_TABS_TOP = '27.6%';
+const OUTPUT_TIMER_STAGE_MARGIN_TOP = 62;
 
 const INPUT_METHODS = ['text', 'image', 'voice'] as const;
 type InputMethod = (typeof INPUT_METHODS)[number];
@@ -778,6 +781,8 @@ export function OutputScreen() {
       {showSessionChrome ? (
         <SessionTopChrome
           testIDPrefix="output"
+          hourglassWrapperStyle={styles.outputHourglassWrapper}
+          phaseTabsWrapperStyle={styles.outputPhaseTabsWrapper}
           hourglass={{
             currentLoop,
             borderColor: BORDER_COLOR,
@@ -948,7 +953,7 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   container: {
-    flex: 1,
+    flexGrow: 1,
     paddingTop: 12,
     paddingRight: 24,
     paddingBottom: 32,
@@ -966,38 +971,51 @@ const styles = StyleSheet.create({
     paddingLeft: 14,
   },
   mainContent: {
-    flex: 1,
-    justifyContent: 'space-between',
-    gap: 20,
+    flexGrow: 1,
+    justifyContent: 'flex-start',
+    gap: 32,
   },
   mainContentKeyboardVisible: {
-    flex: 0,
+    flexGrow: 0,
     gap: 16,
   },
   mainContentImageMethod: {
     justifyContent: 'flex-start',
     gap: 10,
   },
+  outputHourglassWrapper: {
+    top: OUTPUT_TOP_CHROME_HOURGLASS_TOP,
+  },
+  outputPhaseTabsWrapper: {
+    top: OUTPUT_TOP_CHROME_PHASE_TABS_TOP,
+  },
   timerStage: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     gap: 20,
+    paddingBottom: '38.3%',
+    marginTop: OUTPUT_TIMER_STAGE_MARGIN_TOP,
   },
   timerStageKeyboardVisible: {
     flex: 0,
     gap: 10,
+    paddingBottom: 0,
+    marginTop: 0,
   },
   timerStageImageMethod: {
     flex: 0,
     gap: 0,
+    paddingBottom: 0,
+    marginTop: 0,
   },
   timerCaption: {
     color: '#9D9D9D',
     fontFamily: 'HiraginoSans-W4',
     fontSize: 11,
-    lineHeight: 20,
+    lineHeight: 18,
     textAlign: 'center',
+    marginTop: 8,
   },
   composerCard: {
     gap: 12,
