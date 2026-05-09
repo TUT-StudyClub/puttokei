@@ -6,14 +6,41 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "http://localhost:8080/api/v1",
+        "EXPO_PUBLIC_BUNDLE_IDENTIFIER": "com.hourglass.dev",
+        "EXPO_PUBLIC_GOOGLE_SERVICES_IOS": "./GoogleService-Info.dev.plist"
+      }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "store",
+      "autoIncrement": true,
+      "ios": {
+        "buildConfiguration": "Release",
+        "image": "latest"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://puttokei-v2-266315636738.asia-northeast1.run.app/api/v1",
+        "EXPO_PUBLIC_BUNDLE_IDENTIFIER": "com.hourglass.stg",
+        "EXPO_PUBLIC_GOOGLE_SERVICES_IOS": "./GoogleService-Info.stg.plist"
+      }
     },
-    "production": {}
+    "production": {
+      "autoIncrement": true,
+      "ios": {
+        "buildConfiguration": "Release",
+        "image": "latest"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://puttokei-v2-266315636738.asia-northeast1.run.app/api/v1",
+        "EXPO_PUBLIC_BUNDLE_IDENTIFIER": "com.hourglass.prod",
+        "EXPO_PUBLIC_GOOGLE_SERVICES_IOS": "./GoogleService-Info.prod.plist"
+      }
+    }
   },
   "submit": {
+    "preview": {},
     "production": {}
   }
 }

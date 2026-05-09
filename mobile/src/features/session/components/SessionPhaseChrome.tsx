@@ -1190,8 +1190,10 @@ type SessionTopChromeProps = {
   testIDPrefix: string;
   /** 砂時計バッジを表示するか。`false` でも PhaseTabs は表示される。 */
   showHeader?: boolean;
+  hourglassWrapperStyle?: StyleProp<ViewStyle>;
   cycleLabelStyle?: StyleProp<TextStyle>;
   hourglassRowStyle?: StyleProp<ViewStyle>;
+  phaseTabsWrapperStyle?: StyleProp<ViewStyle>;
   hourglass: Omit<HourglassBadgeProps, 'testIDPrefix' | 'rowStyle' | 'marginBottom'>;
   phaseTabs: Omit<PhaseTabsProps, 'testIDPrefix' | 'marginBottom'>;
   /** 砂時計バッジ wrapper の View ref。Break 画面のエントランスアニメ用。 */
@@ -1204,8 +1206,10 @@ type SessionTopChromeProps = {
 export function SessionTopChrome({
   testIDPrefix,
   showHeader = true,
+  hourglassWrapperStyle,
   cycleLabelStyle,
   hourglassRowStyle,
+  phaseTabsWrapperStyle,
   hourglass,
   phaseTabs,
   hourglassWrapperRef,

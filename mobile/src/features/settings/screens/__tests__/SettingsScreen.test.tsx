@@ -29,6 +29,16 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@/features/settings/api/settingsApi');
+// 本テストでは Firebase Auth を実初期化しない。signOut は実装側の finally で authStore を
+// clear するため、mock も同じ副作用 (authStore.clear) を再現する。
+jest.mock('@/features/auth/lib/signOut', () => {
+  const { useAuthStore } = jest.requireActual('@/shared/stores/authStore');
+  return {
+    signOut: jest.fn().mockImplementation(async () => {
+      useAuthStore.getState().clear();
+    }),
+  };
+});
 
 const SETTINGS_FIXTURE = {
   input_minutes: 25,
@@ -192,6 +202,10 @@ describe('SettingsScreen', () => {
     });
     await waitFor(() => {
       expect(useAuthStore.getState().uid).toBeNull();
+    });
+    // 削除成功後は AuthGate に頼らず明示的に (auth)/overview へ遷移する。
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/(auth)/overview');
     });
 
     alertSpy.mockRestore();

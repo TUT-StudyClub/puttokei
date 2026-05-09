@@ -14,7 +14,14 @@ Puttokei の React Native / Expo アプリ。Expo Router / TypeScript / Tamagui 
 
 ```bash
 task mobile:install   # npm ci
+cp mobile/.env.example mobile/.env.local
 ```
+
+`.env.local` の `EXPO_PUBLIC_*` を埋める。チーム共通値 (`EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` / `EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME` / `EXPO_PUBLIC_EAS_PROJECT_ID` / `EXPO_PUBLIC_EAS_OWNER` など) は Slack / Notion / 1Password / EAS Cloud env、または ryu から取得する。
+
+個人差項目 (`EXPO_PUBLIC_APPLE_TEAM_ID` / `EXPO_PUBLIC_BUNDLE_IDENTIFIER` / `EXPO_PUBLIC_API_BASE_URL` / `EXPO_PUBLIC_GOOGLE_SERVICES_IOS`) は自分の環境に合わせる。Apple Developer Program 未加入の場合は Personal Team ID と重複しない Bundle ID を使い、Firebase Console でその Bundle ID 用の iOS App を登録して plist を `mobile/` 配下に配置する。
+
+`app.json.example` はテンプレートなので `YOUR_*` プレースホルダを維持する。通常は `.env.local` だけで上書きし、env で表現しづらい複雑な構造を変えたい場合だけ `app.json.example` を `app.json` にコピーして overlay として使う。
 
 ## よく使うコマンド
 
@@ -37,6 +44,8 @@ task mobile:install   # npm ci
 | CI 相当を一括実行        | `task mobile:ci`           |
 
 ルートから `task ci` を叩くと backend と mobile の両方を回せる。`task --list` で全コマンド一覧が見られる。
+
+TestFlight 向けの EAS Build / Submit とローカル実機への直接ビルド手順は [build-and-release.md](./build-and-release.md) を参照する。
 
 ## アーキテクチャ
 

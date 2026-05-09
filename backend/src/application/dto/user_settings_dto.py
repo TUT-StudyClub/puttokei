@@ -7,7 +7,10 @@ CQRS 的な命名で役割を明示する:
 
 from datetime import datetime
 
+from pydantic import Field, StrictBool, StrictInt
+
 from src.common.models import FrozenModel
+from src.domain.entities.user_settings import MAX_TIMER_MINUTES, MIN_TIMER_MINUTES
 
 
 class UserSettingsView(FrozenModel):
@@ -26,7 +29,19 @@ class UpdateUserSettingsCommand(FrozenModel):
     送られなかったフィールドは現在値を保持するため、ここでは省略可能（None）として表現する。
     """
 
-    input_minutes: int | None = None
-    output_minutes: int | None = None
-    break_minutes: int | None = None
-    notification_enabled: bool | None = None
+    input_minutes: StrictInt | None = Field(
+        default=None,
+        ge=MIN_TIMER_MINUTES,
+        le=MAX_TIMER_MINUTES,
+    )
+    output_minutes: StrictInt | None = Field(
+        default=None,
+        ge=MIN_TIMER_MINUTES,
+        le=MAX_TIMER_MINUTES,
+    )
+    break_minutes: StrictInt | None = Field(
+        default=None,
+        ge=MIN_TIMER_MINUTES,
+        le=MAX_TIMER_MINUTES,
+    )
+    notification_enabled: StrictBool | None = None

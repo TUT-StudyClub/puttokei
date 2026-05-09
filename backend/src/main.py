@@ -3,6 +3,7 @@
 Composition Root でコンテナを組み立て、ルーターを束ねる。
 """
 
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -28,6 +29,11 @@ def create_app(
 ) -> FastAPI:
     """FastAPI アプリを生成する。テストでは `container` を差し替えて fake 実装を注入する。"""
     resolved_settings = settings or get_settings()
+    # アプリ独自 logger（src.* 配下）の INFO ログが uvicorn 経由で表示されるように、
+    # root logger のレベルを Settings に合わせて引き下げる。force=False で uvicorn の
+    # 既存 handler 設定は維持する。
+    logging.basicConfig(level=resolved_settings.log_level)
+    logging.getLogger("src").setLevel(resolved_settings.log_level)
     resolved_container: Container = container or build_container(resolved_settings)
 
     @asynccontextmanager

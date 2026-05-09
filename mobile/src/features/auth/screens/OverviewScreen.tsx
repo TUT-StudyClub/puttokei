@@ -1,7 +1,9 @@
 /**
  * スプラッシュ後に表示する概要説明画面。
  *
- * ボタン操作でチュートリアル Step1 へ遷移する。
+ * 「はじめる」ボタン押下時に Firebase Anonymous Auth で匿名ユーザーを作成してから
+ * チュートリアル Step1 へ遷移する。匿名 sign-in をユーザーアクション起点にすることで、
+ * 退会後やログアウト後に裏で匿名ユーザーが自動再作成される現象を防いでいる。
  */
 import { useRouter, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -13,6 +15,7 @@ import {
   OVERVIEW_ACTION_BUTTON_HEIGHT,
   TUTORIAL_ROUTE_TRANSITION_DELAY_MS,
 } from '@/features/auth/screens/tutorialConfig';
+import { ensureAnonymousSession } from '@/shared/lib/firebase';
 
 const OVERVIEW_BACKGROUND = require('../../../../assets/images/backgrounds/overview.jpg');
 const TYPOGRAPHY_WHITE = require('../../../../assets/images/logos/typography_white.png');
@@ -32,7 +35,19 @@ export function OverviewScreen() {
 
     setIsNavigating(true);
     navigationTimeoutRef.current = setTimeout(() => {
-      router.replace(TUTORIAL_STEP_ONE_ROUTE);
+      void (async () => {
+        try {
+          // 匿名 sign-in は本ボタン押下を起点に Firebase Auth 上のユーザーを作成する。
+          // 既に currentUser が存在する場合 (Apple/Google 復帰直後など) は内部で
+          // early return するため二重作成は起きない。
+          await ensureAnonymousSession();
+          router.replace(TUTORIAL_STEP_ONE_ROUTE);
+        } catch {
+          // ネットワーク障害などで sign-in に失敗した場合はボタン押下をやり直せるよう
+          // isNavigating を戻す。エラーメッセージ表示の追加は別 Issue で扱う。
+          setIsNavigating(false);
+        }
+      })();
     }, TUTORIAL_ROUTE_TRANSITION_DELAY_MS);
   }, [isNavigating, router]);
 

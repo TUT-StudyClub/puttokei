@@ -9,6 +9,7 @@
  * - onSubmit は `content: 前後空白を除いた文字列` と `submitted_at: ISO8601` を渡す
  */
 import { act, cleanup, fireEvent, render } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { TamaguiProvider } from 'tamagui';
 
 import config from '../../../../../tamagui.config';
@@ -41,6 +42,16 @@ describe('OutputEditor', () => {
       <OutputEditor value="" onChange={jest.fn()} onSubmit={jest.fn()} isSubmitting={false} />,
     );
     expect(getByTestId('output-editor-count').props.children).toEqual([0, ' / ', 2000]);
+  });
+
+  it('テキスト入力欄を白背景で表示する', () => {
+    const { getByTestId } = renderEditor(
+      <OutputEditor value="" onChange={jest.fn()} onSubmit={jest.fn()} isSubmitting={false} />,
+    );
+
+    expect(StyleSheet.flatten(getByTestId('output-editor-textarea').props.style)).toMatchObject({
+      backgroundColor: '#FFFFFF',
+    });
   });
 
   it('value の長さに応じて文字数カウンタが更新される', () => {
