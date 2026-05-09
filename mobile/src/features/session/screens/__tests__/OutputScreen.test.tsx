@@ -36,6 +36,7 @@ const mockSpeechRecognitionAbort = jest.fn();
 const mockIsSpeechRecognitionAvailable = jest.fn();
 const mockRequireOptionalNativeModule = jest.fn();
 const mockSpeechRecognitionListeners = new Map<string, ((event: any) => void)[]>();
+const ADD_IMAGE_ICON = require('../../../../../assets/images/icons/icon_picplus_gray.png');
 const mockSpeechRecognitionModule = {
   requestPermissionsAsync: mockRequestSpeechPermissionsAsync,
   start: mockSpeechRecognitionStart,
@@ -425,6 +426,8 @@ describe('OutputScreen', () => {
     const { getByTestId } = renderWithProviders(<OutputScreen />);
 
     fireEvent.press(getByTestId('output-method-tab-image'));
+
+    expect(getByTestId('output-image-add-icon').props.source).toBe(ADD_IMAGE_ICON);
 
     await act(async () => {
       fireEvent.press(getByTestId('output-image-add-button'));

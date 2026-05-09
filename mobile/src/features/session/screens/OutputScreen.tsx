@@ -70,6 +70,7 @@ const OUTPUT_TOP_CHROME_HOURGLASS_TOP = '11.2%';
 const OUTPUT_TOP_CHROME_PHASE_TABS_TOP = '27.6%';
 const OUTPUT_TIMER_STAGE_MARGIN_TOP = 62;
 const OUTPUT_COMPOSER_CARD_LIFT = 163;
+const ADD_IMAGE_ICON = require('../../../../assets/images/icons/icon_picplus_gray.png');
 
 const INPUT_METHODS = ['text', 'image', 'voice'] as const;
 type InputMethod = (typeof INPUT_METHODS)[number];
@@ -218,34 +219,15 @@ function InputMethodTabs({ value, onChange }: InputMethodTabsProps) {
   );
 }
 
-function AddImageIcon({ color = METHOD_ACTIVE_COLOR }: { color?: string }) {
+function AddImageIcon() {
   return (
-    <Svg width={42} height={42} viewBox="0 0 48 48" fill="none">
-      <Path
-        d="M9 12 H32 C34.2 12 36 13.8 36 16 V20"
-        stroke={color}
-        strokeWidth={3}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M9 12 V34 C9 36.2 10.8 38 13 38 H34 C36.2 38 38 36.2 38 34 V27"
-        stroke={color}
-        strokeWidth={3}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Circle cx={18} cy={21} r={3.5} stroke={color} strokeWidth={3} />
-      <Path
-        d="M12 35 L22 25 L29 31 L33 27 L38 32"
-        stroke={color}
-        strokeWidth={3}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M39 8 V20" stroke={color} strokeWidth={3} strokeLinecap="round" />
-      <Path d="M33 14 H45" stroke={color} strokeWidth={3} strokeLinecap="round" />
-    </Svg>
+    <Image
+      accessibilityIgnoresInvertColors
+      resizeMode="contain"
+      source={ADD_IMAGE_ICON}
+      style={styles.imageAddIcon}
+      testID="output-image-add-icon"
+    />
   );
 }
 
@@ -1204,6 +1186,10 @@ const styles = StyleSheet.create({
   },
   imageAddButtonActive: {
     borderColor: '#4B8BF5',
+  },
+  imageAddIcon: {
+    width: 52,
+    height: 52,
   },
   imageAddMenu: {
     position: 'relative',
