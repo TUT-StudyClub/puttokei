@@ -28,10 +28,11 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { G, Line, Path, Rect, Svg, Text as SvgText } from 'react-native-svg';
+import { ClipPath, Defs, G, Line, Path, Rect, Svg, Text as SvgText } from 'react-native-svg';
 import { Button, Paragraph, SizableText, Spinner } from 'tamagui';
 
 import {
+  getCenteredDateKeys,
   WEEK_DATE_STRIP_DAY_CELL_MAX_WIDTH,
   WEEK_DATE_STRIP_HORIZONTAL_INSET,
   WEEK_DATE_STRIP_HORIZONTAL_OUTSET,
@@ -73,12 +74,12 @@ const IMAGE_MODE_ICON_GRAY = require('../../../../assets/images/icons/icon_pic_g
 const VOICE_MODE_ICON_BLACK = require('../../../../assets/images/icons/icon_mic_black.png');
 const VOICE_MODE_ICON_GRAY = require('../../../../assets/images/icons/icon_mic_gray.png');
 const COLOR_PICKER_CHECK_ICON = require('../../../../assets/images/icons/check.png');
+const PLUS_ICON = require('../../../../assets/images/icons/plus.png');
 
 const SETTINGS_ROUTE = '/(tabs)/settings' as unknown as Href;
 const STATS_SETTINGS_BUTTON_RIGHT = 34;
 const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'] as const;
 const TOKYO_TIME_ZONE = 'Asia/Tokyo';
-const HISTORY_VISIBLE_ITEM_LIMIT = 3;
 const UNSET_SUBJECT_LABEL = '未設定';
 const UNSELECTED_SUBJECT_COLOR = '#D0D0D0';
 const SUBJECT_COLOR_PALETTE = [
@@ -106,9 +107,10 @@ const SUBJECT_COLOR_PICKER_SWATCH_SIZE = 50;
 const SUBJECT_COLOR_PICKER_COLUMN_GAP = 14;
 const SUBJECT_COLOR_PICKER_ROW_GAP = 16;
 const SUBJECT_COLOR_PICKER_HORIZONTAL_PADDING = 19;
-const SUBJECT_COLOR_PICKER_TOP_PADDING = 22;
-const SUBJECT_COLOR_PICKER_HEADER_BUTTON_TOP = 18;
-const SUBJECT_COLOR_PICKER_HEADER_TITLE_MARGIN_TOP = 7;
+const SUBJECT_COLOR_PICKER_TOP_PADDING = 42;
+const SUBJECT_COLOR_PICKER_HEADER_TITLE_MARGIN_TOP = 30;
+const SUBJECT_COLOR_PICKER_HEADER_BUTTON_TOP = 26;
+const SUBJECT_COLOR_PICKER_HEADER_TITLE_OFFSET_X = 2;
 const SUBJECT_PICKER_PADDING_TOP = 17;
 const SUBJECT_PICKER_PADDING_BOTTOM = 18;
 const SUBJECT_PICKER_HEADER_HEIGHT = 24;
@@ -116,6 +118,13 @@ const SUBJECT_PICKER_LIST_MARGIN_TOP = 9;
 const SUBJECT_PICKER_ITEM_HEIGHT = 24;
 const SUBJECT_PICKER_ITEM_GAP = 6;
 const SUBJECT_PICKER_MAX_VISIBLE_ITEMS = 5;
+const SUBJECT_PICKER_LIST_BOTTOM_PADDING = 2;
+const HISTORY_SHEET_TOP_RADIUS = 28;
+const HISTORY_SHEET_HEIGHT = '67%';
+const HISTORY_SHEET_MAX_HEIGHT = '69%';
+const COLOR_PICKER_SHEET_HEIGHT = '70%';
+const COLOR_PICKER_SHEET_MAX_HEIGHT = '72%';
+const COLOR_PICKER_SHEET_BOTTOM_OFFSET = 40;
 const HISTORY_OUTPUT_MODE_TABS = [
   {
     key: 'text',
@@ -153,10 +162,21 @@ type WeeklyBarSegment = {
   color: string | null;
 };
 
-const MONTH_DAY_SLOT_HEIGHT = 38;
+const MONTH_DAY_SLOT_HEIGHT = 42;
 const MONTH_DAY_ROW_GAP = 2;
+const MONTH_CALENDAR_ROW_COUNT = 6;
+const MONTH_CALENDAR_GRID_HEIGHT =
+  MONTH_CALENDAR_ROW_COUNT * (MONTH_DAY_SLOT_HEIGHT + MONTH_DAY_ROW_GAP);
 const MONTH_CALENDAR_ARROW_HEIGHT = 58;
-const MONTH_CALENDAR_ARROW_OUTSET = 22;
+const MONTH_CALENDAR_ARROW_OUTSET = 38;
+const MONTH_CALENDAR_ARROW_TOP_OFFSET = -24;
+const MONTHLY_HIGHLIGHT_NUMBER_EMBOLDEN_STYLE: TextStyle = {
+  fontFamily: 'HiraginoSans-W7',
+  fontWeight: '700',
+  textShadowColor: '#333333',
+  textShadowOffset: { width: 0.7, height: 0 },
+  textShadowRadius: 0,
+};
 const WEEKLY_CHART_HEIGHT = 330;
 const WEEKLY_CHART_AXIS_Y = 288;
 const FIXED_HEADER_HORIZONTAL_PADDING = 24;
@@ -192,6 +212,7 @@ const DAILY_HIGHLIGHT_CARD_TRANSLATE_Y = 4;
 const DAILY_HIGHLIGHT_METRICS_TRANSLATE_X = 16;
 const DAILY_HIGHLIGHT_TITLE_TRANSLATE_X = 4;
 const DAILY_HIGHLIGHT_TITLE_ROW_TRANSLATE_Y = 8;
+const DAILY_WEEKLY_CALENDAR_STRIP_HORIZONTAL_OUTSET = 9;
 
 function CalendarMonthIcon() {
   return <Image source={CALENDAR_MONTH_ICON} style={styles.calendarToggleIcon} />;
@@ -224,11 +245,27 @@ function ShareIconButton() {
   );
 }
 
-function CloseIcon() {
+function CloseIcon({
+  size = 18,
+  testID,
+  lineTestIDPrefix,
+}: { size?: number; testID?: string; lineTestIDPrefix?: string } = {}) {
   return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 6 L18 18" stroke="#4B4B4B" strokeWidth={2.4} strokeLinecap="round" />
-      <Path d="M18 6 L6 18" stroke="#4B4B4B" strokeWidth={2.4} strokeLinecap="round" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" testID={testID}>
+      <Path
+        d="M6 6 L18 18"
+        stroke="#4B4B4B"
+        strokeWidth={2.4}
+        strokeLinecap="round"
+        testID={lineTestIDPrefix ? `${lineTestIDPrefix}-line-1` : undefined}
+      />
+      <Path
+        d="M18 6 L6 18"
+        stroke="#4B4B4B"
+        strokeWidth={2.4}
+        strokeLinecap="round"
+        testID={lineTestIDPrefix ? `${lineTestIDPrefix}-line-2` : undefined}
+      />
     </Svg>
   );
 }
@@ -242,6 +279,27 @@ function CheckIcon({ size = 18, testID }: { size?: number; testID?: string } = {
         strokeWidth={2.5}
         strokeLinecap="round"
         strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function ColorSwatchCheckIcon({
+  style,
+  testID,
+}: {
+  style?: StyleProp<ViewStyle>;
+  testID?: string;
+}) {
+  return (
+    <Svg width={24} height={19} viewBox="0 0 24 19" fill="none" style={style} testID={testID}>
+      <Path
+        d="M2.5 9.7 L8.7 15.9 L21.5 2.6"
+        stroke="#FFFFFF"
+        strokeWidth={3.2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        testID={testID ? `${testID}-path` : undefined}
       />
     </Svg>
   );
@@ -382,7 +440,11 @@ function buildWeeklyBarSegmentsByDateKey(
 
 function getSubjectPickerListHeight(subjectCount: number): number {
   if (subjectCount === 0) return 0;
-  return subjectCount * SUBJECT_PICKER_ITEM_HEIGHT + (subjectCount - 1) * SUBJECT_PICKER_ITEM_GAP;
+  return (
+    subjectCount * SUBJECT_PICKER_ITEM_HEIGHT +
+    (subjectCount - 1) * SUBJECT_PICKER_ITEM_GAP +
+    SUBJECT_PICKER_LIST_BOTTOM_PADDING
+  );
 }
 
 function getSubjectPickerHeight(subjectCount: number): number {
@@ -777,14 +839,14 @@ function MonthlyCalendar({
           </View>
         ))}
       </View>
-      <View style={styles.monthCalendarGridWrap}>
+      <View style={styles.monthCalendarGridWrap} testID="month-calendar-grid-wrap">
         <Pressable
           accessibilityRole="button"
           onPress={() => onMonthChange(addMonthsToMonthStartKey(monthStart, -1))}
           style={[
             styles.monthCalendarArrow,
             styles.monthCalendarArrowLeft,
-            { top: monthCalendarArrowTop },
+            { top: monthCalendarArrowTop + MONTH_CALENDAR_ARROW_TOP_OFFSET },
           ]}
           testID="month-calendar-prev"
         >
@@ -810,7 +872,6 @@ function MonthlyCalendar({
                 const isStreakDay = isStudied && (hasPreviousStudied || hasNextStudied);
                 const isSingleStudiedDay = isStudied && !isStreakDay;
                 const isFuture = dateKey > todayKey;
-                const isToday = dateKey === todayKey;
                 const studiedTestSuffix = isStreakDay
                   ? 'streak'
                   : isSingleStudiedDay
@@ -837,8 +898,8 @@ function MonthlyCalendar({
                           ? styles.monthDayStreakMiddle
                           : null,
                         isStreakDay && !hasNextInlineStudied ? styles.monthDayStreakEnd : null,
-                        isToday ? styles.monthDayTodayMarker : null,
                       ]}
+                      testID={`month-day-${dateKey}-marker`}
                     >
                       <SizableText
                         style={[
@@ -863,7 +924,7 @@ function MonthlyCalendar({
           style={[
             styles.monthCalendarArrow,
             styles.monthCalendarArrowRight,
-            { top: monthCalendarArrowTop },
+            { top: monthCalendarArrowTop + MONTH_CALENDAR_ARROW_TOP_OFFSET },
           ]}
           testID="month-calendar-next"
         >
@@ -887,32 +948,66 @@ function MonthlyHighlightCard({
   );
 
   return (
-    <ImageBackground
-      source={MONTHLY_HIGHLIGHT_BACKGROUND}
-      resizeMode="stretch"
-      style={styles.monthlyHighlightCard}
-      imageStyle={styles.monthlyHighlightBackground}
-      testID="monthly-highlight-card"
-    >
-      <View style={styles.monthlyHighlightContent}>
-        <View style={styles.monthlyHighlightMetric}>
-          <SizableText style={styles.monthlyHighlightLabel}>合計日数</SizableText>
-          <View style={styles.monthlyHighlightValueRow}>
-            <SizableText style={styles.monthlyHighlightNumber}>{summary.totalDays}</SizableText>
-            <SizableText style={styles.monthlyHighlightUnit}>日</SizableText>
-          </View>
-        </View>
-        <View style={styles.monthlyHighlightMetric}>
-          <SizableText style={styles.monthlyHighlightLabel}>最高連続日数</SizableText>
-          <View style={styles.monthlyHighlightValueRow}>
-            <SizableText style={styles.monthlyHighlightNumber}>
-              {summary.longestStreakDays}
+    <View style={styles.monthlyHighlightCard} testID="monthly-highlight-card">
+      <ImageBackground
+        source={MONTHLY_HIGHLIGHT_BACKGROUND}
+        resizeMode="stretch"
+        style={styles.monthlyHighlightImage}
+        imageStyle={styles.monthlyHighlightBackground}
+      >
+        <View style={styles.monthlyHighlightContent}>
+          <View style={styles.monthlyHighlightMetric}>
+            <SizableText style={[styles.monthlyHighlightLabel, styles.monthlyTotalDaysLabel]}>
+              合計日数
             </SizableText>
-            <SizableText style={styles.monthlyHighlightUnit}>日</SizableText>
+            <View
+              style={[styles.monthlyHighlightValueRow, styles.monthlyTotalDaysValueRow]}
+              testID="monthly-total-days-value-row"
+            >
+              <SizableText
+                style={[styles.monthlyHighlightNumber, styles.monthlyTotalDaysNumber]}
+                testID="monthly-total-days-number"
+              >
+                {summary.totalDays}
+              </SizableText>
+              <SizableText
+                style={[styles.monthlyHighlightUnit, styles.monthlyHighlightUnitOffset]}
+                testID="monthly-total-days-unit"
+              >
+                日
+              </SizableText>
+            </View>
+          </View>
+          <View style={styles.monthlyHighlightMetric}>
+            <View
+              style={styles.monthlyLongestStreakLabelOffset}
+              testID="monthly-longest-streak-label-offset"
+            >
+              <SizableText style={[styles.monthlyHighlightLabel, styles.monthlyLongestStreakLabel]}>
+                最高連続日数
+              </SizableText>
+            </View>
+            <View
+              style={[styles.monthlyHighlightValueRow, styles.monthlyLongestStreakValueRow]}
+              testID="monthly-longest-streak-value-row"
+            >
+              <SizableText
+                style={[styles.monthlyHighlightNumber, styles.monthlyLongestStreakNumber]}
+                testID="monthly-longest-streak-number"
+              >
+                {summary.longestStreakDays}
+              </SizableText>
+              <SizableText
+                style={[styles.monthlyHighlightUnit, styles.monthlyHighlightUnitOffset]}
+                testID="monthly-longest-streak-unit"
+              >
+                日
+              </SizableText>
+            </View>
           </View>
         </View>
-      </View>
-    </ImageBackground>
+      </ImageBackground>
+    </View>
   );
 }
 
@@ -920,21 +1015,26 @@ const WEEKLY_CHART_SECTIONS = 5;
 
 function formatHourLabel(hours: number): string {
   if (!Number.isFinite(hours) || hours === 0) return '';
-  if (Number.isInteger(hours)) return String(hours);
-  return hours.toFixed(1).replace(/\.0$/, '');
+  const label = Number.isInteger(hours) ? String(hours) : hours.toFixed(1).replace(/\.0$/, '');
+  return `${label}h`;
 }
 
 function WeeklyBarChart({
+  dateKeys,
   points,
   barSegmentsByDateKey,
 }: {
+  dateKeys: string[];
   points: WeeklyReportPoint[];
   barSegmentsByDateKey?: Readonly<Record<string, readonly WeeklyBarSegment[]>>;
 }) {
   const { width } = useWindowDimensions();
   const chartWidth = Math.max(
     0,
-    width - WEEK_DATE_STRIP_HORIZONTAL_INSET * 2 + WEEK_DATE_STRIP_HORIZONTAL_OUTSET * 2,
+    width -
+      WEEK_DATE_STRIP_HORIZONTAL_INSET * 2 +
+      DAILY_WEEKLY_CALENDAR_STRIP_HORIZONTAL_OUTSET * 2 +
+      WEEK_DATE_STRIP_HORIZONTAL_OUTSET * 2,
   );
   const plotLeft = WEEK_DATE_STRIP_LAYOUT_GUTTER_WIDTH;
   const plotWidth = Math.max(0, chartWidth - WEEK_DATE_STRIP_LAYOUT_GUTTER_WIDTH * 2);
@@ -944,7 +1044,19 @@ function WeeklyBarChart({
   const dayCellWidth = Math.min(WEEK_DATE_STRIP_DAY_CELL_MAX_WIDTH, plotWidth / 7);
   const dayStep = plotWidth > 0 ? (plotWidth - dayCellWidth) / 6 : 0;
   const barWidth = Math.min(34, Math.max(16, dayCellWidth * 0.76));
-  const maxStudyMinutes = Math.max(...points.map((point) => point.study_minutes), 0);
+  const chartPoints = useMemo(() => {
+    const pointsByDateKey = new Map(points.map((point) => [point.bucket, point]));
+    return dateKeys.map(
+      (dateKey) =>
+        pointsByDateKey.get(dateKey) ?? {
+          bucket: dateKey,
+          label: getDateNumberLabel(dateKey),
+          study_minutes: 0,
+          sessions: 0,
+        },
+    );
+  }, [dateKeys, points]);
+  const maxStudyMinutes = Math.max(...chartPoints.map((point) => point.study_minutes), 0);
   const maxHours = maxStudyMinutes / 60;
   const stepValue = maxHours <= 1 ? 0.2 : Math.max(1, Math.ceil(maxHours / WEEKLY_CHART_SECTIONS));
   const yAxisMax = stepValue * WEEKLY_CHART_SECTIONS;
@@ -970,14 +1082,16 @@ function WeeklyBarChart({
                   y1={toSvgY(y)}
                   x2={plotLeft + plotWidth}
                   y2={toSvgY(y)}
-                  stroke="#D6D6D6"
+                  stroke="#E8E8E8"
+                  strokeOpacity={1}
                   strokeWidth={1}
                 />
                 {label ? (
                   <SvgText
                     x={plotLeft - 8}
                     y={toSvgY(labelY)}
-                    fill="#777777"
+                    fill="#9D9D9D"
+                    fontFamily="HiraginoSans-W6"
                     fontSize={10}
                     fontWeight="600"
                     textAnchor="end"
@@ -988,7 +1102,7 @@ function WeeklyBarChart({
               </G>
             );
           })}
-          {points.map((_point, index) => {
+          {chartPoints.map((_point, index) => {
             const x = plotLeft + dayCellWidth / 2 + dayStep * index;
             return (
               <Line
@@ -997,16 +1111,18 @@ function WeeklyBarChart({
                 y1={toSvgY(WEEKLY_CHART_GRID_TOP)}
                 x2={x}
                 y2={toSvgY(axisY)}
-                stroke="#ECECEC"
+                stroke="#F6F6F6"
+                strokeOpacity={1}
                 strokeWidth={1}
               />
             );
           })}
-          {points.map((point, index) => {
+          {chartPoints.map((point, index) => {
             const value = point.study_minutes / 60;
             const barHeight = yAxisMax > 0 ? (value / yAxisMax) * WEEKLY_CHART_PLOT_HEIGHT : 0;
             const x = plotLeft + dayCellWidth / 2 + dayStep * index - barWidth / 2;
             const y = axisY - barHeight;
+            const barClipPathId = `weekly-chart-bar-clip-${point.bucket}`;
             const segments = barSegmentsByDateKey?.[point.bucket] ?? [];
             let cumulativeMinutes = 0;
             const visibleSegments = segments.flatMap((segment) => {
@@ -1023,37 +1139,47 @@ function WeeklyBarChart({
 
             return (
               <G key={point.bucket}>
-                <Rect
-                  x={x}
-                  y={toSvgY(y)}
-                  width={barWidth}
-                  height={barHeight}
-                  rx={4}
-                  ry={4}
-                  fill="#D6D6D6"
-                  testID={`stats-weekly-chart-bar-${point.bucket}`}
-                />
-                {visibleSegments.map((segment) => {
-                  const segmentHeight =
-                    yAxisMax > 0 ? (segment.minutes / 60 / yAxisMax) * WEEKLY_CHART_PLOT_HEIGHT : 0;
-                  const segmentY =
-                    axisY -
-                    (yAxisMax > 0
-                      ? (segment.cumulativeMinutes / 60 / yAxisMax) * WEEKLY_CHART_PLOT_HEIGHT
-                      : 0);
+                <Defs>
+                  <ClipPath id={barClipPathId}>
+                    <Rect x={x} y={toSvgY(y)} width={barWidth} height={barHeight} rx={4} ry={4} />
+                  </ClipPath>
+                </Defs>
+                <G clipPath={`url(#${barClipPathId})`}>
+                  <Rect
+                    x={x}
+                    y={toSvgY(y)}
+                    width={barWidth}
+                    height={barHeight}
+                    rx={4}
+                    ry={4}
+                    fill="#D6D6D6"
+                    testID={`stats-weekly-chart-bar-${point.bucket}`}
+                  />
+                  {visibleSegments.map((segment) => {
+                    const segmentHeight =
+                      yAxisMax > 0
+                        ? (segment.minutes / 60 / yAxisMax) * WEEKLY_CHART_PLOT_HEIGHT
+                        : 0;
+                    const segmentY =
+                      axisY -
+                      (yAxisMax > 0
+                        ? (segment.cumulativeMinutes / 60 / yAxisMax) * WEEKLY_CHART_PLOT_HEIGHT
+                        : 0);
 
-                  return (
-                    <Rect
-                      key={segment.outputId}
-                      x={x}
-                      y={toSvgY(segmentY)}
-                      width={barWidth}
-                      height={segmentHeight}
-                      fill={segment.color}
-                      testID={`stats-weekly-chart-bar-segment-${point.bucket}-${segment.outputId}`}
-                    />
-                  );
-                })}
+                    return (
+                      <Rect
+                        key={segment.outputId}
+                        x={x}
+                        y={toSvgY(segmentY)}
+                        width={barWidth}
+                        height={segmentHeight}
+                        clipPath={`url(#${barClipPathId})`}
+                        fill={segment.color}
+                        testID={`stats-weekly-chart-bar-segment-${point.bucket}-${segment.outputId}`}
+                      />
+                    );
+                  })}
+                </G>
               </G>
             );
           })}
@@ -1062,7 +1188,8 @@ function WeeklyBarChart({
             y1={toSvgY(axisY)}
             x2={plotLeft + plotWidth}
             y2={toSvgY(axisY)}
-            stroke="#D6D6D6"
+            stroke="#E8E8E8"
+            strokeOpacity={1}
             strokeWidth={1}
           />
         </Svg>
@@ -1123,13 +1250,16 @@ function NewSubjectFormModal({
             </Svg>
           </Pressable>
           <Text style={styles.newSubjectTitle} testID="stats-new-subject-title">
-            新規教科追加
+            教科を追加
           </Text>
         </View>
 
         <View style={styles.newSubjectForm}>
-          <View style={styles.newSubjectRow}>
-            <SizableText style={styles.newSubjectLabel} testID="stats-new-subject-subject-label">
+          <View style={[styles.newSubjectRow, styles.newSubjectSubjectRow]}>
+            <SizableText
+              style={[styles.newSubjectLabel, styles.newSubjectSubjectLabel]}
+              testID="stats-new-subject-subject-label"
+            >
               教科
             </SizableText>
             <TextInput
@@ -1140,6 +1270,7 @@ function NewSubjectFormModal({
               style={styles.newSubjectInput}
               testID="stats-new-subject-input"
             />
+            <View style={styles.newSubjectSubjectDivider} />
           </View>
           <Pressable
             accessibilityRole="button"
@@ -1150,7 +1281,10 @@ function NewSubjectFormModal({
             style={[styles.newSubjectRow, styles.newSubjectColorRow]}
             testID="stats-new-subject-color-row"
           >
-            <SizableText style={styles.newSubjectLabel} testID="stats-new-subject-color-label">
+            <SizableText
+              style={[styles.newSubjectLabel, styles.newSubjectColorLabel]}
+              testID="stats-new-subject-color-label"
+            >
               色
             </SizableText>
             <View
@@ -1173,77 +1307,85 @@ function NewSubjectFormModal({
         </Pressable>
 
         {isColorPickerVisible ? (
-          <View style={styles.colorPickerSheet} testID="stats-subject-color-picker">
-            <View style={styles.colorPickerHeader}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="色の選択を閉じる"
-                hitSlop={8}
-                onPress={() => setColorPickerVisible(false)}
-                style={styles.colorPickerCloseButton}
-                testID="stats-subject-color-picker-close"
-              >
-                <SizableText
-                  style={styles.colorPickerCloseText}
-                  testID="stats-subject-color-picker-close-text"
+          <>
+            <View
+              pointerEvents="none"
+              style={styles.colorPickerBottomFill}
+              testID="stats-subject-color-picker-bottom-fill"
+            />
+            <View style={styles.colorPickerSheet} testID="stats-subject-color-picker">
+              <View style={styles.colorPickerHeader}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="色の選択を閉じる"
+                  hitSlop={8}
+                  onPress={() => setColorPickerVisible(false)}
+                  style={styles.colorPickerCloseButton}
+                  testID="stats-subject-color-picker-close"
                 >
-                  ×
-                </SizableText>
-              </Pressable>
-              <Text style={styles.colorPickerTitle} testID="stats-subject-color-picker-title">
-                色の選択
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="色を決定"
-                hitSlop={8}
-                onPress={() => {
-                  onChangeColor(draftColor);
-                  setColorPickerVisible(false);
-                }}
-                style={styles.colorPickerConfirmButton}
-                testID="stats-subject-color-picker-confirm"
-              >
-                <CheckIcon size={20} testID="stats-subject-color-picker-check-icon" />
-              </Pressable>
-            </View>
-            <View style={styles.colorPickerGrid} testID="stats-subject-color-grid">
-              {SUBJECT_COLOR_PICKER_ROWS.map((rowColors, rowIndex) => (
-                <View
-                  key={rowColors.join('-')}
-                  style={styles.colorPickerRow}
-                  testID={`stats-subject-color-row-${rowIndex}`}
+                  <CloseIcon
+                    size={18}
+                    testID="stats-subject-color-picker-close-icon"
+                    lineTestIDPrefix="stats-subject-color-picker-close-icon"
+                  />
+                </Pressable>
+                <Text style={styles.colorPickerTitle} testID="stats-subject-color-picker-title">
+                  色の選択
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="色を決定"
+                  hitSlop={8}
+                  onPress={() => {
+                    onChangeColor(draftColor);
+                    setColorPickerVisible(false);
+                  }}
+                  style={styles.colorPickerConfirmButton}
+                  testID="stats-subject-color-picker-confirm"
                 >
-                  {rowColors.map((paletteColor, columnIndex) => {
-                    const index = rowIndex * SUBJECT_COLOR_PICKER_COLUMN_COUNT + columnIndex;
+                  <CheckIcon size={20} testID="stats-subject-color-picker-check-icon" />
+                </Pressable>
+              </View>
+              <View style={styles.colorPickerGrid} testID="stats-subject-color-grid">
+                {SUBJECT_COLOR_PICKER_ROWS.map((rowColors, rowIndex) => (
+                  <View
+                    key={rowColors.join('-')}
+                    style={[
+                      styles.colorPickerRow,
+                      rowIndex > 0 ? styles.colorPickerLowerRow : null,
+                    ]}
+                    testID={`stats-subject-color-row-${rowIndex}`}
+                  >
+                    {rowColors.map((paletteColor, columnIndex) => {
+                      const index = rowIndex * SUBJECT_COLOR_PICKER_COLUMN_COUNT + columnIndex;
 
-                    return (
-                      <Pressable
-                        key={paletteColor}
-                        accessibilityRole="button"
-                        accessibilityLabel={`色${index + 1}`}
-                        onPress={() =>
-                          setDraftColor((currentColor) =>
-                            currentColor === paletteColor ? null : paletteColor,
-                          )
-                        }
-                        style={[styles.colorPickerSwatch, { backgroundColor: paletteColor }]}
-                        testID={`stats-subject-color-swatch-${index}`}
-                      >
-                        {draftColor === paletteColor ? (
-                          <Image
-                            source={COLOR_PICKER_CHECK_ICON}
-                            style={styles.colorPickerSwatchCheck}
-                            testID={`stats-subject-color-swatch-check-${index}`}
-                          />
-                        ) : null}
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              ))}
+                      return (
+                        <Pressable
+                          key={paletteColor}
+                          accessibilityRole="button"
+                          accessibilityLabel={`色${index + 1}`}
+                          onPress={() =>
+                            setDraftColor((currentColor) =>
+                              currentColor === paletteColor ? null : paletteColor,
+                            )
+                          }
+                          style={[styles.colorPickerSwatch, { backgroundColor: paletteColor }]}
+                          testID={`stats-subject-color-swatch-${index}`}
+                        >
+                          {draftColor === paletteColor ? (
+                            <ColorSwatchCheckIcon
+                              style={styles.colorPickerSwatchCheck}
+                              testID={`stats-subject-color-swatch-check-${index}`}
+                            />
+                          ) : null}
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ))}
+              </View>
             </View>
-          </View>
+          </>
         ) : null}
       </SafeAreaView>
     </View>
@@ -1277,7 +1419,8 @@ function HistoryDetailSheet({
   if (item === null) return null;
 
   const timeRange = getHistoryTimeRangeParts(item);
-  const title = `${getTokyoMonthDayLabelFromTimestamp(item.output.submitted_at)}　${timeRange.start} - ${timeRange.end}`;
+  const titleDate = getTokyoMonthDayLabelFromTimestamp(item.output.submitted_at);
+  const titleTimeRange = `${timeRange.start} - ${timeRange.end}`;
   const visibleSubjectOptions = [...subjectOptions];
   localSubjectOptions.forEach((subject) => {
     if (!visibleSubjectOptions.some((option) => option.label === subject.label)) {
@@ -1354,10 +1497,18 @@ function HistoryDetailSheet({
               style={styles.historySheetIconButton}
               testID="stats-history-sheet-close"
             >
-              <CloseIcon />
+              <CloseIcon size={17} testID="stats-history-sheet-close-icon" />
             </Pressable>
-            <SizableText style={styles.historySheetTitle} numberOfLines={1}>
-              {title}
+            <SizableText
+              style={styles.historySheetTitle}
+              numberOfLines={1}
+              testID="stats-history-sheet-title"
+            >
+              {titleDate}
+              {'　'}
+              <Text style={styles.historySheetTitleTime} testID="stats-history-sheet-title-time">
+                {titleTimeRange}
+              </Text>
             </SizableText>
             <Pressable
               accessibilityRole="button"
@@ -1367,7 +1518,7 @@ function HistoryDetailSheet({
               style={[styles.historySheetIconButton, styles.historySheetConfirmButton]}
               testID="stats-history-sheet-confirm"
             >
-              <CheckIcon />
+              <CheckIcon size={17} testID="stats-history-sheet-confirm-icon" />
             </Pressable>
           </View>
 
@@ -1414,10 +1565,20 @@ function HistoryDetailSheet({
                   style={styles.historySheetNewSubjectButton}
                   testID="stats-history-sheet-subject-picker-new"
                 >
-                  <View style={styles.historySheetNewSubjectIcon}>
-                    <SizableText style={styles.historySheetNewSubjectIconText}>+</SizableText>
-                  </View>
-                  <SizableText style={styles.historySheetNewSubjectText}>新規教科</SizableText>
+                  <Image
+                    source={PLUS_ICON}
+                    style={styles.historySheetNewSubjectIcon}
+                    testID="stats-history-sheet-new-subject-plus-icon"
+                  />
+                  <SizableText
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.82}
+                    numberOfLines={1}
+                    style={styles.historySheetNewSubjectText}
+                    testID="stats-history-sheet-subject-picker-new-text"
+                  >
+                    教科を追加する
+                  </SizableText>
                 </Pressable>
                 <Pressable
                   accessibilityRole="button"
@@ -1518,6 +1679,7 @@ function HistoryOutputModeTabs({ activeKind }: { activeKind: OutputReviewItem['o
                 styles.historySheetTabText,
                 isActive ? styles.historySheetTabTextActive : null,
               ]}
+              testID={`stats-history-sheet-tab-label-${tab.key}`}
             >
               {tab.label}
             </SizableText>
@@ -1585,6 +1747,7 @@ function OutputHistory({
   emptyMessage = 'この日の履歴はまだありません。',
   titleFrameStyle,
   cardFrameStyle,
+  titleScrolls = false,
   onSelectItem,
 }: {
   items: OutputReviewItem[];
@@ -1592,64 +1755,84 @@ function OutputHistory({
   emptyMessage?: string;
   titleFrameStyle?: StyleProp<TextStyle>;
   cardFrameStyle?: StyleProp<ViewStyle>;
+  titleScrolls?: boolean;
   onSelectItem: (item: OutputReviewItem) => void;
 }) {
   const groups = useMemo(
     () => buildHistoryGroups(items, fallbackDateKey),
     [fallbackDateKey, items],
   );
+  const title = (
+    <SizableText style={[styles.historyTitle, titleFrameStyle]} testID="stats-output-history-title">
+      履歴
+    </SizableText>
+  );
 
   return (
-    <View style={styles.historySection} testID="stats-output-history">
-      <SizableText
-        style={[styles.historyTitle, titleFrameStyle]}
-        testID="stats-output-history-title"
+    <View
+      style={[styles.historySection, titleScrolls ? null : styles.historySectionFixedTitle]}
+      testID="stats-output-history"
+    >
+      {titleScrolls ? null : title}
+      <ScrollView
+        nestedScrollEnabled
+        style={styles.historyTableScroll}
+        contentContainerStyle={[
+          styles.historyTableScrollContent,
+          titleScrolls ? styles.historyTableScrollContentWithTitle : null,
+        ]}
+        showsVerticalScrollIndicator={false}
+        testID="stats-output-history-table-scroll"
       >
-        履歴
-      </SizableText>
-      {groups.map((group) => (
-        <View key={group.dateKey} style={[styles.historyCard, cardFrameStyle]}>
-          {group.dateLabel ? (
-            <SizableText style={styles.historyDateText}>{group.dateLabel}</SizableText>
-          ) : null}
-          {group.items.length === 0 ? (
-            <View style={styles.emptyHistory} testID="stats-output-history-empty">
-              <SizableText style={styles.emptyHistoryText}>{emptyMessage}</SizableText>
-            </View>
-          ) : (
-            group.items.slice(0, HISTORY_VISIBLE_ITEM_LIMIT).map((item, index, visibleItems) => {
-              const timeRange = getHistoryTimeRangeParts(item);
-              const timeRangeLabel = `${timeRange.start} - ${timeRange.end}`;
-              return (
-                <Pressable
-                  key={item.output.id}
-                  accessibilityRole="button"
-                  onPress={() => onSelectItem(item)}
-                  style={[
-                    styles.historyRow,
-                    index < visibleItems.length - 1 ? styles.historyRowBorder : null,
-                  ]}
-                  testID={`stats-output-history-item-${item.output.id}`}
-                >
-                  <View style={styles.historyTimeRange}>
-                    <Text
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.82}
-                      numberOfLines={1}
-                      style={styles.historyTimeText}
+        {titleScrolls ? title : null}
+        <View style={styles.historyTableList}>
+          {groups.map((group) => (
+            <View key={group.dateKey} style={[styles.historyCard, cardFrameStyle]}>
+              {group.dateLabel ? (
+                <SizableText style={styles.historyDateText}>{group.dateLabel}</SizableText>
+              ) : null}
+              {group.items.length === 0 ? (
+                <View style={styles.emptyHistory} testID="stats-output-history-empty">
+                  <SizableText style={styles.emptyHistoryText}>{emptyMessage}</SizableText>
+                </View>
+              ) : (
+                group.items.map((item, index) => {
+                  const timeRange = getHistoryTimeRangeParts(item);
+                  const timeRangeLabel = `${timeRange.start}  -  ${timeRange.end}`;
+                  const isLastRow = index === group.items.length - 1;
+                  return (
+                    <Pressable
+                      key={item.output.id}
+                      accessibilityRole="button"
+                      onPress={() => onSelectItem(item)}
+                      style={[styles.historyRow, !isLastRow ? styles.historyRowBorder : null]}
+                      testID={`stats-output-history-item-${item.output.id}`}
                     >
-                      {timeRangeLabel}
-                    </Text>
-                  </View>
-                  <SizableText style={styles.historyCycleText} numberOfLines={1}>
-                    サイクル{item.cycle_index}
-                  </SizableText>
-                </Pressable>
-              );
-            })
-          )}
+                      <View style={styles.historyTimeRange}>
+                        <Text
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.82}
+                          numberOfLines={1}
+                          style={[
+                            styles.historyTimeText,
+                            !isLastRow ? styles.historyTimeTextUpperRows : null,
+                            isLastRow ? styles.historyTimeTextLastRow : null,
+                          ]}
+                        >
+                          {timeRangeLabel}
+                        </Text>
+                      </View>
+                      <SizableText style={styles.historyCycleText} numberOfLines={1}>
+                        サイクル{item.cycle_index}
+                      </SizableText>
+                    </Pressable>
+                  );
+                })
+              )}
+            </View>
+          ))}
         </View>
-      ))}
+      </ScrollView>
     </View>
   );
 }
@@ -1763,6 +1946,10 @@ export function StatsScreen() {
       selectedSubjectByOutputId,
     );
   }, [selectedSubjectByOutputId, subjectOptions, weeklyReportQuery.data]);
+  const weeklyChartDateKeys = useMemo(
+    () => getCenteredDateKeys(selectedDateKey),
+    [selectedDateKey],
+  );
   const highlightCardSize = useMemo(() => getHighlightCardSize(viewportWidth), [viewportWidth]);
   const dailyHighlightCardStyle = useMemo<StyleProp<ViewStyle>>(() => {
     if (highlightCardSize.height === 0) return undefined;
@@ -1803,7 +1990,8 @@ export function StatsScreen() {
       FIXED_HEADER_BOTTOM_PADDING +
       SCROLL_BOUNDARY_HEIGHT -
       weeklyChartSlotHeight +
-      WEEKLY_HISTORY_UP_OFFSET
+      WEEKLY_HISTORY_UP_OFFSET +
+      DAILY_HIGHLIGHT_CARD_EXTRA_HEIGHT
     );
   }, [highlightCardSize.height]);
   const weeklyChartSlotStyle = useMemo(
@@ -1937,9 +2125,10 @@ export function StatsScreen() {
           onMonthChange={setCalendarMonthStart}
           onDatePress={handleSelectMonthlyDate}
         />
-        <View style={styles.monthlyHighlightTitleRow}>
-          <SizableText style={styles.highlightTitle}>今月のハイライト</SizableText>
-          <ShareIconButton />
+        <View style={styles.monthlyHighlightTitleRow} testID="stats-monthly-highlight-title-row">
+          <SizableText style={[styles.highlightTitle, styles.monthlyHighlightTitle]}>
+            今月のハイライト
+          </SizableText>
         </View>
         <MonthlyHighlightCard reports={monthlyReports.reports} monthStart={calendarMonthStart} />
         {monthlyReports.isFetching ? (
@@ -1977,6 +2166,7 @@ export function StatsScreen() {
           fallbackDateKey={dailyReportQuery.data.date}
           titleFrameStyle={dailyHighlightTextFrameStyle}
           cardFrameStyle={dailyHighlightViewFrameStyle}
+          titleScrolls
           onSelectItem={handleOpenHistorySheet}
         />
         {dailyReportQuery.isFetching ? (
@@ -2014,6 +2204,7 @@ export function StatsScreen() {
           emptyMessage="この週の履歴はまだありません。"
           titleFrameStyle={dailyHighlightTextFrameStyle}
           cardFrameStyle={dailyHighlightViewFrameStyle}
+          titleScrolls
           onSelectItem={handleOpenHistorySheet}
         />
         {weeklyReportQuery.isFetching ? (
@@ -2090,6 +2281,7 @@ export function StatsScreen() {
                 selectedDateKey={selectedDateKey}
                 onSelectDate={handleSelectDate}
                 studiedDateKeys={calendarStudiedDateKeys}
+                showSelectedDateHighlight={false}
               />
             </View>
             <View style={styles.weeklyCalendarGraphBoundaryWrap}>
@@ -2109,6 +2301,7 @@ export function StatsScreen() {
             {weeklyReportQuery.data ? (
               <View style={weeklyChartSlotStyle}>
                 <WeeklyBarChart
+                  dateKeys={weeklyChartDateKeys}
                   points={weeklyReportQuery.data.points}
                   barSegmentsByDateKey={weeklyBarSegmentsByDateKey}
                 />
@@ -2123,14 +2316,9 @@ export function StatsScreen() {
             )}
           </View>
           {settingsButton}
-          <ScrollView
-            style={styles.scrollArea}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            testID="stats-weekly-content"
-          >
+          <View style={styles.historyPane} testID="stats-weekly-content">
             {weeklyBody}
-          </ScrollView>
+          </View>
           <HistoryDetailSheet
             item={selectedHistoryItem}
             onClose={handleCloseHistorySheet}
@@ -2191,15 +2379,10 @@ export function StatsScreen() {
             <HighlightPlaceholder style={dailyHighlightCardStyle} />
           )}
         </View>
-        <View style={styles.scrollBoundary} />
-        <ScrollView
-          style={styles.scrollArea}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          testID="stats-scroll-content"
-        >
+        <View style={[styles.scrollBoundary, styles.dailyScrollBoundary]} />
+        <View style={styles.historyPane} testID="stats-scroll-content">
           {dailyBody}
-        </ScrollView>
+        </View>
         {settingsButton}
         <HistoryDetailSheet
           item={selectedHistoryItem}
@@ -2255,7 +2438,7 @@ const styles = StyleSheet.create({
   },
   dailyWeeklyCalendarStrip: {
     transform: [{ translateY: -4 }],
-    marginHorizontal: -9,
+    marginHorizontal: -DAILY_WEEKLY_CALENDAR_STRIP_HORIZONTAL_OUTSET,
   },
   monthText: {
     color: '#333333',
@@ -2286,6 +2469,7 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'stretch',
     marginTop: 18,
+    paddingHorizontal: 16,
   },
   calendarWeekdayRow: {
     flexDirection: 'row',
@@ -2301,14 +2485,16 @@ const styles = StyleSheet.create({
   calendarWeekdayText: {
     color: '#333333',
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 15,
-    fontWeight: '800',
-    lineHeight: 20,
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 19,
+    transform: [{ translateY: -10 }],
   },
   monthCalendarGridWrap: {
     position: 'relative',
     alignSelf: 'stretch',
     width: '100%',
+    height: MONTH_CALENDAR_GRID_HEIGHT,
     marginTop: 10,
   },
   monthCalendarGrid: {
@@ -2342,9 +2528,10 @@ const styles = StyleSheet.create({
   },
   monthDayMarker: {
     width: '100%',
-    height: 36,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
+    transform: [{ translateY: -5 }],
   },
   monthDayStreakMarker: {
     backgroundColor: '#DDE5FF',
@@ -2360,17 +2547,12 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 6,
     borderBottomRightRadius: 6,
   },
-  monthDayTodayMarker: {
-    borderWidth: 1.8,
-    borderColor: '#5367FF',
-    borderRadius: 6,
-  },
   monthDayText: {
     color: '#333333',
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: '700',
-    lineHeight: 24,
+    lineHeight: 23,
   },
   monthDayMutedText: {
     color: '#CFCFCF',
@@ -2410,6 +2592,11 @@ const styles = StyleSheet.create({
     paddingLeft: 0,
     transform: [{ translateX: DAILY_HIGHLIGHT_TITLE_TRANSLATE_X }],
   },
+  monthlyHighlightTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    lineHeight: 23,
+  },
   shareButton: {
     width: 30,
     height: 30,
@@ -2445,10 +2632,14 @@ const styles = StyleSheet.create({
     ],
   },
   monthlyHighlightCard: {
-    width: '96%',
-    maxWidth: 330,
-    aspectRatio: 1264 / 992,
+    width: '89%',
+    maxWidth: 302,
     alignSelf: 'center',
+    backgroundColor: 'transparent',
+  },
+  monthlyHighlightImage: {
+    width: '100%',
+    aspectRatio: 1264 / 992,
     backgroundColor: 'transparent',
   },
   monthlyHighlightBackground: {},
@@ -2466,9 +2657,19 @@ const styles = StyleSheet.create({
   },
   monthlyHighlightLabel: {
     color: '#333333',
-    fontSize: 15,
-    fontWeight: '800',
-    lineHeight: 22,
+    fontSize: 17,
+    fontWeight: 'bold',
+    lineHeight: 24,
+  },
+  monthlyTotalDaysLabel: {
+    transform: [{ translateY: -2 }, { translateX: 3 }],
+  },
+  monthlyLongestStreakLabel: {
+    fontSize: 18,
+    lineHeight: 25,
+  },
+  monthlyLongestStreakLabelOffset: {
+    transform: [{ translateY: 8 }, { translateX: 3 }],
   },
   monthlyHighlightValueRow: {
     flexDirection: 'row',
@@ -2477,17 +2678,38 @@ const styles = StyleSheet.create({
     gap: 4,
     marginTop: 4,
   },
+  monthlyTotalDaysValueRow: {
+    transform: [{ translateY: -3 }, { translateX: 3 }],
+  },
+  monthlyLongestStreakValueRow: {
+    transform: [{ translateY: 7 }, { translateX: 3 }],
+  },
   monthlyHighlightNumber: {
     color: '#333333',
     fontSize: 38,
     fontWeight: '900',
     lineHeight: 41,
   },
+  monthlyTotalDaysNumber: {
+    ...MONTHLY_HIGHLIGHT_NUMBER_EMBOLDEN_STYLE,
+  },
+  monthlyLongestStreakNumber: {
+    ...MONTHLY_HIGHLIGHT_NUMBER_EMBOLDEN_STYLE,
+    transform: [{ translateY: 2 }],
+  },
   monthlyHighlightUnit: {
     color: '#333333',
+    fontFamily: 'HiraginoSans-W6',
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '700',
     lineHeight: 32,
+  },
+  monthlyHighlightUnitOffset: {
+    fontWeight: '700',
+    textShadowColor: '#333333',
+    textShadowOffset: { width: 0.25, height: 0 },
+    textShadowRadius: 0,
+    transform: [{ translateY: 2 }],
   },
   highlightContent: {
     flex: 1,
@@ -2508,10 +2730,11 @@ const styles = StyleSheet.create({
   highlightCaption: {
     color: '#333333',
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '700',
     lineHeight: 20,
     textAlign: 'center',
+    transform: [{ translateY: 1 }],
   },
   totalTimeRow: {
     flexDirection: 'row',
@@ -2525,7 +2748,7 @@ const styles = StyleSheet.create({
     color: '#333333',
     fontFamily: 'HiraginoSans-W7',
     fontSize: 36,
-    fontWeight: '700',
+    fontWeight: '800',
     lineHeight: 40,
   },
   totalTimeHoursSegment: {
@@ -2537,7 +2760,7 @@ const styles = StyleSheet.create({
   totalTimeUnit: {
     color: '#333333',
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
     lineHeight: 28,
     marginLeft: 2,
@@ -2631,7 +2854,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     lineHeight: 25,
-    transform: [{ translateY: 4 }],
+    transform: [{ translateY: 5 }],
   },
   breakPill: {
     alignSelf: 'flex-start',
@@ -2664,10 +2887,11 @@ const styles = StyleSheet.create({
   historySheetPanel: {
     width: '100%',
     maxWidth: 430,
-    maxHeight: '82%',
+    height: HISTORY_SHEET_HEIGHT,
+    maxHeight: HISTORY_SHEET_MAX_HEIGHT,
     alignSelf: 'center',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: HISTORY_SHEET_TOP_RADIUS,
+    borderTopRightRadius: HISTORY_SHEET_TOP_RADIUS,
     borderWidth: 1,
     borderBottomWidth: 0,
     borderColor: '#E5E5E5',
@@ -2687,37 +2911,43 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   historySheetIconButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#F0F0F0',
+    transform: [{ translateY: 4 }],
   },
   historySheetConfirmButton: {
     backgroundColor: '#E6EAFF',
   },
   historySheetTitle: {
     flex: 1,
-    paddingLeft: 20,
+    paddingLeft: 12,
     color: '#111111',
     fontFamily: 'HiraginoSans-W6',
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '700',
     lineHeight: 22,
     fontVariant: ['tabular-nums'],
+    transform: [{ translateY: 5 }],
+  },
+  historySheetTitleTime: {
+    transform: [{ translateX: 3 }, { scaleX: 0.98 }],
   },
   historySheetSubjectRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginHorizontal: 12,
-    marginTop: 18,
+    marginTop: 30,
+    transform: [{ translateY: -3 }],
   },
   historySheetLabel: {
-    color: '#333333',
-    fontSize: 14,
-    fontWeight: '700',
+    color: '#363636',
+    fontSize: 16,
+    fontWeight: '600',
     lineHeight: 20,
   },
   historySheetSubjectValue: {
@@ -2728,9 +2958,9 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   historySheetSubjectDot: {
-    width: 15,
-    height: 15,
-    borderRadius: 7.5,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: '#28D94F',
   },
   historySheetSubjectDotUnset: {
@@ -2738,9 +2968,9 @@ const styles = StyleSheet.create({
   },
   historySheetSubjectText: {
     flexShrink: 1,
-    color: '#333333',
-    fontSize: 14,
-    fontWeight: '700',
+    color: '#363636',
+    fontSize: 16,
+    fontWeight: '600',
     lineHeight: 20,
   },
   historySheetSubjectTextUnset: {
@@ -2748,9 +2978,9 @@ const styles = StyleSheet.create({
   },
   historySheetSubjectPicker: {
     position: 'absolute',
-    top: 102,
-    left: 31,
-    right: 18,
+    top: 106,
+    left: 45,
+    right: 45,
     zIndex: 20,
     borderWidth: 1,
     borderColor: '#E5E5E5',
@@ -2772,51 +3002,52 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   historySheetNewSubjectButton: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    marginRight: 8,
+    transform: [{ translateY: 2 }],
   },
   historySheetNewSubjectIcon: {
-    width: 18,
-    height: 18,
-    borderWidth: 1.2,
-    borderColor: '#333333',
-    borderRadius: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  historySheetNewSubjectIconText: {
-    color: '#333333',
-    fontSize: 16,
-    fontWeight: '500',
-    lineHeight: 18,
+    width: 20,
+    height: 20,
+    resizeMode: 'contain',
   },
   historySheetNewSubjectText: {
+    flexShrink: 1,
     color: '#8A8A8A',
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '500',
-    lineHeight: 22,
+    lineHeight: 23,
   },
   historySheetSubjectPickerClose: {
     width: 24,
     height: 24,
     alignItems: 'center',
     justifyContent: 'center',
+    transform: [{ translateY: -9 }],
   },
   historySheetSubjectPickerCloseText: {
     color: '#777777',
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '900',
     lineHeight: 22,
+    textShadowColor: '#777777',
+    textShadowOffset: { width: 0.7, height: 0 },
+    textShadowRadius: 0,
   },
   historySheetSubjectPickerScroll: {
     marginTop: 9,
     maxHeight:
       SUBJECT_PICKER_MAX_VISIBLE_ITEMS * SUBJECT_PICKER_ITEM_HEIGHT +
-      (SUBJECT_PICKER_MAX_VISIBLE_ITEMS - 1) * SUBJECT_PICKER_ITEM_GAP,
+      (SUBJECT_PICKER_MAX_VISIBLE_ITEMS - 1) * SUBJECT_PICKER_ITEM_GAP +
+      SUBJECT_PICKER_LIST_BOTTOM_PADDING,
   },
   historySheetSubjectPickerList: {
     gap: 6,
+    paddingBottom: SUBJECT_PICKER_LIST_BOTTOM_PADDING,
   },
   historySheetSubjectPickerItem: {
     minHeight: 24,
@@ -2828,6 +3059,7 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
+    transform: [{ translateY: 2 }],
   },
   historySheetSubjectPickerText: {
     flex: 1,
@@ -2835,6 +3067,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '500',
     lineHeight: 24,
+    transform: [{ translateY: 2 }],
   },
   historySheetSubjectPickerCheck: {
     width: 18,
@@ -2849,16 +3082,19 @@ const styles = StyleSheet.create({
   },
   historySheetSectionTitle: {
     marginHorizontal: 12,
-    marginTop: 11,
+    marginTop: 13,
     color: '#333333',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
     lineHeight: 20,
+    transform: [{ translateY: 2 }],
   },
   historySheetOutputFrame: {
+    flex: 1,
     minHeight: 296,
     marginHorizontal: 12,
-    marginTop: 8,
+    marginTop: 12,
+    marginBottom: 20,
     borderWidth: 1.5,
     borderColor: '#777777',
     borderRadius: 16,
@@ -2868,7 +3104,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   historySheetTabs: {
-    height: 24,
+    height: 28,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
@@ -2876,6 +3112,8 @@ const styles = StyleSheet.create({
     borderRadius: 7,
     backgroundColor: '#EFEFEF',
     overflow: 'hidden',
+    padding: 2,
+    transform: [{ translateY: 4 }],
   },
   historySheetTab: {
     flex: 1,
@@ -2887,16 +3125,18 @@ const styles = StyleSheet.create({
   },
   historySheetTabActive: {
     backgroundColor: '#FFFFFF',
+    borderRadius: 5,
   },
   historySheetTabIcon: {
-    width: 12,
-    height: 12,
+    width: 17,
+    height: 17,
   },
   historySheetTabText: {
     color: '#777777',
-    fontSize: 10,
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 11,
     fontWeight: '700',
-    lineHeight: 13,
+    lineHeight: 14,
   },
   historySheetTabTextActive: {
     color: '#2F2F2F',
@@ -2945,6 +3185,8 @@ const styles = StyleSheet.create({
   newSubjectOverlay: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 40,
+    borderTopLeftRadius: HISTORY_SHEET_TOP_RADIUS,
+    borderTopRightRadius: HISTORY_SHEET_TOP_RADIUS,
     backgroundColor: '#FFFFFF',
     elevation: 40,
   },
@@ -2953,36 +3195,56 @@ const styles = StyleSheet.create({
   },
   newSubjectRoot: {
     flex: 1,
+    borderTopLeftRadius: HISTORY_SHEET_TOP_RADIUS,
+    borderTopRightRadius: HISTORY_SHEET_TOP_RADIUS,
     backgroundColor: '#FFFFFF',
   },
   newSubjectHeader: {
-    height: 52,
+    height: 58,
     alignItems: 'center',
     justifyContent: 'center',
   },
   newSubjectBackButton: {
     position: 'absolute',
-    left: 24,
+    left: 30,
+    top: 5,
     width: 32,
     height: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
   newSubjectTitle: {
+    position: 'absolute',
+    top: 9,
+    left: 6,
+    right: -6,
     color: '#111111',
-    fontSize: 14,
-    fontWeight: '800',
-    lineHeight: 20,
+    fontSize: 18,
+    fontWeight: '600',
+    lineHeight: 24,
+    textAlign: 'center',
   },
   newSubjectForm: {
     paddingHorizontal: 33,
   },
   newSubjectRow: {
-    minHeight: 31,
+    minHeight: 29,
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#D9D9D9',
+  },
+  newSubjectSubjectRow: {
+    minHeight: 36,
+    borderBottomWidth: 0,
+  },
+  newSubjectSubjectDivider: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 0,
+    height: 1,
+    backgroundColor: '#CDCDCD',
   },
   newSubjectColorRow: {
     borderBottomWidth: 0,
@@ -2994,47 +3256,62 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     lineHeight: 22,
   },
+  newSubjectSubjectLabel: {
+    fontSize: 17,
+    lineHeight: 23,
+    transform: [{ translateX: 12 }, { translateY: -2 }],
+  },
+  newSubjectColorLabel: {
+    fontSize: 17,
+    lineHeight: 23,
+    transform: [{ translateX: 12 }, { translateY: 4 }],
+  },
   newSubjectInput: {
     flex: 1,
-    height: 31,
+    height: 29,
     padding: 0,
     color: '#333333',
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 17,
+    fontWeight: '400',
+    lineHeight: 23,
     textAlign: 'right',
+    transform: [{ translateX: -12 }, { translateY: -3 }],
   },
   newSubjectColorPreview: {
-    width: 14,
-    height: 14,
+    width: 18,
+    height: 18,
     marginLeft: 'auto',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: '#D0D0D0',
-    borderRadius: 7,
+    borderRadius: 9,
     backgroundColor: '#FFFFFF',
+    transform: [{ translateX: -12 }, { translateY: 2 }],
   },
   newSubjectSaveButton: {
     position: 'absolute',
-    left: 39,
-    right: 39,
-    bottom: 56,
-    height: 40,
-    borderRadius: 14,
+    left: 55,
+    right: 43,
+    bottom: 72,
+    height: 56,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#4B5CFF',
   },
   newSubjectSaveText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 14,
     fontWeight: '700',
-    lineHeight: 16,
+    lineHeight: 18,
   },
   colorPickerSheet: {
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 0,
-    minHeight: 418,
+    bottom: COLOR_PICKER_SHEET_BOTTOM_OFFSET,
+    height: COLOR_PICKER_SHEET_HEIGHT,
+    maxHeight: COLOR_PICKER_SHEET_MAX_HEIGHT,
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
     borderWidth: 1,
@@ -3046,6 +3323,16 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: -3 },
     elevation: 44,
+  },
+  colorPickerBottomFill: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: COLOR_PICKER_SHEET_BOTTOM_OFFSET,
+    backgroundColor: '#FFFFFF',
+    zIndex: 43,
+    elevation: 43,
   },
   colorPickerHeader: {
     height: 58,
@@ -3063,18 +3350,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#F0F0F0',
   },
-  colorPickerCloseText: {
-    color: '#333333',
-    fontSize: 26,
-    fontWeight: '400',
-    lineHeight: 30,
-  },
   colorPickerTitle: {
     color: '#111111',
-    fontSize: 14,
-    fontWeight: '800',
-    lineHeight: 20,
+    fontSize: 18,
+    fontWeight: '600',
+    lineHeight: 24,
     marginTop: SUBJECT_COLOR_PICKER_HEADER_TITLE_MARGIN_TOP,
+    transform: [{ translateX: SUBJECT_COLOR_PICKER_HEADER_TITLE_OFFSET_X }],
   },
   colorPickerConfirmButton: {
     position: 'absolute',
@@ -3097,10 +3379,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: SUBJECT_COLOR_PICKER_COLUMN_GAP,
   },
+  colorPickerLowerRow: {
+    marginTop: 6,
+  },
   colorPickerSwatch: {
     width: SUBJECT_COLOR_PICKER_SWATCH_SIZE,
     height: SUBJECT_COLOR_PICKER_SWATCH_SIZE,
-    borderRadius: 3,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -3118,14 +3403,16 @@ const styles = StyleSheet.create({
     elevation: 4,
     zIndex: 2,
   },
-  scrollArea: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
+  dailyScrollBoundary: {
+    transform: [{ translateY: 2 }],
   },
-  scrollContent: {
+  historyPane: {
+    flex: 1,
+    minHeight: 0,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
     paddingTop: 12,
     paddingHorizontal: 24,
-    paddingBottom: 112,
   },
   messageBody: {
     minHeight: 220,
@@ -3135,8 +3422,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   historySection: {
-    gap: 8,
+    flex: 1,
+    minHeight: 0,
     marginTop: 4,
+  },
+  historySectionFixedTitle: {
+    gap: 8,
+  },
+  historyTableScroll: {
+    flex: 1,
+  },
+  historyTableScrollContent: {
+    paddingBottom: 112,
+  },
+  historyTableScrollContentWithTitle: {
+    gap: 8,
+  },
+  historyTableList: {
+    gap: 14,
   },
   historyTitle: {
     width: '90%',
@@ -3145,9 +3448,10 @@ const styles = StyleSheet.create({
     marginLeft: '3%',
     color: '#333333',
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '700',
     lineHeight: 20,
+    transform: [{ translateX: 4 }],
   },
   historyCard: {
     width: '90%',
@@ -3161,24 +3465,26 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 10,
     backgroundColor: '#FFFFFF',
+    transform: [{ translateY: 8 }],
   },
   historyDateText: {
     color: '#111111',
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 16,
-    fontWeight: '800',
-    lineHeight: 20,
-    marginBottom: 2,
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 19,
+    marginBottom: 6,
+    transform: [{ translateY: 3 }],
   },
   historyRow: {
-    minHeight: 30,
+    minHeight: 32,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 14,
   },
   historyRowBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 1,
     borderBottomColor: '#D0D0D0',
   },
   historyTimeRange: {
@@ -3191,18 +3497,27 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     color: '#111111',
     fontFamily: 'HiraginoSans-W6',
-    fontSize: 14,
-    fontWeight: '800',
-    lineHeight: 18,
+    fontSize: 12.5,
+    fontWeight: '700',
+    lineHeight: 17,
     fontVariant: ['tabular-nums'],
     includeFontPadding: false,
+    transform: [{ translateY: -0.5 }],
+  },
+  historyTimeTextUpperRows: {
+    transform: [{ translateY: -0.25 }],
+  },
+  historyTimeTextLastRow: {
+    transform: [{ translateY: -0.75 }],
   },
   historyCycleText: {
     flexShrink: 0,
     color: '#6B6B6B',
-    fontSize: 13,
-    fontWeight: '600',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 12,
+    fontWeight: '500',
     lineHeight: 18,
+    transform: [{ translateX: -2 }],
   },
   emptyHistory: {
     minHeight: 30,
@@ -3210,6 +3525,7 @@ const styles = StyleSheet.create({
   },
   emptyHistoryText: {
     color: '#777777',
+    fontFamily: 'HiraginoSans-W6',
     fontSize: 13,
     fontWeight: '600',
     lineHeight: 18,
