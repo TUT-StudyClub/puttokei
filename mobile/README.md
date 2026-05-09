@@ -45,6 +45,8 @@ cp mobile/.env.example mobile/.env.local
 
 ルートから `task ci` を叩くと backend と mobile の両方を回せる。`task --list` で全コマンド一覧が見られる。
 
+TestFlight 向けの EAS Build / Submit とローカル実機への直接ビルド手順は [build-and-release.md](./build-and-release.md) を参照する。
+
 ## アーキテクチャ
 
 要件書 §8.3 に沿う構成。`app/` は Expo Router の経路定義のみとし、画面実装は `src/features` に寄せる。
