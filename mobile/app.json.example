@@ -8,7 +8,7 @@
     "個別開発者の overlay は `app.json` または `.env.local` の `EXPO_PUBLIC_*` で行う。"
   ],
   "expo": {
-    "name": "Hourglass",
+    "name": "ぷっとけい",
     "slug": "hourglass",
     "version": "0.1.0",
     "orientation": "portrait",
