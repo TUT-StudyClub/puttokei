@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import type { LayoutChangeEvent, StyleProp, TextStyle, ViewStyle } from 'react-native';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated as RNAnimated, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -666,6 +666,7 @@ export function HourglassBadgeSandOverlay({
 }
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+const RNAnimatedCircle = RNAnimated.createAnimatedComponent(Circle);
 
 function darkenSandColor(color: string) {
   // 12% ほど暗くしたアクセント色を返す。色解釈に失敗したら元の色を opacity 多めで返す。
@@ -1220,29 +1221,28 @@ export function SessionTopChrome({
 
   return (
     <>
-      {showHeader ? (
-        <View
-          ref={hourglassWrapperRef}
-          onLayout={onHourglassWrapperLayout}
-          style={styles.topChromeHourglassWrapper}
+      <View
+        ref={hourglassWrapperRef}
+        onLayout={onHourglassWrapperLayout}
+        style={[styles.topChromeHourglassWrapper, showHeader ? null : { opacity: 0 }]}
+        pointerEvents={showHeader ? 'auto' : 'none'}
+      >
+        <SizableText
+          style={[styles.topChromeCycleLabel, { color: cycleLabelColor }, cycleLabelStyle]}
+          testID={`${testIDPrefix}-cycle-label`}
         >
-          <SizableText
-            style={[styles.topChromeCycleLabel, { color: cycleLabelColor }, cycleLabelStyle]}
-            testID={`${testIDPrefix}-cycle-label`}
-          >
-            {cycleLabelCount}サイクル
-          </SizableText>
-          <HourglassBadge
-            {...hourglass}
-            testIDPrefix={testIDPrefix}
-            marginBottom={0}
-            rowStyle={[styles.topChromeHourglassRow, hourglassRowStyle]}
-            badgeStyle={[styles.topChromeHourglassBadge, hourglass.badgeStyle]}
-            iconBaseWidth={HOURGLASS_VARIANTS.gray.baseWidth}
-            iconBaseHeight={HOURGLASS_VARIANTS.gray.baseHeight}
-          />
-        </View>
-      ) : null}
+          {cycleLabelCount}サイクル
+        </SizableText>
+        <HourglassBadge
+          {...hourglass}
+          testIDPrefix={testIDPrefix}
+          marginBottom={0}
+          rowStyle={[styles.topChromeHourglassRow, hourglassRowStyle]}
+          badgeStyle={[styles.topChromeHourglassBadge, hourglass.badgeStyle]}
+          iconBaseWidth={HOURGLASS_VARIANTS.gray.baseWidth}
+          iconBaseHeight={HOURGLASS_VARIANTS.gray.baseHeight}
+        />
+      </View>
       <View
         style={[styles.topChromePhaseTabsWrapper, phaseTabsTop ? { top: phaseTabsTop } : null]}
         testID={`${testIDPrefix}-phase-tabs-wrapper`}
@@ -1267,6 +1267,7 @@ type CircularPhaseTimerProps = {
   timerTextStyle?: StyleProp<TextStyle>;
   size?: number;
   strokeWidth?: number;
+  animatedStrokeWidth?: RNAnimated.AnimatedInterpolation<string | number>;
 };
 
 export function CircularPhaseTimer({
@@ -1283,6 +1284,7 @@ export function CircularPhaseTimer({
   timerTextStyle,
   size: customSize,
   strokeWidth: customStrokeWidth,
+  animatedStrokeWidth,
 }: CircularPhaseTimerProps) {
   const smoothRemainingSeconds = useSmoothRemainingSeconds(enabled);
   const totalSeconds = useTimerStore((s) => s.totalSeconds);
@@ -1305,20 +1307,20 @@ export function CircularPhaseTimer({
   return (
     <View style={[styles.timerWrap, { width: size, height: size }]} testID={testID}>
       <Svg width={size} height={size}>
-        <Circle
+        <RNAnimatedCircle
           cx={size / 2}
           cy={size / 2}
           r={radius}
           stroke={trackColor}
-          strokeWidth={strokeWidth}
+          strokeWidth={animatedStrokeWidth ?? strokeWidth}
           fill="none"
         />
-        <Circle
+        <RNAnimatedCircle
           cx={size / 2}
           cy={size / 2}
           r={radius}
           stroke={primaryColor}
-          strokeWidth={strokeWidth}
+          strokeWidth={animatedStrokeWidth ?? strokeWidth}
           strokeLinecap="round"
           fill="none"
           strokeDasharray={`${circumference} ${circumference}`}
