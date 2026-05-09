@@ -30,6 +30,8 @@ export type OutputEditorProps = {
   errorMessage?: string | null;
   disabled?: boolean;
   maxLength?: number;
+  showSubmissionControls?: boolean;
+  textAreaMinHeight?: number;
   onFocus?: () => void;
   onBlur?: () => void;
 };
@@ -44,6 +46,8 @@ export function OutputEditor({
   errorMessage,
   disabled = false,
   maxLength = DEFAULT_MAX_LENGTH,
+  showSubmissionControls = true,
+  textAreaMinHeight = 160,
   onFocus,
   onBlur,
 }: OutputEditorProps) {
@@ -89,44 +93,48 @@ export function OutputEditor({
         onBlur={onBlur}
         maxLength={maxLength}
         editable={!isSubmitting && !disabled}
-        minHeight={160}
+        minHeight={textAreaMinHeight}
         style={styles.textArea}
       />
 
-      <XStack justifyContent="space-between" alignItems="center">
-        <SizableText
-          testID="output-editor-count"
-          size="$2"
-          color={isOverMax ? '$red10' : '$color10'}
-        >
-          {value.length} / {maxLength}
-        </SizableText>
-        {errorMessage ? (
-          <SizableText
-            testID="output-editor-error"
-            color="$red10"
-            size="$2"
-            flex={1}
-            marginLeft="$3"
+      {showSubmissionControls ? (
+        <>
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText
+              testID="output-editor-count"
+              size="$2"
+              color={isOverMax ? '$red10' : '$color10'}
+            >
+              {value.length} / {maxLength}
+            </SizableText>
+            {errorMessage ? (
+              <SizableText
+                testID="output-editor-error"
+                color="$red10"
+                size="$2"
+                flex={1}
+                marginLeft="$3"
+              >
+                {errorMessage}
+              </SizableText>
+            ) : null}
+          </XStack>
+
+          <Button
+            testID="output-editor-submit"
+            onPress={handleSubmit}
+            disabled={submitDisabled}
+            themeInverse
           >
-            {errorMessage}
-          </SizableText>
-        ) : null}
-      </XStack>
+            {isSubmitting ? <Spinner /> : '送信する'}
+          </Button>
 
-      <Button
-        testID="output-editor-submit"
-        onPress={handleSubmit}
-        disabled={submitDisabled}
-        themeInverse
-      >
-        {isSubmitting ? <Spinner /> : '送信する'}
-      </Button>
-
-      {showRetryButton ? (
-        <Button testID="output-editor-retry" onPress={handleRetry} disabled={cannotSubmit}>
-          再送する
-        </Button>
+          {showRetryButton ? (
+            <Button testID="output-editor-retry" onPress={handleRetry} disabled={cannotSubmit}>
+              再送する
+            </Button>
+          ) : null}
+        </>
       ) : null}
     </YStack>
   );

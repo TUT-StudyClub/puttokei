@@ -66,6 +66,25 @@ describe('OutputEditor', () => {
     expect(getByTestId('output-editor-count').props.children).toEqual([5, ' / ', 2000]);
   });
 
+  it('showSubmissionControls=false のときは入力欄だけを表示する', () => {
+    const { getByTestId, queryByTestId } = renderEditor(
+      <OutputEditor
+        value="本文"
+        onChange={jest.fn()}
+        onSubmit={jest.fn()}
+        isSubmitting={false}
+        showSubmissionControls={false}
+        textAreaMinHeight={268}
+      />,
+    );
+
+    expect(StyleSheet.flatten(getByTestId('output-editor-textarea').props.style)).toMatchObject({
+      minHeight: 268,
+    });
+    expect(queryByTestId('output-editor-count')).toBeNull();
+    expect(queryByTestId('output-editor-submit')).toBeNull();
+  });
+
   it('value が空のとき送信ボタンを押しても onSubmit は呼ばれない', () => {
     const onSubmit = jest.fn();
     const { getByTestId } = renderEditor(

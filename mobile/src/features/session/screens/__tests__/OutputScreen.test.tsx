@@ -36,6 +36,7 @@ const mockSpeechRecognitionAbort = jest.fn();
 const mockIsSpeechRecognitionAvailable = jest.fn();
 const mockRequireOptionalNativeModule = jest.fn();
 const mockSpeechRecognitionListeners = new Map<string, ((event: any) => void)[]>();
+const ADD_IMAGE_ICON = require('../../../../../assets/images/icons/icon_picplus_gray.png');
 const mockSpeechRecognitionModule = {
   requestPermissionsAsync: mockRequestSpeechPermissionsAsync,
   start: mockSpeechRecognitionStart,
@@ -204,10 +205,10 @@ describe('OutputScreen', () => {
     expect(StyleSheet.flatten(getByTestId('output-method-tabs').props.style)).toMatchObject({
       alignSelf: 'center',
       width: '92%',
-      paddingHorizontal: 4,
-      paddingVertical: 3,
-      borderRadius: 10,
-      transform: [{ translateY: 8 }],
+      height: 32,
+      padding: 3,
+      borderRadius: 8,
+      backgroundColor: '#EFEFEF',
     });
     expect(StyleSheet.flatten(getByTestId('output-editor-area').props.style)).toMatchObject({
       alignSelf: 'center',
@@ -233,7 +234,7 @@ describe('OutputScreen', () => {
     expect(keyboardEvents).not.toContain('keyboardDidHide');
   });
 
-  it('キーボード表示時も全体レイアウトを維持しつつ入力欄が利用できる', () => {
+  it('キーボード表示時は上部にコンパクト表示しつつ入力欄が利用できる', () => {
     const { getByTestId, queryByTestId } = renderWithProviders(<OutputScreen />);
 
     act(() => {
@@ -249,7 +250,15 @@ describe('OutputScreen', () => {
     expect(
       StyleSheet.flatten(getByTestId('output-composer-card').props.style).marginTop,
     ).toBeUndefined();
+    expect(StyleSheet.flatten(getByTestId('output-root').props.style)).toMatchObject({
+      paddingTop: 24,
+    });
     expect(getByTestId('output-editor-textarea')).toBeTruthy();
+    expect(getByTestId('output-phase-tabs')).toBeTruthy();
+    expect(StyleSheet.flatten(getByTestId('output-circular-timer').props.style)).toMatchObject({
+      width: 156,
+      height: 156,
+    });
     expect(queryByTestId('output-settings-button')).toBeNull();
     expect(queryByTestId('output-hourglass-badge')).toBeNull();
     expect(queryByTestId('output-timer-caption')).toBeNull();
@@ -263,8 +272,21 @@ describe('OutputScreen', () => {
     expect(
       StyleSheet.flatten(getByTestId('output-composer-card').props.style).marginTop,
     ).toBeUndefined();
+    const addButtonRawStyle = getByTestId('output-image-add-button').props.style;
+    const addButtonStyle =
+      typeof addButtonRawStyle === 'function'
+        ? addButtonRawStyle({ pressed: false })
+        : addButtonRawStyle;
+    expect(StyleSheet.flatten(addButtonStyle)).toMatchObject({
+      width: 88,
+      height: 88,
+      borderStyle: 'dashed',
+      borderColor: '#A6A6A6',
+      backgroundColor: '#FFFFFF',
+    });
     expect(getByTestId('output-image-panel')).toBeTruthy();
     expect(getByTestId('output-image-add-button')).toBeTruthy();
+    expect(getByTestId('output-image-add-icon').props.source).toBe(ADD_IMAGE_ICON);
     expect(getByTestId('output-image-submit')).toBeTruthy();
     expect(getByText('提出後も時間内であれば編集できます')).toBeTruthy();
     expect(queryByTestId('output-image-thumbnail-0')).toBeNull();
@@ -616,9 +638,21 @@ describe('OutputScreen', () => {
   it('本文入力 → 送信で submitOutput → break 画面へ replace する', async () => {
     (sessionApi.submitTextOutput as jest.Mock).mockResolvedValue(submitSuccessResponse);
 
-    const { getByTestId } = renderWithProviders(<OutputScreen />);
+    const { getByTestId, getByText, queryByTestId } = renderWithProviders(<OutputScreen />);
 
     fireEvent.changeText(getByTestId('output-editor-textarea'), '関係代名詞は先行詞を修飾する');
+
+    expect(getByTestId('output-text-submit-footer')).toBeTruthy();
+    expect(getByText('提出後も時間内であれば編集できます')).toBeTruthy();
+    expect(getByText('提出する')).toBeTruthy();
+    expect(StyleSheet.flatten(getByTestId('output-circular-timer').props.style)).toMatchObject({
+      width: 290,
+      height: 290,
+    });
+    expect(
+      StyleSheet.flatten(getByTestId('output-composer-card').props.style).marginTop,
+    ).toBeLessThan(0);
+    expect(queryByTestId('output-editor-count')).toBeNull();
 
     act(() => {
       fireEvent.press(getByTestId('output-editor-submit'));
