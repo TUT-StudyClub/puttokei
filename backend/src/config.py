@@ -107,8 +107,9 @@ class Settings(BaseSettings):
         default=None,
         description=(
             "GCS 認証用サービスアカウント鍵 JSON のパス。"
-            "未指定時は ADC を使う（その場合 signed URL 発行に private key が必要なので"
-            "Cloud Run 等の workload identity 環境では別途対応が必要）。"
+            "未指定時は ADC を使う。Cloud Run 等の workload identity 環境では"
+            "ランタイム SA の自分自身に対する `roles/iam.serviceAccountTokenCreator` を"
+            "付与しておけば、signed URL は IAM SignBlob 経由で発行される。"
         ),
     )
     gcs_signed_upload_url_ttl_seconds: int = Field(
