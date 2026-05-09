@@ -205,10 +205,10 @@ describe('OutputScreen', () => {
     expect(StyleSheet.flatten(getByTestId('output-method-tabs').props.style)).toMatchObject({
       alignSelf: 'center',
       width: '92%',
-      paddingHorizontal: 4,
-      paddingVertical: 3,
-      borderRadius: 10,
-      transform: [{ translateY: 8 }],
+      height: 32,
+      padding: 3,
+      borderRadius: 8,
+      backgroundColor: '#EFEFEF',
     });
     expect(StyleSheet.flatten(getByTestId('output-editor-area').props.style)).toMatchObject({
       alignSelf: 'center',
@@ -646,12 +646,12 @@ describe('OutputScreen', () => {
     expect(getByText('提出後も時間内であれば編集できます')).toBeTruthy();
     expect(getByText('提出する')).toBeTruthy();
     expect(StyleSheet.flatten(getByTestId('output-circular-timer').props.style)).toMatchObject({
-      width: 156,
-      height: 156,
+      width: 290,
+      height: 290,
     });
     expect(
       StyleSheet.flatten(getByTestId('output-composer-card').props.style).marginTop,
-    ).toBeUndefined();
+    ).toBeLessThan(0);
     expect(queryByTestId('output-editor-count')).toBeNull();
 
     act(() => {

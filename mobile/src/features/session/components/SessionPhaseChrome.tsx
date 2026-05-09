@@ -1228,7 +1228,11 @@ export function SessionTopChrome({
       <View
         ref={hourglassWrapperRef}
         onLayout={onHourglassWrapperLayout}
-        style={[styles.topChromeHourglassWrapper, showHeader ? null : { opacity: 0 }]}
+        style={[
+          styles.topChromeHourglassWrapper,
+          hourglassWrapperStyle,
+          showHeader ? null : { opacity: 0 },
+        ]}
         pointerEvents={showHeader ? 'auto' : 'none'}
       >
         <SizableText
@@ -1248,7 +1252,11 @@ export function SessionTopChrome({
         />
       </View>
       <View
-        style={[styles.topChromePhaseTabsWrapper, phaseTabsTop ? { top: phaseTabsTop } : null]}
+        style={[
+          styles.topChromePhaseTabsWrapper,
+          phaseTabsWrapperStyle,
+          phaseTabsTop ? { top: phaseTabsTop } : null,
+        ]}
         testID={`${testIDPrefix}-phase-tabs-wrapper`}
       >
         <PhaseTabs {...phaseTabs} testIDPrefix={testIDPrefix} marginBottom={0} />

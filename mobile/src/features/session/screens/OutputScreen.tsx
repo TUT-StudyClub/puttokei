@@ -22,6 +22,7 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
+  Text,
   View,
 } from 'react-native';
 import { Circle, Path, Rect, Svg } from 'react-native-svg';
@@ -60,7 +61,7 @@ const HOURGLASS_OUTPUT_COLOR = '#F24D7E';
 const HOURGLASS_BREAK_COLOR = '#FFFFFF';
 const HOURGLASS_BREAK_OPACITY = 0.92;
 const METHOD_ACTIVE_COLOR = '#2F2F2F';
-const METHOD_INACTIVE_COLOR = '#777777';
+const METHOD_INACTIVE_COLOR = '#6B6B6B';
 const DOT_INACTIVE = '#D9D9D9';
 const BORDER_COLOR = '#E5E7EB';
 const CAPTION_COLOR = '#777777';
@@ -198,21 +199,20 @@ function InputMethodTabs({ value, onChange }: InputMethodTabsProps) {
         const isActive = method === value;
         const color = isActive ? METHOD_ACTIVE_COLOR : METHOD_INACTIVE_COLOR;
         return (
-          <Pressable
-            key={method}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: isActive }}
-            onPress={() => onChange(method)}
-            style={[styles.methodTab, isActive ? styles.methodTabActive : null]}
-            testID={`output-method-tab-${method}`}
-          >
-            <InputMethodIcon method={method} color={color} size={20} />
-            <SizableText
-              style={[styles.methodTabLabel, isActive ? styles.methodTabLabelActive : null]}
+          <View key={method} style={styles.methodTabFlex}>
+            <Pressable
+              accessibilityRole="tab"
+              accessibilityState={{ selected: isActive }}
+              onPress={() => onChange(method)}
+              style={isActive ? styles.methodTabActive : styles.methodTab}
+              testID={`output-method-tab-${method}`}
             >
-              {INPUT_METHOD_LABELS[method]}
-            </SizableText>
-          </Pressable>
+              <InputMethodIcon method={method} color={color} size={19} />
+              <Text style={isActive ? styles.methodTabLabelActive : styles.methodTabLabel}>
+                {INPUT_METHOD_LABELS[method]}
+              </Text>
+            </Pressable>
+          </View>
         );
       })}
     </View>
@@ -839,7 +839,7 @@ export function OutputScreen() {
 
   const hasTextContent = content.trim().length > 0;
   const isTextReadyLayout = isTextMethod && hasTextContent && !isKeyboardVisible;
-  const isCompactTextLayout = isKeyboardVisible || isTextReadyLayout;
+  const isCompactTextLayout = isKeyboardVisible;
   const shouldShowTextSubmissionFooter =
     isTextMethod && (hasTextContent || Boolean(submitErrorMessage));
   const showSessionChrome = !isCompactTextLayout && !isImageMethod;
@@ -1126,46 +1126,57 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   methodTabs: {
+    height: 32,
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'center',
     width: '92%',
-    gap: 4,
-    paddingHorizontal: 4,
-    paddingVertical: 3,
-    borderRadius: 10,
-    backgroundColor: '#EDEDED',
-    transform: [{ translateY: 8 }],
+    gap: 5,
+    padding: 3,
+    borderRadius: 8,
+    backgroundColor: '#EFEFEF',
   },
   methodTabsImagePanel: {
     marginHorizontal: 0,
   },
-  methodTab: {
+  methodTabFlex: {
+    flex: 1,
+  },
+  methodTabActive: {
+    marginLeft: 0,
+    marginRight: 8,
+    height: 26,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
-    gap: 5,
-    paddingVertical: 1,
-    paddingHorizontal: 0,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'transparent',
-    backgroundColor: 'transparent',
-  },
-  methodTabActive: {
-    borderColor: '#F1F5F9',
+    gap: 2,
+    borderRadius: 5,
+    paddingLeft: 4,
+    paddingRight: 14,
+    paddingVertical: 3,
     backgroundColor: '#FFFFFF',
   },
+  methodTab: {
+    height: 26,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingRight: 6,
+    borderRadius: 5,
+    backgroundColor: 'transparent',
+  },
   methodTabLabel: {
-    color: METHOD_INACTIVE_COLOR,
-    fontSize: 13,
-    fontWeight: '600',
-    lineHeight: 18,
+    color: '#676767',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 9,
+    lineHeight: 16,
   },
   methodTabLabelActive: {
-    color: METHOD_ACTIVE_COLOR,
-    fontWeight: '700',
+    color: '#363636',
+    fontFamily: 'HiraginoSans-W6',
+    fontSize: 9,
+    lineHeight: 16,
   },
   editorArea: {
     alignSelf: 'center',
