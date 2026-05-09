@@ -234,7 +234,7 @@ describe('OutputScreen', () => {
     expect(keyboardEvents).not.toContain('keyboardDidHide');
   });
 
-  it('キーボード表示時も全体レイアウトを維持しつつ入力欄が利用できる', () => {
+  it('キーボード表示時は上部にコンパクト表示しつつ入力欄が利用できる', () => {
     const { getByTestId, queryByTestId } = renderWithProviders(<OutputScreen />);
 
     act(() => {
@@ -250,7 +250,15 @@ describe('OutputScreen', () => {
     expect(
       StyleSheet.flatten(getByTestId('output-composer-card').props.style).marginTop,
     ).toBeUndefined();
+    expect(StyleSheet.flatten(getByTestId('output-root').props.style)).toMatchObject({
+      paddingTop: 24,
+    });
     expect(getByTestId('output-editor-textarea')).toBeTruthy();
+    expect(getByTestId('output-phase-tabs')).toBeTruthy();
+    expect(StyleSheet.flatten(getByTestId('output-circular-timer').props.style)).toMatchObject({
+      width: 156,
+      height: 156,
+    });
     expect(queryByTestId('output-settings-button')).toBeNull();
     expect(queryByTestId('output-hourglass-badge')).toBeNull();
     expect(queryByTestId('output-timer-caption')).toBeNull();
@@ -630,9 +638,21 @@ describe('OutputScreen', () => {
   it('本文入力 → 送信で submitOutput → break 画面へ replace する', async () => {
     (sessionApi.submitTextOutput as jest.Mock).mockResolvedValue(submitSuccessResponse);
 
-    const { getByTestId } = renderWithProviders(<OutputScreen />);
+    const { getByTestId, getByText, queryByTestId } = renderWithProviders(<OutputScreen />);
 
     fireEvent.changeText(getByTestId('output-editor-textarea'), '関係代名詞は先行詞を修飾する');
+
+    expect(getByTestId('output-text-submit-footer')).toBeTruthy();
+    expect(getByText('提出後も時間内であれば編集できます')).toBeTruthy();
+    expect(getByText('提出する')).toBeTruthy();
+    expect(StyleSheet.flatten(getByTestId('output-circular-timer').props.style)).toMatchObject({
+      width: 156,
+      height: 156,
+    });
+    expect(
+      StyleSheet.flatten(getByTestId('output-composer-card').props.style).marginTop,
+    ).toBeUndefined();
+    expect(queryByTestId('output-editor-count')).toBeNull();
 
     act(() => {
       fireEvent.press(getByTestId('output-editor-submit'));

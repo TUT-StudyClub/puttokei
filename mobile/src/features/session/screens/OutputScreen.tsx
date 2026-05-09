@@ -4,8 +4,8 @@
  * InputScreen と骨格を揃えつつ、タイマー下に「テキスト / 画像 / 音声」の入力方法切替と
  * 選択中の入力方法に応じた投稿パネルを配置する。
  *
- * キーボード表示時は KeyboardAvoidingView + ScrollView でコンテンツ全体を上へ
- * スクロールさせ、TextArea が覆われないようにする。
+ * キーボード表示時は上部にフェーズ表示、中央にコンパクトタイマー、下に入力カードを
+ * 収め、TextArea の入力開始位置がキーボードで隠れないようにする。
  *
  * タイマー完了時は自動送信せず、ユーザーに明示的な送信を促す。
  */
@@ -16,7 +16,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Image,
   Keyboard,
-  KeyboardAvoidingView,
   NativeModules,
   Platform,
   Pressable,
@@ -70,6 +69,7 @@ const OUTPUT_TOP_CHROME_HOURGLASS_TOP = '11.2%';
 const OUTPUT_TOP_CHROME_PHASE_TABS_TOP = '27.6%';
 const OUTPUT_TIMER_STAGE_MARGIN_TOP = 62;
 const OUTPUT_COMPOSER_CARD_LIFT = 163;
+const TEXT_OUTPUT_MAX_LENGTH = 2000;
 const ADD_IMAGE_ICON = require('../../../../assets/images/icons/icon_picplus_gray.png');
 
 const INPUT_METHODS = ['text', 'image', 'voice'] as const;
@@ -352,6 +352,93 @@ function ImageSubmissionFooter({
   );
 }
 
+type TextSubmissionFooterProps = {
+  content: string;
+  errorMessage?: string | null;
+  isSubmitting: boolean;
+  maxLength?: number;
+  onSubmit: (payload: OutputEditorSubmitPayload) => void;
+};
+
+function TextSubmissionFooter({
+  content,
+  errorMessage,
+  isSubmitting,
+  maxLength = TEXT_OUTPUT_MAX_LENGTH,
+  onSubmit,
+}: TextSubmissionFooterProps) {
+  const hasAttemptedRef = useRef(false);
+  const [hasAttempted, setHasAttempted] = useState(false);
+  const trimmed = content.trim();
+  const isEmpty = trimmed.length === 0;
+  const isOverMax = content.length > maxLength;
+  const cannotSubmit = isEmpty || isOverMax || isSubmitting;
+  const submitDisabled = cannotSubmit || hasAttempted;
+  const showRetryButton = Boolean(errorMessage) && !isSubmitting;
+
+  const buildPayload = (): OutputEditorSubmitPayload => ({
+    content: trimmed,
+    submitted_at: new Date().toISOString(),
+  });
+
+  const handleSubmit = () => {
+    if (cannotSubmit || hasAttemptedRef.current) return;
+    hasAttemptedRef.current = true;
+    setHasAttempted(true);
+    onSubmit(buildPayload());
+  };
+
+  const handleRetry = () => {
+    if (cannotSubmit) return;
+    onSubmit(buildPayload());
+  };
+
+  return (
+    <View style={styles.textSubmissionFooter} testID="output-text-submit-footer">
+      <SizableText style={styles.textSubmissionNote} testID="output-text-submit-note">
+        提出後も時間内であれば編集できます
+      </SizableText>
+      {errorMessage ? (
+        <SizableText style={styles.textSubmissionError} testID="output-editor-error">
+          {errorMessage}
+        </SizableText>
+      ) : null}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled: submitDisabled }}
+        disabled={submitDisabled}
+        onPress={handleSubmit}
+        style={({ pressed }) => [
+          styles.textSubmitButton,
+          pressed ? styles.buttonPressed : null,
+          submitDisabled ? styles.textSubmitButtonDisabled : null,
+        ]}
+        testID="output-editor-submit"
+      >
+        <SizableText style={styles.textSubmitButtonText}>
+          {isSubmitting ? '提出中...' : '提出する'}
+        </SizableText>
+      </Pressable>
+      {showRetryButton ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: cannotSubmit }}
+          disabled={cannotSubmit}
+          onPress={handleRetry}
+          style={({ pressed }) => [
+            styles.textRetryButton,
+            pressed ? styles.buttonPressed : null,
+            cannotSubmit ? styles.textSubmitButtonDisabled : null,
+          ]}
+          testID="output-editor-retry"
+        >
+          <SizableText style={styles.textRetryButtonText}>再送する</SizableText>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
 type VoiceRecognitionPanelProps = {
   isRecognizing: boolean;
   statusMessage: string;
@@ -452,7 +539,6 @@ export function OutputScreen() {
     reset: resetSubmit,
   } = useSubmitOutput();
   const currentLoop = useLoopStore((s) => s.currentLoop);
-  const scrollRef = useRef<ScrollView>(null);
 
   // 砂時計バッジ用のタイマー進捗。SvgXml 再パースが重いので 100ms に間引く (InputScreen と同方針)。
   const timerStatus = useTimerStore((s) => s.status);
@@ -497,6 +583,7 @@ export function OutputScreen() {
 
   const isImageMethod = inputMethod === 'image';
   const isVoiceMethod = inputMethod === 'voice';
+  const isTextMethod = inputMethod === 'text';
 
   const handleFinalVoiceTranscript = useCallback(
     (transcript: string) => {
@@ -731,15 +818,9 @@ export function OutputScreen() {
 
     const showSubscription = Keyboard.addListener(showEvent, () => {
       setIsKeyboardVisible(true);
-      requestAnimationFrame(() => {
-        scrollRef.current?.scrollTo({ y: 120, animated: true });
-      });
     });
     const hideSubscription = Keyboard.addListener(hideEvent, () => {
       setIsKeyboardVisible(false);
-      requestAnimationFrame(() => {
-        scrollRef.current?.scrollTo({ y: 0, animated: true });
-      });
     });
 
     return () => {
@@ -756,7 +837,12 @@ export function OutputScreen() {
         : '送信に失敗しました。時間をおいて再度お試しください。'
       : null);
 
-  const showSessionChrome = !isKeyboardVisible && !isImageMethod;
+  const hasTextContent = content.trim().length > 0;
+  const isTextReadyLayout = isTextMethod && hasTextContent && !isKeyboardVisible;
+  const isCompactTextLayout = isKeyboardVisible || isTextReadyLayout;
+  const shouldShowTextSubmissionFooter =
+    isTextMethod && (hasTextContent || Boolean(submitErrorMessage));
+  const showSessionChrome = !isCompactTextLayout && !isImageMethod;
   const shouldLiftComposerCard = showSessionChrome;
 
   return (
@@ -786,13 +872,8 @@ export function OutputScreen() {
           }}
         />
       ) : null}
-      <KeyboardAvoidingView
-        style={showSessionChrome ? styles.belowChrome : styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
-      >
+      <View style={showSessionChrome ? styles.belowChrome : styles.flex}>
         <ScrollView
-          ref={scrollRef}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
@@ -802,7 +883,7 @@ export function OutputScreen() {
             style={[
               styles.container,
               showSessionChrome ? styles.containerWithFixedChrome : null,
-              isKeyboardVisible ? styles.containerKeyboardVisible : null,
+              isCompactTextLayout ? styles.containerKeyboardVisible : null,
               isImageMethod ? styles.containerImageMethod : null,
             ]}
             testID="output-root"
@@ -824,14 +905,14 @@ export function OutputScreen() {
             <View
               style={[
                 styles.mainContent,
-                isKeyboardVisible ? styles.mainContentKeyboardVisible : null,
+                isCompactTextLayout ? styles.mainContentKeyboardVisible : null,
                 isImageMethod ? styles.mainContentImageMethod : null,
               ]}
             >
               <View
                 style={[
                   styles.timerStage,
-                  isKeyboardVisible ? styles.timerStageKeyboardVisible : null,
+                  isCompactTextLayout ? styles.timerStageKeyboardVisible : null,
                   isImageMethod ? styles.timerStageImageMethod : null,
                 ]}
               >
@@ -840,10 +921,10 @@ export function OutputScreen() {
                   primaryColor={PRIMARY_COLOR}
                   trackColor={PRIMARY_SOFT_COLOR}
                   testID="output-circular-timer"
-                  compact={isKeyboardVisible || isImageMethod}
+                  compact={isCompactTextLayout || isImageMethod}
                   enabled={isFocused}
                 />
-                {isKeyboardVisible || isImageMethod ? null : (
+                {isCompactTextLayout || isImageMethod ? null : (
                   <SizableText style={styles.timerCaption} testID="output-timer-caption">
                     勉強したことを文字や音声にしてみましょう
                   </SizableText>
@@ -854,6 +935,7 @@ export function OutputScreen() {
                 style={[
                   styles.composerCard,
                   shouldLiftComposerCard ? styles.composerCardLifted : null,
+                  isTextReadyLayout ? styles.composerCardTextReady : null,
                   isImageMethod ? styles.composerCardImageMethod : null,
                 ]}
                 testID="output-composer-card"
@@ -896,16 +978,25 @@ export function OutputScreen() {
                         onSubmit={handleEditorSubmit}
                         isSubmitting={isSubmitPending}
                         errorMessage={submitErrorMessage}
-                        onFocus={() => {
-                          requestAnimationFrame(() => {
-                            scrollRef.current?.scrollTo({ y: 120, animated: true });
-                          });
-                        }}
+                        maxLength={TEXT_OUTPUT_MAX_LENGTH}
+                        showSubmissionControls={!isTextMethod}
+                        textAreaMinHeight={isTextReadyLayout ? 268 : 160}
                       />
                     </>
                   )}
                 </View>
               </View>
+
+              {shouldShowTextSubmissionFooter ? (
+                <TextSubmissionFooter
+                  key={`text-submit-${sessionId}`}
+                  content={content}
+                  errorMessage={submitErrorMessage}
+                  isSubmitting={isSubmitPending}
+                  maxLength={TEXT_OUTPUT_MAX_LENGTH}
+                  onSubmit={handleEditorSubmit}
+                />
+              ) : null}
 
               {isImageMethod ? (
                 <ImageSubmissionFooter
@@ -917,7 +1008,7 @@ export function OutputScreen() {
             </View>
           </View>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -951,6 +1042,7 @@ const styles = StyleSheet.create({
     paddingTop: 0,
   },
   containerKeyboardVisible: {
+    paddingTop: 24,
     paddingBottom: 12,
   },
   containerImageMethod: {
@@ -965,7 +1057,7 @@ const styles = StyleSheet.create({
   },
   mainContentKeyboardVisible: {
     flexGrow: 0,
-    gap: 16,
+    gap: 18,
   },
   mainContentImageMethod: {
     justifyContent: 'flex-start',
@@ -1022,6 +1114,12 @@ const styles = StyleSheet.create({
   },
   composerCardLifted: {
     marginTop: -OUTPUT_COMPOSER_CARD_LIFT,
+  },
+  composerCardTextReady: {
+    width: '92%',
+    minHeight: 344,
+    padding: 20,
+    borderRadius: 16,
   },
   composerCardImageMethod: {
     minHeight: 344,
@@ -1263,6 +1361,54 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     lineHeight: 26,
+  },
+  textSubmissionFooter: {
+    gap: 14,
+    paddingHorizontal: 42,
+  },
+  textSubmissionNote: {
+    color: '#8A8A8A',
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  textSubmissionError: {
+    color: ERROR_COLOR,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
+  textSubmitButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 58,
+    borderRadius: 20,
+    backgroundColor: ACTION_COLOR,
+  },
+  textSubmitButtonDisabled: {
+    opacity: 0.62,
+  },
+  textSubmitButtonText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '700',
+    lineHeight: 26,
+  },
+  textRetryButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 48,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: ACTION_COLOR,
+    backgroundColor: '#FFFFFF',
+  },
+  textRetryButtonText: {
+    color: ACTION_COLOR,
+    fontSize: 16,
+    fontWeight: '700',
+    lineHeight: 22,
   },
   buttonPressed: {
     opacity: 0.72,
