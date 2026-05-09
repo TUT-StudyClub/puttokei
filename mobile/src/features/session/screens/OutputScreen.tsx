@@ -878,7 +878,7 @@ export function OutputScreen() {
               >
                 <InputMethodTabs value={inputMethod} onChange={handleInputMethodChange} />
 
-                <View style={styles.editorArea}>
+                <View style={styles.editorArea} testID="output-editor-area">
                   {isImageMethod ? (
                     <ImageOutputPanel
                       imageUri={imageUri}
@@ -1021,10 +1021,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 18,
     textAlign: 'center',
-    marginTop: 8,
-    transform: [{ translateY: -12 }],
+    marginTop: -8,
   },
   composerCard: {
+    alignSelf: 'center',
+    width: '98%',
     gap: 12,
     padding: 12,
     borderRadius: 22,
@@ -1047,11 +1048,14 @@ const styles = StyleSheet.create({
   methodTabs: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'stretch',
+    alignSelf: 'center',
+    width: '92%',
     gap: 4,
-    padding: 4,
-    borderRadius: 14,
+    paddingHorizontal: 4,
+    paddingVertical: 3,
+    borderRadius: 10,
     backgroundColor: '#EDEDED',
+    transform: [{ translateY: 8 }],
   },
   methodTabsImagePanel: {
     marginHorizontal: 0,
@@ -1061,10 +1065,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
-    gap: 6,
-    paddingVertical: 8,
+    gap: 5,
+    paddingVertical: 1,
     paddingHorizontal: 0,
-    borderRadius: 12,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: 'transparent',
     backgroundColor: 'transparent',
@@ -1077,12 +1081,15 @@ const styles = StyleSheet.create({
     color: METHOD_INACTIVE_COLOR,
     fontSize: 13,
     fontWeight: '600',
+    lineHeight: 18,
   },
   methodTabLabelActive: {
     color: METHOD_ACTIVE_COLOR,
     fontWeight: '700',
   },
   editorArea: {
+    alignSelf: 'center',
+    width: '92%',
     gap: 8,
   },
   voicePanel: {

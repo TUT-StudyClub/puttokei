@@ -194,12 +194,26 @@ describe('OutputScreen', () => {
     expect(queryByTestId('output-settings-button')).toBeNull();
     expect(queryByLabelText('設定')).toBeNull();
     expect(getByTestId('output-composer-card')).toBeTruthy();
+    expect(StyleSheet.flatten(getByTestId('output-composer-card').props.style)).toMatchObject({
+      alignSelf: 'center',
+      width: '98%',
+    });
     expect(
       StyleSheet.flatten(getByTestId('output-composer-card').props.style).marginTop,
     ).toBeLessThan(0);
-    expect(StyleSheet.flatten(getByTestId('output-timer-caption').props.style).transform).toEqual([
-      { translateY: -12 },
-    ]);
+    expect(StyleSheet.flatten(getByTestId('output-method-tabs').props.style)).toMatchObject({
+      alignSelf: 'center',
+      width: '92%',
+      paddingHorizontal: 4,
+      paddingVertical: 3,
+      borderRadius: 10,
+      transform: [{ translateY: 8 }],
+    });
+    expect(StyleSheet.flatten(getByTestId('output-editor-area').props.style)).toMatchObject({
+      alignSelf: 'center',
+      width: '92%',
+    });
+    expect(StyleSheet.flatten(getByTestId('output-timer-caption').props.style).marginTop).toBe(-8);
     expect(
       StyleSheet.flatten(getByTestId('output-phase-tab-input-dot').props.style).backgroundColor,
     ).toBe('#B9DFFF');

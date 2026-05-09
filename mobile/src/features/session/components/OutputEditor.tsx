@@ -14,6 +14,7 @@
  * - 文字数カウンタを表示し、上限 (`maxLength`) に近づくと視覚で分かる
  */
 import { useRef, useState } from 'react';
+import { StyleSheet } from 'react-native';
 import { Spinner, Button, SizableText, TextArea, XStack, YStack } from 'tamagui';
 
 export type OutputEditorSubmitPayload = {
@@ -89,6 +90,7 @@ export function OutputEditor({
         maxLength={maxLength}
         editable={!isSubmitting && !disabled}
         minHeight={160}
+        style={styles.textArea}
       />
 
       <XStack justifyContent="space-between" alignItems="center">
@@ -129,3 +131,9 @@ export function OutputEditor({
     </YStack>
   );
 }
+
+const styles = StyleSheet.create({
+  textArea: {
+    backgroundColor: '#FFFFFF',
+  },
+});
