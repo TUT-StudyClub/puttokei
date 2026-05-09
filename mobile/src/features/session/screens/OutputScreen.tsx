@@ -69,7 +69,7 @@ const ERROR_COLOR = '#D92D20';
 const OUTPUT_TOP_CHROME_HOURGLASS_TOP = '11.2%';
 const OUTPUT_TOP_CHROME_PHASE_TABS_TOP = '27.6%';
 const OUTPUT_TIMER_STAGE_MARGIN_TOP = 62;
-const OUTPUT_COMPOSER_CARD_LIFT = 136;
+const OUTPUT_COMPOSER_CARD_LIFT = 163;
 
 const INPUT_METHODS = ['text', 'image', 'voice'] as const;
 type InputMethod = (typeof INPUT_METHODS)[number];
