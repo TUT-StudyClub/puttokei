@@ -12,10 +12,8 @@ const REPORT_ICON_BLUE = require('../../assets/images/icons/icon_report_blue.png
 const REPORT_ICON_GRAY = require('../../assets/images/icons/icon_report_gray.png');
 const TABS_SEGMENT = '(tabs)';
 const TIMER_TAB_ACTIVE_SESSION_PHASES = new Set(['input', 'output', 'break']);
-const REPORT_BLOCKED_MESSAGE_LINES = [
-  'タイマー起動中はレポート機能を見ることができ',
-  'ません。休憩終了後に見ることができます。',
-] as const;
+const REPORT_BLOCKED_MESSAGE =
+  'タイマー起動中はレポート機能を見ることができません。休憩終了後に見ることができます。';
 
 export function isReportTabNavigationBlocked(phase: TimerPhase) {
   return phase === 'input' || phase === 'output' || phase === 'break';
@@ -95,18 +93,9 @@ function ReportBlockedDialog({ visible, onDismiss }: { visible: boolean; onDismi
       <View style={styles.dialogBackdrop}>
         <View style={styles.dialogCard}>
           <View style={styles.dialogMessageWrap}>
-            {REPORT_BLOCKED_MESSAGE_LINES.map((line) => (
-              <Text
-                adjustsFontSizeToFit
-                allowFontScaling={false}
-                key={line}
-                minimumFontScale={0.82}
-                numberOfLines={1}
-                style={styles.dialogMessage}
-              >
-                {line}
-              </Text>
-            ))}
+            <Text allowFontScaling={false} style={styles.dialogMessage}>
+              {REPORT_BLOCKED_MESSAGE}
+            </Text>
           </View>
           <View style={styles.dialogDivider} />
           <Pressable
@@ -214,42 +203,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.24)',
-    paddingHorizontal: 24,
+    paddingHorizontal: 36,
   },
   dialogCard: {
     width: '100%',
-    maxWidth: 292,
+    maxWidth: 310,
     overflow: 'hidden',
-    borderRadius: 18,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#CDCDCD',
     backgroundColor: '#FFFFFF',
   },
   dialogMessageWrap: {
-    minHeight: 86,
+    minHeight: 81,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 16,
+    paddingHorizontal: 28,
+    paddingTop: 26,
+    paddingBottom: 14,
   },
   dialogMessage: {
     color: '#333333',
-    fontSize: 14,
-    fontWeight: '700',
-    lineHeight: 22,
+    fontFamily: 'HiraginoSans-W3',
+    fontSize: 12,
+    lineHeight: 18,
     textAlign: 'center',
   },
   dialogDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: '#D4D4D8',
+    height: 1,
+    backgroundColor: '#CDCDCD',
   },
   dialogButton: {
-    height: 44,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
   },
   dialogButtonText: {
     color: ACTIVE_COLOR,
-    fontSize: 17,
+    fontSize: 14,
     fontWeight: '400',
     lineHeight: 22,
     textAlign: 'center',
