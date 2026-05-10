@@ -4,7 +4,11 @@ import { Image, StyleSheet, type ImageStyle, type StyleProp } from 'react-native
 
 import { useTimerStore, type TimerPhase } from '@/shared/stores/timerStore';
 
-import TabsLayout, { isReportTabNavigationBlocked, isTimerTabIconHighlighted } from '../_layout';
+import TabsLayout, {
+  isReportTabNavigationBlocked,
+  isTimerTabIconHighlighted,
+  isTimerTabNavigationBlocked,
+} from '../_layout';
 
 const TIMER_ICON_BLUE = require('../../../assets/images/icons/icon_timer_blue.png');
 const TIMER_ICON_GRAY = require('../../../assets/images/icons/icon_timer_gray.png');
@@ -169,6 +173,58 @@ describe('TabsLayout', () => {
     ['break', true],
   ] as const)('isReportTabNavigationBlocked(%s) は %s を返す', (phase, expected) => {
     expect(isReportTabNavigationBlocked(phase)).toBe(expected);
+  });
+
+  it.each([
+    ['idle', false],
+    ['input', true],
+    ['output', true],
+    ['break', true],
+  ] as const)('isTimerTabNavigationBlocked(%s) は %s を返す', (phase, expected) => {
+    expect(isTimerTabNavigationBlocked(phase)).toBe(expected);
+  });
+
+  it.each<TimerPhase>(['input', 'output', 'break'])(
+    '%s フェーズ中はタイマータブ押下を無効化する',
+    (phase) => {
+      useTimerStore.setState({ phase });
+      const { timerTab } = renderTimerTabScreen();
+      const event = { preventDefault: jest.fn() };
+
+      timerTab.listeners?.tabPress?.(event);
+
+      expect(event.preventDefault).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('タイマータブ押下のブロック時はタイマー状態を維持する', () => {
+    useTimerStore.setState({
+      phase: 'input',
+      status: 'running',
+      totalSeconds: 1200,
+      remainingSeconds: 600,
+    });
+    const { timerTab } = renderTimerTabScreen();
+
+    act(() => {
+      timerTab.listeners?.tabPress?.({ preventDefault: jest.fn() });
+    });
+
+    expect(useTimerStore.getState()).toMatchObject({
+      phase: 'input',
+      status: 'running',
+      totalSeconds: 1200,
+      remainingSeconds: 600,
+    });
+  });
+
+  it('idle 中はタイマータブへ遷移できる', () => {
+    const { timerTab } = renderTimerTabScreen();
+    const event = { preventDefault: jest.fn() };
+
+    timerTab.listeners?.tabPress?.(event);
+
+    expect(event.preventDefault).not.toHaveBeenCalled();
   });
 
   it.each([
