@@ -118,8 +118,11 @@ describe('TabsLayout', () => {
 
       expect(event.preventDefault).toHaveBeenCalledTimes(1);
       expect(getByTestId('report-blocked-dialog').props.visible).toBe(true);
-      expect(getByText('タイマー起動中はレポート機能を見ることができ')).toBeTruthy();
-      expect(getByText('ません。休憩終了後に見ることができます。')).toBeTruthy();
+      expect(
+        getByText(
+          'タイマー起動中はレポート機能を見ることができません。休憩終了後に見ることができます。',
+        ),
+      ).toBeTruthy();
     },
   );
 
