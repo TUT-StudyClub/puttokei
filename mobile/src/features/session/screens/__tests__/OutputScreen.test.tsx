@@ -250,6 +250,14 @@ describe('OutputScreen', () => {
     expect(
       StyleSheet.flatten(getByTestId('output-composer-card').props.style).marginTop,
     ).toBeUndefined();
+    expect(StyleSheet.flatten(getByTestId('output-composer-card').props.style)).toMatchObject({
+      width: '92%',
+      minHeight: 344,
+      padding: 20,
+    });
+    expect(StyleSheet.flatten(getByTestId('output-editor-textarea').props.style)).toMatchObject({
+      minHeight: 268,
+    });
     expect(StyleSheet.flatten(getByTestId('output-root').props.style)).toMatchObject({
       paddingTop: 24,
     });
@@ -264,8 +272,45 @@ describe('OutputScreen', () => {
     expect(queryByTestId('output-timer-caption')).toBeNull();
   });
 
+  it('本文入力後にキーボードを閉じてもアウトプット欄の大きさを維持する', () => {
+    const { getByTestId } = renderWithProviders(<OutputScreen />);
+
+    act(() => {
+      keyboardListeners.get('keyboardWillShow')?.({
+        duration: 250,
+        endCoordinates: { height: 320, screenX: 0, screenY: 0, width: 0 },
+        easing: 'keyboard',
+        startCoordinates: { height: 0, screenX: 0, screenY: 0, width: 0 },
+      } as KeyboardEvent);
+    });
+    fireEvent.changeText(getByTestId('output-editor-textarea'), '本文');
+
+    const cardWhileKeyboard = StyleSheet.flatten(getByTestId('output-composer-card').props.style);
+    const textAreaWhileKeyboard = StyleSheet.flatten(
+      getByTestId('output-editor-textarea').props.style,
+    );
+
+    act(() => {
+      keyboardListeners.get('keyboardWillHide')?.({
+        duration: 250,
+        endCoordinates: { height: 0, screenX: 0, screenY: 0, width: 0 },
+        easing: 'keyboard',
+        startCoordinates: { height: 320, screenX: 0, screenY: 0, width: 0 },
+      } as KeyboardEvent);
+    });
+
+    expect(StyleSheet.flatten(getByTestId('output-composer-card').props.style)).toMatchObject({
+      width: cardWhileKeyboard.width,
+      minHeight: cardWhileKeyboard.minHeight,
+      padding: cardWhileKeyboard.padding,
+    });
+    expect(StyleSheet.flatten(getByTestId('output-editor-textarea').props.style)).toMatchObject({
+      minHeight: textAreaWhileKeyboard.minHeight,
+    });
+  });
+
   it('画像タブ選択時は画像パネルと提出 UI を表示する', () => {
-    const { getByTestId, getByText, queryByTestId } = renderWithProviders(<OutputScreen />);
+    const { getByTestId, queryByText, queryByTestId } = renderWithProviders(<OutputScreen />);
 
     fireEvent.press(getByTestId('output-method-tab-image'));
 
@@ -288,7 +333,7 @@ describe('OutputScreen', () => {
     expect(getByTestId('output-image-add-button')).toBeTruthy();
     expect(getByTestId('output-image-add-icon').props.source).toBe(ADD_IMAGE_ICON);
     expect(getByTestId('output-image-submit')).toBeTruthy();
-    expect(getByText('提出後も時間内であれば編集できます')).toBeTruthy();
+    expect(queryByText('提出後も時間内であれば編集できます')).toBeNull();
     expect(queryByTestId('output-image-thumbnail-0')).toBeNull();
     expect(queryByTestId('output-editor-textarea')).toBeNull();
     expect(queryByTestId('output-method-notice')).toBeNull();
@@ -638,20 +683,23 @@ describe('OutputScreen', () => {
   it('本文入力 → 送信で submitOutput → break 画面へ replace する', async () => {
     (sessionApi.submitTextOutput as jest.Mock).mockResolvedValue(submitSuccessResponse);
 
-    const { getByTestId, getByText, queryByTestId } = renderWithProviders(<OutputScreen />);
+    const { getByTestId, getByText, queryByText, queryByTestId } = renderWithProviders(
+      <OutputScreen />,
+    );
 
     fireEvent.changeText(getByTestId('output-editor-textarea'), '関係代名詞は先行詞を修飾する');
 
     expect(getByTestId('output-text-submit-footer')).toBeTruthy();
-    expect(getByText('提出後も時間内であれば編集できます')).toBeTruthy();
+    expect(queryByText('提出後も時間内であれば編集できます')).toBeNull();
     expect(getByText('提出する')).toBeTruthy();
     expect(StyleSheet.flatten(getByTestId('output-circular-timer').props.style)).toMatchObject({
-      width: 290,
-      height: 290,
+      width: 156,
+      height: 156,
     });
     expect(
       StyleSheet.flatten(getByTestId('output-composer-card').props.style).marginTop,
-    ).toBeLessThan(0);
+    ).toBeUndefined();
+    expect(queryByTestId('output-hourglass-badge')).toBeNull();
     expect(queryByTestId('output-editor-count')).toBeNull();
 
     act(() => {
