@@ -324,9 +324,6 @@ function ImageSubmissionFooter({
 }: ImageSubmissionFooterProps) {
   return (
     <View style={styles.imageSubmissionFooter}>
-      <SizableText style={styles.imageSubmissionNote} testID="output-image-submit-note">
-        提出後も時間内であれば編集できます
-      </SizableText>
       {errorMessage ? (
         <SizableText style={styles.imageSubmissionError} testID="output-image-submit-error">
           {errorMessage}
@@ -395,9 +392,6 @@ function TextSubmissionFooter({
 
   return (
     <View style={styles.textSubmissionFooter} testID="output-text-submit-footer">
-      <SizableText style={styles.textSubmissionNote} testID="output-text-submit-note">
-        提出後も時間内であれば編集できます
-      </SizableText>
       {errorMessage ? (
         <SizableText style={styles.textSubmissionError} testID="output-editor-error">
           {errorMessage}
@@ -838,8 +832,9 @@ export function OutputScreen() {
       : null);
 
   const hasTextContent = content.trim().length > 0;
+  const shouldUseTextReadyPanel = isTextMethod && (isKeyboardVisible || hasTextContent);
   const isTextReadyLayout = isTextMethod && hasTextContent && !isKeyboardVisible;
-  const isCompactTextLayout = isKeyboardVisible;
+  const isCompactTextLayout = isKeyboardVisible || isTextReadyLayout;
   const shouldShowTextSubmissionFooter =
     isTextMethod && (hasTextContent || Boolean(submitErrorMessage));
   const showSessionChrome = !isCompactTextLayout && !isImageMethod;
@@ -935,7 +930,7 @@ export function OutputScreen() {
                 style={[
                   styles.composerCard,
                   shouldLiftComposerCard ? styles.composerCardLifted : null,
-                  isTextReadyLayout ? styles.composerCardTextReady : null,
+                  shouldUseTextReadyPanel ? styles.composerCardTextReady : null,
                   isImageMethod ? styles.composerCardImageMethod : null,
                 ]}
                 testID="output-composer-card"
@@ -980,7 +975,7 @@ export function OutputScreen() {
                         errorMessage={submitErrorMessage}
                         maxLength={TEXT_OUTPUT_MAX_LENGTH}
                         showSubmissionControls={!isTextMethod}
-                        textAreaMinHeight={isTextReadyLayout ? 268 : 160}
+                        textAreaMinHeight={shouldUseTextReadyPanel ? 268 : 160}
                       />
                     </>
                   )}
@@ -1344,13 +1339,6 @@ const styles = StyleSheet.create({
     gap: 14,
     paddingHorizontal: 24,
   },
-  imageSubmissionNote: {
-    color: '#8A8A8A',
-    fontSize: 13,
-    fontWeight: '600',
-    lineHeight: 20,
-    textAlign: 'center',
-  },
   imageSubmissionError: {
     color: ERROR_COLOR,
     fontSize: 12,
@@ -1376,13 +1364,6 @@ const styles = StyleSheet.create({
   textSubmissionFooter: {
     gap: 14,
     paddingHorizontal: 42,
-  },
-  textSubmissionNote: {
-    color: '#8A8A8A',
-    fontSize: 13,
-    fontWeight: '600',
-    lineHeight: 20,
-    textAlign: 'center',
   },
   textSubmissionError: {
     color: ERROR_COLOR,
