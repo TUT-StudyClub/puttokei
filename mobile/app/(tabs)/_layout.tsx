@@ -21,6 +21,13 @@ export function isReportTabNavigationBlocked(phase: TimerPhase) {
   return phase === 'input' || phase === 'output' || phase === 'break';
 }
 
+// session phase 中にタイマータブを押すと、HomeScreen への遷移で input/output/break
+// 各画面が unmount され、cleanup の `reset()` でタイマーストアが idle に戻ってしまう。
+// 体感的にはタイマーが強制終了するため、phase が走っている間は遷移を抑止する。
+export function isTimerTabNavigationBlocked(phase: TimerPhase) {
+  return phase === 'input' || phase === 'output' || phase === 'break';
+}
+
 export function isTimerTabIconHighlighted(
   segments: readonly string[],
   focused: boolean,
@@ -130,6 +137,7 @@ export default function TabsLayout() {
   const segments = useSegments() as string[];
   const pathname = usePathname();
   const shouldBlockReportTab = isReportTabNavigationBlocked(timerPhase);
+  const shouldBlockTimerTab = isTimerTabNavigationBlocked(timerPhase);
   const [isReportBlockedDialogVisible, setReportBlockedDialogVisible] = useState(false);
 
   return (
@@ -165,6 +173,15 @@ export default function TabsLayout() {
               );
             },
             tabBarIcon: ({ focused }) => <TimerTabIconContainer focused={focused} size={39} />,
+          }}
+          listeners={{
+            tabPress: (event) => {
+              if (shouldBlockTimerTab) {
+                // タップ自体を no-op 化する。ユーザーは既に session 画面を見ているので、
+                // ダイアログを出すと「画面はそのままなのに通知だけ出る」違和感が生じるため。
+                event.preventDefault();
+              }
+            },
           }}
         />
         <Tabs.Screen
