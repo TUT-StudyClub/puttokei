@@ -1229,7 +1229,6 @@ export function BreakScreen() {
                   trackColor={BREAK_TIMER_TRACK_COLOR}
                   testID="break-circular-timer"
                   phaseLabelTestID="break-timer-phase-label"
-                  phaseLabelFontWeight="600"
                   textTestID="break-timer-display"
                   size={timerCaptionWidth}
                   strokeWidth={HOME_TIMER_CIRCLE_STROKE_WIDTH}
@@ -1314,10 +1313,7 @@ const styles = StyleSheet.create({
     transform: [{ translateY: TIMER_CAPTION_GAP_CENTER_OFFSET }],
   },
   breakTimerText: {
-    fontFamily: 'HiraginoSans-W6',
-    fontSize: 58,
-    fontWeight: '500',
-    lineHeight: 64,
+    transform: [{ translateY: -5 }],
   },
   homeAlignedCycleLabel: {
     marginBottom: 0,

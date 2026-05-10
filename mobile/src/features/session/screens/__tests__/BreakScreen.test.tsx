@@ -47,8 +47,8 @@ const PROGRESS_READY_TITLE_ROW_TRANSLATE_X =
 const PROGRESS_READY_TITLE_ROW_TRANSLATE_Y = -2;
 const PROGRESS_READY_TITLE_TRANSLATE_Y = -1;
 const BREAK_TIMER_COLOR = '#9D9D9D';
-const HOME_TIMER_TEXT_FONT_SIZE = 58;
-const HOME_TIMER_TEXT_LINE_HEIGHT = 64;
+const INPUT_TIMER_TEXT_FONT_SIZE = 52;
+const INPUT_TIMER_TEXT_LINE_HEIGHT = 62;
 const HOME_CYCLE_LABEL_FONT_SIZE = 10;
 const HOME_CYCLE_LABEL_LINE_HEIGHT = 14;
 const BREAK_CYCLE_LABEL_MARGIN_BOTTOM = 0;
@@ -236,12 +236,13 @@ describe('BreakScreen', () => {
     expect(timerCaptionStyle.color).toBe('#9D9D9D');
     expect(timerCaptionStyle.width).toBe('100%');
     expect(timerCaptionStyle.transform).toEqual([{ translateY: TIMER_CAPTION_GAP_CENTER_OFFSET }]);
-    expect(timerPhaseLabelStyle.fontWeight).toBe('600');
+    expect(timerPhaseLabelStyle.fontWeight).toBe('400');
     expect(timerDisplayStyle.color).toBe(BREAK_TIMER_COLOR);
     expect(timerDisplayStyle.fontFamily).toBe('HiraginoSans-W6');
-    expect(timerDisplayStyle.fontSize).toBe(HOME_TIMER_TEXT_FONT_SIZE);
-    expect(timerDisplayStyle.fontWeight).toBe('500');
-    expect(timerDisplayStyle.lineHeight).toBe(HOME_TIMER_TEXT_LINE_HEIGHT);
+    expect(timerDisplayStyle.fontSize).toBe(INPUT_TIMER_TEXT_FONT_SIZE);
+    expect(timerDisplayStyle.fontWeight).toBe('700');
+    expect(timerDisplayStyle.lineHeight).toBe(INPUT_TIMER_TEXT_LINE_HEIGHT);
+    expect(timerDisplayStyle.transform).toEqual([{ translateY: -5 }]);
     expect(cycleLabelStyle.fontFamily).toBe('HiraginoSans-W6');
     expect(cycleLabelStyle.fontSize).toBe(HOME_CYCLE_LABEL_FONT_SIZE);
     expect(cycleLabelStyle.fontWeight).toBe('700');
