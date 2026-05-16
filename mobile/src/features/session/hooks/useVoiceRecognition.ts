@@ -1,319 +1,184 @@
+/**
+ * 音声入力フック。
+ *
+ * 内部は expo-av で音声を録音し、停止時に backend の Cloud Speech-to-Text
+ * 経由 endpoint (`POST /sessions/{id}/audio/transcribe`) に multipart で送って
+ * 文字起こし結果を受け取る。
+ *
+ * OutputScreen への API 互換性は維持しているため、画面側のコードは
+ * 変更不要。`interimTranscript` は Cloud STT がストリーミング結果を返さない
+ * ため常に空文字となる。
+ */
+import { Audio } from 'expo-av';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
 
-import { requireOptionalNativeModule } from 'expo';
+import { transcribeAudio } from '@/features/session/api/audioApi';
+import { isApiError } from '@/shared/lib/api';
 
-const VOICE_RECOGNITION_LANGUAGE = 'ja-JP';
-
-const VOICE_RECOGNITION_OPTIONS = {
-  lang: VOICE_RECOGNITION_LANGUAGE,
-  interimResults: true,
-  continuous: true,
-} as const;
+type RouteParams = {
+  id?: string;
+};
 
 const DEFAULT_STATUS_MESSAGE = 'マイクボタンを押して話してください。';
-const MISSING_NATIVE_MODULE_MESSAGE =
-  '音声認識機能を使うには development build の再インストールが必要です。Metro を止めて task ios:device または task android:device を実行してください。';
+const RECORDING_STATUS_MESSAGE = '録音中... 停止ボタンで送信します。';
+const PROCESSING_STATUS_MESSAGE = '文字起こし中...';
 
-type ExpoSpeechRecognitionErrorCode =
-  | 'aborted'
-  | 'audio-capture'
-  | 'bad-grammar'
-  | 'language-not-supported'
-  | 'network'
-  | 'no-speech'
-  | 'not-allowed'
-  | 'service-not-allowed'
-  | 'busy'
-  | 'client'
-  | 'speech-timeout'
-  | 'unknown';
+const PERMISSION_DENIED_MESSAGE =
+  'マイクへのアクセスが許可されていません。設定アプリから Hourglass を開き、マイクの利用を許可してください。';
+const NETWORK_ERROR_MESSAGE =
+  '通信エラーで文字起こしに失敗しました。電波状況を確認して再度お試しください。';
+const RATE_LIMIT_MESSAGE = '利用上限に達しました。しばらく時間を置いてから再度お試しください。';
+const TIMEOUT_MESSAGE = '文字起こしがタイムアウトしました。短く区切って再度お試しください。';
+const UNSUPPORTED_FORMAT_MESSAGE = '対応していない音声形式です。';
+const TOO_LARGE_MESSAGE = '音声が長すぎます。短く区切って再度お試しください。';
+const GENERIC_ERROR_MESSAGE = '文字起こしに失敗しました。少し時間を置いて再度お試しください。';
 
-type SpeechRecognitionResultEvent = {
-  isFinal: boolean;
-  results: {
-    transcript: string;
-  }[];
-};
+const RECORDING_OPTIONS = Audio.RecordingOptionsPresets.HIGH_QUALITY;
 
-type SpeechRecognitionErrorEvent = {
-  error: ExpoSpeechRecognitionErrorCode;
-  message: string;
-};
-
-type SpeechRecognitionEventMap = {
-  start: null;
-  end: null;
-  result: SpeechRecognitionResultEvent;
-  nomatch: null;
-  error: SpeechRecognitionErrorEvent;
-};
-
-type SpeechRecognitionSubscription = {
-  remove: () => void;
-};
-
-type NativeSpeechRecognitionModule = {
-  isRecognitionAvailable: () => boolean;
-  requestPermissionsAsync: () => Promise<{ granted: boolean }>;
-  start: (options: typeof VOICE_RECOGNITION_OPTIONS) => void;
-  stop: () => void;
-  abort: () => void;
-  addListener: <EventName extends keyof SpeechRecognitionEventMap>(
-    eventName: EventName,
-    listener: (event: SpeechRecognitionEventMap[EventName]) => void,
-  ) => SpeechRecognitionSubscription;
-};
-
-type UseVoiceRecognitionOptions = {
+type UseVoiceRecognitionInput = {
   onFinalTranscript: (transcript: string) => void;
 };
 
-function isNativeSpeechRecognitionModule(value: unknown): value is NativeSpeechRecognitionModule {
-  const module = value as Partial<NativeSpeechRecognitionModule> | null;
-  return Boolean(
-    module &&
-      typeof module.isRecognitionAvailable === 'function' &&
-      typeof module.requestPermissionsAsync === 'function' &&
-      typeof module.start === 'function' &&
-      typeof module.stop === 'function' &&
-      typeof module.abort === 'function' &&
-      typeof module.addListener === 'function',
-  );
-}
+type UseVoiceRecognitionResult = {
+  isRecognizing: boolean;
+  statusMessage: string;
+  errorMessage: string | null;
+  interimTranscript: string;
+  startListening: () => Promise<void>;
+  stopListening: () => Promise<void>;
+  resetVoiceRecognition: () => void;
+};
 
-function loadSpeechRecognitionModule() {
-  const module = requireOptionalNativeModule<unknown>('ExpoSpeechRecognition');
-  return isNativeSpeechRecognitionModule(module) ? module : null;
-}
+export function useVoiceRecognition({
+  onFinalTranscript,
+}: UseVoiceRecognitionInput): UseVoiceRecognitionResult {
+  const params = useLocalSearchParams<RouteParams>();
+  const sessionId = params.id ?? '';
 
-function getSpeechRecognitionErrorMessage(error: ExpoSpeechRecognitionErrorCode) {
-  switch (error) {
-    case 'not-allowed':
-      return 'マイクまたは音声認識の使用が許可されていません。設定から許可してください。';
-    case 'network':
-      return '音声認識に必要な通信が失敗しました。通信環境を確認してもう一度お試しください。';
-    case 'no-speech':
-    case 'speech-timeout':
-      return '音声を聞き取れませんでした。マイクに向かってもう一度話してください。';
-    case 'busy':
-      return '音声認識が別の処理中です。少し待ってからもう一度お試しください。';
-    case 'language-not-supported':
-    case 'service-not-allowed':
-      return 'この端末では日本語の音声認識を利用できません。端末の音声認識設定を確認してください。';
-    case 'audio-capture':
-      return 'マイクから音声を取得できませんでした。マイクの状態を確認してください。';
-    case 'aborted':
-      return '音声入力を停止しました。';
-    default:
-      return '音声認識に失敗しました。時間をおいて再度お試しください。';
-  }
-}
-
-export function useVoiceRecognition({ onFinalTranscript }: UseVoiceRecognitionOptions) {
-  const onFinalTranscriptRef = useRef(onFinalTranscript);
-  const lastFinalTranscriptRef = useRef('');
-  const isRecognizingRef = useRef(false);
-  const moduleRef = useRef<NativeSpeechRecognitionModule | null>(null);
-  const subscriptionsRef = useRef<SpeechRecognitionSubscription[]>([]);
-
+  const recordingRef = useRef<Audio.Recording | null>(null);
   const [isRecognizing, setIsRecognizing] = useState(false);
-  const [statusMessage, setStatusMessage] = useState(DEFAULT_STATUS_MESSAGE);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [interimTranscript, setInterimTranscript] = useState('');
 
-  useEffect(() => {
-    onFinalTranscriptRef.current = onFinalTranscript;
-  }, [onFinalTranscript]);
-
-  const updateRecognizing = useCallback((nextValue: boolean) => {
-    isRecognizingRef.current = nextValue;
-    setIsRecognizing(nextValue);
-  }, []);
-
-  const clearRecognitionText = useCallback(() => {
-    lastFinalTranscriptRef.current = '';
-    setInterimTranscript('');
-  }, []);
-
-  const handleRecognitionStart = useCallback(() => {
-    updateRecognizing(true);
-    setErrorMessage(null);
-    setStatusMessage('聞き取り中です。話し終わった文から本文へ追加します。');
-  }, [updateRecognizing]);
-
-  const handleRecognitionEnd = useCallback(() => {
-    updateRecognizing(false);
-    setInterimTranscript('');
-    setStatusMessage('音声入力を停止しました。内容を確認して送信してください。');
-  }, [updateRecognizing]);
-
-  const handleRecognitionResult = useCallback((event: SpeechRecognitionResultEvent) => {
-    const transcript = event.results[0]?.transcript.trim();
-    if (!transcript) return;
-
-    setErrorMessage(null);
-
-    if (!event.isFinal) {
-      setInterimTranscript(transcript);
-      setStatusMessage('認識中です。話し終わると本文へ追加します。');
-      return;
-    }
-
-    setInterimTranscript('');
-    setStatusMessage('認識結果を本文へ追加しました。続けて話すこともできます。');
-
-    if (transcript === lastFinalTranscriptRef.current) return;
-    lastFinalTranscriptRef.current = transcript;
-    onFinalTranscriptRef.current(transcript);
-  }, []);
-
-  const handleRecognitionNoMatch = useCallback(() => {
-    updateRecognizing(false);
-    setInterimTranscript('');
-    setErrorMessage('音声を聞き取れませんでした。マイクに向かってもう一度話してください。');
-    setStatusMessage(DEFAULT_STATUS_MESSAGE);
-  }, [updateRecognizing]);
-
-  const handleRecognitionError = useCallback(
-    (event: SpeechRecognitionErrorEvent) => {
-      updateRecognizing(false);
-      setInterimTranscript('');
-
-      if (event.error === 'aborted') {
-        setErrorMessage(null);
-        setStatusMessage('音声入力を停止しました。');
-        return;
+  const cleanup = useCallback(async () => {
+    const recording = recordingRef.current;
+    recordingRef.current = null;
+    if (recording === null) return;
+    try {
+      const status = await recording.getStatusAsync();
+      if (status.canRecord || status.isRecording) {
+        await recording.stopAndUnloadAsync();
       }
-
-      setErrorMessage(getSpeechRecognitionErrorMessage(event.error));
-      setStatusMessage(DEFAULT_STATUS_MESSAGE);
-    },
-    [updateRecognizing],
-  );
-
-  const showMissingNativeModuleError = useCallback(() => {
-    updateRecognizing(false);
-    setInterimTranscript('');
-    setStatusMessage(DEFAULT_STATUS_MESSAGE);
-    setErrorMessage(MISSING_NATIVE_MODULE_MESSAGE);
-  }, [updateRecognizing]);
-
-  const cleanupRecognitionListeners = useCallback(() => {
-    for (const subscription of subscriptionsRef.current) {
-      subscription.remove();
+    } catch {
+      // 停止失敗はクリーンアップ目的なので握りつぶす
     }
-    subscriptionsRef.current = [];
   }, []);
 
-  const resolveSpeechRecognitionModule = useCallback(() => {
-    const module = moduleRef.current ?? loadSpeechRecognitionModule();
-    moduleRef.current = module;
-    return module;
-  }, []);
-
-  const ensureRecognitionListeners = useCallback(
-    (module: NativeSpeechRecognitionModule) => {
-      if (subscriptionsRef.current.length > 0) return;
-
-      subscriptionsRef.current = [
-        module.addListener('start', handleRecognitionStart),
-        module.addListener('end', handleRecognitionEnd),
-        module.addListener('result', handleRecognitionResult),
-        module.addListener('nomatch', handleRecognitionNoMatch),
-        module.addListener('error', handleRecognitionError),
-      ];
+  useEffect(
+    () => () => {
+      void cleanup();
     },
-    [
-      handleRecognitionEnd,
-      handleRecognitionError,
-      handleRecognitionNoMatch,
-      handleRecognitionResult,
-      handleRecognitionStart,
-    ],
+    [cleanup],
   );
-
-  useEffect(() => cleanupRecognitionListeners, [cleanupRecognitionListeners]);
 
   const startListening = useCallback(async () => {
+    if (isRecognizing || isProcessing) return;
     setErrorMessage(null);
-    clearRecognitionText();
-    setStatusMessage('音声認識の準備をしています。');
 
     try {
-      const module = resolveSpeechRecognitionModule();
-      if (module === null) {
-        showMissingNativeModuleError();
-        return;
-      }
-
-      ensureRecognitionListeners(module);
-
-      if (!module.isRecognitionAvailable()) {
-        setStatusMessage(DEFAULT_STATUS_MESSAGE);
-        setErrorMessage(
-          'この端末では音声認識を利用できません。端末の音声認識設定を確認してください。',
-        );
-        return;
-      }
-
-      const permission = await module.requestPermissionsAsync();
+      const permission = await Audio.requestPermissionsAsync();
       if (!permission.granted) {
-        setStatusMessage(DEFAULT_STATUS_MESSAGE);
-        setErrorMessage(getSpeechRecognitionErrorMessage('not-allowed'));
+        setErrorMessage(PERMISSION_DENIED_MESSAGE);
         return;
       }
 
-      setStatusMessage('音声入力を開始しています。');
-      module.start(VOICE_RECOGNITION_OPTIONS);
-    } catch {
-      showMissingNativeModuleError();
-    }
-  }, [
-    clearRecognitionText,
-    ensureRecognitionListeners,
-    resolveSpeechRecognitionModule,
-    showMissingNativeModuleError,
-  ]);
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+      });
 
-  const stopListening = useCallback(() => {
+      const recording = new Audio.Recording();
+      await recording.prepareToRecordAsync(RECORDING_OPTIONS);
+      await recording.startAsync();
+      recordingRef.current = recording;
+      setIsRecognizing(true);
+    } catch (error) {
+      recordingRef.current = null;
+      setErrorMessage(toErrorMessage(error));
+      setIsRecognizing(false);
+    }
+  }, [isProcessing, isRecognizing]);
+
+  const stopListening = useCallback(async () => {
+    if (!isRecognizing) return;
+    const recording = recordingRef.current;
+    recordingRef.current = null;
+    setIsRecognizing(false);
+
+    if (recording === null) return;
+
+    setIsProcessing(true);
     try {
-      const module = resolveSpeechRecognitionModule();
-      if (module === null) {
-        showMissingNativeModuleError();
+      await recording.stopAndUnloadAsync();
+      const uri = recording.getURI();
+      if (uri === null) {
+        setErrorMessage(GENERIC_ERROR_MESSAGE);
         return;
       }
-
-      module.stop();
-      setStatusMessage('音声入力を停止しています。');
-    } catch {
-      updateRecognizing(false);
-      setStatusMessage(DEFAULT_STATUS_MESSAGE);
-      setErrorMessage('音声入力を停止できませんでした。時間をおいて再度お試しください。');
+      // expo-av の HIGH_QUALITY iOS preset は m4a (AAC)、Android は m4a (AAC) で揃う
+      const mimeType = 'audio/m4a';
+      const { transcript } = await transcribeAudio(sessionId, uri, mimeType);
+      const trimmed = transcript.trim();
+      if (trimmed === '') {
+        setErrorMessage('音声から文字を認識できませんでした。');
+        return;
+      }
+      onFinalTranscript(trimmed);
+    } catch (error) {
+      setErrorMessage(toErrorMessage(error));
+    } finally {
+      setIsProcessing(false);
     }
-  }, [resolveSpeechRecognitionModule, showMissingNativeModuleError, updateRecognizing]);
+  }, [isRecognizing, onFinalTranscript, sessionId]);
 
   const resetVoiceRecognition = useCallback(() => {
-    if (isRecognizingRef.current) {
-      try {
-        const module = resolveSpeechRecognitionModule();
-        module?.abort();
-      } catch {
-        // 画面切り替え時の後始末なので、失敗しても UI 状態のリセットを優先する。
-      }
-    }
-    updateRecognizing(false);
-    clearRecognitionText();
     setErrorMessage(null);
-    setStatusMessage(DEFAULT_STATUS_MESSAGE);
-  }, [clearRecognitionText, resolveSpeechRecognitionModule, updateRecognizing]);
+    setIsRecognizing(false);
+    setIsProcessing(false);
+    void cleanup();
+  }, [cleanup]);
+
+  const statusMessage = isProcessing
+    ? PROCESSING_STATUS_MESSAGE
+    : isRecognizing
+      ? RECORDING_STATUS_MESSAGE
+      : DEFAULT_STATUS_MESSAGE;
 
   return {
-    isRecognizing,
+    isRecognizing: isRecognizing || isProcessing,
     statusMessage,
     errorMessage,
-    interimTranscript,
+    interimTranscript: '',
     startListening,
     stopListening,
     resetVoiceRecognition,
   };
+}
+
+function toErrorMessage(error: unknown): string {
+  if (isApiError(error)) {
+    const type = error.problem?.type ?? '';
+    if (type.endsWith('unsupported_audio_format')) return UNSUPPORTED_FORMAT_MESSAGE;
+    if (type.endsWith('audio_too_large')) return TOO_LARGE_MESSAGE;
+    if (type.endsWith('transcribe_timeout')) return TIMEOUT_MESSAGE;
+    if (error.status === 429) return RATE_LIMIT_MESSAGE;
+    if (error.status === 401 || error.status === 403) return GENERIC_ERROR_MESSAGE;
+    if (error.status >= 500) return NETWORK_ERROR_MESSAGE;
+  }
+  if (error instanceof Error) {
+    return error.message || GENERIC_ERROR_MESSAGE;
+  }
+  return GENERIC_ERROR_MESSAGE;
 }

@@ -131,6 +131,95 @@ class Settings(BaseSettings):
         default=("image/jpeg", "image/png"),
         description="許可するアウトプット画像の MIME type。",
     )
+    stt_provider: Literal["local", "cloud_speech"] = Field(
+        default="local",
+        description=(
+            "アウトプット音声の文字起こしで使うプロバイダ。"
+            "local は固定文字列を返す mock、cloud_speech は Google Cloud Speech-to-Text v2。"
+        ),
+    )
+    stt_project_id: str | None = Field(
+        default=None,
+        description=(
+            "Cloud Speech-to-Text を呼び出す GCP プロジェクト ID。"
+            "未指定時は GCS_PROJECT_ID を fallback に使う。"
+        ),
+    )
+    stt_credentials_path: str | None = Field(
+        default=None,
+        description=(
+            "Cloud Speech-to-Text 認証用サービスアカウント鍵 JSON のパス。"
+            "未指定時は ADC を使う。"
+        ),
+    )
+    stt_location: str = Field(
+        default="global",
+        description=(
+            "Cloud Speech-to-Text のロケーション。"
+            "ad-hoc recognizer (`_`) を使う場合は global 限定。"
+            "リージョン固定 (asia-southeast1 等) で運用するなら、事前に "
+            "recognizers.create で recognizer リソースを作成し、その ID を "
+            "STT_RECOGNIZER_ID に指定する。"
+        ),
+    )
+    stt_recognizer_id: str | None = Field(
+        default=None,
+        description=(
+            "事前作成した Cloud Speech-to-Text recognizer の ID。"
+            "未指定時は ad-hoc recognizer (`_`, global 限定) を使う。"
+            "chirp_2 等の global で提供されないモデルを使うには、リージョン上に "
+            "recognizer リソースを作成し、ここで ID を指定する。"
+        ),
+    )
+    stt_model: str = Field(
+        default="latest_long",
+        description=(
+            "Cloud Speech-to-Text のモデル名。"
+            "ad-hoc recognizer (`_`) + global location の場合は "
+            "latest_long / latest_short / long / short のみ採用可。"
+            "STT_RECOGNIZER_ID を指定する場合は recognizer リソースに保存されたモデルが優先される。"
+        ),
+    )
+    stt_language: str = Field(
+        default="ja-JP",
+        description="文字起こし対象言語。",
+    )
+    stt_enable_punctuation: bool = Field(
+        default=True,
+        description="文字起こし結果に句読点を自動挿入する。",
+    )
+    stt_timeout_seconds: float = Field(
+        default=120,
+        gt=0,
+        description="Cloud Speech-to-Text 呼び出しのタイムアウト秒。",
+    )
+    audio_max_bytes: int = Field(
+        default=10 * 1024 * 1024,
+        gt=0,
+        description=(
+            "アップロード可能な音声ファイルの最大バイト数。"
+            "Cloud Speech-to-Text の inline 上限と整合させる。"
+        ),
+    )
+    audio_allowed_mime_types: tuple[str, ...] = Field(
+        default=(
+            "audio/m4a",
+            "audio/x-m4a",
+            "audio/mp4",
+            "audio/aac",
+            "audio/wav",
+            "audio/x-wav",
+            "audio/mpeg",
+            "audio/mp3",
+            "audio/webm",
+            "audio/ogg",
+            # React Native の FormData は file の MIME type を取りこぼして
+            # application/octet-stream で送ってくるケースがあるため許容する。
+            # 内容のフォーマット判定は Cloud STT 側の AutoDetectDecodingConfig に委ねる。
+            "application/octet-stream",
+        ),
+        description="許可する音声ファイルの MIME type。",
+    )
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(
         default="INFO",
         description="ログレベル",

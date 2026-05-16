@@ -5,6 +5,7 @@
 - POST /api/v1/sessions/{id}/outputs/text: テキストアウトプット送信
 - POST /api/v1/sessions/{id}/outputs/image: 画像アウトプット送信（GCS path 指定）
 - POST /api/v1/sessions/{id}/outputs/image/upload-url: 画像アップロード用 URL 発行
+- POST /api/v1/sessions/{id}/audio/transcribe: 音声 → テキスト変換 (Cloud STT)
 - GET /api/v1/sessions/{id}/judgment: 判定結果取得
 - GET /api/v1/sessions/{id}/judgment/progress: 判定進捗取得
 - GET /api/v1/sessions/{id}/judgment/progress/stream: SSE 配信
@@ -14,7 +15,7 @@ import asyncio
 from collections.abc import AsyncGenerator
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Path, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Path, Request, UploadFile, status
 from fastapi.responses import JSONResponse
 from starlette.responses import StreamingResponse
 
@@ -64,6 +65,12 @@ from src.application.use_cases.submit_text_output import (
 from src.application.use_cases.submit_text_output import (
     SessionNotFoundError as SubmitTextOutputSessionNotFoundError,
 )
+from src.application.use_cases.transcribe_audio import (
+    SessionNotFoundError as TranscribeAudioSessionNotFoundError,
+)
+from src.application.use_cases.transcribe_audio import (
+    TranscribeAudioCommand,
+)
 from src.application.use_cases.update_output_subject import (
     OutputNotFoundError as UpdateOutputSubjectOutputNotFoundError,
 )
@@ -72,6 +79,12 @@ from src.application.use_cases.update_session_status import (
     SessionNotFoundError,
 )
 from src.domain.entities.user import User
+from src.domain.services.speech_to_text_service import (
+    AudioTooLargeError,
+    SpeechToTextError,
+    TranscriptionTimeoutError,
+    UnsupportedAudioFormatError,
+)
 from src.presentation.container_access import get_presentation_container
 from src.presentation.mappers.response_mapper import (
     to_judgment_pending_response,
@@ -84,6 +97,7 @@ from src.presentation.mappers.response_mapper import (
 )
 from src.presentation.middleware.auth_middleware import get_current_user
 from src.presentation.problem_details import ProblemDetailsError
+from src.presentation.schemas.audio_schema import TranscribeAudioResponse
 from src.presentation.schemas.judgment_schema import (
     JudgmentPendingResponse,
     JudgmentProgressResponse,
@@ -487,3 +501,70 @@ async def get_judgment(
 def _format_progress_event(view: JudgmentProgressView) -> str:
     payload = to_judgment_progress_response(view).model_dump_json()
     return f"id: {view.event_seq}\nevent: progress\ndata: {payload}\n\n"
+
+
+@sessions_router.post(
+    "/{session_id}/audio/transcribe",
+    response_model=TranscribeAudioResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def transcribe_session_audio(
+    session_id: UUID,
+    request: Request,
+    audio: UploadFile = File(...),  # noqa: B008
+    current_user: User = Depends(get_current_user),  # noqa: B008
+) -> TranscribeAudioResponse:
+    """音声ファイルを Cloud Speech-to-Text で文字起こしする。
+
+    UseCase 側で current_user 所有の session_id か検証し、他ユーザー所有の
+    session_id を詐称した呼び出しは 404 として弾く。文字起こし結果は DB に
+    保存せず、mobile に返して既存の text 提出フローに渡す想定。
+    """
+    audio_bytes = await audio.read()
+    container = get_presentation_container(request)
+    try:
+        result = await container.transcribe_audio.execute(
+            current_user,
+            TranscribeAudioCommand(
+                session_id=session_id,
+                audio_bytes=audio_bytes,
+                mime_type=audio.content_type or "application/octet-stream",
+            ),
+        )
+    except TranscribeAudioSessionNotFoundError as exc:
+        raise ProblemDetailsError(
+            status_code=status.HTTP_404_NOT_FOUND,
+            problem_type="session_not_found",
+            title="Session Not Found",
+            detail="セッションが見つかりません。",
+        ) from exc
+    except AudioTooLargeError as exc:
+        raise ProblemDetailsError(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            problem_type="audio_too_large",
+            title="Audio Too Large",
+            detail=str(exc),
+        ) from exc
+    except UnsupportedAudioFormatError as exc:
+        raise ProblemDetailsError(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            problem_type="unsupported_audio_format",
+            title="Unsupported Audio Format",
+            detail=str(exc),
+        ) from exc
+    except TranscriptionTimeoutError as exc:
+        raise ProblemDetailsError(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            problem_type="transcribe_timeout",
+            title="Transcribe Timeout",
+            detail="文字起こし処理がタイムアウトしました。短く区切って再度お試しください。",
+        ) from exc
+    except SpeechToTextError as exc:
+        raise ProblemDetailsError(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            problem_type="transcribe_failed",
+            title="Transcribe Failed",
+            detail="文字起こしに失敗しました。しばらく時間を置いて再度お試しください。",
+        ) from exc
+
+    return TranscribeAudioResponse(transcript=result.transcript)

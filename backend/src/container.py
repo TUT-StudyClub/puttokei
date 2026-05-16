@@ -22,6 +22,7 @@ from src.application.use_cases.run_image_judgment import RunImageJudgment
 from src.application.use_cases.run_text_judgment import RunTextJudgment
 from src.application.use_cases.submit_image_output import SubmitImageOutput
 from src.application.use_cases.submit_text_output import SubmitTextOutput
+from src.application.use_cases.transcribe_audio import TranscribeAudio
 from src.application.use_cases.update_output_subject import UpdateOutputSubject
 from src.application.use_cases.update_session_status import UpdateSessionStatus
 from src.application.use_cases.update_user_profile import UpdateUserProfile
@@ -33,6 +34,7 @@ from src.infrastructure.auth.firebase_auth_account_admin import FirebaseAuthAcco
 from src.infrastructure.llm.factory import build_llm_judge_service
 from src.infrastructure.persistence.database import Database
 from src.infrastructure.persistence.unit_of_work import SqlAlchemyUnitOfWork
+from src.infrastructure.speech.factory import build_speech_to_text_service
 from src.infrastructure.storage.gcs_output_image_storage import GcsOutputImageStorage
 
 
@@ -70,6 +72,7 @@ class Container(BaseModel):
     get_stats_period: GetStatsPeriod
     get_weekly_report: GetWeeklyReport
     get_daily_report: GetDailyReport
+    transcribe_audio: TranscribeAudio
 
 
 def build_container(settings: Settings) -> Container:
@@ -159,5 +162,11 @@ def build_container(settings: Settings) -> Container:
             unit_of_work_factory=unit_of_work_factory,
             image_storage=image_storage,
             download_url_ttl_seconds=settings.gcs_signed_download_url_ttl_seconds,
+        ),
+        transcribe_audio=TranscribeAudio(
+            unit_of_work_factory=unit_of_work_factory,
+            speech_service=build_speech_to_text_service(settings),
+            max_bytes=settings.audio_max_bytes,
+            allowed_mime_types=settings.audio_allowed_mime_types,
         ),
     )

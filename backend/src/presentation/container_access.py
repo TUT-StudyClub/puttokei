@@ -25,6 +25,7 @@ from src.application.use_cases.run_image_judgment import RunImageJudgment
 from src.application.use_cases.run_text_judgment import RunTextJudgment
 from src.application.use_cases.submit_image_output import SubmitImageOutput
 from src.application.use_cases.submit_text_output import SubmitTextOutput
+from src.application.use_cases.transcribe_audio import TranscribeAudio
 from src.application.use_cases.update_output_subject import UpdateOutputSubject
 from src.application.use_cases.update_session_status import UpdateSessionStatus
 from src.application.use_cases.update_user_profile import UpdateUserProfile
@@ -66,6 +67,7 @@ class PresentationContainer(ABC):
     get_stats_period: GetStatsPeriod
     get_weekly_report: GetWeeklyReport
     get_daily_report: GetDailyReport
+    transcribe_audio: TranscribeAudio
 
 
 def get_presentation_container(request: Request) -> PresentationContainer:

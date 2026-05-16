@@ -119,6 +119,22 @@ class ApiClient {
     });
   }
 
+  async postMultipart<T>(
+    path: string,
+    form: FormData,
+    options?: { timeoutMs?: number },
+  ): Promise<ApiResponse<T>> {
+    // Content-Type は指定しない: FormData が boundary 付きで自動設定する。
+    return this.request<T>(
+      path,
+      {
+        method: 'POST',
+        body: form as unknown as BodyInit,
+      },
+      options?.timeoutMs,
+    );
+  }
+
   async patch<T>(path: string, body?: unknown): Promise<ApiResponse<T>> {
     return this.request<T>(path, {
       method: 'PATCH',
@@ -131,8 +147,12 @@ class ApiClient {
     return this.request<T>(path, { method: 'DELETE' });
   }
 
-  private async request<T>(path: string, init: RequestInit): Promise<ApiResponse<T>> {
-    const response = await this.fetchWithAuth(path, init);
+  private async request<T>(
+    path: string,
+    init: RequestInit,
+    timeoutMs?: number,
+  ): Promise<ApiResponse<T>> {
+    const response = await this.fetchWithAuth(path, init, timeoutMs);
     const data = await parseResponseBody<T | ProblemDetails>(response);
 
     if (!response.ok) {
@@ -146,8 +166,12 @@ class ApiClient {
    * 1 回目を現在のトークンで送り、401 の場合だけ refresher を呼んで再送する。
    * refresher が未設定、または refresher が null を返したときはそのまま 401 を返す。
    */
-  private async fetchWithAuth(path: string, init: RequestInit): Promise<Response> {
-    const firstResponse = await this.fetchOnce(path, init);
+  private async fetchWithAuth(
+    path: string,
+    init: RequestInit,
+    timeoutMs?: number,
+  ): Promise<Response> {
+    const firstResponse = await this.fetchOnce(path, init, undefined, timeoutMs);
     if (firstResponse.status !== 401 || tokenRefresher === null) {
       return firstResponse;
     }
@@ -157,16 +181,17 @@ class ApiClient {
       return firstResponse;
     }
 
-    return this.fetchOnce(path, init, refreshedToken);
+    return this.fetchOnce(path, init, refreshedToken, timeoutMs);
   }
 
   private async fetchOnce(
     path: string,
     init: RequestInit,
     overrideToken?: string | null,
+    timeoutMs?: number,
   ): Promise<Response> {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs ?? DEFAULT_TIMEOUT_MS);
 
     try {
       const headers = await buildHeaders(init.headers, overrideToken);
